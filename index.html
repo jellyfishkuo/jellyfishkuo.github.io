@@ -377,6 +377,53 @@
     nav { padding: 1.2rem 1.5rem; }
     #hero, #about, #skills, #projects, #contact { padding-left: 6vw; padding-right: 6vw; }
   }
+
+  /* ── Achievements ── */
+  #achievements {
+    position: relative; z-index: 1;
+    padding: 6rem 10vw;
+  }
+  .ach-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 3rem;
+  }
+  .ach-card {
+    padding: 1.2rem 1.5rem;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: all 0.3s;
+  }
+  .ach-card:hover {
+    transform: translateY(-3px);
+    background: rgba(255,255,255,0.04);
+  }
+  .ach-card.gold   { border-left: 3px solid #f59e0b; }
+  .ach-card.silver { border-left: 3px solid #94a3b8; }
+  .ach-card.bronze { border-left: 3px solid #b45309; }
+  .ach-card.honor  { border-left: 3px solid #7c3aed; }
+  .ach-card.entry  { border-left: 3px solid #374151; }
+  .ach-medal { font-size: 1.6rem; flex-shrink: 0; line-height: 1; margin-top: 0.1rem; }
+  .ach-year {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.3rem;
+  }
+  .ach-title { font-size: 0.9rem; font-weight: 700; line-height: 1.4; }
+  .ach-award {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+
 </style>
 </head>
 <body>
@@ -389,6 +436,7 @@
     <li><a href="#about">About</a></li>
     <li><a href="#skills">Skills</a></li>
     <li><a href="#projects">Projects</a></li>
+    <li><a href="#achievements">Awards</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
 </nav>
@@ -482,13 +530,128 @@
     </div>
   </div>
 </section>
+<section id="achievements">
+  <div class="reveal section-label">// 04 — Achievements</div>
+  <div class="reveal"><h2>Competition record.</h2></div>
+  <div class="ach-grid">
+
+    <div class="ach-card gold reveal">
+      <div class="ach-medal">🥇</div>
+      <div>
+        <div class="ach-year">2023 · PUPC</div>
+        <div class="ach-title">全國私立大專校院程式競賽</div>
+        <div class="ach-award">金獎 第三名</div>
+      </div>
+    </div>
+
+    <div class="ach-card gold reveal" style="transition-delay:0.05s">
+      <div class="ach-medal">🥇</div>
+      <div>
+        <div class="ach-year">2024 · PUPC</div>
+        <div class="ach-title">全國私立大專校院程式競賽</div>
+        <div class="ach-award">金獎 第二名</div>
+      </div>
+    </div>
+
+    <div class="ach-card gold reveal" style="transition-delay:0.10s">
+      <div class="ach-medal">🥇</div>
+      <div>
+        <div class="ach-year">2025 · PUPC</div>
+        <div class="ach-title">全國私立大專校院程式競賽</div>
+        <div class="ach-award">金獎 第二名</div>
+      </div>
+    </div>
+
+    <div class="ach-card silver reveal" style="transition-delay:0.15s">
+      <div class="ach-medal">🥈</div>
+      <div>
+        <div class="ach-year">2025 · ICPC TOPC</div>
+        <div class="ach-title">Asia Taiwan Online Programming Contest</div>
+        <div class="ach-award">銀牌</div>
+      </div>
+    </div>
+
+    <div class="ach-card bronze reveal" style="transition-delay:0.20s">
+      <div class="ach-medal">🥉</div>
+      <div>
+        <div class="ach-year">2023 · ICPC TOPC</div>
+        <div class="ach-title">Asia Taiwan Online Programming Contest</div>
+        <div class="ach-award">銅牌</div>
+      </div>
+    </div>
+
+    <div class="ach-card bronze reveal" style="transition-delay:0.25s">
+      <div class="ach-medal">🥉</div>
+      <div>
+        <div class="ach-year">2024 · ICPC TOPC</div>
+        <div class="ach-title">Asia Taiwan Online Programming Contest</div>
+        <div class="ach-award">銅牌</div>
+      </div>
+    </div>
+
+    <div class="ach-card honor reveal" style="transition-delay:0.30s">
+      <div class="ach-medal">✦</div>
+      <div>
+        <div class="ach-year">2024 · NCPC</div>
+        <div class="ach-title">全國大專院校電腦軟體設計競賽</div>
+        <div class="ach-award">佳作</div>
+      </div>
+    </div>
+
+    <div class="ach-card honor reveal" style="transition-delay:0.35s">
+      <div class="ach-medal">✦</div>
+      <div>
+        <div class="ach-year">2025 · NCPC</div>
+        <div class="ach-title">全國大專院校電腦軟體設計競賽</div>
+        <div class="ach-award">佳作</div>
+      </div>
+    </div>
+
+    <div class="ach-card honor reveal" style="transition-delay:0.40s">
+      <div class="ach-medal">✦</div>
+      <div>
+        <div class="ach-year">2024 · GiCS</div>
+        <div class="ach-title">尋找資安女婕思</div>
+        <div class="ach-award">佳作</div>
+      </div>
+    </div>
+
+    <div class="ach-card entry reveal" style="transition-delay:0.45s">
+      <div class="ach-medal">◈</div>
+      <div>
+        <div class="ach-year">2023 · ICPC Regional</div>
+        <div class="ach-title">Asia Taoyuan Regional Programming Contest</div>
+        <div class="ach-award">參賽</div>
+      </div>
+    </div>
+
+    <div class="ach-card entry reveal" style="transition-delay:0.50s">
+      <div class="ach-medal">◈</div>
+      <div>
+        <div class="ach-year">2024 · ICPC Regional</div>
+        <div class="ach-title">Asia Taichung Regional Programming Contest</div>
+        <div class="ach-award">參賽</div>
+      </div>
+    </div>
+
+    <div class="ach-card entry reveal" style="transition-delay:0.55s">
+      <div class="ach-medal">◈</div>
+      <div>
+        <div class="ach-year">2025 · ICPC Regional</div>
+        <div class="ach-title">Asia Taichung Regional Programming Contest</div>
+        <div class="ach-award">參賽</div>
+      </div>
+    </div>
+
+  </div>
+</section>
 
 <section id="contact">
   <div class="contact-inner reveal">
-    <div class="section-label">// 04 — Contact</div>
+    <div class="section-label">// 05 — Contact</div>
     <h2>Let's work together.</h2>
     <p>Have a project in mind or just want to chat? My inbox is always open.</p>
-    <a href="mailto:your@email.com" class="btn btn-primary" style="margin-bottom:2.5rem;display:inline-block;">Say Hello ✉️</a>
+    <a href="ginakuo0923@gmail.com" class="btn btn-primary" style="margin-bottom:2.5rem;display:inline-block;">Say Hello ✉️</a>
     <div class="social-links">
       <a href="https://github.com/jellyfishkuo" class="social-link">⌥ GitHub</a>
       <a href="https://linkedin.com/in/jellyfishkuo" class="social-link">in LinkedIn</a>
@@ -501,8 +664,8 @@
   <span>© 2026 果汁龍</span>
   <span>Built with ♥ &amp; lots of ☕</span>
 </footer>
-
-<script>
+  
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── Particle canvas ──
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
