@@ -3,45 +3,350 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pentomino 8x8 Solver</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="icon" href="puzzle.ico">
+    <title>Pentomino 拼圖</title>
     <style>
+        /* --- 全域重置與防護 --- */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-blue: #3b82f6;
+            --accent-yellow: #fbbf24;
+            --cell-size: 45px;
+        }
+
+        /* 手機版極限縮放，改用 dvh (動態螢幕高度) */
+        @media (max-width: 1000px) {
+            :root {
+                --cell-size: min(9vw, 4.2dvh, 38px);
+            }
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-color);
+            color: #f8fafc;
+            margin: 0;
+            padding: 1dvh 5px;
+            min-height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background: #1e293b;
-            color: #f8fafc;
-            margin: 0;
-            padding: 20px 10px;
-            /* 手機版縮小左右 padding */
+            overflow-x: hidden;
+        }
+
+        /* 🎮 拖曳模式下的專屬畫面鎖定 */
+        body.play-mode-locked {
+            overflow: hidden;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        /* 💡 解答模式啟動時，強制隱藏所有可拖曳積木 */
+        body.solver-mode-active .piece-container {
+            display: none !important;
         }
 
         h1 {
-            margin-bottom: 5px;
+            margin: 0 0 10px 0;
+            font-size: clamp(1.4rem, 4vw, 1.8rem);
+            letter-spacing: 2px;
             text-align: center;
-            font-size: 1.8rem;
+            flex-shrink: 0;
         }
 
-        p {
+        /* --- 模式切換標籤 (Tabs) --- */
+        #tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            background: var(--panel-bg);
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
             color: #94a3b8;
-            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: none;
+            touch-action: manipulation;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .hidden-view {
+            display: none !important;
+        }
+
+        /* 共用按鈕樣式 */
+        .btn-style {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+            font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            touch-action: manipulation;
+        }
+
+        .btn-style:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        .btn-style:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none;
+        }
+
+        .btn-blue {
+            background: #6366f1;
+        }
+
+        .btn-blue:hover {
+            background: #4f46e5;
+        }
+
+        .btn-red {
+            background: #ef4444;
+        }
+
+        .btn-red:hover {
+            background: #dc2626;
+        }
+
+        .btn-green {
+            background: #10b981;
+            width: 100%;
+        }
+
+
+        /* =========================================
+           🎮 模式 1：每日挑戰 (親手操作) 樣式
+           ========================================= */
+        #play-view {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .left-spacer {
+            grid-column: 1;
+        }
+
+        .center-board {
+            grid-column: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .right-tray {
+            grid-column: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: 30px;
+        }
+
+        @media (min-width: 1000px) {
+            .right-tray {
+                margin-top: 32px;
+            }
+        }
+
+        @media (max-width: 1000px) {
+            #play-view {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .center-board {
+                gap: 6px;
+            }
+
+            .right-tray {
+                padding-left: 0;
+                margin-top: 2px;
+                align-items: center;
+            }
+        }
+
+        #status-bar {
+            width: 100%;
+            max-width: calc(var(--cell-size) * 8);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: var(--accent-yellow);
+            font-size: clamp(0.9rem, 3vw, 1.1rem);
+            padding: 0 5px;
+            flex-shrink: 0;
+        }
+
+        #board-wrapper {
+            background: var(--panel-bg);
+            padding: 6px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+            flex-shrink: 0;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, var(--cell-size));
+            gap: 0;
+            width: max-content;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background: #cbd5e1;
+            box-shadow: inset 0 0 0 1px #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+            font-weight: 800;
+            font-size: calc(var(--cell-size) * 0.35);
+            user-select: none;
+        }
+
+        .cell.blocked {
+            background: #0f172a !important;
+            color: var(--accent-blue) !important;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 0 1px #000;
+        }
+
+        #board.hide-text .cell:not(.blocked) span {
+            opacity: 0;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+            max-width: calc(var(--cell-size) * 8);
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 1000px) {
+            .controls {
+                gap: 5px;
+            }
+        }
+
+        .share-container {
+            grid-column: span 2;
+            width: 100%;
+            height: 40px;
+        }
+
+        @media (max-width: 1000px) {
+            .share-container {
+                height: 35px;
+            }
+        }
+
+        #tray-container {
+            background: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid #334155;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+            flex-shrink: 0;
+        }
+
+        .piece-container {
+            position: absolute;
+            cursor: grab;
+            z-index: 10;
+            transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: 0 0;
+            will-change: transform, left, top;
+            transform: translateZ(0);
+        }
+
+        .piece-container.selected {
+            z-index: 50;
+            filter: drop-shadow(0 0 6px var(--accent-yellow));
+        }
+
+        .piece-container.dragging {
+            z-index: 9999 !important;
+            cursor: grabbing;
+            transition: none;
+            opacity: 0.85;
+            transform: scale(1.05) translateZ(0) !important;
+            filter: none !important;
+        }
+
+        .p-block {
+            position: absolute;
+            box-sizing: border-box;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3), inset 0 0 10px rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+
+        /* =========================================
+           💡 模式 2：自由解答 (演算法求解) 樣式
+           ========================================= */
+        #solver-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .s-desc {
+            color: #94a3b8;
+            margin-bottom: 15px;
             text-align: center;
             font-size: 0.9rem;
         }
 
-        #board {
-            /* 關鍵更新 2：改用 RWD 網格設定 */
+        #s-board {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
-            /* 8等分，自動延伸 */
             gap: 0;
             width: 100%;
-            /* 寬度撐滿父元素 */
             max-width: 420px;
-            /* 但在電腦上最大不超過 420px */
-
             background: #334155;
             padding: 8px;
             border-radius: 12px;
@@ -50,26 +355,22 @@
             box-sizing: border-box;
         }
 
-        .cell {
-            /* 關鍵更新 3：魔法屬性，讓格子永遠保持正方形 */
+        .s-cell {
             aspect-ratio: 1 / 1;
             width: 100%;
-
             background: #cbd5e1;
             cursor: pointer;
             box-sizing: border-box;
             border: 1px solid #475569;
             border-radius: 4px;
             transition: background 0.2s;
-            /* 防止手機點擊時出現藍色閃爍框 */
-            -webkit-tap-highlight-color: transparent;
         }
 
-        .cell:hover:not(.blocked):not(.piece) {
+        .s-cell:hover:not(.s-blocked):not(.s-piece) {
             background: #e2e8f0;
         }
 
-        .cell.blocked {
+        .s-cell.s-blocked {
             background: #0f172a !important;
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
             border: 2px solid #000 !important;
@@ -77,302 +378,948 @@
             cursor: not-allowed;
         }
 
-        .piece {
+        .s-piece {
             box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
         }
 
-        .F {
+        .s-piece.F {
             background: #ef4444;
         }
 
-        .I {
+        .s-piece.I {
             background: #3b82f6;
         }
 
-        .L {
+        .s-piece.L {
             background: #f59e0b;
         }
 
-        .P {
+        .s-piece.P {
             background: #10b981;
         }
 
-        .N {
+        .s-piece.N {
             background: #8b5cf6;
         }
 
-        .T {
+        .s-piece.T {
             background: #ec4899;
         }
 
-        .U {
+        .s-piece.U {
             background: #06b6d4;
         }
 
-        .V {
+        .s-piece.V {
             background: #f97316;
         }
 
-        .W {
+        .s-piece.W {
             background: #6366f1;
         }
 
-        .X {
+        .s-piece.X {
             background: #84cc16;
         }
 
-        .Y {
+        .s-piece.Y {
             background: #eab308;
         }
 
-        .Z {
+        .s-piece.Z {
             background: #14b8a6;
         }
 
-        .controls {
+        .s-controls {
             margin: 20px 0;
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
-            /* 手機螢幕太窄時，按鈕自動換行 */
             justify-content: center;
         }
 
-        button {
-            padding: 12px 20px;
+        #s-status {
             font-size: 1rem;
             font-weight: bold;
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            transition: 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            /* 防止手機點擊出現藍框 */
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        button:active {
-            transform: translateY(2px);
-            box-shadow: none;
-        }
-
-        #solveBtn {
-            background: #3b82f6;
-        }
-
-        #solveBtn:hover {
-            background: #2563eb;
-        }
-
-        #solveBtn:disabled {
-            background: #475569;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        #resetBtn {
-            background: #ef4444;
-        }
-
-        #resetBtn:hover {
-            background: #dc2626;
-        }
-
-        #status {
-            font-size: 1rem;
-            font-weight: bold;
-            color: #fbbf24;
+            color: var(--accent-yellow);
             height: 24px;
             text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* --- 📸 戰績圖片彈出視窗 (Modal) --- */
+        #share-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            position: relative;
+            border: 1px solid #334155;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 28px;
+            color: #94a3b8;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 5px;
+            border-radius: 5px;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        #score-img {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            margin: 10px 0;
+            border: 1px solid #0f172a;
         }
     </style>
 </head>
 
-<body>
-    <h1>Pentomino 8x8 Solver</h1>
-    <p>請點擊設定 4 個障礙物（目前：<span id="count">0</span>/4）</p>
+<body class="play-mode-locked">
 
-    <div id="board"></div>
+    <h1>Pentomino 拼圖</h1>
 
-    <div class="controls">
-        <button id="solveBtn">開始計算</button>
-        <button id="resetBtn">重設網格</button>
+    <div id="tab-container">
+        <button class="tab-btn active" id="tab-play">🎮 每日挑戰</button>
+        <button class="tab-btn" id="tab-solver">💡 自由解答</button>
     </div>
 
-    <div id="status"></div>
+    <div id="play-view">
+        <div class="left-spacer"></div>
+        <div class="center-board">
+            <div id="status-bar">
+                <span id="target-date">載入中...</span>
+                <span id="timer">00:00</span>
+            </div>
+            <div id="board-wrapper">
+                <div id="board"></div>
+            </div>
+            <div class="controls">
+                <button id="rotateBtn" class="btn-style btn-blue" disabled>🔄 旋轉 90°</button>
+                <button id="flipBtn" class="btn-style btn-blue" disabled>↔️ 翻面</button>
+                <button id="toggleTextBtn" class="btn-style btn-blue" style="background:#475569">👁️ 隱藏文字</button>
+                <button id="resetBtn" class="btn-style btn-red">🧹 重排積木</button>
+                <div class="share-container">
+                    <button id="shareBtn" class="btn-style btn-green" style="visibility: hidden;">📸 產生戰績小卡</button>
+                </div>
+            </div>
+        </div>
+        <div class="right-tray">
+            <div id="tray-container"></div>
+        </div>
+    </div>
+
+    <div id="solver-view" class="hidden-view">
+        <p class="s-desc">請點擊設定 4 個障礙物（目前：<span id="s-count">0</span>/4）</p>
+        <div id="s-board"></div>
+        <div class="s-controls">
+            <button id="s-solveBtn" class="btn-style btn-blue">💡 開始計算</button>
+            <button id="s-resetBtn" class="btn-style btn-red">🧹 重設網格</button>
+        </div>
+        <div id="s-status"></div>
+    </div>
+
+    <div id="share-modal" class="hidden-view">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal">&times;</span>
+            <h3 style="margin-top: 5px; color: #f8fafc;">🎉 你的專屬戰績卡</h3>
+            <img id="score-img" src="" alt="Score Card">
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 15px;">長按上方圖片即可儲存，或分享至 IG / LINE！</p>
+            <button id="copyTextBtn" class="btn-style btn-blue" style="width: 100%;">📋 複製彩色文字戰績</button>
+        </div>
+    </div>
 
     <script>
-        const boardEl = document.getElementById('board');
-        const blocked = new Set();
-        const cells = [];
-        let solverGenerator = null;
-        let solutionCount = 0;
+        // ==========================================
+        //  全域邏輯：切換分頁
+        // ==========================================
+        const tabPlay = document.getElementById('tab-play');
+        const tabSolver = document.getElementById('tab-solver');
+        const viewPlay = document.getElementById('play-view');
+        const viewSolver = document.getElementById('solver-view');
 
-        for (let i = 0; i < 64; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.onclick = () => {
-                if (solverGenerator !== null) return;
-                if (blocked.has(i)) {
-                    blocked.delete(i);
-                    cell.classList.remove('blocked');
-                } else if (blocked.size < 4) {
-                    blocked.add(i);
-                    cell.classList.add('blocked');
-                }
-                document.getElementById('count').innerText = blocked.size;
-            };
-            boardEl.appendChild(cell);
-            cells.push(cell);
-        }
+        let globalSyncPositions = null;
 
-        const SHAPES = {
-            F: [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], L: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1]],
-            P: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]], N: [[0, 1], [1, 1], [2, 1], [2, 0], [3, 0]], T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
-            U: [[0, 0], [0, 1], [1, 1], [2, 1], [2, 0]], V: [[0, 0], [0, 1], [0, 2], [1, 0], [2, 0]], W: [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2]],
-            X: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], Y: [[0, 0], [1, 0], [2, 0], [3, 0], [1, 1]], Z: [[0, 0], [1, 0], [1, 1], [1, 2], [2, 2]]
+        tabPlay.onclick = () => {
+            tabPlay.classList.add('active');
+            tabSolver.classList.remove('active');
+            viewPlay.classList.remove('hidden-view');
+            viewSolver.classList.add('hidden-view');
+
+            document.body.classList.add('play-mode-locked');
+            document.body.classList.remove('solver-mode-active');
+            window.scrollTo(0, 0);
+
+            if (globalSyncPositions) {
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                    globalSyncPositions(false);
+                }, 50);
+            }
         };
 
-        const ALL_VARIANTS = {};
-        for (let key in SHAPES) {
-            const variants = [];
-            let curr = SHAPES[key];
-            for (let i = 0; i < 8; i++) {
-                if (i === 4) curr = curr.map(([r, c]) => [r, -c]);
-                curr = curr.map(([r, c]) => [c, -r]);
-                const minY = Math.min(...curr.map(p => p[0])), minX = Math.min(...curr.map(p => p[1]));
-                const normalized = curr.map(([r, c]) => [r - minY, c - minX]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-                const s = JSON.stringify(normalized);
-                if (!variants.find(v => JSON.stringify(v) === s)) variants.push(normalized);
+        tabSolver.onclick = () => {
+            tabSolver.classList.add('active');
+            tabPlay.classList.remove('active');
+            viewPlay.classList.add('hidden-view');
+            viewSolver.classList.remove('hidden-view');
+
+            document.body.classList.remove('play-mode-locked');
+            document.body.classList.add('solver-mode-active');
+        };
+
+        // ==========================================
+        //  🎮 模組 1：親手操作 (Play Mode)
+        // ==========================================
+        const calendarLayout = [
+            ['2033', '2022', '2023', '2024', 'JAN', 'FEB', 'MAR', 'APR'],
+            ['2025', '2026', '2027', '2028', 'MAY', 'JUN', 'JUL', 'AUG'],
+            ['2029', '2030', '2031', '2032', 'SEP', 'OCT', 'NOV', 'DEC'],
+            ['01', '02', '03', '04', '05', '06', '07', '08'],
+            ['09', '10', '11', '12', '13', '14', '15', '16'],
+            ['17', '18', '19', '20', '21', '22', '23', '24'],
+            ['PCSH', '25', '26', '27', '28', '29', '30', 'Math'],
+            ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', '31']
+        ];
+
+        const solutionDesktop = [
+            "UUXPPP", "UXXXPP", "UUXTTT", "YYYYTN", "IYWWTN",
+            "IWWFNN", "IWFFNV", "IZZFFV", "IZLVVV", "ZZLLLL"
+        ];
+        const solutionMobile = [
+            "UUUYIIIIIZ", "UXUYYWWZZZ", "XXXYWWFZLL",
+            "PXTYWFFFVL", "PPTTTNNFVL", "PPTNNNVVVL"
+        ];
+
+        const pieceColors = {
+            'F': '#ef4444', 'I': '#3b82f6', 'L': '#f59e0b', 'P': '#10b981',
+            'N': '#8b5cf6', 'T': '#ec4899', 'U': '#06b6d4', 'V': '#f97316',
+            'W': '#6366f1', 'X': '#84cc16', 'Y': '#eab308', 'Z': '#14b8a6'
+        };
+
+        let blockedIndices = new Set();
+        let gridState = Array(64).fill(null);
+        let pieces = [];
+        let selectedPiece = null;
+        let seconds = 0;
+        let timerActive = false;
+        let timerInt;
+        let isMobileView = window.innerWidth < 1000;
+
+        let activeDragPiece = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        function initPlay() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            const today = new Date();
+            let year = today.getFullYear();
+            while (year > 2033) year -= 12; while (year < 2022) year += 12;
+            const dateTargets = [
+                year.toString(),
+                ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][today.getMonth()],
+                today.getDate().toString().padStart(2, '0'),
+                ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][today.getDay()]
+            ];
+            document.getElementById('target-date').innerText = dateTargets.join(' ');
+
+            for (let i = 0; i < 64; i++) {
+                const r = Math.floor(i / 8), c = i % 8;
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.innerHTML = `<span>${calendarLayout[r][c]}</span>`;
+                if (dateTargets.includes(calendarLayout[r][c])) {
+                    cell.classList.add('blocked');
+                    blockedIndices.add(i);
+                    gridState[i] = 'BLOCK';
+                }
+                board.appendChild(cell);
             }
-            ALL_VARIANTS[key] = variants;
+            setupTrayAndPieces();
         }
 
-        function getIslands(currentGrid) {
-            const visited = new Set();
+        function setupTrayAndPieces() {
+            const tray = document.getElementById('tray-container');
+            const cols = isMobileView ? 10 : 6;
+            const rows = isMobileView ? 6 : 10;
+
+            tray.style.width = `calc(var(--cell-size) * ${cols})`;
+            tray.style.height = `calc(var(--cell-size) * ${rows})`;
+
+            const matrix = isMobileView ? solutionMobile : solutionDesktop;
+
+            const extractedShapes = {};
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let char = matrix[r][c];
+                    if (!extractedShapes[char]) extractedShapes[char] = { color: pieceColors[char], blocks: [] };
+                    extractedShapes[char].blocks.push([r, c]);
+                }
+            }
+
+            pieces.forEach(p => p.el.remove());
+            pieces = [];
+
+            Object.keys(extractedShapes).forEach(id => {
+                let shape = extractedShapes[id];
+                let minR = Math.min(...shape.blocks.map(b => b[0]));
+                let minC = Math.min(...shape.blocks.map(b => b[1]));
+                shape.trayR = minR;
+                shape.trayC = minC;
+                shape.blocks = shape.blocks.map(b => [b[0] - minR, b[1] - minC]);
+                pieces.push(new Piece(id, shape));
+            });
+        }
+
+        class Piece {
+            constructor(id, data) {
+                this.id = id;
+                this.color = data.color;
+                this.originalBlocks = JSON.parse(JSON.stringify(data.blocks));
+                this.blocks = JSON.parse(JSON.stringify(data.blocks));
+                this.trayR = data.trayR;
+                this.trayC = data.trayC;
+                this.isSnapped = false;
+                this.gridPos = { r: -1, c: -1 };
+                this.x = 0; this.y = 0;
+                this.isDragging = false;
+
+                this.el = document.createElement('div');
+                this.el.className = 'piece-container';
+                document.body.appendChild(this.el);
+
+                this.draw();
+                this.setupEvents();
+            }
+
+            draw() {
+                this.el.innerHTML = '';
+                const board = document.getElementById('board');
+                if (!board.querySelector('.cell')) return;
+                const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
+                this.blocks.forEach(([r, c]) => {
+                    const b = document.createElement('div');
+                    b.className = 'p-block';
+                    b.style.width = currentCellSize + 'px';
+                    b.style.height = currentCellSize + 'px';
+                    b.style.left = (c * currentCellSize) + 'px';
+                    b.style.top = (r * currentCellSize) + 'px';
+                    b.style.background = this.color;
+                    this.el.appendChild(b);
+                });
+            }
+
+            updatePos() {
+                this.el.style.left = this.x + 'px';
+                this.el.style.top = this.y + 'px';
+            }
+
+            resetToTray() {
+                this.isSnapped = false;
+                this.removeFromGrid();
+                syncAllPositions(true);
+            }
+
+            fullReset() {
+                this.removeFromGrid();
+                this.blocks = JSON.parse(JSON.stringify(this.originalBlocks));
+                this.normalize();
+                this.draw();
+                this.resetToTray();
+            }
+
+            removeFromGrid() {
+                if (this.gridPos.r !== -1) {
+                    this.blocks.forEach(([dr, dc]) => {
+                        gridState[(this.gridPos.r + dr) * 8 + (this.gridPos.c + dc)] = null;
+                    });
+                    this.gridPos = { r: -1, c: -1 };
+                }
+            }
+
+            transformAction(transformFn) {
+                const board = document.getElementById('board');
+                const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
+
+                const maxC = Math.max(...this.blocks.map(b => b[1]));
+                const maxR = Math.max(...this.blocks.map(b => b[0]));
+                const centerX = this.x + (maxC + 1) * currentCellSize / 2;
+                const centerY = this.y + (maxR + 1) * currentCellSize / 2;
+
+                let wasSnapped = this.isSnapped;
+                if (this.isSnapped) this.removeFromGrid();
+
+                this.blocks = this.blocks.map(([r, c]) => transformFn(r, c));
+                this.normalize();
+
+                const newMaxC = Math.max(...this.blocks.map(b => b[1]));
+                const newMaxR = Math.max(...this.blocks.map(b => b[0]));
+                this.x = centerX - (newMaxC + 1) * currentCellSize / 2;
+                this.y = centerY - (newMaxR + 1) * currentCellSize / 2;
+
+                this.draw();
+                this.updatePos();
+
+                if (wasSnapped) this.trySnap();
+            }
+
+            rotate() { this.transformAction((r, c) => [c, -r]); }
+            flip() { this.transformAction((r, c) => [r, -c]); }
+
+            normalize() {
+                const minR = Math.min(...this.blocks.map(b => b[0]));
+                const minC = Math.min(...this.blocks.map(b => b[1]));
+                this.blocks = this.blocks.map(([r, c]) => [r - minR, c - minC]);
+            }
+
+            trySnap() {
+                this.removeFromGrid();
+                const board = document.getElementById('board');
+                const bRect = board.getBoundingClientRect();
+                const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
+
+                const [firstR, firstC] = this.blocks[0];
+                const blockCenterX = this.x + (firstC * currentCellSize) + (currentCellSize / 2);
+                const blockCenterY = this.y + (firstR * currentCellSize) + (currentCellSize / 2);
+
+                const boardCol = Math.floor((blockCenterX - (bRect.left + window.scrollX)) / currentCellSize);
+                const boardRow = Math.floor((blockCenterY - (bRect.top + window.scrollY)) / currentCellSize);
+
+                const col = boardCol - firstC;
+                const row = boardRow - firstR;
+
+                let canPlace = true;
+                for (const [dr, dc] of this.blocks) {
+                    const nr = row + dr, nc = col + dc;
+                    if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || gridState[nr * 8 + nc] !== null) {
+                        canPlace = false; break;
+                    }
+                }
+
+                if (canPlace) {
+                    this.isSnapped = true;
+                    this.gridPos = { r: row, c: col };
+                    this.blocks.forEach(([dr, dc]) => gridState[(row + dr) * 8 + (col + dc)] = this.id);
+                    syncAllPositions(false);
+                    checkWin();
+                } else {
+                    this.resetToTray();
+                }
+            }
+
+            setupEvents() {
+                this.el.addEventListener('pointerdown', (e) => {
+                    if (e.target.tagName === 'BUTTON') return;
+                    if (document.getElementById('play-view').classList.contains('hidden-view')) return;
+
+                    e.preventDefault();
+                    select(this);
+                    startTimer();
+
+                    activeDragPiece = this;
+                    this.isDragging = true;
+                    const rect = this.el.getBoundingClientRect();
+                    dragOffsetX = e.clientX - rect.left;
+                    dragOffsetY = e.clientY - rect.top;
+
+                    this.el.classList.add('dragging');
+                });
+            }
+        }
+
+        function syncAllPositions(animate = false) {
+            if (document.getElementById('play-view').classList.contains('hidden-view')) return;
+
+            const board = document.getElementById('board');
+            const tray = document.getElementById('tray-container');
+            if (!board || !tray || !board.querySelector('.cell')) return;
+
+            const bRect = board.getBoundingClientRect();
+            const tRect = tray.getBoundingClientRect();
+            const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
+
+            pieces.forEach(p => {
+                if (p.isDragging) return;
+
+                if (p.isSnapped) {
+                    p.x = bRect.left + window.scrollX + (p.gridPos.c * currentCellSize);
+                    p.y = bRect.top + window.scrollY + (p.gridPos.r * currentCellSize);
+                } else {
+                    p.x = tRect.left + window.scrollX + (p.trayC * currentCellSize);
+                    p.y = tRect.top + window.scrollY + (p.trayR * currentCellSize);
+                }
+
+                if (animate) {
+                    p.el.style.transition = 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                    setTimeout(() => { p.el.style.transition = 'none'; }, 300);
+                } else {
+                    p.el.style.transition = 'none';
+                }
+
+                p.draw();
+                p.updatePos();
+            });
+        }
+        globalSyncPositions = syncAllPositions;
+
+        const ro = new ResizeObserver(() => syncAllPositions(false));
+        ro.observe(document.getElementById('board'));
+        ro.observe(document.getElementById('tray-container'));
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('play-view').classList.contains('hidden-view')) return;
+            const currentlyMobile = window.innerWidth < 1000;
+            if (currentlyMobile !== isMobileView) {
+                isMobileView = currentlyMobile;
+                setupTrayAndPieces();
+            }
+            syncAllPositions(false);
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            if (!activeDragPiece) return;
+            e.preventDefault();
+            activeDragPiece.x = e.clientX - dragOffsetX + window.scrollX;
+            activeDragPiece.y = e.clientY - dragOffsetY + window.scrollY;
+            activeDragPiece.updatePos();
+        }, { passive: false });
+
+        document.addEventListener('pointerup', (e) => {
+            if (!activeDragPiece) return;
+            activeDragPiece.el.classList.remove('dragging');
+            activeDragPiece.isDragging = false;
+            activeDragPiece.trySnap();
+            activeDragPiece = null;
+        });
+
+        function select(p) {
+            if (selectedPiece) selectedPiece.el.classList.remove('selected');
+            selectedPiece = p;
+            if (p) {
+                p.el.classList.add('selected');
+                document.getElementById('rotateBtn').disabled = false;
+                document.getElementById('flipBtn').disabled = false;
+            } else {
+                document.getElementById('rotateBtn').disabled = true;
+                document.getElementById('flipBtn').disabled = true;
+            }
+        }
+
+        function startTimer() {
+            if (timerActive) return;
+            timerActive = true;
+            timerInt = setInterval(() => {
+                seconds++;
+                const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function checkWin() {
+            if (pieces.every(p => p.isSnapped)) {
+                clearInterval(timerInt);
+                document.getElementById('shareBtn').style.visibility = 'visible';
+            }
+        }
+
+        document.getElementById('rotateBtn').onclick = () => selectedPiece?.rotate();
+        document.getElementById('flipBtn').onclick = () => selectedPiece?.flip();
+        document.getElementById('resetBtn').onclick = () => { pieces.forEach(p => p.fullReset()); select(null); };
+
+        let isTextHidden = false;
+        document.getElementById('toggleTextBtn').onclick = () => {
+            isTextHidden = !isTextHidden;
+            document.getElementById('board').classList.toggle('hide-text', isTextHidden);
+            document.getElementById('toggleTextBtn').innerText = isTextHidden ? "👁️ 顯示文字" : "👁️ 隱藏文字";
+        };
+
+        // --- 📸 畫布引擎 (Canvas Score Card Generator) ---
+        function generateScoreCard() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const cellSize = 40;
+            const padding = 25;
+            const headerHeight = 130;
+            const boardSize = cellSize * 8;
+
+            canvas.width = boardSize + padding * 2;
+            canvas.height = boardSize + headerHeight + padding * 2;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 28px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Pentomino 每日挑戰', canvas.width / 2, 45);
+
+            const timeStr = document.getElementById('timer').innerText;
+            const dateStr = document.getElementById('target-date').innerText;
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 18px "Segoe UI", sans-serif';
+            ctx.fillText(`📅 ${dateStr}`, canvas.width / 2, 80);
+            ctx.fillText(`⏱️ 耗時: ${timeStr}`, canvas.width / 2, 110);
+
+            const startX = padding;
+            const startY = headerHeight;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
+
             for (let i = 0; i < 64; i++) {
-                if (currentGrid[i] === null && !visited.has(i)) {
-                    let size = 0;
-                    const q = [i];
-                    visited.add(i);
-                    while (q.length) {
-                        const curr = q.shift();
-                        size++;
-                        const r = Math.floor(curr / 8), c = curr % 8;
-                        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dr, dc]) => {
-                            const nr = r + dr, nc = c + dc, nid = nr * 8 + nc;
-                            if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && currentGrid[nid] === null && !visited.has(nid)) {
-                                visited.add(nid); q.push(nid);
+                const r = Math.floor(i / 8);
+                const c = i % 8;
+                const x = startX + c * cellSize;
+                const y = startY + r * cellSize;
+                const val = gridState[i];
+
+                if (val === 'BLOCK') {
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.font = 'bold 15px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(calendarLayout[r][c], x + cellSize / 2, y + cellSize / 2);
+                } else if (val) {
+                    ctx.fillStyle = pieceColors[val];
+                    ctx.fillRect(x, y, cellSize, cellSize);
+
+                    ctx.lineWidth = 2;
+                    const topSame = r > 0 && gridState[i - 8] === val;
+                    const bottomSame = r < 7 && gridState[i + 8] === val;
+                    const leftSame = c > 0 && gridState[i - 1] === val;
+                    const rightSame = c < 7 && gridState[i + 1] === val;
+
+                    ctx.strokeStyle = '#0f172a';
+                    if (!topSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); ctx.stroke(); }
+                    if (!bottomSame) { ctx.beginPath(); ctx.moveTo(x, y + cellSize); ctx.lineTo(x + cellSize, y + cellSize); ctx.stroke(); }
+                    if (!leftSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); ctx.stroke(); }
+                    if (!rightSame) { ctx.beginPath(); ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); ctx.stroke(); }
+
+                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                    if (topSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); ctx.stroke(); }
+                    if (leftSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); ctx.stroke(); }
+                } else {
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, cellSize, cellSize);
+                }
+            }
+            return canvas.toDataURL("image/png");
+        }
+
+        document.getElementById('shareBtn').onclick = () => {
+            const dataUrl = generateScoreCard();
+            document.getElementById('score-img').src = dataUrl;
+            document.getElementById('share-modal').classList.remove('hidden-view');
+        };
+
+        document.getElementById('close-modal').onclick = () => {
+            document.getElementById('share-modal').classList.add('hidden-view');
+        };
+
+        // 📋 複製彩色文字戰績 (圖形著色演算法，保證使用全部7色，且相鄰不同色)
+        document.getElementById('copyTextBtn').onclick = () => {
+            const time = document.getElementById('timer').innerText;
+            const date = document.getElementById('target-date').innerText;
+            let emoji = `📅 Pentomino Daily (${date})\n⏱️ Time: ${time}\n\n`;
+
+            const emojiColors = ['🟥', '🟦', '🟧', '🟩', '🟪', '🟨', '🟫'];
+            const pieceColorMap = {};
+            const adj = {};
+            Object.keys(pieceColors).forEach(k => adj[k] = new Set());
+
+            // 建立鄰接表
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p1 = gridState[r * 8 + c];
+                    if (!p1 || p1 === 'BLOCK') continue;
+
+                    if (c < 7) {
+                        const p2 = gridState[r * 8 + c + 1];
+                        if (p2 && p2 !== 'BLOCK' && p2 !== p1) { adj[p1].add(p2); adj[p2].add(p1); }
+                    }
+                    if (r < 7) {
+                        const p3 = gridState[(r + 1) * 8 + c];
+                        if (p3 && p3 !== 'BLOCK' && p3 !== p1) { adj[p1].add(p3); adj[p3].add(p1); }
+                    }
+                }
+            }
+
+            // 紀錄每個顏色的使用次數
+            const colorUsage = {};
+            emojiColors.forEach(c => colorUsage[c] = 0);
+
+            // 著色：優先挑選合法的顏色中，目前「使用次數最少」的，強迫均勻使用所有顏色
+            Object.keys(pieceColors).forEach(p => {
+                const used = new Set();
+                adj[p].forEach(neighbor => {
+                    if (pieceColorMap[neighbor]) used.add(pieceColorMap[neighbor]);
+                });
+
+                // 找出周圍沒用過的顏色
+                const availableColors = emojiColors.filter(c => !used.has(c));
+
+                // 依照全場使用次數由小到大排序
+                availableColors.sort((a, b) => colorUsage[a] - colorUsage[b]);
+
+                // 挑選最少使用的顏色
+                const chosen = availableColors[0];
+                pieceColorMap[p] = chosen;
+                colorUsage[chosen]++;
+            });
+
+            // 組合字串
+            for (let i = 0; i < 64; i++) {
+                if (i > 0 && i % 8 === 0) emoji += '\n';
+                const val = gridState[i];
+                if (val && val !== 'BLOCK') {
+                    emoji += pieceColorMap[val];
+                } else {
+                    emoji += blockedIndices.has(i) ? '⬛' : '⬜';
+                }
+            }
+            navigator.clipboard.writeText(emoji).then(() => alert("📋 彩色文字戰績已複製！"));
+        };
+
+        document.addEventListener('pointerdown', (e) => {
+            if (!e.target.closest('.piece-container') && !e.target.closest('.controls')) select(null);
+        });
+
+        setTimeout(() => {
+            initPlay();
+            syncAllPositions(false);
+        }, 50);
+
+        // ==========================================
+        //  💡 模組 2：自由解答 (Solver Mode)
+        // ==========================================
+        {
+            const boardEl = document.getElementById('s-board');
+            const blocked = new Set();
+            const cells = [];
+            let solverGenerator = null;
+            let solutionCount = 0;
+
+            for (let i = 0; i < 64; i++) {
+                const cell = document.createElement('div');
+                cell.className = 's-cell';
+                cell.onclick = () => {
+                    if (solverGenerator !== null) return;
+                    if (blocked.has(i)) {
+                        blocked.delete(i);
+                        cell.classList.remove('s-blocked');
+                    } else if (blocked.size < 4) {
+                        blocked.add(i);
+                        cell.classList.add('s-blocked');
+                    }
+                    document.getElementById('s-count').innerText = blocked.size;
+                };
+                boardEl.appendChild(cell);
+                cells.push(cell);
+            }
+
+            const SHAPES = {
+                F: [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], L: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1]],
+                P: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]], N: [[0, 1], [1, 1], [2, 1], [2, 0], [3, 0]], T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
+                U: [[0, 0], [0, 1], [1, 1], [2, 1], [2, 0]], V: [[0, 0], [0, 1], [0, 2], [1, 0], [2, 0]], W: [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2]],
+                X: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], Y: [[0, 0], [1, 0], [2, 0], [3, 0], [1, 1]], Z: [[0, 0], [1, 0], [1, 1], [1, 2], [2, 2]]
+            };
+
+            const ALL_VARIANTS = {};
+            for (let key in SHAPES) {
+                const variants = [];
+                let curr = SHAPES[key];
+                for (let i = 0; i < 8; i++) {
+                    if (i === 4) curr = curr.map(([r, c]) => [r, -c]);
+                    curr = curr.map(([r, c]) => [c, -r]);
+                    const minY = Math.min(...curr.map(p => p[0])), minX = Math.min(...curr.map(p => p[1]));
+                    const normalized = curr.map(([r, c]) => [r - minY, c - minX]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+                    const s = JSON.stringify(normalized);
+                    if (!variants.find(v => JSON.stringify(v) === s)) variants.push(normalized);
+                }
+                ALL_VARIANTS[key] = variants;
+            }
+
+            function getIslands(currentGrid) {
+                const visited = new Set();
+                for (let i = 0; i < 64; i++) {
+                    if (currentGrid[i] === null && !visited.has(i)) {
+                        let size = 0;
+                        const q = [i];
+                        visited.add(i);
+                        while (q.length) {
+                            const curr = q.shift();
+                            size++;
+                            const r = Math.floor(curr / 8), c = curr % 8;
+                            [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dr, dc]) => {
+                                const nr = r + dr, nc = c + dc, nid = nr * 8 + nc;
+                                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && currentGrid[nid] === null && !visited.has(nid)) {
+                                    visited.add(nid); q.push(nid);
+                                }
+                            });
+                        }
+                        if (size % 5 !== 0) return false;
+                    }
+                }
+                return true;
+            }
+
+            function* createSolver() {
+                const grid = Array(64).fill(null);
+                blocked.forEach(idx => grid[idx] = 'BLOCK');
+                const remaining = Object.keys(ALL_VARIANTS);
+
+                function* backtrack(currentGrid, pieces) {
+                    if (pieces.length === 0) {
+                        yield currentGrid;
+                        return;
+                    }
+
+                    const firstEmpty = currentGrid.indexOf(null);
+                    if (firstEmpty === -1) return;
+                    const r = Math.floor(firstEmpty / 8), c = firstEmpty % 8;
+
+                    for (let i = 0; i < pieces.length; i++) {
+                        const name = pieces[i];
+                        for (const v of ALL_VARIANTS[name]) {
+                            const positions = v.map(([dr, dc]) => {
+                                const nr = r + dr - v[0][0], nc = c + dc - v[0][1];
+                                return (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) ? nr * 8 + nc : -1;
+                            });
+
+                            if (positions.every(p => p !== -1 && currentGrid[p] === null)) {
+                                positions.forEach(p => currentGrid[p] = name);
+                                if (getIslands(currentGrid)) yield* backtrack(currentGrid, pieces.filter(p => p !== name));
+                                positions.forEach(p => currentGrid[p] = null);
+                            }
+                        }
+                    }
+                }
+                yield* backtrack(grid, remaining);
+            }
+
+            document.getElementById('s-solveBtn').onclick = () => {
+                if (blocked.size !== 4) return alert("請剛好選取 4 個空格作為障礙物！");
+
+                const btn = document.getElementById('s-solveBtn');
+                const status = document.getElementById('s-status');
+
+                if (solverGenerator === null) {
+                    solverGenerator = createSolver();
+                    solutionCount = 0;
+                }
+
+                status.innerText = "計算中...";
+                btn.disabled = true;
+
+                setTimeout(() => {
+                    const result = solverGenerator.next();
+
+                    if (!result.done) {
+                        solutionCount++;
+
+                        cells.forEach(c => {
+                            if (!c.classList.contains('s-blocked')) {
+                                c.className = 's-cell';
+                                c.style = '';
                             }
                         });
-                    }
-                    if (size % 5 !== 0) return false;
-                }
-            }
-            return true;
-        }
 
-        function* createSolver() {
-            const grid = Array(64).fill(null);
-            blocked.forEach(idx => grid[idx] = 'BLOCK');
-            const remaining = Object.keys(ALL_VARIANTS);
+                        result.value.forEach((name, i) => {
+                            if (name && name !== 'BLOCK') {
+                                cells[i].className = `s-cell s-piece ${name}`;
 
-            function* backtrack(currentGrid, pieces) {
-                if (pieces.length === 0) {
-                    yield currentGrid;
-                    return;
-                }
+                                const r = Math.floor(i / 8);
+                                const c = i % 8;
 
-                const firstEmpty = currentGrid.indexOf(null);
-                if (firstEmpty === -1) return;
-                const r = Math.floor(firstEmpty / 8), c = firstEmpty % 8;
+                                const topSame = r > 0 && result.value[i - 8] === name;
+                                const bottomSame = r < 7 && result.value[i + 8] === name;
+                                const leftSame = c > 0 && result.value[i - 1] === name;
+                                const rightSame = c < 7 && result.value[i + 1] === name;
 
-                for (let i = 0; i < pieces.length; i++) {
-                    const name = pieces[i];
-                    for (const v of ALL_VARIANTS[name]) {
-                        const positions = v.map(([dr, dc]) => {
-                            const nr = r + dr - v[0][0], nc = c + dc - v[0][1];
-                            return (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) ? nr * 8 + nc : -1;
+                                const outerLine = '3px solid #0f172a';
+                                const innerLine = '1px solid rgba(255,255,255,0.2)';
+
+                                cells[i].style.borderTop = topSame ? innerLine : outerLine;
+                                cells[i].style.borderBottom = bottomSame ? innerLine : outerLine;
+                                cells[i].style.borderLeft = leftSame ? innerLine : outerLine;
+                                cells[i].style.borderRight = rightSame ? innerLine : outerLine;
+
+                                cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
+                                cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
+                                cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
+                                cells[i].style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
+                            }
                         });
 
-                        if (positions.every(p => p !== -1 && currentGrid[p] === null)) {
-                            positions.forEach(p => currentGrid[p] = name);
-                            if (getIslands(currentGrid)) yield* backtrack(currentGrid, pieces.filter(p => p !== name));
-                            positions.forEach(p => currentGrid[p] = null);
-                        }
+                        status.innerText = `成功！(目前為第 ${solutionCount} 個解)`;
+                        btn.innerText = "尋找下一個解";
+                        btn.disabled = false;
+                    } else {
+                        status.innerText = solutionCount > 0 ? `搜尋完畢！共有 ${solutionCount} 個解。` : "這個地形完全無解！";
+                        btn.innerText = "已無更多解";
+                        btn.disabled = true;
                     }
-                }
-            }
-            yield* backtrack(grid, remaining);
+                }, 50);
+            };
+
+            document.getElementById('s-resetBtn').onclick = () => {
+                blocked.clear();
+                cells.forEach(c => {
+                    c.className = 's-cell';
+                    c.style = '';
+                });
+                solverGenerator = null;
+                solutionCount = 0;
+                document.getElementById('s-count').innerText = "0";
+                document.getElementById('s-status').innerText = "";
+                const btn = document.getElementById('s-solveBtn');
+                btn.innerText = "💡 開始計算";
+                btn.disabled = false;
+            };
         }
 
-        document.getElementById('solveBtn').onclick = () => {
-            if (blocked.size !== 4) return alert("請剛好選取 4 個空格作為障礙物！");
-
-            const btn = document.getElementById('solveBtn');
-            const status = document.getElementById('status');
-
-            if (solverGenerator === null) {
-                solverGenerator = createSolver();
-                solutionCount = 0;
-            }
-
-            status.innerText = "計算中...";
-            btn.disabled = true;
-
-            setTimeout(() => {
-                const result = solverGenerator.next();
-
-                if (!result.done) {
-                    solutionCount++;
-
-                    cells.forEach(c => {
-                        if (!c.classList.contains('blocked')) {
-                            c.className = 'cell';
-                            c.style = '';
-                        }
-                    });
-
-                    result.value.forEach((name, i) => {
-                        if (name && name !== 'BLOCK') {
-                            cells[i].className = `cell piece ${name}`;
-
-                            const r = Math.floor(i / 8);
-                            const c = i % 8;
-
-                            const topSame = r > 0 && result.value[i - 8] === name;
-                            const bottomSame = r < 7 && result.value[i + 8] === name;
-                            const leftSame = c > 0 && result.value[i - 1] === name;
-                            const rightSame = c < 7 && result.value[i + 1] === name;
-
-                            const outerLine = '3px solid #0f172a';
-                            const innerLine = '1px solid rgba(255,255,255,0.2)';
-
-                            cells[i].style.borderTop = topSame ? innerLine : outerLine;
-                            cells[i].style.borderBottom = bottomSame ? innerLine : outerLine;
-                            cells[i].style.borderLeft = leftSame ? innerLine : outerLine;
-                            cells[i].style.borderRight = rightSame ? innerLine : outerLine;
-
-                            cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
-                            cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
-                            cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
-                            cells[i].style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
-                        }
-                    });
-
-                    status.innerText = `成功！(目前為第 ${solutionCount} 個解)`;
-                    btn.innerText = "尋找下一個解";
-                    btn.disabled = false;
-                } else {
-                    status.innerText = solutionCount > 0 ? `搜尋完畢！共有 ${solutionCount} 個解。` : "這個地形完全無解！";
-                    btn.innerText = "已無更多解";
-                    btn.disabled = true;
-                }
-            }, 50);
-        };
-
-        document.getElementById('resetBtn').onclick = () => location.reload();
     </script>
 </body>
 
