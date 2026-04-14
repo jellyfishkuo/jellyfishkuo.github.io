@@ -6,12 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Pentomino 每日挑戰</title>
     <style>
-        /* --- 徹底消除手機瀏覽器預設的點擊干擾 --- */
+        /* --- 徹底消除手機瀏覽器預設的點擊干擾與雙擊放大 --- */
         * {
-            -webkit-tap-highlight-color: transparent; /* 殺掉點擊時的黃光/藍光閃爍 */
-            -webkit-touch-callout: none; /* 禁用長按跳出選單 */
-            -webkit-user-select: none; /* 禁用文字選取 */
-            user-select: none;
+            -webkit-tap-highlight-color: transparent;
             box-sizing: border-box;
         }
 
@@ -23,10 +20,10 @@
             --cell-size: 45px;
         }
 
-        /* 手機版極限縮放，保證 10 格寬度絕對不會超出螢幕 */
+        /* 手機版極限縮放，改用 dvh (動態螢幕高度) 確保不會被 Safari 底下網址列吃掉 */
         @media (max-width: 1000px) {
             :root {
-                --cell-size: min(9vw, 40px);
+                --cell-size: min(9vw, 4.2dvh, 38px);
             }
         }
 
@@ -35,20 +32,22 @@
             background: var(--bg-color);
             color: #f8fafc;
             margin: 0;
-            padding: 2vh 10px;
-            min-height: 100vh;
-            overflow: hidden; /* 徹底隱藏滾動條 */
-            
-            /* App 級鎖定：禁止雙擊放大、禁止滑動、禁止邊緣回彈 */
-            touch-action: none; 
-            overscroll-behavior: none; 
+            padding: 1dvh 5px; /* 縮減上下 padding */
+            min-height: 100dvh; /* 使用 dvh 避開手機瀏覽器導覽列 */
+            overflow: hidden; /* 徹底禁止全域滾動 */
+            touch-action: none;
+            overscroll-behavior: none; /* 禁止邊緣回彈 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         h1 {
-            margin: 0 0 15px 0;
-            font-size: clamp(1.4rem, 4vw, 1.8rem);
+            margin: 0 0 8px 0;
+            font-size: clamp(1.2rem, 4vw, 1.6rem);
             letter-spacing: 2px;
             text-align: center;
+            flex-shrink: 0;
         }
 
         /* --- 核心排版：三欄平衡，板子絕對置中 --- */
@@ -60,16 +59,14 @@
             margin: 0 auto;
         }
 
-        .left-spacer {
-            grid-column: 1;
-        }
+        .left-spacer { grid-column: 1; }
 
         .center-board {
             grid-column: 2;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .right-tray {
@@ -81,22 +78,23 @@
         }
 
         @media (min-width: 1000px) {
-            .right-tray {
-                margin-top: 36px;
-            }
+            .right-tray { margin-top: 32px; }
         }
 
-        /* 手機版：全部轉為上下直排 */
+        /* 手機版：全部轉為上下直排，並極度壓縮間距 */
         @media (max-width: 1000px) {
             #main-layout {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                gap: 5px; /* 極度壓縮區塊間距 */
             }
+
+            .center-board { gap: 6px; }
 
             .right-tray {
                 padding-left: 0;
-                margin-top: 10px;
+                margin-top: 2px;
                 align-items: center;
             }
         }
@@ -109,16 +107,18 @@
             align-items: center;
             font-weight: bold;
             color: var(--accent-yellow);
-            font-size: 1.1rem;
+            font-size: clamp(0.9rem, 3vw, 1.1rem);
             padding: 0 5px;
+            flex-shrink: 0;
         }
 
         #board-wrapper {
             background: var(--panel-bg);
-            padding: 8px;
-            border-radius: 12px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            padding: 6px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             border: 1px solid #334155;
+            flex-shrink: 0;
         }
 
         #board {
@@ -139,6 +139,7 @@
             color: #475569;
             font-weight: 800;
             font-size: calc(var(--cell-size) * 0.35);
+            user-select: none;
         }
 
         .cell.blocked {
@@ -147,28 +148,35 @@
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 0 1px #000;
         }
 
-        #board.hide-text .cell:not(.blocked) span {
-            opacity: 0;
-        }
+        #board.hide-text .cell:not(.blocked) span { opacity: 0; }
 
         /* 控制按鈕 */
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 8px;
             width: 100%;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 1000px) {
+            .controls { gap: 5px; }
         }
 
         button {
-            padding: 12px;
+            padding: 10px;
             border: none;
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
             color: white;
-            font-size: 0.95rem;
+            font-size: clamp(0.85rem, 2.5vw, 0.95rem);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            /* 終極殺手鐧：徹底禁止按鈕觸發雙擊放大 */
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         button:active {
@@ -185,20 +193,17 @@
 
         .btn-blue { background: #6366f1; }
         .btn-blue:hover { background: #4f46e5; }
-
         .btn-red { background: #ef4444; }
         .btn-red:hover { background: #dc2626; }
+        .btn-green { background: #10b981; width: 100%; }
 
-        .btn-green {
-            background: #10b981;
-            width: 100%;
-        }
-
-        /* 隱形佔位框，防止按鈕出現時版面跳動 */
         .share-container {
             grid-column: span 2;
             width: 100%;
-            height: 45px;
+            height: 40px;
+        }
+        @media (max-width: 1000px) {
+            .share-container { height: 35px; }
         }
 
         /* --- 積木托盤 --- */
@@ -208,26 +213,34 @@
             border: 1px solid #334155;
             position: relative;
             box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+            flex-shrink: 0;
         }
 
+        /* 實體積木樣式 */
         .piece-container {
             position: absolute;
             cursor: grab;
             z-index: 10;
             transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             transform-origin: 0 0;
+            /* 開啟硬體加速，防止 GPU 渲染卡頓殘影 */
+            will-change: transform, left, top;
+            transform: translateZ(0); 
         }
 
         .piece-container.selected {
             z-index: 50;
-            filter: drop-shadow(0 0 10px var(--accent-yellow));
+            filter: drop-shadow(0 0 6px var(--accent-yellow));
         }
 
+        /* 解決可怕的殘影：拔掉 filter drop-shadow，改用透明度+微微放大，效能完美且有手感 */
         .piece-container.dragging {
             z-index: 9999 !important;
             cursor: grabbing;
             transition: none;
-            filter: drop-shadow(0 15px 20px rgba(0, 0, 0, 0.6));
+            opacity: 0.85;
+            transform: scale(1.05) translateZ(0) !important;
+            filter: none !important; /* 強制關閉陰影以避免殘影 */
         }
 
         .p-block {
@@ -419,7 +432,7 @@
             resetToTray() {
                 this.isSnapped = false;
                 this.removeFromGrid();
-                syncAllPositions(true); 
+                syncAllPositions(true);
             }
 
             fullReset() {
@@ -511,7 +524,10 @@
 
             setupEvents() {
                 this.el.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
+                    // 只在非觸控版或非按鈕區域觸發 preventDefault，確保按鈕能正常按
+                    if(e.target.tagName !== 'BUTTON') {
+                        e.preventDefault();
+                    }
                     select(this);
                     startTimer();
 
@@ -551,7 +567,7 @@
                     p.el.style.transition = 'none';
                 }
 
-                p.draw(); 
+                p.draw();
                 p.updatePos();
             });
         }
@@ -564,7 +580,7 @@
             const currentlyMobile = window.innerWidth < 1000;
             if (currentlyMobile !== isMobileView) {
                 isMobileView = currentlyMobile;
-                setupTrayAndPieces(); 
+                setupTrayAndPieces();
             }
             syncAllPositions(false);
         });
