@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Pentominos Puzzle Solver</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pentomino 8x8 Solver</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -13,48 +14,61 @@
             background: #1e293b;
             color: #f8fafc;
             margin: 0;
-            padding: 20px;
+            padding: 20px 10px;
+            /* 手機版縮小左右 padding */
         }
 
         h1 {
             margin-bottom: 5px;
+            text-align: center;
+            font-size: 1.8rem;
         }
 
         p {
             color: #94a3b8;
             margin-bottom: 20px;
+            text-align: center;
+            font-size: 0.9rem;
         }
 
         #board {
-            /* 取消原本的 gap，讓格子緊密貼合 */
+            /* 關鍵更新 2：改用 RWD 網格設定 */
             display: grid;
-            grid-template-columns: repeat(8, 45px);
+            grid-template-columns: repeat(8, 1fr);
+            /* 8等分，自動延伸 */
             gap: 0;
+            width: 100%;
+            /* 寬度撐滿父元素 */
+            max-width: 420px;
+            /* 但在電腦上最大不超過 420px */
+
             background: #334155;
             padding: 8px;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            border: 2px solid #0f172a;
+            border: 1px solid #0f172a;
+            box-sizing: border-box;
         }
 
         .cell {
-            width: 45px;
-            height: 45px;
+            /* 關鍵更新 3：魔法屬性，讓格子永遠保持正方形 */
+            aspect-ratio: 1 / 1;
+            width: 100%;
+
             background: #cbd5e1;
             cursor: pointer;
             box-sizing: border-box;
-            /* 確保邊框不會撐破格子 */
             border: 1px solid #475569;
-            /* 預設的網格線 */
             border-radius: 4px;
             transition: background 0.2s;
+            /* 防止手機點擊時出現藍色閃爍框 */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .cell:hover:not(.blocked):not(.piece) {
             background: #e2e8f0;
         }
 
-        /* 障礙物樣式 */
         .cell.blocked {
             background: #0f172a !important;
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
@@ -63,7 +77,6 @@
             cursor: not-allowed;
         }
 
-        /* 12種方塊配色 (移除預設 border，改由 JS 動態生成) */
         .piece {
             box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
         }
@@ -117,14 +130,17 @@
         }
 
         .controls {
-            margin: 25px;
+            margin: 20px 0;
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            /* 手機螢幕太窄時，按鈕自動換行 */
+            justify-content: center;
         }
 
         button {
-            padding: 12px 24px;
-            font-size: 16px;
+            padding: 12px 20px;
+            font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
             border: none;
@@ -132,6 +148,8 @@
             color: white;
             transition: 0.2s;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            /* 防止手機點擊出現藍框 */
+            -webkit-tap-highlight-color: transparent;
         }
 
         button:active {
@@ -162,10 +180,11 @@
         }
 
         #status {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: bold;
             color: #fbbf24;
             height: 24px;
+            text-align: center;
         }
     </style>
 </head>
@@ -190,7 +209,6 @@
         let solverGenerator = null;
         let solutionCount = 0;
 
-        // 初始化網格
         for (let i = 0; i < 64; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
@@ -209,7 +227,6 @@
             cells.push(cell);
         }
 
-        // 定義方塊
         const SHAPES = {
             F: [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], L: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1]],
             P: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]], N: [[0, 1], [1, 1], [2, 1], [2, 0], [3, 0]], T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
@@ -232,7 +249,6 @@
             ALL_VARIANTS[key] = variants;
         }
 
-        // 孤島檢查
         function getIslands(currentGrid) {
             const visited = new Set();
             for (let i = 0; i < 64; i++) {
@@ -257,7 +273,6 @@
             return true;
         }
 
-        // 回溯演算法 (Generator)
         function* createSolver() {
             const grid = Array(64).fill(null);
             blocked.forEach(idx => grid[idx] = 'BLOCK');
@@ -312,15 +327,13 @@
                 if (!result.done) {
                     solutionCount++;
 
-                    // 清除舊畫面與行內樣式
                     cells.forEach(c => {
                         if (!c.classList.contains('blocked')) {
                             c.className = 'cell';
-                            c.style = ''; // 重置邊界設定
+                            c.style = '';
                         }
                     });
 
-                    // 繪製新解並計算動態邊界！
                     result.value.forEach((name, i) => {
                         if (name && name !== 'BLOCK') {
                             cells[i].className = `cell piece ${name}`;
@@ -328,22 +341,19 @@
                             const r = Math.floor(i / 8);
                             const c = i % 8;
 
-                            // 判斷上下左右是不是同一個方塊
                             const topSame = r > 0 && result.value[i - 8] === name;
                             const bottomSame = r < 7 && result.value[i + 8] === name;
                             const leftSame = c > 0 && result.value[i - 1] === name;
                             const rightSame = c < 7 && result.value[i + 1] === name;
 
-                            const outerLine = '3px solid #0f172a'; // 方塊的黑色外框
-                            const innerLine = '1px solid rgba(255,255,255,0.2)'; // 內部淡淡的接縫線
+                            const outerLine = '3px solid #0f172a';
+                            const innerLine = '1px solid rgba(255,255,255,0.2)';
 
-                            // 依據相鄰狀態畫線
                             cells[i].style.borderTop = topSame ? innerLine : outerLine;
                             cells[i].style.borderBottom = bottomSame ? innerLine : outerLine;
                             cells[i].style.borderLeft = leftSame ? innerLine : outerLine;
                             cells[i].style.borderRight = rightSame ? innerLine : outerLine;
 
-                            // 動態設定圓角 (如果是轉角處才加上圓角，讓積木更滑順)
                             cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
                             cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
                             cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
