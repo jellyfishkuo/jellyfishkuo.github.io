@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Pentomino 8x8 視覺強化版</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #1e293b;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        #board {
+            /* 取消原本的 gap，讓格子緊密貼合 */
+            display: grid;
+            grid-template-columns: repeat(8, 45px);
+            gap: 0;
+            background: #334155;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border: 2px solid #0f172a;
+        }
+
+        .cell {
+            width: 45px;
+            height: 45px;
+            background: #cbd5e1;
+            cursor: pointer;
+            box-sizing: border-box;
+            /* 確保邊框不會撐破格子 */
+            border: 1px solid #475569;
+            /* 預設的網格線 */
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .cell:hover:not(.blocked):not(.piece) {
+            background: #e2e8f0;
+        }
+
+        /* 障礙物樣式 */
+        .cell.blocked {
+            background: #0f172a !important;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+            border: 2px solid #000 !important;
+            border-radius: 6px !important;
+            cursor: not-allowed;
+        }
+
+        /* 12種方塊配色 (移除預設 border，改由 JS 動態生成) */
+        .piece {
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .F {
+            background: #ef4444;
+        }
+
+        .I {
+            background: #3b82f6;
+        }
+
+        .L {
+            background: #f59e0b;
+        }
+
+        .P {
+            background: #10b981;
+        }
+
+        .N {
+            background: #8b5cf6;
+        }
+
+        .T {
+            background: #ec4899;
+        }
+
+        .U {
+            background: #06b6d4;
+        }
+
+        .V {
+            background: #f97316;
+        }
+
+        .W {
+            background: #6366f1;
+        }
+
+        .X {
+            background: #84cc16;
+        }
+
+        .Y {
+            background: #eab308;
+        }
+
+        .Z {
+            background: #14b8a6;
+        }
+
+        .controls {
+            margin: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        #solveBtn {
+            background: #3b82f6;
+        }
+
+        #solveBtn:hover {
+            background: #2563eb;
+        }
+
+        #solveBtn:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #resetBtn {
+            background: #ef4444;
+        }
+
+        #resetBtn:hover {
+            background: #dc2626;
+        }
+
+        #status {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fbbf24;
+            height: 24px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Pentomino 8x8 Solver</h1>
+    <p>請點擊設定 4 個障礙物（目前：<span id="count">0</span>/4）</p>
+
+    <div id="board"></div>
+
+    <div class="controls">
+        <button id="solveBtn">開始計算</button>
+        <button id="resetBtn">重設網格</button>
+    </div>
+
+    <div id="status"></div>
+
+    <script>
+        const boardEl = document.getElementById('board');
+        const blocked = new Set();
+        const cells = [];
+        let solverGenerator = null;
+        let solutionCount = 0;
+
+        // 初始化網格
+        for (let i = 0; i < 64; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.onclick = () => {
+                if (solverGenerator !== null) return;
+                if (blocked.has(i)) {
+                    blocked.delete(i);
+                    cell.classList.remove('blocked');
+                } else if (blocked.size < 4) {
+                    blocked.add(i);
+                    cell.classList.add('blocked');
+                }
+                document.getElementById('count').innerText = blocked.size;
+            };
+            boardEl.appendChild(cell);
+            cells.push(cell);
+        }
+
+        // 定義方塊
+        const SHAPES = {
+            F: [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], L: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1]],
+            P: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]], N: [[0, 1], [1, 1], [2, 1], [2, 0], [3, 0]], T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
+            U: [[0, 0], [0, 1], [1, 1], [2, 1], [2, 0]], V: [[0, 0], [0, 1], [0, 2], [1, 0], [2, 0]], W: [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2]],
+            X: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], Y: [[0, 0], [1, 0], [2, 0], [3, 0], [1, 1]], Z: [[0, 0], [1, 0], [1, 1], [1, 2], [2, 2]]
+        };
+
+        const ALL_VARIANTS = {};
+        for (let key in SHAPES) {
+            const variants = [];
+            let curr = SHAPES[key];
+            for (let i = 0; i < 8; i++) {
+                if (i === 4) curr = curr.map(([r, c]) => [r, -c]);
+                curr = curr.map(([r, c]) => [c, -r]);
+                const minY = Math.min(...curr.map(p => p[0])), minX = Math.min(...curr.map(p => p[1]));
+                const normalized = curr.map(([r, c]) => [r - minY, c - minX]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+                const s = JSON.stringify(normalized);
+                if (!variants.find(v => JSON.stringify(v) === s)) variants.push(normalized);
+            }
+            ALL_VARIANTS[key] = variants;
+        }
+
+        // 孤島檢查
+        function getIslands(currentGrid) {
+            const visited = new Set();
+            for (let i = 0; i < 64; i++) {
+                if (currentGrid[i] === null && !visited.has(i)) {
+                    let size = 0;
+                    const q = [i];
+                    visited.add(i);
+                    while (q.length) {
+                        const curr = q.shift();
+                        size++;
+                        const r = Math.floor(curr / 8), c = curr % 8;
+                        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dr, dc]) => {
+                            const nr = r + dr, nc = c + dc, nid = nr * 8 + nc;
+                            if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && currentGrid[nid] === null && !visited.has(nid)) {
+                                visited.add(nid); q.push(nid);
+                            }
+                        });
+                    }
+                    if (size % 5 !== 0) return false;
+                }
+            }
+            return true;
+        }
+
+        // 回溯演算法 (Generator)
+        function* createSolver() {
+            const grid = Array(64).fill(null);
+            blocked.forEach(idx => grid[idx] = 'BLOCK');
+            const remaining = Object.keys(ALL_VARIANTS);
+
+            function* backtrack(currentGrid, pieces) {
+                if (pieces.length === 0) {
+                    yield currentGrid;
+                    return;
+                }
+
+                const firstEmpty = currentGrid.indexOf(null);
+                if (firstEmpty === -1) return;
+                const r = Math.floor(firstEmpty / 8), c = firstEmpty % 8;
+
+                for (let i = 0; i < pieces.length; i++) {
+                    const name = pieces[i];
+                    for (const v of ALL_VARIANTS[name]) {
+                        const positions = v.map(([dr, dc]) => {
+                            const nr = r + dr - v[0][0], nc = c + dc - v[0][1];
+                            return (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) ? nr * 8 + nc : -1;
+                        });
+
+                        if (positions.every(p => p !== -1 && currentGrid[p] === null)) {
+                            positions.forEach(p => currentGrid[p] = name);
+                            if (getIslands(currentGrid)) yield* backtrack(currentGrid, pieces.filter(p => p !== name));
+                            positions.forEach(p => currentGrid[p] = null);
+                        }
+                    }
+                }
+            }
+            yield* backtrack(grid, remaining);
+        }
+
+        document.getElementById('solveBtn').onclick = () => {
+            if (blocked.size !== 4) return alert("請剛好選取 4 個空格作為障礙物！");
+
+            const btn = document.getElementById('solveBtn');
+            const status = document.getElementById('status');
+
+            if (solverGenerator === null) {
+                solverGenerator = createSolver();
+                solutionCount = 0;
+            }
+
+            status.innerText = "計算中...";
+            btn.disabled = true;
+
+            setTimeout(() => {
+                const result = solverGenerator.next();
+
+                if (!result.done) {
+                    solutionCount++;
+
+                    // 清除舊畫面與行內樣式
+                    cells.forEach(c => {
+                        if (!c.classList.contains('blocked')) {
+                            c.className = 'cell';
+                            c.style = ''; // 重置邊界設定
+                        }
+                    });
+
+                    // 繪製新解並計算動態邊界！
+                    result.value.forEach((name, i) => {
+                        if (name && name !== 'BLOCK') {
+                            cells[i].className = `cell piece ${name}`;
+
+                            const r = Math.floor(i / 8);
+                            const c = i % 8;
+
+                            // 判斷上下左右是不是同一個方塊
+                            const topSame = r > 0 && result.value[i - 8] === name;
+                            const bottomSame = r < 7 && result.value[i + 8] === name;
+                            const leftSame = c > 0 && result.value[i - 1] === name;
+                            const rightSame = c < 7 && result.value[i + 1] === name;
+
+                            const outerLine = '3px solid #0f172a'; // 方塊的黑色外框
+                            const innerLine = '1px solid rgba(255,255,255,0.2)'; // 內部淡淡的接縫線
+
+                            // 依據相鄰狀態畫線
+                            cells[i].style.borderTop = topSame ? innerLine : outerLine;
+                            cells[i].style.borderBottom = bottomSame ? innerLine : outerLine;
+                            cells[i].style.borderLeft = leftSame ? innerLine : outerLine;
+                            cells[i].style.borderRight = rightSame ? innerLine : outerLine;
+
+                            // 動態設定圓角 (如果是轉角處才加上圓角，讓積木更滑順)
+                            cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
+                            cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
+                            cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
+                            cells[i].style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
+                        }
+                    });
+
+                    status.innerText = `成功！(目前為第 ${solutionCount} 個解)`;
+                    btn.innerText = "尋找下一個解";
+                    btn.disabled = false;
+                } else {
+                    status.innerText = solutionCount > 0 ? `搜尋完畢！共有 ${solutionCount} 個解。` : "這個地形完全無解！";
+                    btn.innerText = "已無更多解";
+                    btn.disabled = true;
+                }
+            }, 50);
+        };
+
+        document.getElementById('resetBtn').onclick = () => location.reload();
+    </script>
+</body>
+
+</html>
