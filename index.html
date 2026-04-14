@@ -432,6 +432,7 @@
             background: radial-gradient(circle at center, rgba(124, 58, 237, 0.08) 0%, transparent 60%);
             opacity: 0;
             transition: opacity 0.4s;
+            pointer-events: none;
         }
 
         .project-card:hover {
@@ -479,6 +480,8 @@
             text-decoration: none;
             letter-spacing: 0.08em;
             transition: gap 0.2s;
+            position: relative;
+            z-index: 10;
         }
 
         .project-link:hover {
