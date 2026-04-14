@@ -14,10 +14,10 @@
             --cell-size: 45px;
         }
 
-        /* 手機版極限縮放，保證 10 格寬度絕對不會超出螢幕 */
+        /* 手機版極限縮放：同時綁定寬度 (vw) 與高度 (vh)，保證絕對不超框 */
         @media (max-width: 1000px) {
             :root {
-                --cell-size: min(9vw, 40px);
+                --cell-size: min(9vw, 4.5vh, 35px);
             }
         }
 
@@ -28,15 +28,22 @@
             margin: 0;
             padding: 2vh 10px;
             min-height: 100vh;
-            overflow-x: hidden;
-            touch-action: pan-y;
+            
+            /* 徹底鎖死畫面，打造 App 級體驗，禁止任何滾動與回彈 */
+            overflow: hidden;
+            touch-action: none;
         }
 
         h1 {
             margin: 0 0 15px 0;
-            font-size: clamp(1.4rem, 4vw, 1.8rem);
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
             letter-spacing: 2px;
             text-align: center;
+        }
+
+        @media (max-width: 1000px) {
+            body { padding: 1vh 5px; }
+            h1 { margin: 0 0 8px 0; }
         }
 
         /* --- 核心排版：三欄平衡，板子絕對置中 --- */
@@ -66,26 +73,26 @@
             flex-direction: column;
             align-items: flex-start;
             padding-left: 30px;
-            /* 與板子拉開距離 */
         }
 
         @media (min-width: 1000px) {
-            .right-tray {
-                margin-top: 36px;
-            }
+            .right-tray { margin-top: 36px; }
         }
 
-        /* 手機版：全部轉為上下直排 */
+        /* 手機版：全部轉為上下直排，並壓縮間距 */
         @media (max-width: 1000px) {
             #main-layout {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                gap: 8px; /* 縮小區塊間距 */
             }
+
+            .center-board { gap: 8px; }
 
             .right-tray {
                 padding-left: 0;
-                margin-top: 10px;
+                margin-top: 5px;
                 align-items: center;
             }
         }
@@ -98,7 +105,7 @@
             align-items: center;
             font-weight: bold;
             color: var(--accent-yellow);
-            font-size: 1.1rem;
+            font-size: clamp(0.9rem, 3vw, 1.1rem);
             padding: 0 5px;
             box-sizing: border-box;
         }
@@ -151,6 +158,10 @@
             width: 100%;
         }
 
+        @media (max-width: 1000px) {
+            .controls { gap: 6px; }
+        }
+
         button {
             padding: 12px;
             border: none;
@@ -162,6 +173,10 @@
             font-size: 0.95rem;
             -webkit-tap-highlight-color: transparent;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 1000px) {
+            button { padding: 8px; font-size: 0.85rem; }
         }
 
         button:active {
@@ -176,32 +191,20 @@
             box-shadow: none;
         }
 
-        .btn-blue {
-            background: #6366f1;
-        }
-
-        .btn-blue:hover {
-            background: #4f46e5;
-        }
-
-        .btn-red {
-            background: #ef4444;
-        }
-
-        .btn-red:hover {
-            background: #dc2626;
-        }
-
-        .btn-green {
-            background: #10b981;
-            width: 100%;
-        }
+        .btn-blue { background: #6366f1; }
+        .btn-blue:hover { background: #4f46e5; }
+        .btn-red { background: #ef4444; }
+        .btn-red:hover { background: #dc2626; }
+        .btn-green { background: #10b981; width: 100%; }
 
         /* 隱形佔位框，防止按鈕出現時版面跳動 */
         .share-container {
             grid-column: span 2;
             width: 100%;
             height: 45px;
+        }
+        @media (max-width: 1000px) {
+            .share-container { height: 35px; }
         }
 
         /* --- 積木托盤 --- */
@@ -227,11 +230,13 @@
             filter: drop-shadow(0 0 10px var(--accent-yellow));
         }
 
+        /* 解決陰影殘影：拿掉 filter drop-shadow，改用透明度與放大，手感更像拿起來 */
         .piece-container.dragging {
             z-index: 9999 !important;
             cursor: grabbing;
             transition: none;
-            filter: drop-shadow(0 15px 20px rgba(0, 0, 0, 0.6));
+            opacity: 0.85;
+            transform: scale(1.05); 
         }
 
         .p-block {
@@ -424,7 +429,7 @@
             resetToTray() {
                 this.isSnapped = false;
                 this.removeFromGrid();
-                syncAllPositions(true); // 啟用動畫同步
+                syncAllPositions(true);
             }
 
             fullReset() {
@@ -531,7 +536,6 @@
             }
         }
 
-        // --- 全域無敵同步座標系統 (徹底解決放大縮小、按鈕出現被甩飛的問題) ---
         function syncAllPositions(animate = false) {
             const board = document.getElementById('board');
             const tray = document.getElementById('tray-container');
@@ -540,7 +544,7 @@
             const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
 
             pieces.forEach(p => {
-                if (p.isDragging) return; // 正在抓的積木不要干擾
+                if (p.isDragging) return;
 
                 if (p.isSnapped) {
                     p.x = bRect.left + window.scrollX + (p.gridPos.c * currentCellSize);
@@ -557,12 +561,11 @@
                     p.el.style.transition = 'none';
                 }
 
-                p.draw(); // 重新依照最新的 cell-size 繪製積木大小
+                p.draw();
                 p.updatePos();
             });
         }
 
-        // 使用 ResizeObserver 監聽板子和盒子的任何變動，0.001秒內瞬間同步座標！
         const ro = new ResizeObserver(() => syncAllPositions(false));
         ro.observe(document.getElementById('board'));
         ro.observe(document.getElementById('tray-container'));
@@ -571,12 +574,11 @@
             const currentlyMobile = window.innerWidth < 1000;
             if (currentlyMobile !== isMobileView) {
                 isMobileView = currentlyMobile;
-                setupTrayAndPieces(); // 如果跨越斷點，重新載入形狀配置
+                setupTrayAndPieces();
             }
             syncAllPositions(false);
         });
 
-        // --- 拖曳事件 ---
         document.addEventListener('pointermove', (e) => {
             if (!activeDragPiece) return;
             e.preventDefault();
@@ -620,7 +622,6 @@
         function checkWin() {
             if (pieces.every(p => p.isSnapped)) {
                 clearInterval(timerInt);
-                // 分享按鈕解除隱形，因為有事先預留高度，版面絕對不會跳動！
                 document.getElementById('shareBtn').style.visibility = 'visible';
                 setTimeout(() => alert("🎉 恭喜完成今日挑戰！"), 300);
             }
@@ -655,7 +656,6 @@
             if (!e.target.closest('.piece-container') && !e.target.closest('.controls')) select(null);
         });
 
-        // 給畫面一點時間算尺寸再同步初始位置
         setTimeout(() => {
             init();
             syncAllPositions(false);
