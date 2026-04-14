@@ -255,7 +255,7 @@
         #board.hide-text .cell:not(.blocked) span {
             opacity: 0;
         }
-
+        /* 控制按鈕：加入 touch-action: none 阻擋 disabled 狀態的穿透 */
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -263,6 +263,7 @@
             width: 100%;
             max-width: calc(var(--cell-size) * 8);
             flex-shrink: 0;
+            touch-action: none;
         }
 
         @media (max-width: 1000px) {
@@ -552,11 +553,25 @@
             <h3 style="margin-top: 5px; color: #f8fafc;">🎉 你的專屬戰績卡</h3>
             <img id="score-img" src="" alt="Score Card">
             <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 15px;">長按上方圖片即可儲存，或分享至 IG / LINE！</p>
-            <button id="copyTextBtn" class="btn-style btn-blue" style="width: 100%;">📋 複製彩色文字戰績</button>
+            <button id="copyTextBtn" class="btn-style btn-blue" style="width: 100%;">📋 複製文字戰績</button>
         </div>
     </div>
 
     <script>
+        // ==========================================
+        //  🚨 終極防護：徹底禁止 iOS Safari 雙擊放大
+        // ==========================================
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            // 如果兩次點擊間隔小於 300ms，判定為雙擊並強制阻斷
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, { passive: false });
+
+
         // ==========================================
         //  全域邏輯：切換分頁
         // ==========================================
@@ -1119,7 +1134,7 @@
                     emoji += blockedIndices.has(i) ? '⬛' : '⬜';
                 }
             }
-            navigator.clipboard.writeText(emoji).then(() => alert("📋 彩色文字戰績已複製！"));
+            navigator.clipboard.writeText(emoji).then(() => alert("📋 文字戰績已複製！"));
         };
 
         document.addEventListener('pointerdown', (e) => {
