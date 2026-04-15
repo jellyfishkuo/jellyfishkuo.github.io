@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="logo.ico">
-    <title>技術深度剖析 | Pentomino Architecture</title>
-    
+    <title>技術剖析 | Pentomino Architecture</title>
+
     <script>
         MathJax = {
             tex: {
@@ -32,116 +31,544 @@
             --border: rgba(255, 255, 255, 0.08);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        /* ── 終極防爆版鎖定：禁止整個頁面左右滑動 ── */
-        html, body { 
-            background: var(--bg); 
-            color: var(--text); 
-            font-family: 'Syne', sans-serif; 
-            line-height: 1.8; 
-            width: 100%; 
-            max-width: 100%; 
-            overflow-x: hidden; 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ── 終極防爆版鎖定 ── */
+        html,
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            line-height: 1.8;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         /* ── 背景光暈特效 ── */
-        .bg-glow { position: fixed; top: -20vh; right: -10vw; width: 60vw; height: 60vw; background: radial-gradient(circle, var(--accent-glow), transparent 70%); filter: blur(120px); z-index: -1; opacity: 0.5; pointer-events: none; }
-        .bg-glow-2 { position: fixed; bottom: -20vh; left: -10vw; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(6, 182, 212, 0.2), transparent 70%); filter: blur(100px); z-index: -1; pointer-events: none; }
+        .bg-glow {
+            position: fixed;
+            top: -20vh;
+            right: -10vw;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, var(--accent-glow), transparent 70%);
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .bg-glow-2 {
+            position: fixed;
+            bottom: -20vh;
+            left: -10vw;
+            width: 50vw;
+            height: 50vw;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.2), transparent 70%);
+            filter: blur(100px);
+            z-index: -1;
+            pointer-events: none;
+        }
 
         /* ── Header ── */
-        header { padding: 6rem 10vw 3rem; position: relative; }
-        .back-link { font-family: 'Space Mono', monospace; color: var(--accent2); text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 2.5rem; transition: 0.3s; padding: 8px 16px; border: 1px solid var(--accent2); border-radius: 100px; background: rgba(6, 182, 212, 0.05); }
-        .back-link:hover { background: rgba(6, 182, 212, 0.15); transform: translateX(-5px); box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
-        
-        h1 { font-size: clamp(2.2rem, 6vw, 5rem); font-weight: 800; margin-bottom: 1rem; line-height: 1.2; letter-spacing: -0.02em; background: linear-gradient(135deg, #ffffff 30%, var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; word-wrap: break-word; }
-        .subtitle { font-family: 'Space Mono', monospace; color: var(--muted); font-size: clamp(0.85rem, 2vw, 1.1rem); border-left: 2px solid var(--accent); padding-left: 1rem; margin-top: 1rem; }
+        header {
+            padding: 6rem 10vw 3rem;
+            position: relative;
+        }
+
+        .back-link {
+            font-family: 'Space Mono', monospace;
+            color: var(--accent2);
+            text-decoration: none;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2.5rem;
+            transition: 0.3s;
+            padding: 8px 16px;
+            border: 1px solid var(--accent2);
+            border-radius: 100px;
+            background: rgba(6, 182, 212, 0.05);
+        }
+
+        .back-link:hover {
+            background: rgba(6, 182, 212, 0.15);
+            transform: translateX(-5px);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+        }
+
+        h1 {
+            font-size: clamp(2.2rem, 6vw, 5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 30%, var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            word-wrap: break-word;
+        }
+
+        .subtitle {
+            font-family: 'Space Mono', monospace;
+            color: var(--muted);
+            font-size: clamp(0.85rem, 2vw, 1.1rem);
+            border-left: 2px solid var(--accent);
+            padding-left: 1rem;
+            margin-top: 1rem;
+        }
 
         /* ── Floating Tabs ── */
-        .tab-wrapper { position: sticky; top: 1rem; z-index: 100; margin: 0 10vw 3rem; display: flex; justify-content: flex-start; }
-        .tabs-container { display: flex; gap: 5px; background: var(--surface-glass); backdrop-filter: blur(12px); border: 1px solid var(--border); padding: 6px; border-radius: 100px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); max-width: 100%; }
-        .tab-btn { background: transparent; border: none; color: var(--muted); padding: 0.8rem 1.8rem; font-family: 'Space Mono', monospace; font-size: 0.9rem; border-radius: 100px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: bold; position: relative; flex: 1; text-align: center; white-space: nowrap; }
-        .tab-btn:hover { color: #fff; }
-        .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; box-shadow: 0 4px 15px var(--accent-glow); }
+        .tab-wrapper {
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+            margin: 0 10vw 3rem;
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 5px;
+            background: var(--surface-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            padding: 6px;
+            border-radius: 100px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            padding: 0.8rem 1.8rem;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: bold;
+            position: relative;
+            flex: 1;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
 
         /* ── Main Layout ── */
-        main { padding: 0 10vw 6rem; max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 2.2fr 1fr; gap: 4rem; width: 100%; }
-        .content { min-width: 0; /* 防止 Grid 子元素撐破父容器 */ } 
-        .tab-content { display: none; animation: slideUpFade 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; max-width: 100%; }
-        .tab-content.active { display: block; }
+        main {
+            padding: 0 10vw 6rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2.2fr 1fr;
+            gap: 4rem;
+            width: 100%;
+        }
 
-        @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .content {
+            min-width: 0;
+        }
+
+        .tab-content {
+            display: none;
+            animation: slideUpFade 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            max-width: 100%;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
         /* ── Section Styling ── */
-        .section-block { margin-bottom: 5rem; max-width: 100%; }
-        h2 { font-size: clamp(1.4rem, 4vw, 2rem); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 12px; color: #fff; line-height: 1.3; }
-        h2::before { content: ''; width: 20px; height: 4px; background: var(--accent2); display: inline-block; border-radius: 2px; flex-shrink: 0; }
-        h3 { font-family: 'Space Mono', monospace; color: var(--accent); margin: 2.5rem 0 1.2rem; font-size: 1.2rem; word-wrap: break-word; }
-        
-        p { color: #cbd5e1; margin-bottom: 1.5rem; text-align: justify; font-size: 1rem; word-wrap: break-word; }
+        .section-block {
+            margin-bottom: 5rem;
+            max-width: 100%;
+        }
+
+        h2 {
+            font-size: clamp(1.4rem, 4vw, 2rem);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+            line-height: 1.3;
+        }
+
+        h2::before {
+            content: '';
+            width: 20px;
+            height: 4px;
+            background: var(--accent2);
+            display: inline-block;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        h3 {
+            font-family: 'Space Mono', monospace;
+            color: var(--accent);
+            margin: 2.5rem 0 1.2rem;
+            font-size: 1.2rem;
+            word-wrap: break-word;
+        }
+
+        p {
+            color: #cbd5e1;
+            margin-bottom: 1.5rem;
+            text-align: justify;
+            font-size: 1rem;
+            word-wrap: break-word;
+        }
 
         /* ── Tech Cards & Lists ── */
-        .tech-card { background: var(--surface); border: 1px solid var(--border); padding: 2.5rem; border-radius: 20px; margin-top: 1.5rem; transition: border-color 0.3s, transform 0.3s; position: relative; max-width: 100%; overflow: hidden; }
-        .tech-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, var(--accent), var(--accent2)); }
-        .tech-card:hover { border-color: rgba(6, 182, 212, 0.3); transform: translateY(-3px); }
-        
-        ul.detail-list { list-style: none; margin: 1.5rem 0; padding-left: 0; }
-        ul.detail-list li { margin-bottom: 1.5rem; padding-left: 1.8rem; position: relative; color: #cbd5e1; font-size: 0.95rem; word-wrap: break-word; }
-        ul.detail-list li::before { content: '▹'; position: absolute; left: 0; color: var(--accent2); font-size: 1.2rem; font-family: 'Space Mono'; }
-        strong { color: #fff; font-weight: 700; }
+        .tech-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 2.5rem;
+            border-radius: 20px;
+            margin-top: 1.5rem;
+            transition: border-color 0.3s, transform 0.3s;
+            position: relative;
+            max-width: 100%;
+            overflow: hidden;
+        }
 
-        /* ── Mac-Style Code Snippet Window (強制換行防撐破) ── */
-        .code-window { background: #0d1117; border-radius: 12px; border: 1px solid #30363d; margin: 2rem 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 100%; display: flex; flex-direction: column; }
-        .code-header { background: #161b22; padding: 12px 16px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid #30363d; border-radius: 12px 12px 0 0; }
-        .code-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-        .dot-r { background: #ff5f56; } .dot-y { background: #ffbd2e; } .dot-g { background: #27c93f; }
-        .code-title { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 0.75rem; color: #8b949e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        
-        .code-body { padding: 1.2rem; font-family: 'Space Mono', monospace; font-size: 0.85rem; line-height: 1.6; color: #c9d1d9; background: #0d1117; border-radius: 0 0 12px 12px; }
-        
-        /* 核心修復：讓程式碼自動換行，不再超出畫面 */
-        .code-body pre { margin: 0; font-family: inherit; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-        
-        .kw { color: #ff7b72; } /* Keyword */
-        .fn { color: #d2a8ff; } /* Function */
-        .str { color: #a5d6ff; } /* String */
-        .cm { color: #8b949e; font-style: italic; } /* Comment */
-        .op { color: #79c0ff; } /* Operator */
-        .var { color: #7ee787; } /* Variables */
+        .tech-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--accent), var(--accent2));
+        }
+
+        .tech-card:hover {
+            border-color: rgba(6, 182, 212, 0.3);
+            transform: translateY(-3px);
+        }
+
+        ul.detail-list {
+            list-style: none;
+            margin: 1.5rem 0;
+            padding-left: 0;
+        }
+
+        ul.detail-list li {
+            margin-bottom: 1.5rem;
+            padding-left: 1.8rem;
+            position: relative;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            word-wrap: break-word;
+        }
+
+        ul.detail-list li::before {
+            content: '▹';
+            position: absolute;
+            left: 0;
+            color: var(--accent2);
+            font-size: 1.2rem;
+            font-family: 'Space Mono';
+        }
+
+        strong {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        /* ── Mac-Style Code Snippet Window ── */
+        .code-window {
+            background: #0d1117;
+            border-radius: 12px;
+            border: 1px solid #30363d;
+            margin: 2rem 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .code-header {
+            background: #161b22;
+            padding: 12px 16px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            border-bottom: 1px solid #30363d;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .dot-r {
+            background: #ff5f56;
+        }
+
+        .dot-y {
+            background: #ffbd2e;
+        }
+
+        .dot-g {
+            background: #27c93f;
+        }
+
+        .code-title {
+            margin-left: auto;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #8b949e;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .code-body {
+            padding: 1.2rem;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+            background: #0d1117;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .code-body pre {
+            margin: 0;
+            font-family: inherit;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+
+        .kw {
+            color: #ff7b72;
+        }
+
+        /* Keyword */
+        .fn {
+            color: #d2a8ff;
+        }
+
+        /* Function */
+        .str {
+            color: #a5d6ff;
+        }
+
+        /* String */
+        .cm {
+            color: #8b949e;
+            font-style: italic;
+        }
+
+        /* Comment */
+        .op {
+            color: #79c0ff;
+        }
+
+        /* Operator */
+        .var {
+            color: #7ee787;
+        }
+
+        /* Variables */
+        .num {
+            color: #79c0ff;
+        }
+
+        /* Number */
 
         /* 數學區塊防撐破 */
-        .math-block { text-align: center; margin: 2rem 0; font-size: 1.2rem; color: #fff; background: rgba(124, 58, 237, 0.05); padding: 1.5rem; border-radius: 16px; border: 1px dashed rgba(124, 58, 237, 0.3); overflow-wrap: break-word; word-break: break-word; }
-        .inline-code { font-family: 'Space Mono', monospace; color: var(--accent2); background: rgba(6, 182, 212, 0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; word-break: break-word; }
+        .math-block {
+            text-align: center;
+            margin: 2rem 0;
+            font-size: 1.2rem;
+            color: #fff;
+            background: rgba(124, 58, 237, 0.05);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px dashed rgba(124, 58, 237, 0.3);
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .inline-code {
+            font-family: 'Space Mono', monospace;
+            color: var(--accent2);
+            background: rgba(6, 182, 212, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            word-break: break-word;
+        }
 
         /* ── Sidebar ── */
-        .sidebar { position: sticky; top: 6rem; height: fit-content; max-width: 100%; }
-        .play-card { background: var(--surface); padding: 2.5rem 2rem; border-radius: 20px; border: 1px solid var(--border); text-align: center; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); position: relative; overflow: hidden; }
-        .play-card::before { content: ''; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: var(--accent2); filter: blur(100px); opacity: 0.2; pointer-events: none; }
-        
-        .btn { display: block; padding: 1rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; text-decoration: none; font-family: 'Space Mono', monospace; font-weight: bold; border-radius: 12px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; margin-top: 2rem; position: relative; z-index: 1; border: none; cursor: pointer; font-size: 0.9rem; }
-        .btn:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4); }
+        .sidebar {
+            position: sticky;
+            top: 6rem;
+            height: fit-content;
+            max-width: 100%;
+        }
 
-        /* ── 📱 手機版極限優化 (Mobile Responsive) ── */
-        @media (max-width: 900px) { 
-            main { grid-template-columns: 1fr; gap: 2rem; padding: 0 5vw 4rem; display: flex; flex-direction: column; } 
-            header { padding: 4rem 5vw 2rem; }
-            .sidebar { position: static; margin-top: 1rem; width: 100%; } 
-            
-            /* Tab 變成直列疊放，防止按鈕太寬被切斷 */
-            .tab-wrapper { margin: 0 5vw 2rem; justify-content: center; }
-            .tabs-container { flex-direction: column; width: 100%; border-radius: 16px; padding: 8px; }
-            .tab-btn { width: 100%; padding: 1rem; border-radius: 10px; font-size: 0.9rem; }
-            
-            /* 卡片內縮與文字縮小，提升手機閱讀性 */
-            .tech-card { padding: 1.5rem; border-radius: 16px; margin-top: 1rem; }
-            h2 { font-size: 1.5rem; margin-bottom: 1rem; }
-            h3 { font-size: 1.1rem; margin: 2rem 0 1rem; }
-            p, ul.detail-list li { font-size: 0.95rem; }
-            
-            /* 程式碼字體再微調，確保排版完美 */
-            .code-body { font-size: 0.75rem; padding: 1rem; }
-            .math-block { padding: 1rem; font-size: 1rem; }
-            .play-card { padding: 2rem 1.5rem; }
+        .play-card {
+            background: var(--surface);
+            padding: 2.5rem 2rem;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .play-card::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 150px;
+            height: 150px;
+            background: var(--accent2);
+            filter: blur(100px);
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        .btn {
+            display: block;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: white;
+            text-decoration: none;
+            font-family: 'Space Mono', monospace;
+            font-weight: bold;
+            border-radius: 12px;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2rem;
+            position: relative;
+            z-index: 1;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4);
+        }
+
+        /* ── 📱 手機版極限優化 ── */
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                padding: 0 5vw 4rem;
+                display: flex;
+                flex-direction: column;
+            }
+
+            header {
+                padding: 4rem 5vw 2rem;
+            }
+
+            .sidebar {
+                position: static;
+                margin-top: 1rem;
+                width: 100%;
+            }
+
+            .tab-wrapper {
+                margin: 0 5vw 2rem;
+                justify-content: center;
+            }
+
+            .tabs-container {
+                flex-direction: column;
+                width: 100%;
+                border-radius: 16px;
+                padding: 8px;
+            }
+
+            .tab-btn {
+                width: 100%;
+                padding: 1rem;
+                border-radius: 10px;
+                font-size: 0.9rem;
+            }
+
+            .tech-card {
+                padding: 1.5rem;
+                border-radius: 16px;
+                margin-top: 1rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+
+            h3 {
+                font-size: 1.1rem;
+                margin: 2rem 0 1rem;
+            }
+
+            p,
+            ul.detail-list li {
+                font-size: 0.95rem;
+            }
+
+            .code-body {
+                font-size: 0.75rem;
+                padding: 1rem;
+            }
+
+            .math-block {
+                padding: 1rem;
+                font-size: 1rem;
+            }
+
+            .play-card {
+                padding: 2rem 1.5rem;
+            }
         }
     </style>
 </head>
@@ -165,102 +592,99 @@
 
     <main>
         <div class="content">
-            
+
             <div id="tab-solver" class="tab-content active">
                 <section class="section-block">
                     <h2>I. 搜尋空間複雜度極限</h2>
                     <p>將 12 種五格骨牌填入 8x8 網格（扣除 4 障礙物）是經典的「精確覆蓋問題」。若使用暴力的 DFS，面對 12 種骨牌各自的 8 種變體（旋轉/翻轉），理論狀態空間高達：</p>
-                    
+
                     <div class="math-block">
                         $$ O(12! \times 8^{12}) $$
                     </div>
-                    
-                    <p>為了在不依賴 DLX (Dancing Links) 的前提下實現極速求解，並保留給前端動畫渲染的彈性，我設計了 <strong>優化版的回溯法 (Optimized Backtracking)</strong>，並導入嚴苛的空間幾何剪枝機制。</p>
-                    
+
+                    <p>為了在不依賴 DLX (Dancing Links) 的前提下實現極速求解，並保留給前端動畫渲染的彈性，我設計了 <strong>優化版的回溯法 (Optimized
+                            Backtracking)</strong>，並導入嚴苛的空間幾何剪枝機制。</p>
+
                     <div class="tech-card">
                         <h3>1. 記憶體降維：1D Array 狀態管理</h3>
-                        <p>傳統的演算法教學多使用二維陣列（2D Array）來表示網格，但在 JavaScript 引擎（如 V8）中，陣列中的陣列在記憶體分配上是不連續的。這會導致每一層遞迴複製陣列時，產生巨大的 GC (Garbage Collection) 負擔與尋址延遲。</p>
+                        <p>傳統的演算法教學多使用二維陣列（2D Array）來表示網格，但在 JavaScript 引擎（如
+                            V8）中，陣列中的陣列在記憶體分配上是不連續的。這會導致每一層遞迴複製陣列時，產生巨大的 GC (Garbage Collection) 負擔與尋址延遲。</p>
                         <p>我的解法是：<strong>將 8x8 網格完全扁平化為長度 64 的一維陣列。</strong><br>
-                        任何 2D 座標 <span class="inline-code">[row, col]</span> 皆可透過公式 <span class="inline-code">index = row * 8 + col</span> 進行 $O(1)$ 映射，極大地提升了底層的存取效能。</p>
+                            任何 2D 座標 <span class="inline-code">[row, col]</span> 皆可透過公式 <span class="inline-code">index
+                                = row * 8 + col</span> 進行 $O(1)$ 映射，極大地提升了底層的存取效能。</p>
 
                         <h3>2. 孤島偵測與餘數剪枝 (Flood Fill Pruning)</h3>
                         <p>骨牌在擺放過程中，極容易將剩餘的空格切分成零碎的「死胡同」。如果不提早發現，演算法就會在這些註定失敗的分支上浪費數百萬次運算。為此，我導入了即時的連通區塊檢查。</p>
 
                         <div class="code-window">
                             <div class="code-header">
-                                <div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div>
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
                                 <div class="code-title">pruning_logic.js</div>
                             </div>
                             <div class="code-body">
-<pre><span class="kw">function</span> <span class="fn">getIslands</span>(<span class="var">currentGrid</span>) {
-    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); <span class="cm">// 紀錄已走訪的格子</span>
+                                <pre><span class="kw">function</span> <span class="fn">getIslands</span>(<span class="var">currentGrid</span>) {
+    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); 
     
-    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="op">0</span>; <span class="var">i</span> <span class="op"><</span> <span class="op">64</span>; <span class="var">i</span><span class="op">++</span>) {
-        <span class="cm">// 尋找尚未被填補，且還沒走訪過的空格作為起點</span>
+    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op"><</span> <span class="num">64</span>; <span class="var">i</span><span class="op">++</span>) {
         <span class="kw">if</span> (<span class="var">currentGrid</span>[<span class="var">i</span>] <span class="op">===</span> <span class="kw">null</span> <span class="op">&&</span> <span class="op">!</span><span class="var">visited</span>.<span class="fn">has</span>(<span class="var">i</span>)) {
-            <span class="kw">let</span> <span class="var">size</span> <span class="op">=</span> <span class="op">0</span>;
+            <span class="kw">let</span> <span class="var">size</span> <span class="op">=</span> <span class="num">0</span>;
             <span class="kw">const</span> <span class="var">q</span> <span class="op">=</span> [<span class="var">i</span>]; <span class="cm">// 初始化 BFS 佇列</span>
             <span class="var">visited</span>.<span class="fn">add</span>(<span class="var">i</span>);
             
-            <span class="cm">// 執行非遞迴廣度優先搜尋 (BFS)，探索整個連續區塊</span>
+            <span class="cm">// 非遞迴 BFS，避免極端碎塊導致 Call Stack Overflow</span>
             <span class="kw">while</span> (<span class="var">q</span>.<span class="fn">length</span>) {
                 <span class="kw">const</span> <span class="var">curr</span> <span class="op">=</span> <span class="var">q</span>.<span class="fn">shift</span>();
                 <span class="var">size</span><span class="op">++</span>;
-                <span class="cm">// 略：檢查上下左右 4 個相鄰格，若合法且為空則推入 Queue</span>
+                <span class="cm">// ... 將 4 個相鄰且合法的空格推入 Queue</span>
             }
             
-            <span class="cm">// 🎯 核心剪枝邏輯 (Pruning Condition)</span>
-            <span class="cm">// 每塊骨牌面積皆為 5。若孤島面積不是 5 的倍數，此盤面絕對無解！</span>
-            <span class="kw">if</span> (<span class="var">size</span> <span class="op">%</span> <span class="op">5</span> <span class="op">!==</span> <span class="op">0</span>) <span class="kw">return false</span>; 
+            <span class="cm">// 🎯 核心剪枝 (Pruning Condition)</span>
+            <span class="cm">// 孤島面積若不為 5 的倍數，此路徑絕對無解！</span>
+            <span class="kw">if</span> (<span class="var">size</span> <span class="op">%</span> <span class="num">5</span> <span class="op">!==</span> <span class="num">0</span>) <span class="kw">return false</span>; 
         }
     }
-    <span class="kw">return true</span>; <span class="cm">// 全部的連通區塊都合法，允許繼續遞迴</span>
+    <span class="kw">return true</span>; 
 }</pre>
                             </div>
                         </div>
                         <p><strong>為何使用 BFS 而非遞迴 DFS？</strong><br>
-                        因為在極端的碎片化盤面中，遞迴尋找連通區塊極易引發 Call Stack Overflow。透過陣列模擬佇列 (Queue) 來實作 BFS，不僅安全，還能更精準地控制記憶體。</p>
+                            在極端的碎片化盤面中，遞迴尋找連通區塊極易引發 Call Stack Overflow。透過陣列模擬佇列 (Queue) 來實作 BFS，不僅安全，還能更精準地控制記憶體。</p>
 
                         <h3>3. Event Loop 釋放：Generator 協程運算</h3>
-                        <p>一般的 DFS 是一個同步且貪婪的函式。一旦執行，它會死咬著 JS 的 Main Thread 不放，導致瀏覽器畫面完全凍結，使用者會以為網頁當機了。為了解決這個問題並實現「解題過程視覺化」，我使用了 ES6 的 Generator。</p>
+                        <p>一般的 DFS 是一個同步的貪婪函式，它會死咬 JS Main Thread 不放導致瀏覽器卡死。為實現「解題過程視覺化」，我使用了 ES6 的 Generator 來實作協程
+                            (Coroutine)。</p>
 
                         <div class="code-window">
                             <div class="code-header">
-                                <div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div>
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
                                 <div class="code-title">async_solver.js</div>
                             </div>
                             <div class="code-body">
-<pre><span class="cm">// 使用 function* 定義生成器函式，將其轉變為可暫停的協程 (Coroutine)</span>
-<span class="kw">function*</span> <span class="fn">backtrack</span>(<span class="var">currentGrid</span>, <span class="var">pieces</span>) {
-    <span class="cm">// Base Case: 所有骨牌都放置完畢</span>
-    <span class="kw">if</span> (<span class="var">pieces</span>.<span class="fn">length</span> <span class="op">===</span> <span class="op">0</span>) {
+                                <pre><span class="kw">function*</span> <span class="fn">backtrack</span>(<span class="var">currentGrid</span>, <span class="var">pieces</span>) {
+    <span class="kw">if</span> (<span class="var">pieces</span>.<span class="fn">length</span> <span class="op">===</span> <span class="num">0</span>) {
         <span class="kw">yield</span> <span class="var">currentGrid</span>; <span class="cm">// 拋出最終勝利盤面</span>
         <span class="kw">return</span>;
     }
     
-    <span class="kw">const</span> <span class="var">emptyIdx</span> <span class="op">=</span> <span class="var">currentGrid</span>.<span class="fn">indexOf</span>(<span class="kw">null</span>);
-    
     <span class="kw">for</span> (<span class="kw">const</span> <span class="var">variant</span> <span class="kw">of</span> <span class="var">allVariants</span>) {
         <span class="kw">if</span> (<span class="fn">canPlace</span>(<span class="var">variant</span>, <span class="var">emptyIdx</span>)) {
-            <span class="fn">placePiece</span>(<span class="var">variant</span>); <span class="cm">// 試著放置骨牌</span>
+            <span class="fn">placePiece</span>(<span class="var">variant</span>);
             
-            <span class="cm">// 結合孤島偵測進行先期診斷</span>
             <span class="kw">if</span> (<span class="fn">getIslands</span>(<span class="var">currentGrid</span>)) {
-                
-                <span class="cm">// 🎯 關鍵：暫停執行，將控制權還給主執行緒！</span>
+                <span class="cm">// 🎯 關鍵：暫停執行，將控制權還給主執行緒進行畫面渲染</span>
                 <span class="kw">yield</span> <span class="var">currentGrid</span>; 
-                
-                <span class="cm">// 遞迴進入下一層搜尋，並傳遞 yield</span>
                 <span class="kw">yield*</span> <span class="fn">backtrack</span>(<span class="var">currentGrid</span>, <span class="var">remainingPieces</span>);
             }
-            <span class="fn">removePiece</span>(<span class="var">variant</span>); <span class="cm">// 復原狀態 (Backtracking)</span>
+            <span class="fn">removePiece</span>(<span class="var">variant</span>); <span class="cm">// Backtracking</span>
         }
     }
 }</pre>
                             </div>
                         </div>
-                        <p><strong>這段程式碼的精妙之處：</strong><br>
-                        遇到 <span class="inline-code">yield</span> 時，函式會將當前陣列狀態拋出並「暫停」。這時，外層負責 UI 渲染的邏輯可以接手，利用 <span class="inline-code">requestAnimationFrame</span> 或 <span class="inline-code">setTimeout(..., 0)</span> 繪製出當前的畫面，接著再呼叫 <code>iterator.next()</code> 喚醒演算法繼續跑。這在不使用 Web Worker 的情況下，完美實現了非阻塞的高效能運算動畫。</p>
                     </div>
                 </section>
             </div>
@@ -268,70 +692,80 @@
             <div id="tab-game" class="tab-content">
                 <section class="section-block">
                     <h2>II. 前端渲染架構與互動防護</h2>
-                    <p>將底層抽象的數學陣列轉化為玩家可絲滑拖放的 DOM 元素，考驗的是前端工程師對 <strong>瀏覽器渲染機制 (Rendering Pipeline)</strong> 的掌握，以及對跨裝置原生事件的防護能力。</p>
-                    
+                    <p>將底層抽象的數學陣列轉化為玩家可絲滑拖放的 DOM 元素，考驗的是前端工程師對 <strong>瀏覽器渲染機制 (Rendering Pipeline)</strong> 的掌握，以及對人機介面
+                        (HCI) 體驗的追求。</p>
+
                     <div class="tech-card">
-                        <h3>1. GPU 硬體加速與 Layout Thrashing 防護</h3>
-                        <p>在畫面上同時拖曳並更新多達 12 塊結構複雜的 DOM 元素，如果我們使用修改 <code>style.top</code> 與 <code>style.left</code> 的方式來實現，會不斷觸發瀏覽器的 <strong>Reflow (重排)</strong>，導致嚴重的掉幀卡頓 (Jank)。</p>
-                        <p>我的解法是：<strong>強制圖層提升 (Composite Layer Promotion)。</strong></p>
+                        <h3>1. 人體工學互動：滾輪截流旋轉 (Scroll Throttling)</h3>
+                        <p>為提升電腦版使用者的操作流暢度，我實作了「滑鼠滾輪控制骨牌旋轉」的直覺操作。但如果將 <code>rotate()</code> 直接綁定在 <code>wheel</code>
+                            事件上，高精度的滑鼠或 Mac 觸控板會在一秒內發射數十次事件，導致方塊像直升機一樣狂轉。</p>
+                        <p>我的解法是：<strong>實作精準的截流 (Throttle) 機制，並阻斷預設的畫面滾動。</strong></p>
 
                         <div class="code-window">
                             <div class="code-header">
-                                <div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div>
-                                <div class="code-title">gpu_acceleration.css</div>
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
+                                <div class="code-title">ergonomic_scroll.js</div>
                             </div>
                             <div class="code-body">
-<pre><span class="cm">/* 拖曳狀態的專屬類別：強制觸發 Hardware Acceleration */</span>
-<span class="kw">.piece-container.dragging</span> {
-    <span class="op">z-index</span>: <span class="str">9999</span> <span class="kw">!important</span>;
-    <span class="op">cursor</span>: <span class="str">grabbing</span>;
-    
-    <span class="cm">/* 關閉所有過渡效果，確保骨牌能 0 延遲跟隨手指/滑鼠 */</span>
-    <span class="op">transition</span>: <span class="str">none</span>; 
-    
-    <span class="cm">/* 提前提示瀏覽器預留 GPU 記憶體空間 */</span>
-    <span class="op">will-change</span>: <span class="str">transform</span>, <span class="str">left</span>, <span class="str">top</span>;
-    
-    <span class="cm">/* 🎯 核心：使用 translateZ(0) 欺騙瀏覽器開啟 3D 渲染，</span>
-<span class="cm">       將該元素剝離主圖層，交由 GPU 直接進行 Composite 疊加 */</span>
-    <span class="op">transform</span>: <span class="fn">scale</span>(<span class="str">1.05</span>) <span class="fn">translateZ</span>(<span class="str">0</span>) <span class="kw">!important</span>;
-}</pre>
-                            </div>
-                        </div>
+                                <pre><span class="var">document</span>.<span class="fn">addEventListener</span>(<span class="str">'wheel'</span>, (<span class="kw">e</span>) <span class="op">=></span> {
+    <span class="kw">const</span> <span class="var">targetPiece</span> <span class="op">=</span> <span class="var">activeDragPiece</span> <span class="op">||</span> <span class="var">selectedPiece</span>;
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">targetPiece</span> <span class="op">||</span> <span class="kw">e</span>.<span class="var">deltaY</span> <span class="op">===</span> <span class="num">0</span>) <span class="kw">return</span>;
 
-                        <h3>2. 行動端原生手勢防護 (Mobile Safari Defenses)</h3>
-                        <p>Web Game 在手機上的最大敵人就是瀏覽器的原生手勢。例如 iOS Safari 著名的「雙擊放大 (Double Tap to Zoom)」功能，會讓玩家在快速旋轉或放置骨牌時，畫面突然失控放大。為此，我實作了時間差攔截器。</p>
+    <span class="cm">// 阻斷網頁因滾輪而上下滑動，鎖定玩家視線</span>
+    <span class="kw">e</span>.<span class="fn">preventDefault</span>(); 
 
-                        <div class="code-window">
-                            <div class="code-header">
-                                <div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div>
-                                <div class="code-title">mobile_safari_fix.js</div>
-                            </div>
-                            <div class="code-body">
-<pre><span class="kw">let</span> <span class="var">lastTouchEnd</span> <span class="op">=</span> <span class="op">0</span>;
+    <span class="cm">// 🎯 Throttle (節流) 邏輯：鎖定 150ms 的冷卻時間</span>
+    <span class="kw">if</span> (<span class="var">targetPiece</span>.<span class="var">_isRotating</span>) <span class="kw">return</span>;
+    <span class="var">targetPiece</span>.<span class="var">_isRotating</span> <span class="op">=</span> <span class="kw">true</span>;
+    
+    <span class="fn">setTimeout</span>(() <span class="op">=></span> { 
+        <span class="var">targetPiece</span>.<span class="var">_isRotating</span> <span class="op">=</span> <span class="kw">false</span>; 
+    }, <span class="num">150</span>);
 
-<span class="cm">// 終極防護：掛載全域事件監聽器</span>
-<span class="cm">// 設置 passive: false 以允許使用 preventDefault()</span>
-<span class="var">document</span>.<span class="fn">addEventListener</span>(<span class="str">'touchend'</span>, (<span class="kw">event</span>) <span class="op">=></span> {
-    <span class="kw">const</span> <span class="var">now</span> <span class="op">=</span> (<span class="kw">new</span> <span class="fn">Date</span>()).<span class="fn">getTime</span>();
-    
-    <span class="cm">// 如果兩次點擊事件的間隔時間小於 300 毫秒 (系統預設的雙擊判定閾值)</span>
-    <span class="kw">if</span> (<span class="var">now</span> <span class="op">-</span> <span class="var">lastTouchEnd</span> <span class="op"><=</span> <span class="op">300</span>) {
-        <span class="cm">// 判定為誤觸雙擊，強制阻斷事件冒泡與原生行為</span>
-        <span class="kw">event</span>.<span class="fn">preventDefault</span>();
-    }
-    
-    <span class="var">lastTouchEnd</span> <span class="op">=</span> <span class="var">now</span>;
+    <span class="var">targetPiece</span>.<span class="fn">rotate</span>(); <span class="cm">// 安全觸發矩陣變換與 UI 重繪</span>
 }, { <span class="kw">passive</span>: <span class="kw">false</span> });</pre>
                             </div>
                         </div>
 
-                        <h3>3. 圖形著色演算法 (Greedy Graph Coloring)</h3>
-                        <p>當玩家通關時，系統會自動生成一張精美的戰績圖與文字版成績單（Emoji）。為了確保畫面上「相鄰的骨牌絕對不會是同一種顏色」，我實作了經典的圖論演算法，保證極致的視覺體驗。</p>
+                        <h3>2. 動態佈局與狀態同步 (Responsive State Sync)</h3>
+                        <p>響應式網頁面臨最大的挑戰是：<strong>「當使用者在遊玩途中調整視窗大小，放置好的方塊座標該如何更新？」</strong><br>
+                            絕對不能讓方塊跑出版面。因此，我使用了 <code>ResizeObserver</code> 建立一套 **State-to-View** 的絕對同步機制：</p>
                         <ul class="detail-list">
-                            <li><strong>建立鄰接表 (Adjacency List):</strong> 掃描完成的 8x8 網格。如果某格是骨牌 A，且它的右邊或下邊是骨牌 B，就在兩者間建立一條 Edge，形成一個無向平面圖。</li>
-                            <li><strong>貪婪著色 (Greedy Approach):</strong> 遍歷所有節點，取得其鄰居「已經使用過」的顏色集合。接著從預設的 7 種主題色中，選出一個 <strong>「全域使用次數最少」</strong> 且 <strong>「不在鄰居使用清單中」</strong> 的顏色。這不僅解決了視覺黏著，更強制確保了顏色平均分配。</li>
+                            <li>不依賴 CSS 的百分比定位，而是將方塊的真實位置儲存在底層的 1D Array 中。</li>
+                            <li>當 <code>ResizeObserver</code> 監聽到網格尺寸改變，立即重新抓取
+                                <code>board.getBoundingClientRect()</code>，根據新的網格寬度與陣列中的
+                                <code>[row, col]</code>，重新推算出每一個方塊該出現的精確 Pixels。</li>
                         </ul>
+
+                        <h3>3. GPU 硬體加速與 Layout Thrashing 防護</h3>
+                        <p>拖曳複雜的 DOM 元素時，修改 <code>top/left</code> 會引發嚴重的重新排版 (Reflow) 造成效能瓶頸（Jank）。</p>
+
+                        <div class="code-window">
+                            <div class="code-header">
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
+                                <div class="code-title">gpu_acceleration.css</div>
+                            </div>
+                            <div class="code-body">
+                                <pre><span class="cm">/* 拖曳狀態專屬類別：強制觸發 Composite Layer 提升 */</span>
+<span class="kw">.piece-container.dragging</span> {
+    <span class="op">z-index</span>: <span class="num">9999</span> <span class="kw">!important</span>;
+    <span class="op">cursor</span>: <span class="str">grabbing</span>;
+    <span class="op">transition</span>: <span class="str">none</span>; <span class="cm">/* 關閉過渡動畫防止拖影 */</span>
+    <span class="op">will-change</span>: <span class="str">transform</span>; <span class="cm">/* 提示預留 GPU 記憶體 */</span>
+    
+    <span class="cm">/* 使用 translateZ(0) 將元素交由 GPU 獨立渲染 */</span>
+    <span class="op">transform</span>: <span class="fn">scale</span>(<span class="num">1.05</span>) <span class="fn">translateZ</span>(<span class="num">0</span>) <span class="kw">!important</span>;
+}</pre>
+                            </div>
+                        </div>
+
+                        <h3>4. 圖形著色演算法 (Greedy Graph Coloring)</h3>
+                        <p>通關生成戰績卡時，為確保「相鄰骨牌絕對不同色」，我將 8x8 網格抽象為 **無向平面圖 (Planar Graph)**，實作圖論中的貪婪著色 (Greedy Coloring)。從
+                            7 種主題色中，選出「全域使用最少」且「鄰居未使用」的顏色，解決相鄰同色的視覺混淆，並讓戰績 emoji 分布極具美感。</p>
                     </div>
                 </section>
             </div>
@@ -342,15 +776,17 @@
                 <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">🧩</div>
                 <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
                 <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
-                    親手挑戰幾何謎題，或是切換至 <strong>「自由解答」</strong> 模式，見證 Generator 協程與剪枝演算法的極速運算魅力。
+                    親手挑戰幾何謎題體驗滾輪流暢操作，或是切換至 <strong>「自由解答」</strong> 模式，見證 Generator 協程與剪枝演算法的極速運算魅力。
                 </p>
                 <a href="pentomino.html" class="btn">Launch Interactive Demo</a>
-                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">Designed for Performance</p>
+                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
+                    Designed for Performance</p>
             </div>
         </aside>
     </main>
 
-    <footer style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
+    <footer
+        style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
         © 2026 果汁龍 · Engineered with Passion.
     </footer>
 
@@ -358,7 +794,7 @@
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
+
             if (tabId === 'solver') {
                 document.querySelectorAll('.tab-btn')[0].classList.add('active');
                 document.getElementById('tab-solver').classList.add('active');
