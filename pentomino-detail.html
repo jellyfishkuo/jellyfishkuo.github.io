@@ -2,6 +2,8 @@
 <html lang="zh-TW">
 
 <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>技術剖析 | Pentomino Architecture</title>
@@ -49,17 +51,17 @@
             overflow-x: hidden;
         }
 
-        /* ── 背景光暈特效 ── */
+        /* ── 背景光暈特效 (效能極致優化版) ── */
+        /* 拔除吃效能的 filter: blur，利用 radial-gradient 本身的柔和邊緣取代 */
         .bg-glow {
             position: fixed;
             top: -20vh;
             right: -10vw;
             width: 60vw;
             height: 60vw;
-            background: radial-gradient(circle, var(--accent-glow), transparent 70%);
-            filter: blur(120px);
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
             z-index: -1;
-            opacity: 0.5;
+            opacity: 0.6;
             pointer-events: none;
         }
 
@@ -69,10 +71,28 @@
             left: -10vw;
             width: 50vw;
             height: 50vw;
-            background: radial-gradient(circle, rgba(6, 182, 212, 0.2), transparent 70%);
-            filter: blur(100px);
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 60%);
             z-index: -1;
             pointer-events: none;
+        }
+
+        /* 在手機版媒體查詢 @media (max-width: 900px) 裡面，可以加上這段讓光暈比例更好看 */
+        @media (max-width: 900px) {
+            .bg-glow {
+                width: 120vw;
+                height: 120vw;
+                top: -10vh;
+                right: -30vw;
+            }
+
+            .bg-glow-2 {
+                width: 120vw;
+                height: 120vw;
+                bottom: -10vh;
+                left: -30vw;
+            }
+
+            /* ... 保持你原本的其他手機版設定 ... */
         }
 
         /* ── Header ── */
@@ -309,6 +329,21 @@
             font-weight: 700;
         }
 
+        /* ── 🌟 新增：質感科技標籤 ── */
+        .tech-badge {
+            display: inline-block;
+            background: rgba(124, 58, 237, 0.15);
+            color: #d2a8ff;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            border: 1px solid rgba(124, 58, 237, 0.4);
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
+            vertical-align: middle;
+            margin: 0 4px;
+        }
+
         /* ── Mac-Style Code Snippet Window ── */
         .code-window {
             background: #0d1117;
@@ -415,7 +450,6 @@
 
         /* Number */
 
-        /* 數學區塊防撐破 */
         .math-block {
             text-align: center;
             margin: 2rem 0;
@@ -625,9 +659,10 @@
                             </div>
                             <div class="code-body">
                                 <pre><span class="kw">function</span> <span class="fn">getIslands</span>(<span class="var">currentGrid</span>) {
-    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); 
+    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); <span class="cm">// 紀錄已走訪的格子</span>
     
     <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op"><</span> <span class="num">64</span>; <span class="var">i</span><span class="op">++</span>) {
+        <span class="cm">// 尋找尚未被填補，且還沒走訪過的空格作為起點</span>
         <span class="kw">if</span> (<span class="var">currentGrid</span>[<span class="var">i</span>] <span class="op">===</span> <span class="kw">null</span> <span class="op">&&</span> <span class="op">!</span><span class="var">visited</span>.<span class="fn">has</span>(<span class="var">i</span>)) {
             <span class="kw">let</span> <span class="var">size</span> <span class="op">=</span> <span class="num">0</span>;
             <span class="kw">const</span> <span class="var">q</span> <span class="op">=</span> [<span class="var">i</span>]; <span class="cm">// 初始化 BFS 佇列</span>
@@ -645,7 +680,7 @@
             <span class="kw">if</span> (<span class="var">size</span> <span class="op">%</span> <span class="num">5</span> <span class="op">!==</span> <span class="num">0</span>) <span class="kw">return false</span>; 
         }
     }
-    <span class="kw">return true</span>; 
+    <span class="kw">return true</span>; <span class="cm">// 全部的連通區塊都合法，允許繼續遞迴</span>
 }</pre>
                             </div>
                         </div>
@@ -697,8 +732,9 @@
 
                     <div class="tech-card">
                         <h3>1. 人體工學互動：滾輪截流旋轉 (Scroll Throttling)</h3>
-                        <p>為提升電腦版使用者的操作流暢度，我實作了「滑鼠滾輪控制骨牌旋轉」的直覺操作。但如果將 <code>rotate()</code> 直接綁定在 <code>wheel</code>
-                            事件上，高精度的滑鼠或 Mac 觸控板會在一秒內發射數十次事件，導致方塊像直升機一樣狂轉。</p>
+                        <p>為提升電腦版使用者的操作流暢度，我實作了「滑鼠滾輪控制骨牌旋轉」的直覺操作。但如果將 <span class="inline-code">rotate()</span> 直接綁定在
+                            <span class="inline-code">wheel</span> 事件上，高精度的滑鼠或 Mac 觸控板會在一秒內發射數十次事件，導致方塊像直升機一樣狂轉。
+                        </p>
                         <p>我的解法是：<strong>實作精準的截流 (Throttle) 機制，並阻斷預設的畫面滾動。</strong></p>
 
                         <div class="code-window">
@@ -731,12 +767,14 @@
 
                         <h3>2. 動態佈局與狀態同步 (Responsive State Sync)</h3>
                         <p>響應式網頁面臨最大的挑戰是：<strong>「當使用者在遊玩途中調整視窗大小，放置好的方塊座標該如何更新？」</strong><br>
-                            絕對不能讓方塊跑出版面。因此，我使用了 <code>ResizeObserver</code> 建立一套 **State-to-View** 的絕對同步機制：</p>
+                            絕對不能讓方塊跑出版面。因此，我使用了 <code>ResizeObserver</code> 建立一套 <span
+                                class="tech-badge">State-to-View</span> 的絕對同步機制：</p>
                         <ul class="detail-list">
                             <li>不依賴 CSS 的百分比定位，而是將方塊的真實位置儲存在底層的 1D Array 中。</li>
                             <li>當 <code>ResizeObserver</code> 監聽到網格尺寸改變，立即重新抓取
                                 <code>board.getBoundingClientRect()</code>，根據新的網格寬度與陣列中的
-                                <code>[row, col]</code>，重新推算出每一個方塊該出現的精確 Pixels。</li>
+                                <code>[row, col]</code>，重新推算出每一個方塊該出現的精確 Pixels。
+                            </li>
                         </ul>
 
                         <h3>3. GPU 硬體加速與 Layout Thrashing 防護</h3>
@@ -764,8 +802,8 @@
                         </div>
 
                         <h3>4. 圖形著色演算法 (Greedy Graph Coloring)</h3>
-                        <p>通關生成戰績卡時，為確保「相鄰骨牌絕對不同色」，我將 8x8 網格抽象為 **無向平面圖 (Planar Graph)**，實作圖論中的貪婪著色 (Greedy Coloring)。從
-                            7 種主題色中，選出「全域使用最少」且「鄰居未使用」的顏色，解決相鄰同色的視覺混淆，並讓戰績 emoji 分布極具美感。</p>
+                        <p>通關生成戰績卡時，為確保「相鄰骨牌絕對不同色」，我將 8x8 網格抽象為 <strong>無向平面圖 (Planar Graph)</strong>，實作圖論中的貪婪著色 (Greedy
+                            Coloring)。從 7 種主題色中，選出「全域使用最少」且「鄰居未使用」的顏色，解決相鄰同色的視覺混淆，並讓戰績 emoji 分布極具美感。</p>
                     </div>
                 </section>
             </div>
