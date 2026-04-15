@@ -6,6 +6,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="logo.ico">
     <title>技術剖析 | Pentomino Architecture</title>
 
     <script>
@@ -52,7 +53,6 @@
         }
 
         /* ── 背景光暈特效 (效能極致優化版) ── */
-        /* 拔除吃效能的 filter: blur，利用 radial-gradient 本身的柔和邊緣取代 */
         .bg-glow {
             position: fixed;
             top: -20vh;
@@ -76,7 +76,6 @@
             pointer-events: none;
         }
 
-        /* 在手機版媒體查詢 @media (max-width: 900px) 裡面，可以加上這段讓光暈比例更好看 */
         @media (max-width: 900px) {
             .bg-glow {
                 width: 120vw;
@@ -91,8 +90,6 @@
                 bottom: -10vh;
                 left: -30vw;
             }
-
-            /* ... 保持你原本的其他手機版設定 ... */
         }
 
         /* ── Header ── */
@@ -329,7 +326,7 @@
             font-weight: 700;
         }
 
-        /* ── 🌟 新增：質感科技標籤 ── */
+        /* ── 質感科技標籤 ── */
         .tech-badge {
             display: inline-block;
             background: rgba(124, 58, 237, 0.15);
@@ -492,6 +489,7 @@
             overflow: hidden;
         }
 
+        /* 拔除 filter: blur，改用徑向漸層優化手機效能 */
         .play-card::before {
             content: '';
             position: absolute;
@@ -499,9 +497,7 @@
             right: -50px;
             width: 150px;
             height: 150px;
-            background: var(--accent2);
-            filter: blur(100px);
-            opacity: 0.2;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.3) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -659,10 +655,9 @@
                             </div>
                             <div class="code-body">
                                 <pre><span class="kw">function</span> <span class="fn">getIslands</span>(<span class="var">currentGrid</span>) {
-    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); <span class="cm">// 紀錄已走訪的格子</span>
+    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); 
     
     <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op"><</span> <span class="num">64</span>; <span class="var">i</span><span class="op">++</span>) {
-        <span class="cm">// 尋找尚未被填補，且還沒走訪過的空格作為起點</span>
         <span class="kw">if</span> (<span class="var">currentGrid</span>[<span class="var">i</span>] <span class="op">===</span> <span class="kw">null</span> <span class="op">&&</span> <span class="op">!</span><span class="var">visited</span>.<span class="fn">has</span>(<span class="var">i</span>)) {
             <span class="kw">let</span> <span class="var">size</span> <span class="op">=</span> <span class="num">0</span>;
             <span class="kw">const</span> <span class="var">q</span> <span class="op">=</span> [<span class="var">i</span>]; <span class="cm">// 初始化 BFS 佇列</span>
@@ -680,10 +675,11 @@
             <span class="kw">if</span> (<span class="var">size</span> <span class="op">%</span> <span class="num">5</span> <span class="op">!==</span> <span class="num">0</span>) <span class="kw">return false</span>; 
         }
     }
-    <span class="kw">return true</span>; <span class="cm">// 全部的連通區塊都合法，允許繼續遞迴</span>
+    <span class="kw">return true</span>; 
 }</pre>
                             </div>
                         </div>
+
                         <p><strong>為何使用 BFS 而非遞迴 DFS？</strong><br>
                             在極端的碎片化盤面中，遞迴尋找連通區塊極易引發 Call Stack Overflow。透過陣列模擬佇列 (Queue) 來實作 BFS，不僅安全，還能更精準地控制記憶體。</p>
 
@@ -728,82 +724,80 @@
                 <section class="section-block">
                     <h2>II. 前端渲染架構與互動防護</h2>
                     <p>將底層抽象的數學陣列轉化為玩家可絲滑拖放的 DOM 元素，考驗的是前端工程師對 <strong>瀏覽器渲染機制 (Rendering Pipeline)</strong> 的掌握，以及對人機介面
-                        (HCI) 體驗的追求。</p>
+                        (HCI) 體驗的極致追求。</p>
 
                     <div class="tech-card">
-                        <h3>1. 人體工學互動：滾輪截流旋轉 (Scroll Throttling)</h3>
-                        <p>為提升電腦版使用者的操作流暢度，我實作了「滑鼠滾輪控制骨牌旋轉」的直覺操作。但如果將 <span class="inline-code">rotate()</span> 直接綁定在
-                            <span class="inline-code">wheel</span> 事件上，高精度的滑鼠或 Mac 觸控板會在一秒內發射數十次事件，導致方塊像直升機一樣狂轉。
-                        </p>
-                        <p>我的解法是：<strong>實作精準的截流 (Throttle) 機制，並阻斷預設的畫面滾動。</strong></p>
+                        <h3>1. 真・物理重心自轉演算法 (Center of Mass Rotation)</h3>
+                        <p>在實作「滑鼠滾輪旋轉方塊」時，我遇到了經典的 <span class="tech-badge">Pivot Illusion (錨點錯覺)</span> 挑戰。如果不對稱的骨牌（如 P
+                            或 U 形）繞著外框幾何中心旋轉，會產生極大的迴轉半徑，且長寬互換的 0.5 格偏移會導致方塊「越轉越往右下角飄走」。</p>
 
                         <div class="code-window">
                             <div class="code-header">
                                 <div class="code-dot dot-r"></div>
                                 <div class="code-dot dot-y"></div>
                                 <div class="code-dot dot-g"></div>
-                                <div class="code-title">ergonomic_scroll.js</div>
+                                <div class="code-title">center_of_mass_rotation.js</div>
                             </div>
                             <div class="code-body">
-                                <pre><span class="var">document</span>.<span class="fn">addEventListener</span>(<span class="str">'wheel'</span>, (<span class="kw">e</span>) <span class="op">=></span> {
-    <span class="kw">const</span> <span class="var">targetPiece</span> <span class="op">=</span> <span class="var">activeDragPiece</span> <span class="op">||</span> <span class="var">selectedPiece</span>;
-    <span class="kw">if</span> (<span class="op">!</span><span class="var">targetPiece</span> <span class="op">||</span> <span class="kw">e</span>.<span class="var">deltaY</span> <span class="op">===</span> <span class="num">0</span>) <span class="kw">return</span>;
+                                <pre><span class="cm">// 1. 計算當前陣列的「物理重心」(Center of Mass)</span>
+<span class="cm">// 每一塊骨牌固定 5 格，重心座標 = [總和R / 5, 總和C / 5]</span>
+<span class="kw">const</span> <span class="fn">getCoM</span> <span class="op">=</span> (<span class="var">blocks</span>) <span class="op">=></span> {
+    <span class="kw">let</span> <span class="var">sr</span> <span class="op">=</span> <span class="num">0</span>, <span class="var">sc</span> <span class="op">=</span> <span class="num">0</span>;
+    <span class="var">blocks</span>.<span class="fn">forEach</span>(([<span class="var">r</span>, <span class="var">c</span>]) <span class="op">=></span> { <span class="var">sr</span> <span class="op">+=</span> <span class="var">r</span>; <span class="var">sc</span> <span class="op">+=</span> <span class="var">c</span>; });
+    <span class="kw">return</span> [<span class="var">sr</span> <span class="op">/</span> <span class="num">5</span>, <span class="var">sc</span> <span class="op">/</span> <span class="num">5</span>];
+};
 
-    <span class="cm">// 阻斷網頁因滾輪而上下滑動，鎖定玩家視線</span>
-    <span class="kw">e</span>.<span class="fn">preventDefault</span>(); 
+<span class="kw">const</span> [<span class="var">oldComR</span>, <span class="var">oldComC</span>] <span class="op">=</span> <span class="fn">getCoM</span>(<span class="var">oldBlocks</span>);
+<span class="kw">const</span> [<span class="var">newComR</span>, <span class="var">newComC</span>] <span class="op">=</span> <span class="fn">getCoM</span>(<span class="var">newBlocks</span>);
 
-    <span class="cm">// 🎯 Throttle (節流) 邏輯：鎖定 150ms 的冷卻時間</span>
-    <span class="kw">if</span> (<span class="var">targetPiece</span>.<span class="var">_isRotating</span>) <span class="kw">return</span>;
-    <span class="var">targetPiece</span>.<span class="var">_isRotating</span> <span class="op">=</span> <span class="kw">true</span>;
-    
-    <span class="fn">setTimeout</span>(() <span class="op">=></span> { 
-        <span class="var">targetPiece</span>.<span class="var">_isRotating</span> <span class="op">=</span> <span class="kw">false</span>; 
-    }, <span class="num">150</span>);
-
-    <span class="var">targetPiece</span>.<span class="fn">rotate</span>(); <span class="cm">// 安全觸發矩陣變換與 UI 重繪</span>
-}, { <span class="kw">passive</span>: <span class="kw">false</span> });</pre>
+<span class="cm">// 🌟 數學奇蹟：因為 N=5 是奇數，除法尾數只會是 .0, .2, .4, .6, .8</span>
+<span class="cm">// Math.round 絕對不會遇到 .5 的模糊地帶，實現 100% 零誤差的對稱進位！</span>
+<span class="kw">const</span> <span class="var">targetGridR</span> <span class="op">=</span> <span class="var">oldGridR</span> <span class="op">+</span> Math.<span class="fn">round</span>(<span class="var">oldComR</span> <span class="op">-</span> <span class="var">newComR</span>);
+<span class="kw">const</span> <span class="var">targetGridC</span> <span class="op">=</span> <span class="var">oldGridC</span> <span class="op">+</span> Math.<span class="fn">round</span>(<span class="var">oldComC</span> <span class="op">-</span> <span class="var">newComC</span>);</pre>
                             </div>
                         </div>
 
-                        <h3>2. 動態佈局與狀態同步 (Responsive State Sync)</h3>
-                        <p>響應式網頁面臨最大的挑戰是：<strong>「當使用者在遊玩途中調整視窗大小，放置好的方塊座標該如何更新？」</strong><br>
-                            絕對不能讓方塊跑出版面。因此，我使用了 <code>ResizeObserver</code> 建立一套 <span
-                                class="tech-badge">State-to-View</span> 的絕對同步機制：</p>
-                        <ul class="detail-list">
-                            <li>不依賴 CSS 的百分比定位，而是將方塊的真實位置儲存在底層的 1D Array 中。</li>
-                            <li>當 <code>ResizeObserver</code> 監聽到網格尺寸改變，立即重新抓取
-                                <code>board.getBoundingClientRect()</code>，根據新的網格寬度與陣列中的
-                                <code>[row, col]</code>，重新推算出每一個方塊該出現的精確 Pixels。
-                            </li>
-                        </ul>
+                        <p>這段代碼的數學意義在於：它讓骨牌拋棄了虛擬的外框，改為<strong>「以真實的質量中心作為自轉軸」</strong>，完美解決了旋轉時的視覺位移 Bug。</p>
 
-                        <h3>3. GPU 硬體加速與 Layout Thrashing 防護</h3>
-                        <p>拖曳複雜的 DOM 元素時，修改 <code>top/left</code> 會引發嚴重的重新排版 (Reflow) 造成效能瓶頸（Jank）。</p>
+                        <h3>2. 貪婪圖形著色演算法 (Greedy Graph Coloring)</h3>
+                        <p>為了確保通關後生成的戰績卡與 Emoji 複製文字中，「相鄰的骨牌絕對不會是同一種顏色」，我將 8x8 網格抽象為 <span
+                                class="tech-badge">無向平面圖</span> 並應用了圖論演算法：</p>
 
                         <div class="code-window">
                             <div class="code-header">
                                 <div class="code-dot dot-r"></div>
                                 <div class="code-dot dot-y"></div>
                                 <div class="code-dot dot-g"></div>
-                                <div class="code-title">gpu_acceleration.css</div>
+                                <div class="code-title">greedy_graph_coloring.js</div>
                             </div>
                             <div class="code-body">
-                                <pre><span class="cm">/* 拖曳狀態專屬類別：強制觸發 Composite Layer 提升 */</span>
-<span class="kw">.piece-container.dragging</span> {
-    <span class="op">z-index</span>: <span class="num">9999</span> <span class="kw">!important</span>;
-    <span class="op">cursor</span>: <span class="str">grabbing</span>;
-    <span class="op">transition</span>: <span class="str">none</span>; <span class="cm">/* 關閉過渡動畫防止拖影 */</span>
-    <span class="op">will-change</span>: <span class="str">transform</span>; <span class="cm">/* 提示預留 GPU 記憶體 */</span>
+                                <pre><span class="cm">// 建立相鄰的邊 (Edge) 形成 Graph</span>
+Object.<span class="fn">keys</span>(<span class="var">pieces</span>).<span class="fn">forEach</span>(<span class="var">p</span> <span class="op">=></span> {
+    <span class="kw">const</span> <span class="var">usedColors</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>();
+    <span class="cm">// 收集所有鄰居已經使用的顏色</span>
+    <span class="var">adj</span>[<span class="var">p</span>].<span class="fn">forEach</span>(<span class="var">neighbor</span> <span class="op">=></span> {
+        <span class="kw">if</span> (<span class="var">colorMap</span>[<span class="var">neighbor</span>]) <span class="var">usedColors</span>.<span class="fn">add</span>(<span class="var">colorMap</span>[<span class="var">neighbor</span>]);
+    });
+
+    <span class="cm">// 篩選出合法的顏色池</span>
+    <span class="kw">const</span> <span class="var">available</span> <span class="op">=</span> <span class="var">ALL_COLORS</span>.<span class="fn">filter</span>(<span class="var">c</span> <span class="op">=></span> <span class="op">!</span><span class="var">usedColors</span>.<span class="fn">has</span>(<span class="var">c</span>));
+
+    <span class="cm">// 🎯 貪婪選擇：從合法池中，優先挑選「全域使用次數最少」的顏色</span>
+    <span class="var">available</span>.<span class="fn">sort</span>((<span class="var">a</span>, <span class="var">b</span>) <span class="op">=></span> <span class="var">colorUsage</span>[<span class="var">a</span>] <span class="op">-</span> <span class="var">colorUsage</span>[<span class="var">b</span>]);
     
-    <span class="cm">/* 使用 translateZ(0) 將元素交由 GPU 獨立渲染 */</span>
-    <span class="op">transform</span>: <span class="fn">scale</span>(<span class="num">1.05</span>) <span class="fn">translateZ</span>(<span class="num">0</span>) <span class="kw">!important</span>;
-}</pre>
+    <span class="kw">const</span> <span class="var">chosen</span> <span class="op">=</span> <span class="var">available</span>[<span class="num">0</span>];
+    <span class="var">colorMap</span>[<span class="var">p</span>] <span class="op">=</span> <span class="var">chosen</span>;
+    <span class="var">colorUsage</span>[<span class="var">chosen</span>]<span class="op">++</span>;
+});</pre>
                             </div>
                         </div>
 
-                        <h3>4. 圖形著色演算法 (Greedy Graph Coloring)</h3>
-                        <p>通關生成戰績卡時，為確保「相鄰骨牌絕對不同色」，我將 8x8 網格抽象為 <strong>無向平面圖 (Planar Graph)</strong>，實作圖論中的貪婪著色 (Greedy
-                            Coloring)。從 7 種主題色中，選出「全域使用最少」且「鄰居未使用」的顏色，解決相鄰同色的視覺混淆，並讓戰績 emoji 分布極具美感。</p>
+                        <p>這個演算法不僅消除了視覺上的相鄰同色黏著感，更強制讓 7 種顏色均勻分布在 12 塊骨牌上，展現出極致的資料視覺化美感。</p>
+
+                        <h3>3. 動態佈局與狀態同步 (Responsive State Sync)</h3>
+                        <p>響應式網頁最大的痛點是：當使用者拉扯視窗時，絕對定位的方塊會跑版。我利用了 <span class="tech-badge">ResizeObserver</span>
+                            建立狀態同步機制：不依賴 CSS 的百分比，而是將方塊鎖定在底層的 1D Array 中。當視窗改變，立即根據網格的全新 <code>BoundingClientRect</code>
+                            與陣列內的 <code>[row, col]</code>，重新推算出絕對的 Pixels，達到零死角的響應式防護。</p>
                     </div>
                 </section>
             </div>
