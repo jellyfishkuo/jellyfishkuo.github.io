@@ -503,6 +503,9 @@
 
 <body class="play-mode-locked">
 
+    <a href="index.html"
+        style="position: absolute; top: 20px; left: 20px; color: #94a3b8; text-decoration: none; font-size: 0.8rem; font-family: sans-serif; z-index: 1000;">←
+        返回主站</a>
 
     <h1>Pentomino 拼圖</h1>
 
@@ -557,22 +560,13 @@
     </div>
 
     <script>
-        // ==========================================
-        //  🚨 終極防護：徹底禁止 iOS Safari 雙擊放大
-        // ==========================================
         let lastTouchEnd = 0;
         document.addEventListener('touchend', function (event) {
             const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
+            if (now - lastTouchEnd <= 300) event.preventDefault();
             lastTouchEnd = now;
         }, { passive: false });
 
-
-        // ==========================================
-        //  全域邏輯：切換分頁
-        // ==========================================
         const tabPlay = document.getElementById('tab-play');
         const tabSolver = document.getElementById('tab-solver');
         const viewPlay = document.getElementById('play-view');
@@ -581,36 +575,19 @@
         let globalSyncPositions = null;
 
         tabPlay.onclick = () => {
-            tabPlay.classList.add('active');
-            tabSolver.classList.remove('active');
-            viewPlay.classList.remove('hidden-view');
-            viewSolver.classList.add('hidden-view');
-
-            document.body.classList.add('play-mode-locked');
-            document.body.classList.remove('solver-mode-active');
+            tabPlay.classList.add('active'); tabSolver.classList.remove('active');
+            viewPlay.classList.remove('hidden-view'); viewSolver.classList.add('hidden-view');
+            document.body.classList.add('play-mode-locked'); document.body.classList.remove('solver-mode-active');
             window.scrollTo(0, 0);
-
-            if (globalSyncPositions) {
-                setTimeout(() => {
-                    window.dispatchEvent(new Event('resize'));
-                    globalSyncPositions(false);
-                }, 50);
-            }
+            if (globalSyncPositions) setTimeout(() => { window.dispatchEvent(new Event('resize')); globalSyncPositions(false); }, 50);
         };
 
         tabSolver.onclick = () => {
-            tabSolver.classList.add('active');
-            tabPlay.classList.remove('active');
-            viewPlay.classList.add('hidden-view');
-            viewSolver.classList.remove('hidden-view');
-
-            document.body.classList.remove('play-mode-locked');
-            document.body.classList.add('solver-mode-active');
+            tabSolver.classList.add('active'); tabPlay.classList.remove('active');
+            viewPlay.classList.add('hidden-view'); viewSolver.classList.remove('hidden-view');
+            document.body.classList.remove('play-mode-locked'); document.body.classList.add('solver-mode-active');
         };
 
-        // ==========================================
-        //  🎮 模組 1：親手操作 (Play Mode)
-        // ==========================================
         const calendarLayout = [
             ['2033', '2022', '2023', '2024', 'JAN', 'FEB', 'MAR', 'APR'],
             ['2025', '2026', '2027', '2028', 'MAY', 'JUN', 'JUL', 'AUG'],
@@ -622,20 +599,10 @@
             ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', '31']
         ];
 
-        const solutionDesktop = [
-            "UUXPPP", "UXXXPP", "UUXTTT", "YYYYTN", "IYWWTN",
-            "IWWFNN", "IWFFNV", "IZZFFV", "IZLVVV", "ZZLLLL"
-        ];
-        const solutionMobile = [
-            "UUUYIIIIIZ", "UXUYYWWZZZ", "XXXYWWFZLL",
-            "PXTYWFFFVL", "PPTTTNNFVL", "PPTNNNVVVL"
-        ];
+        const solutionDesktop = ["UUXPPP", "UXXXPP", "UUXTTT", "YYYYTN", "IYWWTN", "IWWFNN", "IWFFNV", "IZZFFV", "IZLVVV", "ZZLLLL"];
+        const solutionMobile = ["UUUYIIIIIZ", "UXUYYWWZZZ", "XXXYWWFZLL", "PXTYWFFFVL", "PPTTTNNFVL", "PPTNNNVVVL"];
 
-        const pieceColors = {
-            'F': '#ef4444', 'I': '#3b82f6', 'L': '#f59e0b', 'P': '#10b981',
-            'N': '#8b5cf6', 'T': '#ec4899', 'U': '#06b6d4', 'V': '#f97316',
-            'W': '#6366f1', 'X': '#84cc16', 'Y': '#eab308', 'Z': '#14b8a6'
-        };
+        const pieceColors = { 'F': '#ef4444', 'I': '#3b82f6', 'L': '#f59e0b', 'P': '#10b981', 'N': '#8b5cf6', 'T': '#ec4899', 'U': '#06b6d4', 'V': '#f97316', 'W': '#6366f1', 'X': '#84cc16', 'Y': '#eab308', 'Z': '#14b8a6' };
 
         let blockedIndices = new Set();
         let gridState = Array(64).fill(null);
@@ -645,18 +612,14 @@
         let timerActive = false;
         let timerInt;
         let isMobileView = window.innerWidth < 1000;
-
         let activeDragPiece = null;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
 
         function initPlay() {
-            const board = document.getElementById('board');
-            board.innerHTML = '';
-
+            const board = document.getElementById('board'); board.innerHTML = '';
             const today = new Date();
-            let year = today.getFullYear();
-            while (year > 2033) year -= 12; while (year < 2022) year += 12;
+            let year = today.getFullYear(); while (year > 2033) year -= 12; while (year < 2022) year += 12;
             const dateTargets = [
                 year.toString(),
                 ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][today.getMonth()],
@@ -667,13 +630,9 @@
 
             for (let i = 0; i < 64; i++) {
                 const r = Math.floor(i / 8), c = i % 8;
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.innerHTML = `<span>${calendarLayout[r][c]}</span>`;
+                const cell = document.createElement('div'); cell.className = 'cell'; cell.innerHTML = `<span>${calendarLayout[r][c]}</span>`;
                 if (dateTargets.includes(calendarLayout[r][c])) {
-                    cell.classList.add('blocked');
-                    blockedIndices.add(i);
-                    gridState[i] = 'BLOCK';
+                    cell.classList.add('blocked'); blockedIndices.add(i); gridState[i] = 'BLOCK';
                 }
                 board.appendChild(cell);
             }
@@ -682,14 +641,10 @@
 
         function setupTrayAndPieces() {
             const tray = document.getElementById('tray-container');
-            const cols = isMobileView ? 10 : 6;
-            const rows = isMobileView ? 6 : 10;
-
-            tray.style.width = `calc(var(--cell-size) * ${cols})`;
-            tray.style.height = `calc(var(--cell-size) * ${rows})`;
+            const cols = isMobileView ? 10 : 6, rows = isMobileView ? 6 : 10;
+            tray.style.width = `calc(var(--cell-size) * ${cols})`; tray.style.height = `calc(var(--cell-size) * ${rows})`;
 
             const matrix = isMobileView ? solutionMobile : solutionDesktop;
-
             const extractedShapes = {};
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -699,15 +654,11 @@
                 }
             }
 
-            pieces.forEach(p => p.el.remove());
-            pieces = [];
-
+            pieces.forEach(p => p.el.remove()); pieces = [];
             Object.keys(extractedShapes).forEach(id => {
                 let shape = extractedShapes[id];
-                let minR = Math.min(...shape.blocks.map(b => b[0]));
-                let minC = Math.min(...shape.blocks.map(b => b[1]));
-                shape.trayR = minR;
-                shape.trayC = minC;
+                let minR = Math.min(...shape.blocks.map(b => b[0])), minC = Math.min(...shape.blocks.map(b => b[1]));
+                shape.trayR = minR; shape.trayC = minC;
                 shape.blocks = shape.blocks.map(b => [b[0] - minR, b[1] - minC]);
                 pieces.push(new Piece(id, shape));
             });
@@ -715,97 +666,125 @@
 
         class Piece {
             constructor(id, data) {
-                this.id = id;
-                this.color = data.color;
+                this.id = id; this.color = data.color;
                 this.originalBlocks = JSON.parse(JSON.stringify(data.blocks));
                 this.blocks = JSON.parse(JSON.stringify(data.blocks));
-                this.trayR = data.trayR;
-                this.trayC = data.trayC;
-                this.isSnapped = false;
-                this.gridPos = { r: -1, c: -1 };
-                this.x = 0; this.y = 0;
-                this.isDragging = false;
-
-                this.el = document.createElement('div');
-                this.el.className = 'piece-container';
+                this.trayR = data.trayR; this.trayC = data.trayC;
+                this.isSnapped = false; this.gridPos = { r: -1, c: -1 };
+                this.x = 0; this.y = 0; this.isDragging = false;
+                this.el = document.createElement('div'); this.el.className = 'piece-container';
                 document.body.appendChild(this.el);
-
-                this.draw();
-                this.setupEvents();
+                this.draw(); this.setupEvents();
             }
 
             draw() {
                 this.el.innerHTML = '';
-                const board = document.getElementById('board');
-                if (!board.querySelector('.cell')) return;
+                const board = document.getElementById('board'); if (!board.querySelector('.cell')) return;
                 const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
                 this.blocks.forEach(([r, c]) => {
-                    const b = document.createElement('div');
-                    b.className = 'p-block';
-                    b.style.width = currentCellSize + 'px';
-                    b.style.height = currentCellSize + 'px';
-                    b.style.left = (c * currentCellSize) + 'px';
-                    b.style.top = (r * currentCellSize) + 'px';
-                    b.style.background = this.color;
-                    this.el.appendChild(b);
+                    const b = document.createElement('div'); b.className = 'p-block';
+                    b.style.width = currentCellSize + 'px'; b.style.height = currentCellSize + 'px';
+                    b.style.left = (c * currentCellSize) + 'px'; b.style.top = (r * currentCellSize) + 'px';
+                    b.style.background = this.color; this.el.appendChild(b);
                 });
             }
 
-            updatePos() {
-                this.el.style.left = this.x + 'px';
-                this.el.style.top = this.y + 'px';
-            }
+            updatePos() { this.el.style.left = this.x + 'px'; this.el.style.top = this.y + 'px'; }
 
-            resetToTray() {
-                this.isSnapped = false;
-                this.removeFromGrid();
-                syncAllPositions(true);
-            }
+            resetToTray() { this.isSnapped = false; this.removeFromGrid(); syncAllPositions(true); }
 
-            fullReset() {
-                this.removeFromGrid();
-                this.blocks = JSON.parse(JSON.stringify(this.originalBlocks));
-                this.normalize();
-                this.draw();
-                this.resetToTray();
-            }
+            fullReset() { this.removeFromGrid(); this.blocks = JSON.parse(JSON.stringify(this.originalBlocks)); this.normalize(); this.draw(); this.resetToTray(); }
 
             removeFromGrid() {
                 if (this.gridPos.r !== -1) {
-                    this.blocks.forEach(([dr, dc]) => {
-                        gridState[(this.gridPos.r + dr) * 8 + (this.gridPos.c + dc)] = null;
-                    });
+                    this.blocks.forEach(([dr, dc]) => { gridState[(this.gridPos.r + dr) * 8 + (this.gridPos.c + dc)] = null; });
                     this.gridPos = { r: -1, c: -1 };
                 }
             }
 
+            // 🎯 終極完美版：真・物理重心自轉演算法 (Center of Mass)
             transformAction(transformFn) {
                 const board = document.getElementById('board');
                 const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
 
-                const maxC = Math.max(...this.blocks.map(b => b[1]));
-                const maxR = Math.max(...this.blocks.map(b => b[0]));
-                const centerX = this.x + (maxC + 1) * currentCellSize / 2;
-                const centerY = this.y + (maxR + 1) * currentCellSize / 2;
-
                 let wasSnapped = this.isSnapped;
-                if (this.isSnapped) this.removeFromGrid();
+                let oldGridR, oldGridC;
 
+                // 1. 計算當前陣列的「物理重心」(Center of Mass)
+                // 每一塊骨牌固定 5 格，重心座標 = [總和R / 5, 總和C / 5]
+                const getCoM = (blocks) => {
+                    let sr = 0, sc = 0;
+                    blocks.forEach(([r, c]) => { sr += r; sc += c; });
+                    return [sr / blocks.length, sc / blocks.length];
+                };
+
+                const [oldComR, oldComC] = getCoM(this.blocks);
+
+                if (wasSnapped && !this.isDragging) {
+                    oldGridR = this.gridPos.r;
+                    oldGridC = this.gridPos.c;
+                    this.removeFromGrid();
+                }
+
+                // 紀錄拖曳中的物理位置
+                const centerX = this.x + oldComC * currentCellSize + currentCellSize / 2;
+                const centerY = this.y + oldComR * currentCellSize + currentCellSize / 2;
+                const oldX = this.x;
+                const oldY = this.y;
+
+                // 2. 陣列旋轉與正規化 (推回左上角)
                 this.blocks = this.blocks.map(([r, c]) => transformFn(r, c));
-                this.normalize();
+                const minR = Math.min(...this.blocks.map(b => b[0]));
+                const minC = Math.min(...this.blocks.map(b => b[1]));
+                this.blocks = this.blocks.map(([r, c]) => [r - minR, c - minC]);
 
-                const newMaxC = Math.max(...this.blocks.map(b => b[1]));
-                const newMaxR = Math.max(...this.blocks.map(b => b[0]));
-                this.x = centerX - (newMaxC + 1) * currentCellSize / 2;
-                this.y = centerY - (newMaxR + 1) * currentCellSize / 2;
+                // 3. 計算旋轉後的「新物理重心」
+                const [newComR, newComC] = getCoM(this.blocks);
 
-                this.draw();
-                this.updatePos();
+                // --- 結算位置 ---
+                if (wasSnapped && !this.isDragging) {
+                    // 🌟 數學奇蹟：因為 Pentomino 是 5 格，不會出現 .5 的進位模糊地帶！
+                    // 所以 Math.round 保證 100% 對稱進位，零誤差閉環，絕對不會再亂飄！
+                    const targetGridR = oldGridR + Math.round(oldComR - newComR);
+                    const targetGridC = oldGridC + Math.round(oldComC - newComC);
 
-                if (wasSnapped) this.trySnap();
+                    let canPlace = true;
+                    for (const [dr, dc] of this.blocks) {
+                        const nr = targetGridR + dr, nc = targetGridC + dc;
+                        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || gridState[nr * 8 + nc] !== null) {
+                            canPlace = false; break;
+                        }
+                    }
+
+                    if (canPlace) {
+                        this.isSnapped = true;
+                        this.gridPos = { r: targetGridR, c: targetGridC };
+                        this.blocks.forEach(([dr, dc]) => gridState[(targetGridR + dr) * 8 + (targetGridC + dc)] = this.id);
+                        syncAllPositions(false);
+                        checkWin();
+                        return;
+                    } else {
+                        this.resetToTray();
+                        return;
+                    }
+                } else {
+                    // 拖曳中：以「物理重心」為軸心來追蹤滑鼠
+                    this.x = centerX - newComC * currentCellSize - currentCellSize / 2;
+                    this.y = centerY - newComR * currentCellSize - currentCellSize / 2;
+
+                    if (this.isDragging) {
+                        dragOffsetX -= (this.x - oldX);
+                        dragOffsetY -= (this.y - oldY);
+                    }
+
+                    this.draw();
+                    this.updatePos();
+                    if (wasSnapped) this.trySnap();
+                }
             }
 
             rotate() { this.transformAction((r, c) => [c, -r]); }
+            rotateReverse() { this.transformAction((r, c) => [-c, r]); }
             flip() { this.transformAction((r, c) => [r, -c]); }
 
             normalize() {
@@ -871,18 +850,14 @@
 
         function syncAllPositions(animate = false) {
             if (document.getElementById('play-view').classList.contains('hidden-view')) return;
-
-            const board = document.getElementById('board');
-            const tray = document.getElementById('tray-container');
+            const board = document.getElementById('board'), tray = document.getElementById('tray-container');
             if (!board || !tray || !board.querySelector('.cell')) return;
 
-            const bRect = board.getBoundingClientRect();
-            const tRect = tray.getBoundingClientRect();
+            const bRect = board.getBoundingClientRect(), tRect = tray.getBoundingClientRect();
             const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
 
             pieces.forEach(p => {
                 if (p.isDragging) return;
-
                 if (p.isSnapped) {
                     p.x = bRect.left + window.scrollX + (p.gridPos.c * currentCellSize);
                     p.y = bRect.top + window.scrollY + (p.gridPos.r * currentCellSize);
@@ -894,27 +869,18 @@
                 if (animate) {
                     p.el.style.transition = 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
                     setTimeout(() => { p.el.style.transition = 'none'; }, 300);
-                } else {
-                    p.el.style.transition = 'none';
-                }
-
-                p.draw();
-                p.updatePos();
+                } else { p.el.style.transition = 'none'; }
+                p.draw(); p.updatePos();
             });
         }
         globalSyncPositions = syncAllPositions;
 
         const ro = new ResizeObserver(() => syncAllPositions(false));
-        ro.observe(document.getElementById('board'));
-        ro.observe(document.getElementById('tray-container'));
-
+        ro.observe(document.getElementById('board')); ro.observe(document.getElementById('tray-container'));
         window.addEventListener('resize', () => {
             if (document.getElementById('play-view').classList.contains('hidden-view')) return;
             const currentlyMobile = window.innerWidth < 1000;
-            if (currentlyMobile !== isMobileView) {
-                isMobileView = currentlyMobile;
-                setupTrayAndPieces();
-            }
+            if (currentlyMobile !== isMobileView) { isMobileView = currentlyMobile; setupTrayAndPieces(); }
             syncAllPositions(false);
         });
 
@@ -937,40 +903,30 @@
         function select(p) {
             if (selectedPiece) selectedPiece.el.classList.remove('selected');
             selectedPiece = p;
-            if (p) {
-                p.el.classList.add('selected');
-                document.getElementById('rotateBtn').disabled = false;
-                document.getElementById('flipBtn').disabled = false;
-            } else {
-                document.getElementById('rotateBtn').disabled = true;
-                document.getElementById('flipBtn').disabled = true;
-            }
+            if (p) { p.el.classList.add('selected'); document.getElementById('rotateBtn').disabled = false; document.getElementById('flipBtn').disabled = false; }
+            else { document.getElementById('rotateBtn').disabled = true; document.getElementById('flipBtn').disabled = true; }
         }
 
         // ==========================================
-        // 🎯 新增：滑鼠滾輪旋轉方塊邏輯
+        // 🎯 滾輪雙向旋轉控制 (修復方向與卡頓)
         // ==========================================
         document.addEventListener('wheel', (e) => {
-            // 只有在遊玩模式，且有「選取中」或「拖曳中」的方塊時才觸發
             const targetPiece = activeDragPiece || selectedPiece;
             if (document.getElementById('play-view').classList.contains('hidden-view') || !targetPiece) return;
-
-            // 判斷是否為手機觸控板或純觸控裝置 (簡單過濾掉沒有真實滾輪的裝置)
             if (e.deltaY === 0) return;
 
-            // 阻止網頁因為滾動而上下滑動
             e.preventDefault();
 
-            // 延遲一下避免連續滾動觸發太快（節流 Throttle 概念）
             if (targetPiece._isRotating) return;
             targetPiece._isRotating = true;
             setTimeout(() => { targetPiece._isRotating = false; }, 150);
 
-            // 呼叫旋轉 (往上滾或往下滾都旋轉 90 度，你也可以依據 deltaY 正負號決定順/逆時針)
-            targetPiece.rotate();
-
+            if (e.deltaY > 0) {
+                targetPiece.rotate();        // 往下滾：順時針轉
+            } else {
+                targetPiece.rotateReverse(); // 往上滾：逆時針轉
+            }
         }, { passive: false });
-
 
         function startTimer() {
             if (timerActive) return;
@@ -984,10 +940,7 @@
         }
 
         function checkWin() {
-            if (pieces.every(p => p.isSnapped)) {
-                clearInterval(timerInt);
-                document.getElementById('shareBtn').style.visibility = 'visible';
-            }
+            if (pieces.every(p => p.isSnapped)) { clearInterval(timerInt); document.getElementById('shareBtn').style.visibility = 'visible'; }
         }
 
         document.getElementById('rotateBtn').onclick = () => selectedPiece?.rotate();
@@ -1003,198 +956,94 @@
 
         // --- 📸 畫布引擎 (Canvas Score Card Generator) ---
         function generateScoreCard() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const cellSize = 40;
-            const padding = 25;
-            const headerHeight = 130;
-            const boardSize = cellSize * 8;
+            const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+            const cellSize = 40, padding = 25, headerHeight = 130, boardSize = cellSize * 8;
+            canvas.width = boardSize + padding * 2; canvas.height = boardSize + headerHeight + padding * 2;
 
-            canvas.width = boardSize + padding * 2;
-            canvas.height = boardSize + headerHeight + padding * 2;
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 28px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Pentomino 每日挑戰', canvas.width / 2, 45);
 
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const timeStr = document.getElementById('timer').innerText, dateStr = document.getElementById('target-date').innerText;
+            ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 18px "Segoe UI", sans-serif'; ctx.fillText(`📅 ${dateStr}`, canvas.width / 2, 80); ctx.fillText(`⏱️ 耗時: ${timeStr}`, canvas.width / 2, 110);
 
-            ctx.fillStyle = '#f8fafc';
-            ctx.font = 'bold 28px "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('Pentomino 每日挑戰', canvas.width / 2, 45);
-
-            const timeStr = document.getElementById('timer').innerText;
-            const dateStr = document.getElementById('target-date').innerText;
-
-            ctx.fillStyle = '#fbbf24';
-            ctx.font = 'bold 18px "Segoe UI", sans-serif';
-            ctx.fillText(`📅 ${dateStr}`, canvas.width / 2, 80);
-            ctx.fillText(`⏱️ 耗時: ${timeStr}`, canvas.width / 2, 110);
-
-            const startX = padding;
-            const startY = headerHeight;
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
+            const startX = padding, startY = headerHeight;
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
+            ctx.strokeStyle = '#334155'; ctx.lineWidth = 2; ctx.strokeRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
 
             for (let i = 0; i < 64; i++) {
-                const r = Math.floor(i / 8);
-                const c = i % 8;
-                const x = startX + c * cellSize;
-                const y = startY + r * cellSize;
-                const val = gridState[i];
-
+                const r = Math.floor(i / 8), c = i % 8, x = startX + c * cellSize, y = startY + r * cellSize, val = gridState[i];
                 if (val === 'BLOCK') {
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-
-                    ctx.fillStyle = '#3b82f6';
-                    ctx.font = 'bold 15px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(calendarLayout[r][c], x + cellSize / 2, y + cellSize / 2);
+                    ctx.fillStyle = '#0f172a'; ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                    ctx.fillStyle = '#3b82f6'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(calendarLayout[r][c], x + cellSize / 2, y + cellSize / 2);
                 } else if (val) {
-                    ctx.fillStyle = pieceColors[val];
-                    ctx.fillRect(x, y, cellSize, cellSize);
-
-                    ctx.lineWidth = 2;
-                    const topSame = r > 0 && gridState[i - 8] === val;
-                    const bottomSame = r < 7 && gridState[i + 8] === val;
-                    const leftSame = c > 0 && gridState[i - 1] === val;
-                    const rightSame = c < 7 && gridState[i + 1] === val;
-
+                    ctx.fillStyle = pieceColors[val]; ctx.fillRect(x, y, cellSize, cellSize); ctx.lineWidth = 2;
+                    const topSame = r > 0 && gridState[i - 8] === val, bottomSame = r < 7 && gridState[i + 8] === val, leftSame = c > 0 && gridState[i - 1] === val, rightSame = c < 7 && gridState[i + 1] === val;
                     ctx.strokeStyle = '#0f172a';
                     if (!topSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); ctx.stroke(); }
                     if (!bottomSame) { ctx.beginPath(); ctx.moveTo(x, y + cellSize); ctx.lineTo(x + cellSize, y + cellSize); ctx.stroke(); }
                     if (!leftSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); ctx.stroke(); }
                     if (!rightSame) { ctx.beginPath(); ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); ctx.stroke(); }
-
                     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
                     if (topSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); ctx.stroke(); }
                     if (leftSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); ctx.stroke(); }
                 } else {
-                    ctx.fillStyle = '#cbd5e1';
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                    ctx.strokeStyle = '#94a3b8';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, cellSize, cellSize);
+                    ctx.fillStyle = '#cbd5e1'; ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.strokeRect(x, y, cellSize, cellSize);
                 }
             }
             return canvas.toDataURL("image/png");
         }
 
-        document.getElementById('shareBtn').onclick = () => {
-            const dataUrl = generateScoreCard();
-            document.getElementById('score-img').src = dataUrl;
-            document.getElementById('share-modal').classList.remove('hidden-view');
-        };
+        document.getElementById('shareBtn').onclick = () => { document.getElementById('score-img').src = generateScoreCard(); document.getElementById('share-modal').classList.remove('hidden-view'); };
+        document.getElementById('close-modal').onclick = () => document.getElementById('share-modal').classList.add('hidden-view');
 
-        document.getElementById('close-modal').onclick = () => {
-            document.getElementById('share-modal').classList.add('hidden-view');
-        };
-
-        // 📋 複製彩色文字戰績 (圖形著色演算法，保證使用全部7色，且相鄰不同色)
+        // 📋 複製彩色文字戰績
         document.getElementById('copyTextBtn').onclick = () => {
-            const time = document.getElementById('timer').innerText;
-            const date = document.getElementById('target-date').innerText;
+            const time = document.getElementById('timer').innerText, date = document.getElementById('target-date').innerText;
             let emoji = `📅 Pentomino Daily (${date})\n⏱️ Time: ${time}\n\n`;
-
-            const emojiColors = ['🟥', '🟦', '🟧', '🟩', '🟪', '🟨', '🟫'];
-            const pieceColorMap = {};
-            const adj = {};
+            const emojiColors = ['🟥', '🟦', '🟧', '🟩', '🟪', '🟨', '🟫'], pieceColorMap = {}, adj = {};
             Object.keys(pieceColors).forEach(k => adj[k] = new Set());
-
-            // 建立鄰接表
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
-                    const p1 = gridState[r * 8 + c];
-                    if (!p1 || p1 === 'BLOCK') continue;
-
-                    if (c < 7) {
-                        const p2 = gridState[r * 8 + c + 1];
-                        if (p2 && p2 !== 'BLOCK' && p2 !== p1) { adj[p1].add(p2); adj[p2].add(p1); }
-                    }
-                    if (r < 7) {
-                        const p3 = gridState[(r + 1) * 8 + c];
-                        if (p3 && p3 !== 'BLOCK' && p3 !== p1) { adj[p1].add(p3); adj[p3].add(p1); }
-                    }
+                    const p1 = gridState[r * 8 + c]; if (!p1 || p1 === 'BLOCK') continue;
+                    if (c < 7) { const p2 = gridState[r * 8 + c + 1]; if (p2 && p2 !== 'BLOCK' && p2 !== p1) { adj[p1].add(p2); adj[p2].add(p1); } }
+                    if (r < 7) { const p3 = gridState[(r + 1) * 8 + c]; if (p3 && p3 !== 'BLOCK' && p3 !== p1) { adj[p1].add(p3); adj[p3].add(p1); } }
                 }
             }
-
-            // 紀錄每個顏色的使用次數
-            const colorUsage = {};
-            emojiColors.forEach(c => colorUsage[c] = 0);
-
-            // 著色：優先挑選合法的顏色中，目前「使用次數最少」的，強迫均勻使用所有顏色
+            const colorUsage = {}; emojiColors.forEach(c => colorUsage[c] = 0);
             Object.keys(pieceColors).forEach(p => {
-                const used = new Set();
-                adj[p].forEach(neighbor => {
-                    if (pieceColorMap[neighbor]) used.add(pieceColorMap[neighbor]);
-                });
-
-                // 找出周圍沒用過的顏色
-                const availableColors = emojiColors.filter(c => !used.has(c));
-
-                // 依照全場使用次數由小到大排序
-                availableColors.sort((a, b) => colorUsage[a] - colorUsage[b]);
-
-                // 挑選最少使用的顏色
-                const chosen = availableColors[0];
-                pieceColorMap[p] = chosen;
-                colorUsage[chosen]++;
+                const used = new Set(); adj[p].forEach(neighbor => { if (pieceColorMap[neighbor]) used.add(pieceColorMap[neighbor]); });
+                const availableColors = emojiColors.filter(c => !used.has(c)).sort((a, b) => colorUsage[a] - colorUsage[b]);
+                const chosen = availableColors[0]; pieceColorMap[p] = chosen; colorUsage[chosen]++;
             });
-
-            // 組合字串
             for (let i = 0; i < 64; i++) {
                 if (i > 0 && i % 8 === 0) emoji += '\n';
-                const val = gridState[i];
-                if (val && val !== 'BLOCK') {
-                    emoji += pieceColorMap[val];
-                } else {
-                    emoji += blockedIndices.has(i) ? '⬛' : '⬜';
-                }
+                const val = gridState[i]; emoji += (val && val !== 'BLOCK') ? pieceColorMap[val] : (blockedIndices.has(i) ? '⬛' : '⬜');
             }
             navigator.clipboard.writeText(emoji).then(() => alert("📋 文字戰績已複製！"));
         };
 
-        document.addEventListener('pointerdown', (e) => {
-            if (!e.target.closest('.piece-container') && !e.target.closest('.controls')) select(null);
-        });
+        document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.piece-container') && !e.target.closest('.controls')) select(null); });
 
-        setTimeout(() => {
-            initPlay();
-            syncAllPositions(false);
-        }, 50);
+        setTimeout(() => { initPlay(); syncAllPositions(false); }, 50);
 
         // ==========================================
         //  💡 模組 2：自由解答 (Solver Mode)
         // ==========================================
         {
-            const boardEl = document.getElementById('s-board');
-            const blocked = new Set();
-            const cells = [];
-            let solverGenerator = null;
-            let solutionCount = 0;
+            const boardEl = document.getElementById('s-board'), blocked = new Set(), cells = [];
+            let solverGenerator = null, solutionCount = 0;
 
             for (let i = 0; i < 64; i++) {
-                const cell = document.createElement('div');
-                cell.className = 's-cell';
+                const cell = document.createElement('div'); cell.className = 's-cell';
                 cell.onclick = () => {
                     if (solverGenerator !== null) return;
-                    if (blocked.has(i)) {
-                        blocked.delete(i);
-                        cell.classList.remove('s-blocked');
-                    } else if (blocked.size < 4) {
-                        blocked.add(i);
-                        cell.classList.add('s-blocked');
-                    }
+                    if (blocked.has(i)) { blocked.delete(i); cell.classList.remove('s-blocked'); }
+                    else if (blocked.size < 4) { blocked.add(i); cell.classList.add('s-blocked'); }
                     document.getElementById('s-count').innerText = blocked.size;
                 };
-                boardEl.appendChild(cell);
-                cells.push(cell);
+                boardEl.appendChild(cell); cells.push(cell);
             }
 
             const SHAPES = {
@@ -1206,8 +1055,7 @@
 
             const ALL_VARIANTS = {};
             for (let key in SHAPES) {
-                const variants = [];
-                let curr = SHAPES[key];
+                const variants = []; let curr = SHAPES[key];
                 for (let i = 0; i < 8; i++) {
                     if (i === 4) curr = curr.map(([r, c]) => [r, -c]);
                     curr = curr.map(([r, c]) => [c, -r]);
@@ -1223,18 +1071,13 @@
                 const visited = new Set();
                 for (let i = 0; i < 64; i++) {
                     if (currentGrid[i] === null && !visited.has(i)) {
-                        let size = 0;
-                        const q = [i];
-                        visited.add(i);
+                        let size = 0; const q = [i]; visited.add(i);
                         while (q.length) {
-                            const curr = q.shift();
-                            size++;
+                            const curr = q.shift(); size++;
                             const r = Math.floor(curr / 8), c = curr % 8;
                             [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dr, dc]) => {
                                 const nr = r + dr, nc = c + dc, nid = nr * 8 + nc;
-                                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && currentGrid[nid] === null && !visited.has(nid)) {
-                                    visited.add(nid); q.push(nid);
-                                }
+                                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && currentGrid[nid] === null && !visited.has(nid)) { visited.add(nid); q.push(nid); }
                             });
                         }
                         if (size % 5 !== 0) return false;
@@ -1244,18 +1087,12 @@
             }
 
             function* createSolver() {
-                const grid = Array(64).fill(null);
-                blocked.forEach(idx => grid[idx] = 'BLOCK');
+                const grid = Array(64).fill(null); blocked.forEach(idx => grid[idx] = 'BLOCK');
                 const remaining = Object.keys(ALL_VARIANTS);
 
                 function* backtrack(currentGrid, pieces) {
-                    if (pieces.length === 0) {
-                        yield currentGrid;
-                        return;
-                    }
-
-                    const firstEmpty = currentGrid.indexOf(null);
-                    if (firstEmpty === -1) return;
+                    if (pieces.length === 0) { yield currentGrid; return; }
+                    const firstEmpty = currentGrid.indexOf(null); if (firstEmpty === -1) return;
                     const r = Math.floor(firstEmpty / 8), c = firstEmpty % 8;
 
                     for (let i = 0; i < pieces.length; i++) {
@@ -1265,7 +1102,6 @@
                                 const nr = r + dr - v[0][0], nc = c + dc - v[0][1];
                                 return (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) ? nr * 8 + nc : -1;
                             });
-
                             if (positions.every(p => p !== -1 && currentGrid[p] === null)) {
                                 positions.forEach(p => currentGrid[p] = name);
                                 if (getIslands(currentGrid)) yield* backtrack(currentGrid, pieces.filter(p => p !== name));
@@ -1279,82 +1115,36 @@
 
             document.getElementById('s-solveBtn').onclick = () => {
                 if (blocked.size !== 4) return alert("請剛好選取 4 個空格作為障礙物！");
-
-                const btn = document.getElementById('s-solveBtn');
-                const status = document.getElementById('s-status');
-
-                if (solverGenerator === null) {
-                    solverGenerator = createSolver();
-                    solutionCount = 0;
-                }
-
-                status.innerText = "計算中...";
-                btn.disabled = true;
+                const btn = document.getElementById('s-solveBtn'), status = document.getElementById('s-status');
+                if (solverGenerator === null) { solverGenerator = createSolver(); solutionCount = 0; }
+                status.innerText = "計算中..."; btn.disabled = true;
 
                 setTimeout(() => {
                     const result = solverGenerator.next();
-
                     if (!result.done) {
                         solutionCount++;
-
-                        cells.forEach(c => {
-                            if (!c.classList.contains('s-blocked')) {
-                                c.className = 's-cell';
-                                c.style = '';
-                            }
-                        });
-
+                        cells.forEach(c => { if (!c.classList.contains('s-blocked')) { c.className = 's-cell'; c.style = ''; } });
                         result.value.forEach((name, i) => {
                             if (name && name !== 'BLOCK') {
                                 cells[i].className = `s-cell s-piece ${name}`;
-
-                                const r = Math.floor(i / 8);
-                                const c = i % 8;
-
-                                const topSame = r > 0 && result.value[i - 8] === name;
-                                const bottomSame = r < 7 && result.value[i + 8] === name;
-                                const leftSame = c > 0 && result.value[i - 1] === name;
-                                const rightSame = c < 7 && result.value[i + 1] === name;
-
-                                const outerLine = '3px solid #0f172a';
-                                const innerLine = '1px solid rgba(255,255,255,0.2)';
-
-                                cells[i].style.borderTop = topSame ? innerLine : outerLine;
-                                cells[i].style.borderBottom = bottomSame ? innerLine : outerLine;
-                                cells[i].style.borderLeft = leftSame ? innerLine : outerLine;
-                                cells[i].style.borderRight = rightSame ? innerLine : outerLine;
-
-                                cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
-                                cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
-                                cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
-                                cells[i].style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
+                                const r = Math.floor(i / 8), c = i % 8;
+                                const topSame = r > 0 && result.value[i - 8] === name, bottomSame = r < 7 && result.value[i + 8] === name, leftSame = c > 0 && result.value[i - 1] === name, rightSame = c < 7 && result.value[i + 1] === name;
+                                const outerLine = '3px solid #0f172a', innerLine = '1px solid rgba(255,255,255,0.2)';
+                                cells[i].style.borderTop = topSame ? innerLine : outerLine; cells[i].style.borderBottom = bottomSame ? innerLine : outerLine; cells[i].style.borderLeft = leftSame ? innerLine : outerLine; cells[i].style.borderRight = rightSame ? innerLine : outerLine;
+                                cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px'; cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px'; cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px'; cells[i].style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
                             }
                         });
-
-                        status.innerText = `成功！(目前為第 ${solutionCount} 個解)`;
-                        btn.innerText = "尋找下一個解";
-                        btn.disabled = false;
+                        status.innerText = `成功！(目前為第 ${solutionCount} 個解)`; btn.innerText = "尋找下一個解"; btn.disabled = false;
                     } else {
-                        status.innerText = solutionCount > 0 ? `搜尋完畢！共有 ${solutionCount} 個解。` : "這個地形完全無解！";
-                        btn.innerText = "已無更多解";
-                        btn.disabled = true;
+                        status.innerText = solutionCount > 0 ? `搜尋完畢！共有 ${solutionCount} 個解。` : "這個地形完全無解！"; btn.innerText = "已無更多解"; btn.disabled = true;
                     }
                 }, 50);
             };
 
             document.getElementById('s-resetBtn').onclick = () => {
-                blocked.clear();
-                cells.forEach(c => {
-                    c.className = 's-cell';
-                    c.style = '';
-                });
-                solverGenerator = null;
-                solutionCount = 0;
-                document.getElementById('s-count').innerText = "0";
-                document.getElementById('s-status').innerText = "";
-                const btn = document.getElementById('s-solveBtn');
-                btn.innerText = "💡 開始計算";
-                btn.disabled = false;
+                blocked.clear(); cells.forEach(c => { c.className = 's-cell'; c.style = ''; });
+                solverGenerator = null; solutionCount = 0; document.getElementById('s-count').innerText = "0"; document.getElementById('s-status').innerText = "";
+                const btn = document.getElementById('s-solveBtn'); btn.innerText = "💡 開始計算"; btn.disabled = false;
             };
         }
 
