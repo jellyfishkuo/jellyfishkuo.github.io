@@ -300,6 +300,8 @@
             transform-origin: 0 0;
             will-change: transform, left, top;
             transform: translateZ(0);
+            touch-action: none;
+            /* 🌟 觸控防護：強制禁止瀏覽器把拖曳誤判為滑動網頁 */
         }
 
         .piece-container.selected {
@@ -556,13 +558,21 @@
     </div>
 
     <script>
+        // ==========================================
+        //  🚨 防護：徹底禁止 iOS Safari 雙擊放大
+        // ==========================================
         let lastTouchEnd = 0;
         document.addEventListener('touchend', function (event) {
             const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) event.preventDefault();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
             lastTouchEnd = now;
         }, { passive: false });
 
+        // ==========================================
+        //  全域邏輯：切換分頁
+        // ==========================================
         const tabPlay = document.getElementById('tab-play');
         const tabSolver = document.getElementById('tab-solver');
         const viewPlay = document.getElementById('play-view');
@@ -584,6 +594,9 @@
             document.body.classList.remove('play-mode-locked'); document.body.classList.add('solver-mode-active');
         };
 
+        // ==========================================
+        //  🎮 模組 1：親手操作 (Play Mode)
+        // ==========================================
         const calendarLayout = [
             ['2033', '2022', '2023', '2024', 'JAN', 'FEB', 'MAR', 'APR'],
             ['2025', '2026', '2027', '2028', 'MAY', 'JUN', 'JUL', 'AUG'],
@@ -673,15 +686,30 @@
                 this.draw(); this.setupEvents();
             }
 
+            // 🌟 終極修復：DOM 節點重用池 (DOM Pooling)
             draw() {
-                this.el.innerHTML = '';
-                const board = document.getElementById('board'); if (!board.querySelector('.cell')) return;
+                const board = document.getElementById('board');
+                if (!board.querySelector('.cell')) return;
                 const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
-                this.blocks.forEach(([r, c]) => {
-                    const b = document.createElement('div'); b.className = 'p-block';
-                    b.style.width = currentCellSize + 'px'; b.style.height = currentCellSize + 'px';
-                    b.style.left = (c * currentCellSize) + 'px'; b.style.top = (r * currentCellSize) + 'px';
-                    b.style.background = this.color; this.el.appendChild(b);
+
+                // 不要再用 innerHTML = ''！動態增減節點，保持 DOM 的延續性
+                while (this.el.children.length < this.blocks.length) {
+                    const b = document.createElement('div');
+                    b.className = 'p-block';
+                    b.style.background = this.color;
+                    this.el.appendChild(b);
+                }
+                while (this.el.children.length > this.blocks.length) {
+                    this.el.removeChild(this.el.lastChild);
+                }
+
+                // 直接修改現有節點的座標，不銷毀 DOM，防止滑鼠跟丟！
+                this.blocks.forEach(([r, c], i) => {
+                    const b = this.el.children[i];
+                    b.style.width = currentCellSize + 'px';
+                    b.style.height = currentCellSize + 'px';
+                    b.style.left = (c * currentCellSize) + 'px';
+                    b.style.top = (r * currentCellSize) + 'px';
                 });
             }
 
@@ -698,7 +726,7 @@
                 }
             }
 
-            // 🎯 終極完美版：真・物理重心自轉演算法 (Center of Mass)
+            // 🎯 終極修復：真・物理重心自轉演算法
             transformAction(transformFn) {
                 const board = document.getElementById('board');
                 const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
@@ -706,12 +734,11 @@
                 let wasSnapped = this.isSnapped;
                 let oldGridR, oldGridC;
 
-                // 1. 計算當前陣列的「物理重心」(Center of Mass)
-                // 每一塊骨牌固定 5 格，重心座標 = [總和R / 5, 總和C / 5]
+                // 1. 計算物理重心 (Center of Mass)
                 const getCoM = (blocks) => {
                     let sr = 0, sc = 0;
                     blocks.forEach(([r, c]) => { sr += r; sc += c; });
-                    return [sr / blocks.length, sc / blocks.length];
+                    return [sr / 5, sc / 5]; // 固定 5 格
                 };
 
                 const [oldComR, oldComC] = getCoM(this.blocks);
@@ -722,25 +749,22 @@
                     this.removeFromGrid();
                 }
 
-                // 紀錄拖曳中的物理位置
                 const centerX = this.x + oldComC * currentCellSize + currentCellSize / 2;
                 const centerY = this.y + oldComR * currentCellSize + currentCellSize / 2;
                 const oldX = this.x;
                 const oldY = this.y;
 
-                // 2. 陣列旋轉與正規化 (推回左上角)
+                // 2. 陣列旋轉與正規化
                 this.blocks = this.blocks.map(([r, c]) => transformFn(r, c));
                 const minR = Math.min(...this.blocks.map(b => b[0]));
                 const minC = Math.min(...this.blocks.map(b => b[1]));
                 this.blocks = this.blocks.map(([r, c]) => [r - minR, c - minC]);
 
-                // 3. 計算旋轉後的「新物理重心」
+                // 3. 旋轉後的新重心
                 const [newComR, newComC] = getCoM(this.blocks);
 
-                // --- 結算位置 ---
                 if (wasSnapped && !this.isDragging) {
-                    // 🌟 數學奇蹟：因為 Pentomino 是 5 格，不會出現 .5 的進位模糊地帶！
-                    // 所以 Math.round 保證 100% 對稱進位，零誤差閉環，絕對不會再亂飄！
+                    // 原地自轉，利用 Math.round 與重心的奇數特性消除進位誤差
                     const targetGridR = oldGridR + Math.round(oldComR - newComR);
                     const targetGridC = oldGridC + Math.round(oldComC - newComC);
 
@@ -764,7 +788,7 @@
                         return;
                     }
                 } else {
-                    // 拖曳中：以「物理重心」為軸心來追蹤滑鼠
+                    // 拖曳中旋轉
                     this.x = centerX - newComC * currentCellSize - currentCellSize / 2;
                     this.y = centerY - newComR * currentCellSize - currentCellSize / 2;
 
@@ -835,11 +859,21 @@
 
                     activeDragPiece = this;
                     this.isDragging = true;
+
+                    // 🌟 狀態脫鉤 (State Decoupling)：只要抓起方塊，立刻清除陣列幽靈印記！
+                    if (this.isSnapped) {
+                        this.removeFromGrid();
+                        this.isSnapped = false;
+                    }
+
                     const rect = this.el.getBoundingClientRect();
                     dragOffsetX = e.clientX - rect.left;
                     dragOffsetY = e.clientY - rect.top;
 
                     this.el.classList.add('dragging');
+
+                    // 強制將游標鎖定在外框容器上，避免子元素變形時遺失目標 (Zombie State Fix)
+                    try { this.el.setPointerCapture(e.pointerId); } catch (err) { }
                 });
             }
         }
@@ -888,13 +922,16 @@
             activeDragPiece.updatePos();
         }, { passive: false });
 
-        document.addEventListener('pointerup', (e) => {
+        // 🌟 終極修復：同時監聽 pointerup 與 pointercancel 以防中斷
+        const releasePiece = (e) => {
             if (!activeDragPiece) return;
             activeDragPiece.el.classList.remove('dragging');
             activeDragPiece.isDragging = false;
             activeDragPiece.trySnap();
             activeDragPiece = null;
-        });
+        };
+        document.addEventListener('pointerup', releasePiece);
+        document.addEventListener('pointercancel', releasePiece);
 
         function select(p) {
             if (selectedPiece) selectedPiece.el.classList.remove('selected');
@@ -904,7 +941,7 @@
         }
 
         // ==========================================
-        // 🎯 滾輪雙向旋轉控制 (修復方向與卡頓)
+        // 🎯 滾輪雙向旋轉控制
         // ==========================================
         document.addEventListener('wheel', (e) => {
             const targetPiece = activeDragPiece || selectedPiece;
