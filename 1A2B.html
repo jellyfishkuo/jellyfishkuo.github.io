@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1A2B 猜數字</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #05050f;
+            --surface: rgba(13, 13, 30, 0.8);
+            --border: rgba(124, 58, 237, 0.25);
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --mono: 'Space Mono', monospace;
+            --sans: 'Syne', sans-serif;
+
+            --center-panel-width: 500px;
+            --right-panel-width: 260px;
+            --panel-gap: 20px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+        }
+
+        #canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .shell {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            flex-shrink: 0;
+        }
+
+        .hero-tag {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--accent2);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .game-title {
+            font-family: var(--sans);
+            font-size: clamp(2.2rem, 5vw, 3.2rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .game-title .gradient {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .game-sub {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 8px;
+            letter-spacing: 0.05em;
+        }
+
+        .game-area {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(15px);
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ── 中心面板 ── */
+        .center-panel {
+            width: var(--center-panel-width);
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 25px 30px;
+            gap: 18px;
+            z-index: 2;
+        }
+
+        /* ── 右側面板 ── */
+        .right-panel {
+            width: var(--right-panel-width);
+            left: calc(50% + (var(--center-panel-width) / 2) + var(--panel-gap));
+            padding: 20px;
+            height: auto;
+            max-height: 560px;
+        }
+
+        /* 數據與狀態 */
+        .stats-strip {
+            display: flex;
+            gap: 10px;
+        }
+
+        .stat-box {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid rgba(124, 58, 237, 0.15);
+            border-radius: 12px;
+            background: rgba(124, 58, 237, 0.05);
+        }
+
+        .stat-val {
+            font-family: var(--mono);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent2);
+        }
+
+        .stat-lbl {
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* 猜測數字區 */
+        .digit-row {
+            display: flex;
+            gap: 12px;
+            margin: 5px 0;
+        }
+
+        .digit-box {
+            flex: 1;
+            height: 85px;
+            border-radius: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--mono);
+            font-size: 44px;
+            font-weight: 700;
+            color: #fff;
+            position: relative;
+        }
+
+        .digit-box.active {
+            border-color: var(--accent2);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+
+        .digit-box.active::after {
+            content: '';
+            position: absolute;
+            bottom: 12px;
+            width: 20px;
+            height: 3px;
+            background: var(--accent2);
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* 輸入區域引導 */
+        .input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+
+        .kb-hint {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .kb-hint kbd {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            color: var(--text);
+        }
+
+        /* 數字鍵盤 */
+        .numpad {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .num-btn {
+            height: 52px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+            font-family: var(--mono);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .num-btn:hover:not(.used) {
+            border-color: var(--accent2);
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent2);
+            transform: translateY(-2px);
+        }
+
+        .num-btn.used {
+            opacity: 0.15;
+            cursor: not-allowed;
+        }
+
+        /* 功能按鈕 */
+        .action-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .del-btn,
+        .guess-btn {
+            height: 48px;
+            border-radius: 10px;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .del-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--muted);
+        }
+
+        .del-btn:hover {
+            color: var(--text);
+            border-color: var(--text);
+        }
+
+        .guess-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            color: #fff;
+            letter-spacing: 0.1em;
+        }
+
+        .guess-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .guess-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(124, 58, 237, 0.3);
+        }
+
+        /* ── 結算視窗 (改小且置中) ── */
+        #winArea {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -40%);
+            /* 稍微偏上看起來比較平衡 */
+            width: 85%;
+            padding: 30px 20px;
+            background: rgba(10, 10, 25, 0.95);
+            border: 1px solid var(--accent2);
+            border-radius: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+            animation: popIn 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.27);
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -30%) scale(0.9);
+            }
+        }
+
+        .win-banner .emoji {
+            font-size: 45px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .win-banner p {
+            font-size: 1.6rem;
+            color: #fff;
+            font-weight: 800;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .win-banner small {
+            font-size: 0.9rem;
+            color: var(--accent2);
+            font-family: var(--mono);
+            display: block;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .new-game-btn {
+            width: 200px;
+            height: 50px;
+            border-radius: 12px;
+            border: 2px solid var(--accent2);
+            background: rgba(6, 182, 212, 0.1);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .new-game-btn:hover {
+            background: var(--accent2);
+            color: #000;
+        }
+
+        /* 歷史日誌 */
+        .panel-label {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--accent2);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.2em;
+        }
+
+        .panel-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, rgba(6, 182, 212, 0.3), transparent);
+        }
+
+        .history {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .history::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .history::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .history-item {
+            display: grid;
+            grid-template-columns: 25px 1fr auto;
+            align-items: center;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .h-round {
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+
+        .h-guess {
+            font-family: var(--mono);
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            padding-left: 10px;
+        }
+
+        .badge {
+            font-family: var(--mono);
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            margin-left: 4px;
+        }
+
+        .badge-a {
+            background: rgba(124, 58, 237, 0.15);
+            color: #a78bfa;
+            border: 1px solid rgba(124, 58, 237, 0.4);
+        }
+
+        .badge-b {
+            background: rgba(6, 182, 212, 0.15);
+            color: #22d3ee;
+            border: 1px solid rgba(6, 182, 212, 0.4);
+        }
+
+        @media (max-width: 800px) {
+
+            html,
+            body {
+                overflow: auto;
+            }
+
+            .shell {
+                height: auto;
+            }
+
+            .game-area {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .panel {
+                position: relative;
+                top: 0;
+                left: 0;
+                transform: none;
+                width: 100%;
+                margin-bottom: 20px;
+            }
+
+            .right-panel {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="shell">
+        <div class="header">
+            <div class="hero-tag">// 密碼破譯系統</div>
+            <div class="game-title">1<span class="gradient">A</span>2<span class="gradient">B</span> 猜數字</div>
+            <div class="game-sub">A = 數字位置皆正確 &nbsp;·&nbsp; B = 數字正確但位置錯誤</div>
+        </div>
+
+        <div class="game-area">
+            <div class="panel center-panel">
+                <div class="stats-strip">
+                    <div class="stat-box">
+                        <div class="stat-val" id="statRound">0</div>
+                        <div class="stat-lbl">猜測次數</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val" id="statWins">0</div>
+                        <div class="stat-lbl">勝場紀錄</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val" id="statBest">—</div>
+                        <div class="stat-lbl">最佳成績</div>
+                    </div>
+                </div>
+
+                <div class="digit-row" id="digitRow"></div>
+
+                <div id="inputArea" class="input-area">
+                    <div class="kb-hint">
+                        鍵盤可用 <kbd>0</kbd>-<kbd>9</kbd>&nbsp;&nbsp;<kbd>Backspace</kbd> 刪除&nbsp;&nbsp;<kbd>Enter</kbd> 送出
+                    </div>
+                    <div class="numpad" id="numpad"></div>
+                    <div class="action-row">
+                        <button class="del-btn" onclick="delDigit()">清除 (Delete)</button>
+                        <button class="guess-btn" id="guessBtn" onclick="submitGuess()" disabled>確認猜測 (Confirm)</button>
+                    </div>
+                </div>
+
+                <div id="winArea" style="display:none;">
+                    <div class="win-banner">
+                        <div class="emoji">🎉</div>
+                        <p id="winMsg">成功破解！</p>
+                        <small id="winSub"></small>
+                    </div>
+                    <button class="new-game-btn" onclick="initGame()">再玩一局</button>
+                </div>
+            </div>
+
+            <div class="panel right-panel">
+                <div class="panel-label">猜測紀錄 LOGS</div>
+                <div class="history" id="history"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 粒子背景
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H, particles = [];
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+        resize();
+        window.addEventListener('resize', resize);
+        class Particle {
+            constructor() { this.reset(); }
+            reset() { this.x = Math.random() * W; this.y = Math.random() * H; this.vx = (Math.random() - 0.5) * 0.4; this.vy = (Math.random() - 0.5) * 0.4; this.r = Math.random() * 1.5; this.color = Math.random() > 0.5 ? '#7c3aed' : '#06b6d4'; }
+            update() { this.x += this.vx; this.y += this.vy; if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset(); }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.globalAlpha = 0.2; ctx.fill(); }
+        }
+        for (let i = 0; i < 70; i++) particles.push(new Particle());
+        (function animate() { ctx.clearRect(0, 0, W, H); particles.forEach(p => { p.update(); p.draw() }); requestAnimationFrame(animate); })();
+
+        // 1A2B 遊戲邏輯
+        let secret = '', current = '', historyList = [];
+        let gameOver = false, wins = 0, best = null;
+
+        function genSecret() {
+            const d = '0123456789'.split('');
+            for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[d[i], d[j]] = [d[j], d[i]]; }
+            return d.slice(0, 4).join('');
+        }
+
+        function initGame() {
+            secret = genSecret(); current = ''; historyList = []; gameOver = false;
+            document.getElementById('winArea').style.display = 'none';
+            document.getElementById('inputArea').style.visibility = 'visible';
+            document.getElementById('history').innerHTML = '<div style="text-align:center; color:var(--muted); font-size:0.7rem; font-family:var(--mono); padding-top:20px;">// Zzz...</div>';
+            renderDigits(); renderNumpad(); updateBtn(); updateStats();
+        }
+
+        function renderDigits() {
+            const el = document.getElementById('digitRow'); el.innerHTML = '';
+            for (let i = 0; i < 4; i++) {
+                const box = document.createElement('div');
+                box.className = 'digit-box' + (i === current.length && !gameOver ? ' active' : '');
+                box.textContent = current[i] || ''; el.appendChild(box);
+            }
+        }
+
+        function renderNumpad() {
+            const pad = document.getElementById('numpad'); pad.innerHTML = '';
+            for (let d = 0; d <= 9; d++) {
+                const btn = document.createElement('button');
+                btn.className = 'num-btn' + (current.includes(String(d)) ? ' used' : '');
+                btn.textContent = d; btn.onclick = () => addDigit(String(d)); pad.appendChild(btn);
+            }
+        }
+
+        function addDigit(d) {
+            if (gameOver || current.length >= 4 || current.includes(d)) return;
+            current += d; renderDigits(); renderNumpad(); updateBtn();
+        }
+
+        function delDigit() {
+            if (gameOver || !current.length) return;
+            current = current.slice(0, -1); renderDigits(); renderNumpad(); updateBtn();
+        }
+
+        function updateBtn() { document.getElementById('guessBtn').disabled = current.length !== 4 || gameOver; }
+
+        function submitGuess() {
+            if (current.length !== 4 || gameOver) return;
+            let a = 0, b = 0;
+            for (let i = 0; i < 4; i++) { if (current[i] === secret[i]) a++; else if (secret.includes(current[i])) b++; }
+
+            historyList.unshift({ guess: current, a, b });
+            renderHistory();
+            updateStats();
+
+            if (a === 4) {
+                gameOver = true; wins++;
+                if (best === null || historyList.length < best) best = historyList.length;
+                document.getElementById('winSub').textContent = `正確答案：${secret} | 總計次數：${historyList.length}`;
+                document.getElementById('inputArea').style.visibility = 'hidden';
+                document.getElementById('winArea').style.display = 'flex';
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            } else {
+                current = ''; renderDigits(); renderNumpad(); updateBtn();
+            }
+        }
+
+        function renderHistory() {
+            const el = document.getElementById('history'); el.innerHTML = '';
+            historyList.forEach((item, idx) => {
+                const div = document.createElement('div'); div.className = 'history-item';
+                div.innerHTML = `
+                    <span class="h-round">#${historyList.length - idx}</span>
+                    <span class="h-guess">${item.guess}</span>
+                    <div class="h-result">
+                        <span class="badge badge-a">${item.a}A</span>
+                        <span class="badge badge-b">${item.b}B</span>
+                    </div>`;
+                el.appendChild(div);
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('statRound').textContent = historyList.length;
+            document.getElementById('statWins').textContent = wins;
+            document.getElementById('statBest').textContent = best || '—';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (gameOver) return;
+            if (e.key >= '0' && e.key <= '9') addDigit(e.key);
+            if (e.key === 'Backspace') delDigit();
+            if (e.key === 'Enter') submitGuess();
+        });
+
+        initGame();
+    </script>
+</body>
+
+</html>
