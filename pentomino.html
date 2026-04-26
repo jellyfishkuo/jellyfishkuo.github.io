@@ -7,6 +7,7 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="icon" href="puzzle.ico">
     <title>Pentomino 拼圖</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <style>
         /* --- 全域重置與防護 --- */
         * {
@@ -973,7 +974,30 @@
         }
 
         function checkWin() {
-            if (pieces.every(p => p.isSnapped)) { clearInterval(timerInt); document.getElementById('shareBtn').style.visibility = 'visible'; }
+            if (pieces.every(p => p.isSnapped)) {
+                clearInterval(timerInt);
+                document.getElementById('shareBtn').style.visibility = 'visible';
+
+                // 觸發過關煙火特效
+                fireConfetti();
+            }
+        }
+
+        function fireConfetti() {
+            var count = 200;
+            var defaults = { origin: { y: 0.7 }, zIndex: 10001 };
+
+            function fire(particleRatio, opts) {
+                confetti(Object.assign({}, defaults, opts, {
+                    particleCount: Math.floor(count * particleRatio)
+                }));
+            }
+
+            fire(0.25, { spread: 26, startVelocity: 55 });
+            fire(0.2, { spread: 60 });
+            fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+            fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+            fire(0.1, { spread: 120, startVelocity: 45 });
         }
 
         document.getElementById('rotateBtn').onclick = () => selectedPiece?.rotate();
