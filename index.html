@@ -420,6 +420,8 @@
             transition: all 0.4s;
             position: relative;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .project-card::before {
@@ -455,6 +457,7 @@
             letter-spacing: 0.1em;
             text-transform: uppercase;
             margin-bottom: 1rem;
+            align-self: flex-start;
         }
 
         .project-title {
@@ -467,6 +470,7 @@
             font-size: 0.9rem;
             color: var(--muted);
             line-height: 1.7;
+            flex-grow: 1;
         }
 
         .project-link {
@@ -753,7 +757,8 @@
             <div class="section-label">// 01 — About</div>
             <h2>致力於後端與資料庫技術的開發者</h2>
             <p>Hi! 我是一名準備踏入研究所的準研究生，目前在資料庫系統實驗室進行研究。我熱衷於探討底層邏輯、資料結構與演算法，並享受將複雜系統拆解、優化效能的過程。</p>
-            <p style="margin-top:1rem;">除了平時與學長共同協作開發專案，我也持續精進 C++、Java 與 Python，並熟悉使用 Docker 部署及建置各種關聯式資料庫（如 PostgreSQL、Oracle）。</p>
+            <p style="margin-top:1rem;">除了平時與學長共同協作開發專案，我也持續精進 C++、Java 與 Python，並熟悉使用 Docker 部署及建置各種關聯式資料庫（如
+                PostgreSQL、Oracle）。</p>
             <div class="about-stats">
                 <div class="stat-box">
                     <div class="stat-num">3+</div>
@@ -887,13 +892,18 @@
                     </a>
                 </div>
             </div>
+
             <div class="project-card reveal" style="transition-delay:0.2s">
-                <div class="project-tag">Open Source</div>
-                <div class="project-title">Project Gamma</div>
-                <div class="project-desc">Your open source contribution or personal tool. What makes it unique? Who
-                    would benefit from using it?</div>
-                <a href="#" class="project-link">View on GitHub →</a>
+                <div class="project-tag">Web Game / JS</div>
+                <div class="project-title">1A2B 猜數字</div>
+                <div class="project-desc">基於純前端技術實作的經典猜數字遊戲。具備動態粒子背景、猜測歷史紀錄面板，支援實體鍵盤操作，並結合 Canvas Confetti
+                    特效提供過關回饋體驗。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                    <a href="1a2b.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+                </div>
             </div>
+
         </div>
     </section>
 
