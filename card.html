@@ -361,6 +361,28 @@
     .card-tile.picked {
       outline: 2px solid var(--gold);
       outline-offset: -1px;
+      background: var(--gold);
+      border-color: var(--gold);
+    }
+
+    .card-tile.picked .stripe {
+      background: #1a1327;
+    }
+
+    .card-tile.picked .name {
+      color: #1a1327;
+    }
+
+    .card-tile.picked .count-badge {
+      color: #1a1327;
+    }
+
+    .card-tile.picked .count-badge.zero {
+      color: #6b5424;
+    }
+
+    .card-tile.picked .count-badge.spare {
+      color: #1a1327;
     }
 
     .card-tile.empty-slot {
@@ -1062,9 +1084,10 @@
         var cardX = getCard(cardXId), cardY = getCard(cardYId);
         if (!accA || !accB || !cardX || !cardY) return false;
         if (accAId === accBId) { showToast("不能跟自己交易"); return false; }
+        if (cardXId === cardYId) { showToast("兩邊選到同一張卡，交換沒有意義"); return false; }
         if (cardX.categoryId !== cardY.categoryId) { showToast("只有同分區的卡牌才能交換"); return false; }
-        if (countOf(accA, cardXId) < 1) { showToast(accA.name + " 沒有多餘的「" + cardX.name + "」"); return false; }
-        if (countOf(accB, cardYId) < 1) { showToast(accB.name + " 沒有多餘的「" + cardY.name + "」"); return false; }
+        if (countOf(accA, cardXId) < 2) { showToast(accA.name + " 的「" + cardX.name + "」不到 2 張，沒有多的可以交換"); return false; }
+        if (countOf(accB, cardYId) < 2) { showToast(accB.name + " 的「" + cardY.name + "」不到 2 張，沒有多的可以交換"); return false; }
 
         accA.inventory[cardXId] = countOf(accA, cardXId) - 1;
         accA.inventory[cardYId] = countOf(accA, cardYId) + 1;
@@ -1084,21 +1107,28 @@
         var bSpareANeed = [];
         cards.forEach(function (c) {
           var ca = countOf(accA, c.id), cb = countOf(accB, c.id);
+          // A 有多的（≥2）且 B 完全沒有這張（=0）才算 B 真的需要
+          // 只要 B 已經有 1 張就算「有了」，不再建議繼續給，避免同一組配對交換完還一直留在建議清單
           if (ca >= 2 && cb === 0) aSpareBNeed.push(c);
           if (cb >= 2 && ca === 0) bSpareANeed.push(c);
         });
-        var n = Math.min(aSpareBNeed.length, bSpareANeed.length);
         var pairs = [];
-        for (var i = 0; i < n; i++) {
-          pairs.push({ cardX: aSpareBNeed[i], cardY: bSpareANeed[i] });
-        }
+        aSpareBNeed.forEach(function (x) {
+          bSpareANeed.forEach(function (y) {
+            if (x.id === y.id) return; // 同一張卡不會互換
+            pairs.push({ cardX: x, cardY: y });
+          });
+        });
         return pairs;
       }
 
       function computeSuggestions(accAId, accBId) {
         var all = [];
+        var CAP = 60;
         CATEGORY_DEFS.forEach(function (cat) {
+          if (all.length >= CAP) return;
           computeSuggestionsForCategory(cat.id, accAId, accBId).forEach(function (pair) {
+            if (all.length >= CAP) return;
             all.push({ cardX: pair.cardX, cardY: pair.cardY, cat: cat });
           });
         });
@@ -1153,6 +1183,12 @@
           if (k === "class") node.className = attrs[k];
           else if (k === "html") node.innerHTML = attrs[k];
           else if (k.indexOf("on") === 0 && typeof attrs[k] === "function") node.addEventListener(k.slice(2), attrs[k]);
+          else if (typeof attrs[k] === "boolean") {
+            // boolean HTML attributes (disabled, selected, checked...) are on/off by
+            // PRESENCE, not string value — setAttribute(k, false) would still turn them on.
+            if (attrs[k]) node.setAttribute(k, "");
+            else node.removeAttribute(k);
+          }
           else node.setAttribute(k, attrs[k]);
         });
         (children || []).forEach(function (c) {
@@ -1421,7 +1457,7 @@
             var grid = el("div", { class: "card-grid" });
             var tiles = catCards.map(function (card) {
               var count = countOf(acc, card.id);
-              var selectable = count >= 1;
+              var selectable = count >= 2;
               var tile = cardTileNode(acc, card, {
                 readOnlyCount: true,
                 selectable: selectable,
