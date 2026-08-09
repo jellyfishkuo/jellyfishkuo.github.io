@@ -507,6 +507,17 @@
       width: 100%;
       font-size: 12.5px;
       min-width: 520px;
+      table-layout: fixed;
+    }
+
+    table.matrix th:first-child,
+    table.matrix td.card-name-cell {
+      width: 34%;
+      max-width: 220px;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     table.matrix th,
