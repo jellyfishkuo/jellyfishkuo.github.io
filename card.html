@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡牌交易站 · 多帳號交換管理器</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #120e1c;
+      --bg-panel: #1c1730;
+      --bg-panel-alt: #231c3a;
+      --bg-inset: #150f22;
+      --ink: #f3eeff;
+      --ink-dim: #a89bc9;
+      --ink-faint: #6f6390;
+      --gold: #e8b34c;
+      --gold-dim: #a97f2f;
+      --line: #332a52;
+      --danger: #ef5b6f;
+      --danger-bg: #3a1b25;
+      --spare-bg: #123424;
+      --spare-line: #2ecc8f;
+
+      --cat-holy: #c084fc;
+      --cat-holy-dark: #5b2fa0;
+      --cat-holy-bg: #241a3d;
+
+      --cat-dark: #8b7cf6;
+      --cat-dark-dark: #3d2f7a;
+      --cat-dark-bg: #1c1836;
+
+      --cat-builder: #2dd4bf;
+      --cat-builder-dark: #0f6b62;
+      --cat-builder-bg: #122a2c;
+
+      --cat-super: #fb923c;
+      --cat-super-dark: #8a3f10;
+      --cat-super-bg: #2a1c14;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 15% -10%, rgba(232, 179, 76, 0.08), transparent 40%),
+        radial-gradient(circle at 90% 10%, rgba(139, 124, 246, 0.10), transparent 45%),
+        var(--bg-deep);
+      color: var(--ink);
+      font-family: 'Noto Sans TC', sans-serif;
+      min-height: 100vh;
+    }
+
+    ::selection {
+      background: var(--gold-dim);
+      color: #1a1327;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: 'Cinzel', serif;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    #app {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 20px 18px 60px;
+    }
+
+    /* ---------- Header ---------- */
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+
+    .brand-title {
+      font-size: 26px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-title .gem {
+      color: var(--gold);
+      font-size: 22px;
+      filter: drop-shadow(0 0 6px rgba(232, 179, 76, 0.55));
+    }
+
+    .brand-sub {
+      color: var(--ink-faint);
+      font-size: 12.5px;
+      margin-top: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .account-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .account-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-panel);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 6px 6px 14px;
+      font-size: 13.5px;
+      cursor: pointer;
+      color: var(--ink-dim);
+      transition: border-color .15s, color .15s, background .15s;
+    }
+
+    .account-chip:hover {
+      color: var(--ink);
+      border-color: var(--gold-dim);
+    }
+
+    .account-chip.active {
+      background: var(--bg-panel-alt);
+      color: var(--gold);
+      border-color: var(--gold-dim);
+    }
+
+    .account-chip .del-x {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: var(--ink-faint);
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .account-chip .del-x:hover {
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .btn-add-account {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px dashed var(--line);
+      color: var(--ink-dim);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 13.5px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+
+    .btn-add-account:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    /* ---------- Tabs ---------- */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--ink-faint);
+      padding: 9px 16px;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      position: relative;
+      transition: color .15s;
+    }
+
+    .tab-btn:hover {
+      color: var(--ink-dim);
+    }
+
+    .tab-btn.active {
+      color: var(--gold);
+      border-color: var(--line);
+      border-bottom-color: var(--bg-deep);
+      background: var(--bg-panel);
+    }
+
+    .tab-btn.active::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: -1px;
+      height: 2px;
+      background: var(--gold);
+    }
+
+    /* ---------- Panels ---------- */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 20px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--ink-faint);
+    }
+
+    .empty-state .gem {
+      font-size: 30px;
+      display: block;
+      margin-bottom: 10px;
+      color: var(--gold-dim);
+    }
+
+    /* ---------- Category block ---------- */
+    .cat-block {
+      margin-bottom: 28px;
+    }
+
+    .cat-block:last-child {
+      margin-bottom: 0;
+    }
+
+    .cat-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--cat-border, var(--line));
+    }
+
+    .cat-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex: none;
+    }
+
+    .cat-header h2 {
+      font-size: 16px;
+      color: var(--cat-color, var(--ink));
+    }
+
+    .cat-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--ink-faint);
+    }
+
+    .cat-count b {
+      color: var(--ink-dim);
+      font-weight: 700;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width:920px) {
+      .card-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (max-width:600px) {
+      .card-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width:420px) {
+      .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .card-tile {
+      background: var(--bg-inset);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color .15s, transform .15s;
+    }
+
+    .card-tile.has-spare {
+      border-color: var(--spare-line);
+    }
+
+    .card-tile.selectable {
+      cursor: pointer;
+    }
+
+    .card-tile.selectable:hover {
+      transform: translateY(-2px);
+    }
+
+    .card-tile.picked {
+      outline: 2px solid var(--gold);
+      outline-offset: -1px;
+    }
+
+    .card-tile .stripe {
+      height: 5px;
+      background: var(--cat-color, var(--gold));
+    }
+
+    .card-tile .body {
+      padding: 9px 8px 10px;
+    }
+
+    .card-tile .name {
+      font-size: 11.5px;
+      color: var(--ink-dim);
+      line-height: 1.3;
+      min-height: 2.4em;
+      display: flex;
+      align-items: center;
+      word-break: break-word;
+    }
+
+    .card-tile .count-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .count-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--ink);
+      background: transparent;
+      border: none;
+      width: 34px;
+      text-align: center;
+      cursor: text;
+    }
+
+    .count-badge.zero {
+      color: var(--ink-faint);
+    }
+
+    .count-badge.spare {
+      color: #5fe0ac;
+    }
+
+    .stepper {
+      display: flex;
+      gap: 3px;
+    }
+
+    .step-btn {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      border: 1px solid var(--line);
+      background: var(--bg-panel-alt);
+      color: var(--ink-dim);
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      transition: background .12s, color .12s;
+    }
+
+    .step-btn:hover {
+      background: var(--gold-dim);
+      color: #1a1327;
+    }
+
+    .step-btn:active {
+      transform: scale(0.92);
+    }
+
+    /* ---------- Matrix view ---------- */
+    .matrix-cats {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .chip-btn {
+      font-size: 12.5px;
+      padding: 7px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--bg-inset);
+      color: var(--ink-dim);
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+
+    .chip-btn.active {
+      border-color: var(--cat-color);
+      color: var(--cat-color);
+      background: var(--cat-bg);
+    }
+
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    table.matrix {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12.5px;
+      min-width: 520px;
+    }
+
+    table.matrix th,
+    table.matrix td {
+      padding: 8px 10px;
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    table.matrix th:last-child,
+    table.matrix td:last-child {
+      border-right: none;
+    }
+
+    table.matrix thead th {
+      background: var(--bg-panel-alt);
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    table.matrix td.card-name-cell {
+      text-align: left;
+      color: var(--ink-dim);
+      background: var(--bg-panel-alt);
+      position: sticky;
+      left: 0;
+      font-weight: 500;
+    }
+
+    table.matrix td.need {
+      background: var(--danger-bg);
+      color: var(--danger);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    table.matrix td.spare {
+      background: var(--spare-bg);
+      color: #5fe0ac;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    table.matrix td.normal {
+      color: var(--ink-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 11.5px;
+      color: var(--ink-faint);
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    /* ---------- Trade view ---------- */
+    .trade-pickers {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field label {
+      font-size: 11.5px;
+      color: var(--ink-faint);
+      letter-spacing: 0.03em;
+    }
+
+    select {
+      background: var(--bg-inset);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: inherit;
+      font-size: 13.5px;
+      min-width: 150px;
+    }
+
+    .swap-arrow {
+      font-size: 20px;
+      color: var(--gold-dim);
+      padding-bottom: 8px;
+    }
+
+    .trade-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width:760px) {
+      .trade-columns {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trade-col h3 {
+      font-size: 14px;
+      color: var(--ink-dim);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .trade-col h3 .who {
+      color: var(--gold);
+    }
+
+    .trade-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 22px 0;
+      padding: 16px;
+      background: var(--bg-inset);
+      border-radius: 8px;
+      border: 1px dashed var(--line);
+    }
+
+    .pick-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--ink-dim);
+      flex: 1;
+      justify-content: center;
+    }
+
+    .pick-preview .slot {
+      min-width: 120px;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: var(--bg-panel-alt);
+      border: 1px solid var(--line);
+      color: var(--ink-faint);
+      font-size: 12.5px;
+    }
+
+    .pick-preview .slot.filled {
+      color: var(--gold);
+      border-color: var(--gold-dim);
+    }
+
+    .btn-primary {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 0.03em;
+      font-size: 13.5px;
+      background: linear-gradient(180deg, #f3c66a, var(--gold));
+      color: #241a08;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: filter .15s, transform .1s;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.08);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      filter: none;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ink-dim);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12.5px;
+      transition: border-color .15s, color .15s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--gold-dim);
+      color: var(--gold);
+    }
+
+    .suggestions-title {
+      font-size: 14px;
+      color: var(--ink-dim);
+      margin: 26px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sugg-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sugg-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-inset);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px 14px;
+      font-size: 12.8px;
+      flex-wrap: wrap;
+    }
+
+    .sugg-row .path {
+      color: var(--ink-dim);
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .sugg-row .path b {
+      color: var(--gold);
+    }
+
+    .sugg-row .path .arrow {
+      color: var(--ink-faint);
+      margin: 0 6px;
+    }
+
+    /* ---------- Settings ---------- */
+    .settings-cat {
+      margin-bottom: 22px;
+    }
+
+    .settings-cat h3 {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: var(--cat-color);
+    }
+
+    .name-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width:760px) {
+      .name-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width:480px) {
+      .name-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .name-grid input {
+      background: var(--bg-inset);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      padding: 7px 9px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    .name-grid input:focus {
+      border-color: var(--gold-dim);
+    }
+
+    .settings-tools {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--ink-faint);
+      font-size: 11.5px;
+      margin-top: 36px;
+      line-height: 1.7;
+    }
+
+    footer a {
+      color: var(--ink-dim);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-panel-alt);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 50;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-6px);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+
+    <div class="topbar">
+      <div>
+        <div class="brand-title"><span class="gem">◆</span>
+          <h1>卡牌交易站</h1>
+        </div>
+        <div class="brand-sub">多帳號卡牌收藏與交換管理器</div>
+      </div>
+      <div class="account-strip" id="accountStrip"></div>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab-btn" data-view="inventory">卡牌清單</button>
+      <button class="tab-btn" data-view="matrix">跨帳號總表</button>
+      <button class="tab-btn" data-view="trade">交易配對</button>
+      <button class="tab-btn" data-view="settings">設定</button>
+    </nav>
+
+    <div class="panel" id="viewRoot"></div>
+
+    <footer>
+      資料僅儲存在目前瀏覽器（localStorage），換裝置或清除快取前，記得到「設定」頁面匯出備份。<br>
+      Card Trade Manager · 適合部署於 GitHub Pages
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var STORAGE_KEY = "cardTradeManagerV1";
+
+      var CATEGORY_DEFS = [
+        {
+          id: "holy", name: "聖水卡牌", shortName: "聖水", count: 19, icon: "💧",
+          color: "var(--cat-holy)", colorDark: "var(--cat-holy-dark)", bg: "var(--cat-holy-bg)"
+        },
+        {
+          id: "dark", name: "闇黑重油卡牌", shortName: "闇黑重油", count: 13, icon: "🔮",
+          color: "var(--cat-dark)", colorDark: "var(--cat-dark-dark)", bg: "var(--cat-dark-bg)"
+        },
+        {
+          id: "builder", name: "建築大師基地卡牌", shortName: "建築大師基地", count: 11, icon: "🏗️",
+          color: "var(--cat-builder)", colorDark: "var(--cat-builder-dark)", bg: "var(--cat-builder-bg)"
+        },
+        {
+          id: "super", name: "超級部隊卡牌", shortName: "超級部隊", count: 17, icon: "⚡",
+          color: "var(--cat-super)", colorDark: "var(--cat-super-dark)", bg: "var(--cat-super-bg)"
+        }
+      ];
+
+      function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+      function buildDefaultCards() {
+        var cards = [];
+        CATEGORY_DEFS.forEach(function (cat) {
+          for (var i = 1; i <= cat.count; i++) {
+            cards.push({ id: cat.id + "-" + i, categoryId: cat.id, name: cat.shortName + "卡 " + pad(i) });
+          }
+        });
+        return cards;
+      }
+
+      function uid() { return "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+      function defaultState() {
+        return {
+          cards: buildDefaultCards(),
+          accounts: [
+            { id: uid(), name: "帳號 1", inventory: {} }
+          ],
+          ui: {
+            view: "inventory", activeAccountId: null, matrixCat: "holy",
+            tradeA: null, tradeB: null, tradeCat: "holy", pickX: null, pickY: null
+          }
+        };
+      }
+
+      function loadState() {
+        try {
+          var raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return defaultState();
+          var parsed = JSON.parse(raw);
+          if (!parsed.cards || !parsed.accounts) return defaultState();
+          if (!parsed.ui) parsed.ui = { view: "inventory", activeAccountId: null, matrixCat: "holy", tradeA: null, tradeB: null, tradeCat: "holy", pickX: null, pickY: null };
+          return parsed;
+        } catch (e) {
+          console.error("讀取資料失敗，改用預設值", e);
+          return defaultState();
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      var state = loadState();
+
+      // ---------- helpers ----------
+      function getCategory(id) { return CATEGORY_DEFS.filter(function (c) { return c.id === id; })[0]; }
+      function cardsInCategory(catId) { return state.cards.filter(function (c) { return c.categoryId === catId; }); }
+      function getAccount(id) { return state.accounts.filter(function (a) { return a.id === id; })[0]; }
+      function getCard(id) { return state.cards.filter(function (c) { return c.id === id; })[0]; }
+      function countOf(account, cardId) { return account && account.inventory[cardId] ? account.inventory[cardId] : 0; }
+
+      function ensureActiveAccount() {
+        if (!state.accounts.length) { state.ui.activeAccountId = null; return; }
+        var exists = state.accounts.some(function (a) { return a.id === state.ui.activeAccountId; });
+        if (!exists) state.ui.activeAccountId = state.accounts[0].id;
+      }
+
+      function showToast(msg) {
+        var t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+      }
+
+      // ---------- mutations ----------
+      function addAccount(name) {
+        name = (name || "").trim();
+        if (!name) return;
+        state.accounts.push({ id: uid(), name: name, inventory: {} });
+        state.ui.activeAccountId = state.accounts[state.accounts.length - 1].id;
+        saveState(); render();
+        showToast("已新增帳號「" + name + "」");
+      }
+
+      function deleteAccount(id) {
+        var acc = getAccount(id);
+        if (!acc) return;
+        if (!confirm("確定要刪除帳號「" + acc.name + "」嗎？此動作無法復原。")) return;
+        state.accounts = state.accounts.filter(function (a) { return a.id !== id; });
+        ensureActiveAccount();
+        if (state.ui.tradeA === id) state.ui.tradeA = null;
+        if (state.ui.tradeB === id) state.ui.tradeB = null;
+        saveState(); render();
+      }
+
+      function renameAccount(id, newName) {
+        var acc = getAccount(id);
+        if (!acc) return;
+        newName = (newName || "").trim();
+        if (!newName) return;
+        acc.name = newName;
+        saveState(); render();
+      }
+
+      function adjustCount(accountId, cardId, delta) {
+        var acc = getAccount(accountId);
+        if (!acc) return;
+        var cur = countOf(acc, cardId);
+        var next = Math.max(0, cur + delta);
+        acc.inventory[cardId] = next;
+        saveState();
+        render();
+      }
+
+      function setCountExact(accountId, cardId, val) {
+        var acc = getAccount(accountId);
+        if (!acc) return;
+        var n = parseInt(val, 10);
+        if (isNaN(n) || n < 0) n = 0;
+        acc.inventory[cardId] = n;
+        saveState();
+        render();
+      }
+
+      function renameCard(cardId, newName) {
+        var card = getCard(cardId);
+        if (!card) return;
+        newName = (newName || "").trim();
+        if (!newName) return;
+        card.name = newName;
+        saveState();
+      }
+
+      function executeTrade(accAId, cardXId, accBId, cardYId) {
+        var accA = getAccount(accAId), accB = getAccount(accBId);
+        var cardX = getCard(cardXId), cardY = getCard(cardYId);
+        if (!accA || !accB || !cardX || !cardY) return false;
+        if (accAId === accBId) { showToast("不能跟自己交易"); return false; }
+        if (cardX.categoryId !== cardY.categoryId) { showToast("只有同分區的卡牌才能交換"); return false; }
+        if (countOf(accA, cardXId) < 1) { showToast(accA.name + " 沒有多餘的「" + cardX.name + "」"); return false; }
+        if (countOf(accB, cardYId) < 1) { showToast(accB.name + " 沒有多餘的「" + cardY.name + "」"); return false; }
+
+        accA.inventory[cardXId] = countOf(accA, cardXId) - 1;
+        accA.inventory[cardYId] = countOf(accA, cardYId) + 1;
+        accB.inventory[cardYId] = countOf(accB, cardYId) - 1;
+        accB.inventory[cardXId] = countOf(accB, cardXId) + 1;
+
+        saveState();
+        showToast(accA.name + " 的「" + cardX.name + "」 ⇄ " + accB.name + " 的「" + cardY.name + "」 交易完成");
+        return true;
+      }
+
+      function computeSuggestions(catId, accAId, accBId) {
+        var accA = getAccount(accAId), accB = getAccount(accBId);
+        if (!accA || !accB) return [];
+        var cards = cardsInCategory(catId);
+        var aSpareBNeed = [];
+        var bSpareANeed = [];
+        cards.forEach(function (c) {
+          var ca = countOf(accA, c.id), cb = countOf(accB, c.id);
+          if (ca >= 2 && cb === 0) aSpareBNeed.push(c);
+          if (cb >= 2 && ca === 0) bSpareANeed.push(c);
+        });
+        var n = Math.min(aSpareBNeed.length, bSpareANeed.length);
+        var pairs = [];
+        for (var i = 0; i < n; i++) {
+          pairs.push({ cardX: aSpareBNeed[i], cardY: bSpareANeed[i] });
+        }
+        return pairs;
+      }
+
+      function exportData() {
+        var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        var d = new Date();
+        a.href = url;
+        a.download = "card-trade-manager-backup-" + d.toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function importData(file) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            var parsed = JSON.parse(e.target.result);
+            if (!parsed.cards || !parsed.accounts) throw new Error("格式不正確");
+            if (!confirm("匯入將會覆蓋目前所有資料，確定要繼續嗎？")) return;
+            state = parsed;
+            if (!state.ui) state.ui = { view: "inventory", activeAccountId: null, matrixCat: "holy", tradeA: null, tradeB: null, tradeCat: "holy", pickX: null, pickY: null };
+            ensureActiveAccount();
+            saveState();
+            render();
+            showToast("匯入成功");
+          } catch (err) {
+            alert("匯入失敗：檔案格式不正確");
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      function resetAll() {
+        if (!confirm("這會清除所有帳號與卡牌紀錄，確定要重設嗎？")) return;
+        state = defaultState();
+        saveState();
+        render();
+      }
+
+      // ---------- rendering ----------
+      function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        attrs = attrs || {};
+        Object.keys(attrs).forEach(function (k) {
+          if (k === "class") node.className = attrs[k];
+          else if (k === "html") node.innerHTML = attrs[k];
+          else if (k.indexOf("on") === 0 && typeof attrs[k] === "function") node.addEventListener(k.slice(2), attrs[k]);
+          else node.setAttribute(k, attrs[k]);
+        });
+        (children || []).forEach(function (c) {
+          if (c === null || c === undefined) return;
+          if (typeof c === "string") node.appendChild(document.createTextNode(c));
+          else node.appendChild(c);
+        });
+        return node;
+      }
+
+      function renderAccountStrip() {
+        var strip = document.getElementById("accountStrip");
+        strip.innerHTML = "";
+        state.accounts.forEach(function (acc) {
+          var isActive = acc.id === state.ui.activeAccountId;
+          var chip = el("div", { class: "account-chip" + (isActive ? " active" : "") }, [
+            document.createTextNode(acc.name)
+          ]);
+          chip.addEventListener("click", function (ev) {
+            if (ev.target.closest(".del-x")) return;
+            state.ui.activeAccountId = acc.id;
+            saveState(); render();
+          });
+          chip.addEventListener("dblclick", function () {
+            var newName = prompt("重新命名帳號：", acc.name);
+            if (newName !== null) renameAccount(acc.id, newName);
+          });
+          var delBtn = el("button", {
+            class: "del-x", title: "刪除帳號", onclick: function (ev) {
+              ev.stopPropagation();
+              deleteAccount(acc.id);
+            }
+          }, ["✕"]);
+          chip.appendChild(delBtn);
+          strip.appendChild(chip);
+        });
+        var addBtn = el("button", {
+          class: "btn-add-account", onclick: function () {
+            var name = prompt("輸入新帳號名稱：", "帳號 " + (state.accounts.length + 1));
+            if (name !== null) addAccount(name);
+          }
+        }, ["＋ 新增帳號"]);
+        strip.appendChild(addBtn);
+      }
+
+      function renderTabs() {
+        var buttons = document.querySelectorAll(".tab-btn");
+        buttons.forEach(function (btn) {
+          btn.classList.toggle("active", btn.dataset.view === state.ui.view);
+          btn.onclick = function () {
+            state.ui.view = btn.dataset.view;
+            saveState(); render();
+          };
+        });
+      }
+
+      function cardTileNode(account, card, opts) {
+        opts = opts || {};
+        var cat = getCategory(card.categoryId);
+        var count = countOf(account, card.id);
+        var classes = "card-tile";
+        if (count >= 2) classes += " has-spare";
+        if (opts.selectable) classes += " selectable";
+        if (opts.picked) classes += " picked";
+
+        var tile = el("div", { class: classes, style: "--cat-color:" + cat.color });
+        tile.appendChild(el("div", { class: "stripe" }));
+
+        var body = el("div", { class: "body" });
+        body.appendChild(el("div", { class: "name" }, [card.name]));
+
+        if (opts.readOnlyCount) {
+          var row = el("div", { class: "count-row" }, [
+            el("span", { class: "count-badge" + (count === 0 ? " zero" : count >= 2 ? " spare" : "") }, ["×" + count])
+          ]);
+          body.appendChild(row);
+        } else {
+          var countInput = el("input", {
+            class: "count-badge" + (count === 0 ? " zero" : count >= 2 ? " spare" : ""),
+            value: count, inputmode: "numeric"
+          });
+          countInput.addEventListener("change", function () {
+            setCountExact(account.id, card.id, countInput.value);
+          });
+          countInput.addEventListener("click", function (ev) { ev.stopPropagation(); });
+
+          var minus = el("button", {
+            class: "step-btn", title: "減少", onclick: function (ev) {
+              ev.stopPropagation();
+              adjustCount(account.id, card.id, -1);
+            }
+          }, ["−"]);
+          var plus = el("button", {
+            class: "step-btn", title: "增加", onclick: function (ev) {
+              ev.stopPropagation();
+              adjustCount(account.id, card.id, 1);
+            }
+          }, ["＋"]);
+
+          var stepper = el("div", { class: "stepper" }, [minus, plus]);
+          var row = el("div", { class: "count-row" }, [countInput, stepper]);
+          body.appendChild(row);
+        }
+
+        tile.appendChild(body);
+
+        if (opts.onSelect) {
+          tile.addEventListener("click", function () { opts.onSelect(card); });
+        }
+
+        return tile;
+      }
+
+      function renderInventoryView(root) {
+        ensureActiveAccount();
+        if (!state.accounts.length) {
+          root.appendChild(el("div", { class: "empty-state" }, [
+            el("span", { class: "gem" }, ["◆"]),
+            el("div", {}, ["還沒有任何帳號，先新增一個帳號開始收集卡牌吧。"])
+          ]));
+          return;
+        }
+        var acc = getAccount(state.ui.activeAccountId);
+        CATEGORY_DEFS.forEach(function (cat) {
+          var block = el("div", { class: "cat-block" });
+          var header = el("div", { class: "cat-header", style: "--cat-border:" + cat.colorDark });
+          header.appendChild(el("div", { class: "cat-icon", style: "background:" + cat.bg + "; color:" + cat.color }, [cat.icon]));
+          header.appendChild(el("h2", { style: "--cat-color:" + cat.color }, [cat.name]));
+
+          var owned = 0, spareCards = 0;
+          cardsInCategory(cat.id).forEach(function (c) {
+            var n = countOf(acc, c.id);
+            if (n > 0) owned++;
+            if (n >= 2) spareCards++;
+          });
+          header.appendChild(el("div", { class: "cat-count" }, [
+            el("b", {}, [String(owned)]), "/" + cat.count + " 種持有 · 可交換 ", el("b", {}, [String(spareCards)]), " 種"
+          ]));
+          block.appendChild(header);
+
+          var grid = el("div", { class: "card-grid" });
+          cardsInCategory(cat.id).forEach(function (card) {
+            grid.appendChild(cardTileNode(acc, card, {}));
+          });
+          block.appendChild(grid);
+          root.appendChild(block);
+        });
+      }
+
+      function renderMatrixView(root) {
+        if (!state.accounts.length) {
+          root.appendChild(el("div", { class: "empty-state" }, [
+            el("span", { class: "gem" }, ["◆"]), el("div", {}, ["還沒有帳號可供比較，先新增帳號。"])
+          ]));
+          return;
+        }
+        var catTabs = el("div", { class: "matrix-cats" });
+        CATEGORY_DEFS.forEach(function (cat) {
+          var active = state.ui.matrixCat === cat.id;
+          var btn = el("button", {
+            class: "chip-btn" + (active ? " active" : ""),
+            style: "--cat-color:" + cat.color + "; --cat-bg:" + cat.bg,
+            onclick: function () { state.ui.matrixCat = cat.id; saveState(); render(); }
+          }, [cat.icon + " " + cat.name]);
+          catTabs.appendChild(btn);
+        });
+        root.appendChild(catTabs);
+
+        var cat = getCategory(state.ui.matrixCat);
+        var cards = cardsInCategory(cat.id);
+
+        var wrap = el("div", { class: "matrix-wrap" });
+        var table = el("table", { class: "matrix" });
+        var thead = el("thead");
+        var headRow = el("tr");
+        headRow.appendChild(el("th", { style: "text-align:left" }, ["卡牌"]));
+        state.accounts.forEach(function (acc) { headRow.appendChild(el("th", {}, [acc.name])); });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        var tbody = el("tbody");
+        cards.forEach(function (card) {
+          var tr = el("tr");
+          tr.appendChild(el("td", { class: "card-name-cell" }, [card.name]));
+          state.accounts.forEach(function (acc) {
+            var n = countOf(acc, card.id);
+            var cls = n === 0 ? "need" : n >= 2 ? "spare" : "normal";
+            tr.appendChild(el("td", { class: cls }, [String(n)]));
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        root.appendChild(wrap);
+
+        root.appendChild(el("div", { class: "legend" }, [
+          el("span", {}, [el("i", { style: "background:var(--spare-bg); border:1px solid var(--spare-line)" }), "綠底＝有多餘可交換（≥2 張）"]),
+          el("span", {}, [el("i", { style: "background:var(--danger-bg); border:1px solid var(--danger)" }), "紅底＝完全沒有，需要跟別人換"]),
+        ]));
+      }
+
+      function renderTradeView(root) {
+        if (state.accounts.length < 2) {
+          root.appendChild(el("div", { class: "empty-state" }, [
+            el("span", { class: "gem" }, ["◆"]), el("div", {}, ["至少需要 2 個帳號才能進行交易，先去新增帳號吧。"])
+          ]));
+          return;
+        }
+
+        if (!state.ui.tradeA || !getAccount(state.ui.tradeA)) state.ui.tradeA = state.accounts[0].id;
+        if (!state.ui.tradeB || !getAccount(state.ui.tradeB) || state.ui.tradeB === state.ui.tradeA) {
+          var other = state.accounts.filter(function (a) { return a.id !== state.ui.tradeA; })[0];
+          state.ui.tradeB = other ? other.id : null;
+        }
+
+        var pickers = el("div", { class: "trade-pickers" });
+
+        var selA = el("select", {});
+        state.accounts.forEach(function (a) {
+          var opt = el("option", { value: a.id }, [a.name]);
+          if (a.id === state.ui.tradeA) opt.selected = true;
+          selA.appendChild(opt);
+        });
+        selA.addEventListener("change", function () {
+          state.ui.tradeA = selA.value; state.ui.pickX = null; saveState(); render();
+        });
+        pickers.appendChild(el("div", { class: "field" }, [el("label", {}, ["帳號 A"]), selA]));
+        pickers.appendChild(el("div", { class: "swap-arrow" }, ["⇄"]));
+
+        var selB = el("select", {});
+        state.accounts.forEach(function (a) {
+          var opt = el("option", { value: a.id }, [a.name]);
+          if (a.id === state.ui.tradeB) opt.selected = true;
+          selB.appendChild(opt);
+        });
+        selB.addEventListener("change", function () {
+          state.ui.tradeB = selB.value; state.ui.pickY = null; saveState(); render();
+        });
+        pickers.appendChild(el("div", { class: "field" }, [el("label", {}, ["帳號 B"]), selB]));
+
+        var selCat = el("select", {});
+        CATEGORY_DEFS.forEach(function (cat) {
+          var opt = el("option", { value: cat.id }, [cat.icon + " " + cat.name]);
+          if (cat.id === state.ui.tradeCat) opt.selected = true;
+          selCat.appendChild(opt);
+        });
+        selCat.addEventListener("change", function () {
+          state.ui.tradeCat = selCat.value; state.ui.pickX = null; state.ui.pickY = null; saveState(); render();
+        });
+        pickers.appendChild(el("div", { class: "field" }, [el("label", {}, ["分區"]), selCat]));
+
+        root.appendChild(pickers);
+
+        if (state.ui.tradeA === state.ui.tradeB) {
+          root.appendChild(el("div", { class: "empty-state" }, ["請選擇兩個不同的帳號"]));
+          return;
+        }
+
+        var accA = getAccount(state.ui.tradeA), accB = getAccount(state.ui.tradeB);
+        var cat = getCategory(state.ui.tradeCat);
+        var cards = cardsInCategory(cat.id);
+
+        var columns = el("div", { class: "trade-columns" });
+
+        var colA = el("div", { class: "trade-col" });
+        colA.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [accA.name])]));
+        var gridA = el("div", { class: "card-grid" });
+        cards.forEach(function (card) {
+          var count = countOf(accA, card.id);
+          var selectable = count >= 1;
+          var tile = cardTileNode(accA, card, {
+            readOnlyCount: true,
+            selectable: selectable,
+            picked: state.ui.pickX === card.id,
+            onSelect: selectable ? function (c) { state.ui.pickX = c.id; saveState(); render(); } : null
+          });
+          if (!selectable) tile.style.opacity = "0.35";
+          gridA.appendChild(tile);
+        });
+        colA.appendChild(gridA);
+
+        var colB = el("div", { class: "trade-col" });
+        colB.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [accB.name])]));
+        var gridB = el("div", { class: "card-grid" });
+        cards.forEach(function (card) {
+          var count = countOf(accB, card.id);
+          var selectable = count >= 1;
+          var tile = cardTileNode(accB, card, {
+            readOnlyCount: true,
+            selectable: selectable,
+            picked: state.ui.pickY === card.id,
+            onSelect: selectable ? function (c) { state.ui.pickY = c.id; saveState(); render(); } : null
+          });
+          if (!selectable) tile.style.opacity = "0.35";
+          gridB.appendChild(tile);
+        });
+        colB.appendChild(gridB);
+
+        columns.appendChild(colA);
+        columns.appendChild(colB);
+        root.appendChild(columns);
+
+        var pickXCard = state.ui.pickX ? getCard(state.ui.pickX) : null;
+        var pickYCard = state.ui.pickY ? getCard(state.ui.pickY) : null;
+
+        var actionBar = el("div", { class: "trade-action-bar" });
+        var preview = el("div", { class: "pick-preview" }, [
+          el("div", { class: "slot" + (pickXCard ? " filled" : "") }, [accA.name + "：" + (pickXCard ? pickXCard.name : "尚未選擇")]),
+          el("span", {}, ["⇄"]),
+          el("div", { class: "slot" + (pickYCard ? " filled" : "") }, [accB.name + "：" + (pickYCard ? pickYCard.name : "尚未選擇")])
+        ]);
+        actionBar.appendChild(preview);
+
+        var confirmBtn = el("button", {
+          class: "btn-primary",
+          disabled: !(pickXCard && pickYCard),
+          onclick: function () {
+            if (executeTrade(accA.id, state.ui.pickX, accB.id, state.ui.pickY)) {
+              state.ui.pickX = null; state.ui.pickY = null;
+              saveState(); render();
+            }
+          }
+        }, ["確認交換"]);
+        actionBar.appendChild(confirmBtn);
+        root.appendChild(actionBar);
+
+        // suggestions
+        var suggestions = computeSuggestions(cat.id, accA.id, accB.id);
+        root.appendChild(el("div", { class: "suggestions-title" }, ["✨ 建議可交換組合（" + cat.name + "）"]));
+        if (!suggestions.length) {
+          root.appendChild(el("div", { class: "empty-state", style: "padding:20px" }, ["目前這個分區沒有雙方剛好互補的多餘卡牌。"]));
+        } else {
+          var list = el("div", { class: "sugg-list" });
+          suggestions.forEach(function (pair) {
+            var row = el("div", { class: "sugg-row" });
+            row.appendChild(el("div", { class: "path" }, [
+              el("b", {}, [accA.name]), " 的多餘「" + pair.cardX.name + "」",
+              el("span", { class: "arrow" }, ["⇄"]),
+              el("b", {}, [accB.name]), " 的多餘「" + pair.cardY.name + "」"
+            ]));
+            row.appendChild(el("button", {
+              class: "btn-secondary", onclick: function () {
+                state.ui.pickX = pair.cardX.id;
+                state.ui.pickY = pair.cardY.id;
+                saveState(); render();
+              }
+            }, ["套用這組"]));
+            list.appendChild(row);
+          });
+          root.appendChild(list);
+        }
+      }
+
+      function renderSettingsView(root) {
+        CATEGORY_DEFS.forEach(function (cat) {
+          var block = el("div", { class: "settings-cat" });
+          block.appendChild(el("h3", { style: "--cat-color:" + cat.color }, [cat.icon + " " + cat.name + "（可自訂卡牌名稱）"]));
+          var grid = el("div", { class: "name-grid" });
+          cardsInCategory(cat.id).forEach(function (card) {
+            var input = el("input", { value: card.name, "data-card-id": card.id });
+            input.addEventListener("change", function () {
+              renameCard(card.id, input.value);
+            });
+            grid.appendChild(input);
+          });
+          block.appendChild(grid);
+          root.appendChild(block);
+        });
+
+        var toolsTitle = el("h3", { style: "margin:26px 0 10px; font-size:14px; color:var(--ink-dim)" }, ["資料備份"]);
+        root.appendChild(toolsTitle);
+        var tools = el("div", { class: "settings-tools" });
+        tools.appendChild(el("button", { class: "btn-secondary", onclick: exportData }, ["⬇ 匯出備份 (JSON)"]));
+
+        var fileInput = el("input", { type: "file", accept: "application/json", style: "display:none" });
+        fileInput.addEventListener("change", function () {
+          if (fileInput.files && fileInput.files[0]) importData(fileInput.files[0]);
+          fileInput.value = "";
+        });
+        var importBtn = el("button", { class: "btn-secondary", onclick: function () { fileInput.click(); } }, ["⬆ 匯入備份"]);
+        tools.appendChild(importBtn);
+        tools.appendChild(fileInput);
+
+        var resetBtn = el("button", { class: "btn-secondary", style: "border-color:var(--danger); color:var(--danger)", onclick: resetAll }, ["⚠ 重設所有資料"]);
+        tools.appendChild(resetBtn);
+
+        root.appendChild(tools);
+      }
+
+      function render() {
+        renderAccountStrip();
+        renderTabs();
+        var root = document.getElementById("viewRoot");
+        root.innerHTML = "";
+        ensureActiveAccount();
+        switch (state.ui.view) {
+          case "matrix": renderMatrixView(root); break;
+          case "trade": renderTradeView(root); break;
+          case "settings": renderSettingsView(root); break;
+          default: renderInventoryView(root); break;
+        }
+      }
+
+      render();
+    })();
+  </script>
+</body>
+
+</html>
