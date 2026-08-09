@@ -363,6 +363,14 @@
       outline-offset: -1px;
     }
 
+    .card-tile.empty-slot {
+      visibility: hidden;
+      border: none;
+      background: none;
+      box-shadow: none;
+      pointer-events: none;
+    }
+
     .card-tile .stripe {
       height: 5px;
       background: var(--cat-color, var(--gold));
@@ -930,6 +938,32 @@
       var state = loadState();
 
       // ---------- helpers ----------
+      var GRID_COLS = 6;
+
+      // 遊戲裡卡牌是連續排下去的（不分區塊都算在同一條 6 欄的隊列裡）。
+      // 這裡算出每個分區「接在上一個分區尾巴之後」該留幾格空白，
+      // 讓分開顯示的區塊仍然對得上遊戲裡實際的排列位置。
+      function computeCategoryOffsets() {
+        var offsets = {};
+        var running = 0;
+        CATEGORY_DEFS.forEach(function (cat) {
+          offsets[cat.id] = running;
+          running = (running + cat.count) % GRID_COLS;
+        });
+        return offsets;
+      }
+      var CATEGORY_LEAD_OFFSET = computeCategoryOffsets();
+
+      function emptySlotNode() {
+        return el("div", { class: "card-tile empty-slot", "aria-hidden": "true" });
+      }
+
+      function appendCardGrid(grid, cat, nodesForCards) {
+        var lead = CATEGORY_LEAD_OFFSET[cat.id] || 0;
+        for (var i = 0; i < lead; i++) grid.appendChild(emptySlotNode());
+        nodesForCards.forEach(function (node) { grid.appendChild(node); });
+      }
+
       function getCategory(id) { return CATEGORY_DEFS.filter(function (c) { return c.id === id; })[0]; }
       function cardsInCategory(catId) { return state.cards.filter(function (c) { return c.categoryId === catId; }); }
       function getAccount(id) { return state.accounts.filter(function (a) { return a.id === id; })[0]; }
@@ -1236,9 +1270,10 @@
           block.appendChild(header);
 
           var grid = el("div", { class: "card-grid" });
-          cardsInCategory(cat.id).forEach(function (card) {
-            grid.appendChild(cardTileNode(acc, card, {}));
+          var tiles = cardsInCategory(cat.id).map(function (card) {
+            return cardTileNode(acc, card, {});
           });
+          appendCardGrid(grid, cat, tiles);
           block.appendChild(grid);
           root.appendChild(block);
         });
@@ -1362,7 +1397,7 @@
         var colA = el("div", { class: "trade-col" });
         colA.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [accA.name])]));
         var gridA = el("div", { class: "card-grid" });
-        cards.forEach(function (card) {
+        var tilesA = cards.map(function (card) {
           var count = countOf(accA, card.id);
           var selectable = count >= 1;
           var tile = cardTileNode(accA, card, {
@@ -1372,14 +1407,15 @@
             onSelect: selectable ? function (c) { state.ui.pickX = c.id; saveState(); render(); } : null
           });
           if (!selectable) tile.style.opacity = "0.35";
-          gridA.appendChild(tile);
+          return tile;
         });
+        appendCardGrid(gridA, cat, tilesA);
         colA.appendChild(gridA);
 
         var colB = el("div", { class: "trade-col" });
         colB.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [accB.name])]));
         var gridB = el("div", { class: "card-grid" });
-        cards.forEach(function (card) {
+        var tilesB = cards.map(function (card) {
           var count = countOf(accB, card.id);
           var selectable = count >= 1;
           var tile = cardTileNode(accB, card, {
@@ -1389,8 +1425,9 @@
             onSelect: selectable ? function (c) { state.ui.pickY = c.id; saveState(); render(); } : null
           });
           if (!selectable) tile.style.opacity = "0.35";
-          gridB.appendChild(tile);
+          return tile;
         });
+        appendCardGrid(gridB, cat, tilesB);
         colB.appendChild(gridB);
 
         columns.appendChild(colA);
