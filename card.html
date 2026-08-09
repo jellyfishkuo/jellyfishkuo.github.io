@@ -892,11 +892,25 @@
 
       function pad(n) { return n < 10 ? "0" + n : "" + n; }
 
+      var CARD_NAMES = {
+        holy: ["野蠻人", "弓箭手", "巨人", "哥布林", "炸彈人", "氣球兵", "法師", "天使", "飛龍", "皮卡超人",
+          "飛龍寶寶", "掘地礦工", "雷電飛龍", "雪怪", "龍騎士", "雷電泰坦", "棘木騎士", "巨矛投手", "隕石戈侖"],
+        dark: ["亡靈", "野豬騎士", "瓦基麗武神", "戈侖石人", "女巫", "熔岩獵犬", "巨石投手", "戈侖冰人",
+          "頭號殺手", "守護者學徒", "德魯伊", "烈焰熔爐", "廢墟女巫"],
+        builder: ["狂暴野蠻人", "隱密弓箭手", "巨人拳擊手", "變異亡靈", "炸彈兵", "飛龍寶寶", "加農炮戰車",
+          "暗夜女巫", "骷髏氣球", "威能皮卡", "飛豬騎士"],
+        super: ["超級野蠻人", "超級弓箭手", "超級巨人", "隱密哥布林", "超級炸彈人", "火箭氣球兵", "超級法師",
+          "超級飛龍", "地獄飛龍", "超級礦工", "超級雪怪", "超級亡靈", "超級野豬騎士", "超級瓦基麗",
+          "超級女巫", "寒冰獵犬", "超級巨石投手"]
+      };
+
       function buildDefaultCards() {
         var cards = [];
         CATEGORY_DEFS.forEach(function (cat) {
+          var names = CARD_NAMES[cat.id] || [];
           for (var i = 1; i <= cat.count; i++) {
-            cards.push({ id: cat.id + "-" + i, categoryId: cat.id, name: cat.shortName + "卡 " + pad(i) });
+            var fallback = cat.shortName + "卡 " + pad(i);
+            cards.push({ id: cat.id + "-" + i, categoryId: cat.id, name: names[i - 1] || fallback });
           }
         });
         return cards;
@@ -1062,7 +1076,7 @@
         return true;
       }
 
-      function computeSuggestions(catId, accAId, accBId) {
+      function computeSuggestionsForCategory(catId, accAId, accBId) {
         var accA = getAccount(accAId), accB = getAccount(accBId);
         if (!accA || !accB) return [];
         var cards = cardsInCategory(catId);
@@ -1079,6 +1093,16 @@
           pairs.push({ cardX: aSpareBNeed[i], cardY: bSpareANeed[i] });
         }
         return pairs;
+      }
+
+      function computeSuggestions(accAId, accBId) {
+        var all = [];
+        CATEGORY_DEFS.forEach(function (cat) {
+          computeSuggestionsForCategory(cat.id, accAId, accBId).forEach(function (pair) {
+            all.push({ cardX: pair.cardX, cardY: pair.cardY, cat: cat });
+          });
+        });
+        return all;
       }
 
       function exportData() {
@@ -1370,17 +1394,6 @@
         });
         pickers.appendChild(el("div", { class: "field" }, [el("label", {}, ["帳號 B"]), selB]));
 
-        var selCat = el("select", {});
-        CATEGORY_DEFS.forEach(function (cat) {
-          var opt = el("option", { value: cat.id }, [cat.icon + " " + cat.name]);
-          if (cat.id === state.ui.tradeCat) opt.selected = true;
-          selCat.appendChild(opt);
-        });
-        selCat.addEventListener("change", function () {
-          state.ui.tradeCat = selCat.value; state.ui.pickX = null; state.ui.pickY = null; saveState(); render();
-        });
-        pickers.appendChild(el("div", { class: "field" }, [el("label", {}, ["分區"]), selCat]));
-
         root.appendChild(pickers);
 
         if (state.ui.tradeA === state.ui.tradeB) {
@@ -1389,46 +1402,53 @@
         }
 
         var accA = getAccount(state.ui.tradeA), accB = getAccount(state.ui.tradeB);
-        var cat = getCategory(state.ui.tradeCat);
-        var cards = cardsInCategory(cat.id);
+
+        root.appendChild(el("div", { style: "font-size:12px; color:var(--ink-faint); margin-bottom:14px" },
+          ["所有分區都列在下面，直接點卡牌即可；交換時系統只會接受同分區的卡牌。"]));
 
         var columns = el("div", { class: "trade-columns" });
 
-        var colA = el("div", { class: "trade-col" });
-        colA.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [accA.name])]));
-        var gridA = el("div", { class: "card-grid" });
-        var tilesA = cards.map(function (card) {
-          var count = countOf(accA, card.id);
-          var selectable = count >= 1;
-          var tile = cardTileNode(accA, card, {
-            readOnlyCount: true,
-            selectable: selectable,
-            picked: state.ui.pickX === card.id,
-            onSelect: selectable ? function (c) { state.ui.pickX = c.id; saveState(); render(); } : null
-          });
-          if (!selectable) tile.style.opacity = "0.35";
-          return tile;
-        });
-        appendCardGrid(gridA, cat, tilesA);
-        colA.appendChild(gridA);
+        function buildAccountColumn(acc, pickField, otherPickField, onPickChange) {
+          var col = el("div", { class: "trade-col" });
+          col.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [acc.name])]));
+          CATEGORY_DEFS.forEach(function (cat) {
+            var catCards = cardsInCategory(cat.id);
+            var header = el("div", { class: "cat-header", style: "--cat-border:" + cat.colorDark + "; margin-top:14px; margin-bottom:8px" });
+            header.appendChild(el("div", { class: "cat-icon", style: "background:" + cat.bg + "; color:" + cat.color + "; width:24px; height:24px; font-size:12px" }, [cat.icon]));
+            header.appendChild(el("h2", { style: "--cat-color:" + cat.color + "; font-size:13px" }, [cat.name]));
+            col.appendChild(header);
 
-        var colB = el("div", { class: "trade-col" });
-        colB.appendChild(el("h3", {}, ["點選要付出的卡牌 — ", el("span", { class: "who" }, [accB.name])]));
-        var gridB = el("div", { class: "card-grid" });
-        var tilesB = cards.map(function (card) {
-          var count = countOf(accB, card.id);
-          var selectable = count >= 1;
-          var tile = cardTileNode(accB, card, {
-            readOnlyCount: true,
-            selectable: selectable,
-            picked: state.ui.pickY === card.id,
-            onSelect: selectable ? function (c) { state.ui.pickY = c.id; saveState(); render(); } : null
+            var grid = el("div", { class: "card-grid" });
+            var tiles = catCards.map(function (card) {
+              var count = countOf(acc, card.id);
+              var selectable = count >= 1;
+              var tile = cardTileNode(acc, card, {
+                readOnlyCount: true,
+                selectable: selectable,
+                picked: state.ui[pickField] === card.id,
+                onSelect: selectable ? function (c) { onPickChange(c); } : null
+              });
+              if (!selectable) tile.style.opacity = "0.35";
+              return tile;
+            });
+            appendCardGrid(grid, cat, tiles);
+            col.appendChild(grid);
           });
-          if (!selectable) tile.style.opacity = "0.35";
-          return tile;
+          return col;
+        }
+
+        var colA = buildAccountColumn(accA, "pickX", "pickY", function (c) {
+          state.ui.pickX = c.id;
+          var yCard = state.ui.pickY ? getCard(state.ui.pickY) : null;
+          if (yCard && yCard.categoryId !== c.categoryId) state.ui.pickY = null;
+          saveState(); render();
         });
-        appendCardGrid(gridB, cat, tilesB);
-        colB.appendChild(gridB);
+        var colB = buildAccountColumn(accB, "pickY", "pickX", function (c) {
+          state.ui.pickY = c.id;
+          var xCard = state.ui.pickX ? getCard(state.ui.pickX) : null;
+          if (xCard && xCard.categoryId !== c.categoryId) state.ui.pickX = null;
+          saveState(); render();
+        });
 
         columns.appendChild(colA);
         columns.appendChild(colB);
@@ -1458,16 +1478,17 @@
         actionBar.appendChild(confirmBtn);
         root.appendChild(actionBar);
 
-        // suggestions
-        var suggestions = computeSuggestions(cat.id, accA.id, accB.id);
-        root.appendChild(el("div", { class: "suggestions-title" }, ["✨ 建議可交換組合（" + cat.name + "）"]));
+        // suggestions across every category
+        var suggestions = computeSuggestions(accA.id, accB.id);
+        root.appendChild(el("div", { class: "suggestions-title" }, ["✨ 建議可交換組合（所有分區）"]));
         if (!suggestions.length) {
-          root.appendChild(el("div", { class: "empty-state", style: "padding:20px" }, ["目前這個分區沒有雙方剛好互補的多餘卡牌。"]));
+          root.appendChild(el("div", { class: "empty-state", style: "padding:20px" }, ["目前雙方沒有剛好互補的多餘卡牌。"]));
         } else {
           var list = el("div", { class: "sugg-list" });
           suggestions.forEach(function (pair) {
             var row = el("div", { class: "sugg-row" });
             row.appendChild(el("div", { class: "path" }, [
+              el("span", { style: "color:" + pair.cat.color + "; font-size:11px; margin-right:8px" }, [pair.cat.icon + " " + pair.cat.name]),
               el("b", {}, [accA.name]), " 的多餘「" + pair.cardX.name + "」",
               el("span", { class: "arrow" }, ["⇄"]),
               el("b", {}, [accB.name]), " 的多餘「" + pair.cardY.name + "」"
