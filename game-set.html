@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SET</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --card-bg: #ffffff;
+            --card-border: #d4d0c5;
+            --text-main: #242220;
+            --text-muted: #79746e;
+
+            /* 完全校準照片中的經典三原色 */
+            --set-red: #ed1c24;
+            --set-green: #3ba74c;
+            --set-purple: #662d91;
+
+            --accent-gold: #c68a26;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #e5e2d8;
+            color: var(--text-main);
+            font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif;
+            min-height: 100vh;
+        }
+
+        .layout {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 20px 20px;
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 16px;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #d3cec4;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: 0.03em;
+            color: #1a1918;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: right;
+        }
+
+        .stat .num {
+            display: block;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--set-purple);
+            line-height: 1.1;
+        }
+
+        .stat .label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        /* --- 手機版響應式設定 --- */
+        @media (max-width: 860px) {
+            .layout {
+                flex-direction: column;
+            }
+
+            .board {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .solution-panel {
+                width: 100% !important;
+                max-height: none !important;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .board {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .stat .num {
+                font-size: 1.4rem;
+            }
+
+            .stats {
+                gap: 12px;
+            }
+        }
+
+        /* ----------------------- */
+
+        /* 卡片本體 (橫式) */
+        .card {
+            position: relative;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            aspect-ratio: 1.55 / 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6% 8%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.04);
+            transition: transform 0.12s ease, box-shadow 0.12s ease, outline-color 0.15s ease;
+            outline: 3px solid transparent;
+            outline-offset: 2px;
+            user-select: none;
+        }
+
+        .card.empty {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .card-id {
+            position: absolute;
+            top: 6px;
+            left: 8px;
+            font-size: 0.75rem;
+            color: #a8a29e;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .card:not(.empty):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card.selected {
+            outline-color: var(--accent-gold);
+            transform: translateY(-3px);
+        }
+
+        .card.highlight {
+            outline-color: #3b82f6 !important;
+        }
+
+        .card.correct {
+            outline-color: var(--set-green);
+            background-color: #f0fdf4;
+        }
+
+        .card.wrong {
+            outline-color: var(--set-red);
+            background-color: #fef2f2;
+        }
+
+        .card.entering {
+            animation: enterCard 0.35s ease-out forwards;
+        }
+
+        @keyframes enterCard {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* 圖案容器：橫向並排 */
+        .card-shapes {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 依據數量精準控制間距，極度靠近 */
+        .card-shapes[data-count="1"] {
+            gap: 0;
+        }
+
+        .card-shapes[data-count="2"] {
+            gap: 2%;
+        }
+
+        .card-shapes[data-count="3"] {
+            gap: 2%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 10px 22px;
+            border-radius: 6px;
+            border: 1px solid #c7c2b6;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            background: #ffffff;
+            color: var(--text-main);
+        }
+
+        button:hover {
+            background: #f8f7f4;
+        }
+
+        button.btn-primary {
+            background: #242220;
+            color: #fff;
+            border-color: #242220;
+        }
+
+        button.btn-primary:hover {
+            background: #3f3b37;
+        }
+
+        /* --- 摺疊式規則區塊 (底部) --- */
+        .bottom-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+
+        .rules-box {
+            background: #f6f5f0;
+            border: 1px solid #d4d0c5;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .rules-box summary {
+            padding: 16px 24px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            outline: none;
+        }
+
+        .rules-box summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .rules-box summary:hover {
+            background: #f0eee6;
+        }
+
+        .rules-box summary::after {
+            content: "▼";
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .rules-box[open] summary::after {
+            content: "▲";
+        }
+
+        .rules-content {
+            padding: 0 24px 20px;
+            border-top: 1px dashed #dcd7cc;
+        }
+
+        .rules-content ul {
+            margin: 16px 0 0 0;
+            padding-left: 20px;
+            color: #4a4641;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .rules-content li strong {
+            color: var(--text-main);
+        }
+
+        /* --------------------------- */
+
+        /* 右側解答面板 */
+        .solution-panel {
+            width: 420px;
+            background: #ffffff;
+            border: 1px solid #dcd7cc;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .solution-panel h3 {
+            margin: 0 0 4px;
+            font-size: 1.15rem;
+        }
+
+        .solution-panel .panel-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .solution-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .solution-item {
+            border: 1px solid #e7e4dc;
+            border-radius: 8px;
+            padding: 14px;
+            background: #faf8f5;
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+
+        .solution-item:hover {
+            background: #f3efe6;
+            border-color: #c9c3b4;
+        }
+
+        .solution-cards-preview {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .preview-card {
+            position: relative;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 4px;
+            aspect-ratio: 1.55 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-card .card-id {
+            font-size: 0.6rem;
+            top: 2px;
+            left: 4px;
+        }
+
+        .rules-breakdown {
+            font-size: 0.8rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            color: #4b5563;
+            border-top: 1px dashed #ded9cb;
+            padding-top: 10px;
+        }
+
+        .rule-tag {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 6px;
+            border-radius: 4px;
+            background: #eeebe3;
+        }
+
+        .rule-tag.same {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .rule-tag.diff {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        /* --- 自訂的畫面中央提示彈窗 (取代 alert) --- */
+        .custom-alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+
+        .custom-alert-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .custom-alert-box {
+            background: #fff;
+            padding: 24px 32px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transform: translateY(-20px);
+            transition: transform 0.2s ease;
+            min-width: 300px;
+            max-width: 90%;
+        }
+
+        .custom-alert-overlay.show .custom-alert-box {
+            transform: translateY(0);
+        }
+
+        .custom-alert-box p {
+            margin: 0 0 20px 0;
+            font-size: 1.1rem;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 自訂提示視窗 -->
+    <div id="custom-alert" class="custom-alert-overlay">
+        <div class="custom-alert-box">
+            <p id="custom-alert-text"></p>
+            <button id="custom-alert-btn" class="btn-primary">確認關閉</button>
+        </div>
+    </div>
+
+    <div class="layout">
+        <div class="main-content">
+            <header>
+                <div>
+                    <h1>SET</h1>
+                </div>
+                <div class="stats">
+                    <div class="stat">
+                        <span class="num" id="stat-found">0</span>
+                        <span class="label">已配對</span>
+                    </div>
+                    <div class="stat">
+                        <span class="num" id="stat-deck">81</span>
+                        <span class="label">牌堆剩餘</span>
+                    </div>
+                    <div class="stat">
+                        <span class="num" id="stat-time">00:00</span>
+                        <span class="label">時間</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="board" id="board"></div>
+
+            <div class="controls">
+                <button class="btn-primary" id="btn-hint">提示（顯示所有解 / 無解時補牌）</button>
+                <button id="btn-restart">重新開始</button>
+            </div>
+        </div>
+
+        <aside class="solution-panel" id="solution-panel">
+            <h3>檯面所有解答</h3>
+            <div class="panel-sub" id="solution-count-text">點擊「提示」將在此列出所有解法與屬性判定。</div>
+            <div class="solution-list" id="solution-list">
+                <p style="color: #9ca3af; font-size: 0.85rem;">尚未取得提示</p>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 底部摺疊規則區塊 -->
+    <div class="bottom-container">
+        <details class="rules-box">
+            <summary>📜 遊戲規則 (點擊展開)</summary>
+            <div class="rules-content">
+                <ul>
+                    <li><strong>遊戲目標：</strong>找出符合條件的三張牌組成一個「SET」。</li>
+                    <li><strong>屬性說明：</strong>每張牌皆有四種屬性：<strong>形狀</strong>（波浪、橢圓、菱形）、<strong>顏色</strong>（紅、綠、紫）、<strong>數量</strong>（1、2、3）、<strong>紋路</strong>（實心、條紋、空心）。
+                    </li>
+                    <li><strong>配對條件：</strong>選出的三張牌，在每一種屬性上必須「全部相同」或「全部不同」。不能只有兩張相同。</li>
+                    <li><strong>遊玩方式：</strong>點擊三張卡牌進行配對。配對成功後，被選走的卡牌位置會自動在原位補上牌堆中的新卡。</li>
+                    <li><strong>智慧縮編：</strong>若畫面上超過 12 張牌且您配對成功，系統將不再補新牌，而是將多餘的卡牌填入空缺中，保持版面整齊。</li>
+                    <li><strong>卡關協助：</strong>若找不到組合，請點擊「提示」按鈕看解答；若檯面確實無解，系統會自動在末端新增 3 張牌。</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+
+    <script>
+        (function () {
+            "use strict";
+
+            const COLORS = ['red', 'green', 'purple'];
+            const SHAPES = ['oval', 'diamond', 'squiggle'];
+            const SHADINGS = ['solid', 'striped', 'empty'];
+
+            const COLOR_MAP = {
+                red: 'var(--set-red)',
+                green: 'var(--set-green)',
+                purple: 'var(--set-purple)'
+            };
+
+            let uidCounter = 0;
+
+            // --- 自訂視窗邏輯 ---
+            const customAlert = document.getElementById('custom-alert');
+            const customAlertText = document.getElementById('custom-alert-text');
+            const customAlertBtn = document.getElementById('custom-alert-btn');
+            let customAlertTimer = null;
+
+            function showAlert(msg, autoCloseMs = 2000) {
+                customAlertText.textContent = msg;
+                customAlert.classList.add('show');
+
+                if (customAlertTimer) clearTimeout(customAlertTimer);
+
+                if (autoCloseMs > 0) {
+                    customAlertTimer = setTimeout(() => {
+                        closeAlert();
+                    }, autoCloseMs);
+                }
+            }
+
+            function closeAlert() {
+                customAlert.classList.remove('show');
+                if (customAlertTimer) clearTimeout(customAlertTimer);
+            }
+
+            customAlertBtn.addEventListener('click', closeAlert);
+            // --------------------
+
+            function buildDeck() {
+                const deck = [];
+                for (let count = 1; count <= 3; count++) {
+                    for (const color of COLORS) {
+                        for (const shape of SHAPES) {
+                            for (const shading of SHADINGS) {
+                                deck.push({ count, color, shape, shading, uid: uidCounter++ });
+                            }
+                        }
+                    }
+                }
+                return deck;
+            }
+
+            function shuffle(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            function checkAttrMatch(v1, v2, v3) {
+                const s = new Set([v1, v2, v3]);
+                if (s.size === 1) return { valid: true, type: '全同' };
+                if (s.size === 3) return { valid: true, type: '全不同' };
+                return { valid: false, type: '不合' };
+            }
+
+            function evaluateTrio(a, b, c) {
+                const countCheck = checkAttrMatch(a.count, b.count, c.count);
+                const colorCheck = checkAttrMatch(a.color, b.color, c.color);
+                const shapeCheck = checkAttrMatch(a.shape, b.shape, c.shape);
+                const shadingCheck = checkAttrMatch(a.shading, b.shading, c.shading);
+
+                const isSet = countCheck.valid && colorCheck.valid && shapeCheck.valid && shadingCheck.valid;
+                return {
+                    isSet,
+                    breakdown: { count: countCheck.type, color: colorCheck.type, shape: shapeCheck.type, shading: shadingCheck.type }
+                };
+            }
+
+            function findAllSetsIn(cards) {
+                const solutions = [];
+                for (let i = 0; i < cards.length; i++) {
+                    for (let j = i + 1; j < cards.length; j++) {
+                        for (let k = j + 1; k < cards.length; k++) {
+                            const res = evaluateTrio(cards[i], cards[j], cards[k]);
+                            if (res.isSet) {
+                                solutions.push({
+                                    cards: [cards[i], cards[j], cards[k]],
+                                    breakdown: res.breakdown
+                                });
+                            }
+                        }
+                    }
+                }
+                return solutions;
+            }
+
+            let deck = [];
+            let board = [];
+            let selected = [];
+            let foundCount = 0;
+            let timerHandle = null;
+            let startTime = null;
+
+            const boardEl = document.getElementById('board');
+            const statFound = document.getElementById('stat-found');
+            const statDeck = document.getElementById('stat-deck');
+            const statTime = document.getElementById('stat-time');
+            const solutionListEl = document.getElementById('solution-list');
+            const solutionCountText = document.getElementById('solution-count-text');
+
+            function shapeSVG(card, index) {
+                const color = COLOR_MAP[card.color];
+                const patId = `pat-${card.uid}-${index}`;
+                let fill = color;
+                let defs = '';
+
+                if (card.shading === 'empty') {
+                    fill = 'none';
+                } else if (card.shading === 'striped') {
+                    fill = `url(#${patId})`;
+                    defs = `
+        <pattern id="${patId}" width="100" height="9" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="4.5" x2="100" y2="4.5" stroke="${color}" stroke-width="2.5"/>
+        </pattern>`;
+                }
+
+                let shapeNode;
+
+                if (card.shape === 'oval') {
+                    shapeNode = `<rect x="14" y="25" width="72" height="150" rx="36" ry="36" fill="${fill}" stroke="${color}" stroke-width="7"/>`;
+                } else if (card.shape === 'diamond') {
+                    shapeNode = `<polygon points="50,20 95,100 50,180 5,100" fill="${fill}" stroke="${color}" stroke-width="7" stroke-linejoin="round"/>`;
+                } else {
+                    shapeNode = `<path d="M45,15 C20,15 15,45 25,65 C35,85 35,95 20,115 C5,135 10,185 45,185 C75,185 85,155 75,135 C65,115 65,105 80,85 C95,65 90,15 45,15 Z" fill="${fill}" stroke="${color}" stroke-width="7" stroke-linejoin="round"/>`;
+                }
+
+                return `<svg viewBox="0 0 100 200" style="height:90%; width:28%; max-width:32%;">
+      <defs>${defs}</defs>
+      ${shapeNode}
+    </svg>`;
+            }
+
+            function cardMarkup(card, boardIndex) {
+                let shapes = '';
+                for (let i = 0; i < card.count; i++) {
+                    shapes += shapeSVG(card, i);
+                }
+                return `
+      <span class="card-id">#${boardIndex + 1}</span>
+      <div class="card-shapes" data-count="${card.count}">${shapes}</div>
+    `;
+            }
+
+            function renderBoard(enteringIndices = []) {
+                boardEl.innerHTML = '';
+                board.forEach((card, idx) => {
+                    const el = document.createElement('div');
+                    if (!card) {
+                        el.className = 'card empty';
+                        boardEl.appendChild(el);
+                        return;
+                    }
+
+                    el.className = 'card';
+                    if (enteringIndices.includes(idx)) el.classList.add('entering');
+                    el.dataset.uid = card.uid;
+                    el.innerHTML = cardMarkup(card, idx);
+                    el.addEventListener('click', () => onCardClick(card.uid));
+                    boardEl.appendChild(el);
+                });
+                statDeck.textContent = deck.length;
+                syncSelection();
+            }
+
+            function syncSelection() {
+                boardEl.querySelectorAll('.card:not(.empty)').forEach(el => {
+                    const uid = Number(el.dataset.uid);
+                    el.classList.toggle('selected', selected.includes(uid));
+                });
+            }
+
+            function onCardClick(uid) {
+                if (selected.includes(uid)) {
+                    selected = selected.filter(id => id !== uid);
+                    syncSelection();
+                    return;
+                }
+
+                if (selected.length < 3) {
+                    selected.push(uid);
+                    syncSelection();
+                }
+
+                if (selected.length === 3) {
+                    checkSelected();
+                }
+            }
+
+            function checkSelected() {
+                const indices = selected.map(uid => board.findIndex(c => c && c.uid === uid));
+                const cards = indices.map(idx => board[idx]);
+                const result = evaluateTrio(cards[0], cards[1], cards[2]);
+                const els = selected.map(uid => boardEl.querySelector(`.card[data-uid="${uid}"]`));
+
+                if (result.isSet) {
+                    // 答對了！組合正確，卡牌亮綠框 (移除了通知顯示)
+                    els.forEach(el => el.classList.add('correct'));
+
+                    setTimeout(() => {
+                        // 1. 將被選中的位置挖空
+                        indices.forEach(idx => { board[idx] = null; });
+
+                        // 2. 如果版面大於 12 張，從尾端把牌拿出來填補空缺
+                        let extraCards = [];
+                        while (board.length > 12) {
+                            let c = board.pop(); // 從尾巴拿
+                            if (c !== null) extraCards.push(c);
+                        }
+
+                        // 3. 把剩下的前 12 個洞補齊
+                        for (let i = 0; i < board.length; i++) {
+                            if (board[i] === null) {
+                                if (extraCards.length > 0) {
+                                    // 優先用尾端多出來的牌補洞 (平移補位)
+                                    board[i] = extraCards.shift();
+                                } else if (deck.length > 0) {
+                                    // 否則才從牌堆抽
+                                    board[i] = deck.shift();
+                                }
+                            }
+                        }
+
+                        // 4. 若尾端的牌還沒用完 (防呆機制)，放回陣列
+                        while (extraCards.length > 0) {
+                            board.push(extraCards.shift());
+                        }
+
+                        selected = [];
+                        foundCount++;
+                        statFound.textContent = foundCount;
+
+                        renderBoard(indices);
+                        clearHintPanel();
+                    }, 400);
+                } else {
+                    // 選錯時：亮紅框，但不再跳出通知干擾畫面
+                    els.forEach(el => el.classList.add('wrong'));
+
+                    setTimeout(() => {
+                        els.forEach(el => el.classList.remove('wrong', 'selected'));
+                        selected = [];
+                    }, 500);
+                }
+            }
+
+            function clearHintPanel() {
+                solutionListEl.innerHTML = '<p style="color: #9ca3af; font-size: 0.85rem;">牌面已更新，請重新按提示。</p>';
+                solutionCountText.textContent = '點擊「提示」將在此列出所有解法與屬性判定。';
+            }
+
+            function showHints() {
+                const validCards = board.filter(c => c !== null);
+                const sets = findAllSetsIn(validCards);
+
+                if (sets.length === 0) {
+                    if (deck.length === 0) {
+                        showAlert('牌堆已空，且檯面上無任何組合，遊戲結束！', 4000);
+                        return;
+                    }
+
+                    showAlert('檯面上沒有可匹配的組合，自動為您新增 3 張牌！', 2200);
+
+                    const newIdx1 = board.length;
+                    board.push(deck.length > 0 ? deck.shift() : null);
+                    board.push(deck.length > 0 ? deck.shift() : null);
+                    board.push(deck.length > 0 ? deck.shift() : null);
+
+                    renderBoard([newIdx1, newIdx1 + 1, newIdx1 + 2]);
+                    clearHintPanel();
+                    return;
+                }
+
+                solutionListEl.innerHTML = '';
+                solutionCountText.textContent = `共找到 ${sets.length} 組可能解答：`;
+
+                sets.forEach((sol, index) => {
+                    sol.cards.sort((a, b) => a.count - b.count);
+
+                    const item = document.createElement('div');
+                    item.className = 'solution-item';
+
+                    const previewCardsHtml = sol.cards.map(c => {
+                        const boardIdx = board.indexOf(c);
+                        return `
+          <div class="preview-card">
+            ${cardMarkup(c, boardIdx)}
+          </div>
+        `;
+                    }).join('');
+
+                    const cardNumbers = sol.cards.map(c => `#${board.indexOf(c) + 1}`).join('、');
+
+                    item.innerHTML = `
+        <div style="font-weight:700; margin-bottom:10px; font-size:0.9rem;">解答 ${index + 1}：卡片 ${cardNumbers}</div>
+        <div class="solution-cards-preview">${previewCardsHtml}</div>
+        <div class="rules-breakdown">
+          <div class="rule-tag ${sol.breakdown.count === '全同' ? 'same' : 'diff'}">數量：${sol.breakdown.count}</div>
+          <div class="rule-tag ${sol.breakdown.color === '全同' ? 'same' : 'diff'}">顏色：${sol.breakdown.color}</div>
+          <div class="rule-tag ${sol.breakdown.shape === '全同' ? 'same' : 'diff'}">形狀：${sol.breakdown.shape}</div>
+          <div class="rule-tag ${sol.breakdown.shading === '全同' ? 'same' : 'diff'}">紋路：${sol.breakdown.shading}</div>
+        </div>
+      `;
+
+                    item.addEventListener('mouseenter', () => {
+                        sol.cards.forEach(c => {
+                            const el = boardEl.querySelector(`.card[data-uid="${c.uid}"]`);
+                            if (el) el.classList.add('highlight');
+                        });
+                    });
+                    item.addEventListener('mouseleave', () => {
+                        sol.cards.forEach(c => {
+                            const el = boardEl.querySelector(`.card[data-uid="${c.uid}"]`);
+                            if (el) el.classList.remove('highlight');
+                        });
+                    });
+
+                    solutionListEl.appendChild(item);
+                });
+            }
+
+            function newGame() {
+                deck = shuffle(buildDeck());
+                board = [];
+                for (let i = 0; i < 12; i++) {
+                    board.push(deck.shift() || null);
+                }
+                selected = [];
+                foundCount = 0;
+                statFound.textContent = '0';
+                clearHintPanel();
+                closeAlert();
+
+                renderBoard();
+
+                if (timerHandle) clearInterval(timerHandle);
+                startTime = Date.now();
+                timerHandle = setInterval(() => {
+                    const s = Math.floor((Date.now() - startTime) / 1000);
+                    statTime.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+                }, 1000);
+            }
+
+            document.getElementById('btn-hint').addEventListener('click', showHints);
+            document.getElementById('btn-restart').addEventListener('click', newGame);
+
+            newGame();
+        })();
+    </script>
+</body>
+
+</html>
