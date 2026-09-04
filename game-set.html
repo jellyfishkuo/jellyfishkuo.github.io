@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SET</title>
+    <title>SET練功房</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -99,6 +99,8 @@
             grid-template-columns: repeat(4, 1fr);
             gap: 14px;
             margin-bottom: 24px;
+            position: relative;
+            z-index: 0;
         }
 
         /* --- 手機版響應式設定 --- */
@@ -145,6 +147,9 @@
             border: 1px solid var(--card-border);
             border-radius: 10px;
             aspect-ratio: 1.55 / 1;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -242,6 +247,9 @@
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+            clear: both;
         }
 
         button {
@@ -480,6 +488,84 @@
             color: var(--text-main);
             font-weight: 500;
         }
+
+        /* --- 遊戲結束總結 --- */
+        .summary-box {
+            margin-top: 18px;
+            border: 1px solid #dcd7cc;
+            border-radius: 10px;
+            background: #fbfaf6;
+            padding: 16px 18px;
+        }
+
+        .summary-box h3 {
+            margin: 0 0 4px;
+            font-size: 1.1rem;
+        }
+
+        .summary-box .summary-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .summary-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #f0eee6;
+            font-size: 0.88rem;
+        }
+
+        .summary-row .pattern {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .summary-row .chip {
+            font-size: 0.72rem;
+            padding: 2px 7px;
+            border-radius: 999px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .chip.same {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .chip.diff {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .summary-row .count {
+            font-weight: 700;
+            color: var(--set-purple);
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+
+        .summary-total {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed #ded9cb;
+            font-size: 0.9rem;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 </head>
 
@@ -497,7 +583,7 @@
         <div class="main-content">
             <header>
                 <div>
-                    <h1>SET</h1>
+                    <h1>SET 牌局</h1>
                 </div>
                 <div class="stats">
                     <div class="stat">
@@ -528,6 +614,16 @@
             <div class="panel-sub" id="solution-count-text">點擊「提示」將在此列出所有解法與屬性判定。</div>
             <div class="solution-list" id="solution-list">
                 <p style="color: #9ca3af; font-size: 0.85rem;">尚未取得提示</p>
+            </div>
+
+            <div class="summary-box" id="summary-box" style="display:none;">
+                <h3>🏁 遊戲結束總結</h3>
+                <div class="summary-sub">以下是你找到的各種 SET 類型與組數：</div>
+                <div class="summary-list" id="summary-list"></div>
+                <div class="summary-total">
+                    <span>總計找到組數</span>
+                    <span id="summary-total-count">0</span>
+                </div>
             </div>
         </aside>
     </div>
@@ -659,6 +755,9 @@
             let foundCount = 0;
             let timerHandle = null;
             let startTime = null;
+            let gameOver = false;
+            // 紀錄玩家找到的各種 SET 類型（依四屬性的全同/全不同組合分類）
+            let foundTypeCounts = {};
 
             const boardEl = document.getElementById('board');
             const statFound = document.getElementById('stat-found');
@@ -666,6 +765,12 @@
             const statTime = document.getElementById('stat-time');
             const solutionListEl = document.getElementById('solution-list');
             const solutionCountText = document.getElementById('solution-count-text');
+            const summaryBox = document.getElementById('summary-box');
+            const summaryListEl = document.getElementById('summary-list');
+            const summaryTotalCount = document.getElementById('summary-total-count');
+
+            // 為每種屬性中文標籤
+            const ATTR_LABELS = { count: '數量', color: '顏色', shape: '形狀', shading: '紋路' };
 
             function shapeSVG(card, index) {
                 const color = COLOR_MAP[card.color];
@@ -739,6 +844,8 @@
             }
 
             function onCardClick(uid) {
+                if (gameOver) return;
+
                 if (selected.includes(uid)) {
                     selected = selected.filter(id => id !== uid);
                     syncSelection();
@@ -765,18 +872,21 @@
                     // 答對了！組合正確，卡牌亮綠框 (移除了通知顯示)
                     els.forEach(el => el.classList.add('correct'));
 
+                    // 紀錄這組 SET 的類型
+                    recordFoundType(result.breakdown);
+
                     setTimeout(() => {
                         // 1. 將被選中的位置挖空
                         indices.forEach(idx => { board[idx] = null; });
 
-                        // 2. 如果版面大於 12 張，從尾端把牌拿出來填補空缺
+                        // 2. 如果版面大於 12 張，從尾端把「非空」的牌拿出來填補空缺
                         let extraCards = [];
                         while (board.length > 12) {
                             let c = board.pop(); // 從尾巴拿
                             if (c !== null) extraCards.push(c);
                         }
 
-                        // 3. 把剩下的前 12 個洞補齊
+                        // 3. 把陣列中的空洞補齊
                         for (let i = 0; i < board.length; i++) {
                             if (board[i] === null) {
                                 if (extraCards.length > 0) {
@@ -789,7 +899,7 @@
                             }
                         }
 
-                        // 4. 若尾端的牌還沒用完 (防呆機制)，放回陣列
+                        // 4. 若尾端的牌還沒用完 (防呆機制)，放回陣列尾端
                         while (extraCards.length > 0) {
                             board.push(extraCards.shift());
                         }
@@ -800,6 +910,9 @@
 
                         renderBoard(indices);
                         clearHintPanel();
+
+                        // 每次配對成功後檢查遊戲是否結束
+                        checkGameOver();
                     }, 400);
                 } else {
                     // 選錯時：亮紅框，但不再跳出通知干擾畫面
@@ -812,18 +925,83 @@
                 }
             }
 
+            // 依四屬性的「全同/全不同」組合建立唯一鍵，作為 SET 的種類
+            function patternKey(breakdown) {
+                return ['count', 'color', 'shape', 'shading']
+                    .map(attr => `${attr}:${breakdown[attr]}`)
+                    .join('|');
+            }
+
+            function recordFoundType(breakdown) {
+                const key = patternKey(breakdown);
+                if (!foundTypeCounts[key]) {
+                    foundTypeCounts[key] = { breakdown: { ...breakdown }, count: 0 };
+                }
+                foundTypeCounts[key].count++;
+            }
+
+            // 檢查遊戲是否結束：牌堆已空且檯面上再也沒有任何可配對的組合
+            function checkGameOver() {
+                if (gameOver) return;
+
+                const validCards = board.filter(c => c !== null);
+                const remainingSets = findAllSetsIn(validCards);
+
+                if (deck.length === 0 && remainingSets.length === 0) {
+                    gameOver = true;
+                    if (timerHandle) clearInterval(timerHandle);
+                    showGameSummary();
+                    showAlert(`遊戲結束！你總共找到了 ${foundCount} 組 SET。`, 0);
+                }
+            }
+
+            function showGameSummary() {
+                const entries = Object.values(foundTypeCounts);
+
+                if (entries.length === 0) {
+                    summaryListEl.innerHTML =
+                        '<p style="color:#9ca3af; font-size:0.85rem;">這局沒有成功配對任何 SET。</p>';
+                } else {
+                    // 依組數由多到少排序
+                    entries.sort((a, b) => b.count - a.count);
+
+                    summaryListEl.innerHTML = entries.map(entry => {
+                        const chips = ['count', 'color', 'shape', 'shading'].map(attr => {
+                            const type = entry.breakdown[attr];
+                            const cls = type === '全同' ? 'same' : 'diff';
+                            return `<span class="chip ${cls}">${ATTR_LABELS[attr]}：${type}</span>`;
+                        }).join('');
+                        return `
+          <div class="summary-row">
+            <span class="pattern">${chips}</span>
+            <span class="count">${entry.count} 組</span>
+          </div>`;
+                    }).join('');
+                }
+
+                summaryTotalCount.textContent = `${foundCount} 組`;
+                summaryBox.style.display = 'block';
+
+                // 收合解答清單以突顯總結
+                solutionCountText.textContent = '遊戲已結束，請看下方總結。';
+                solutionListEl.innerHTML =
+                    '<p style="color: #9ca3af; font-size: 0.85rem;">本局已結束。</p>';
+            }
+
             function clearHintPanel() {
                 solutionListEl.innerHTML = '<p style="color: #9ca3af; font-size: 0.85rem;">牌面已更新，請重新按提示。</p>';
                 solutionCountText.textContent = '點擊「提示」將在此列出所有解法與屬性判定。';
             }
 
             function showHints() {
+                if (gameOver) return;
+
                 const validCards = board.filter(c => c !== null);
                 const sets = findAllSetsIn(validCards);
 
                 if (sets.length === 0) {
                     if (deck.length === 0) {
-                        showAlert('牌堆已空，且檯面上無任何組合，遊戲結束！', 4000);
+                        checkGameOver();
                         return;
                     }
 
@@ -895,7 +1073,11 @@
                 }
                 selected = [];
                 foundCount = 0;
+                gameOver = false;
+                foundTypeCounts = {};
                 statFound.textContent = '0';
+                summaryBox.style.display = 'none';
+                summaryListEl.innerHTML = '';
                 clearHintPanel();
                 closeAlert();
 
