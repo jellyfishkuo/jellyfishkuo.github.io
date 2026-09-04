@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="logo.ico">
+    <link rel="icon" href="../assets/logo.ico">
     <title>果汁龍的網站</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
@@ -781,7 +781,7 @@
         <div class="reveal" style="transition-delay:0.2s">
             <div
                 style="border:1px solid rgba(124,58,237,0.3);border-radius:16px;overflow:hidden;aspect-ratio:1;background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(6,182,212,0.1));display:flex;align-items:center;justify-content:center;">
-                <img src="me.jpg" alt="果汁龍" style="width: 100%; height: 100%; object-fit: cover;">
+                <img src="assets/me.jpg" alt="果汁龍" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
         </div>
     </section>
@@ -876,8 +876,8 @@
                 <div class="project-title">Pentomino 8x8 Solver</div>
                 <div class="project-desc">基於 Backtracking 演算法實作的高效能五格骨牌求解器。加入孤島偵測優化效能，並透過 Generator 支援多重解的動態視覺化展示。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
-                    <a href="pentomino-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="pentomino.html" target="_blank" class="project-link"
+                    <a href="games/pentomino-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
+                    <a href="games/pentomino.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
             </div>
@@ -899,7 +899,29 @@
                 <div class="project-desc">基於純前端技術實作的經典猜數字遊戲。具備動態粒子背景、猜測歷史紀錄面板，支援實體鍵盤操作，並結合 Canvas Confetti
                     特效提供過關回饋體驗。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
-                    <a href="1A2B.html" target="_blank" class="project-link"
+                    <a href="games/1A2B.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+                </div>
+            </div>
+
+            <div class="project-card reveal" style="transition-delay:0.3s">
+                <div class="project-tag">Web Game / JS</div>
+                <div class="project-title">SET 練功房</div>
+                <div class="project-desc">經典邏輯桌遊 SET 的純前端練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合，並提供計時、SET
+                    類型統計與可展開的規則說明。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                    <a href="games/game-set.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+                </div>
+            </div>
+
+            <div class="project-card reveal" style="transition-delay:0.4s">
+                <div class="project-tag">Web App / JS</div>
+                <div class="project-title">部落衝突卡牌交易站</div>
+                <div class="project-desc">為《部落衝突》玩家打造的多帳號卡牌收藏與交換管理器。支援跨帳號卡牌總表、交易配對推薦與資料設定，透過純前端與
+                    localStorage 保存資料，方便管理多個帳號間的卡牌調度。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                    <a href="games/coc-card.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
             </div>
@@ -941,7 +963,16 @@
                 </div>
             </div>
 
-            <div class="ach-card silver reveal" style="transition-delay:0.15s">
+            <div class="ach-card gold reveal" style="transition-delay:0.15s">
+                <div class="ach-medal">🥇</div>
+                <div>
+                    <div class="ach-year">2026 · PUPC</div>
+                    <div class="ach-title">全國私立大專校院程式競賽</div>
+                    <div class="ach-award">金獎 第四名</div>
+                </div>
+            </div>
+
+            <div class="ach-card silver reveal" style="transition-delay:0.20s">
                 <div class="ach-medal">🥈</div>
                 <div>
                     <div class="ach-year">2025 · TOPC</div>
@@ -950,7 +981,7 @@
                 </div>
             </div>
 
-            <div class="ach-card bronze reveal" style="transition-delay:0.20s">
+            <div class="ach-card bronze reveal" style="transition-delay:0.25s">
                 <div class="ach-medal">🥉</div>
                 <div>
                     <div class="ach-year">2023 · TOPC</div>
@@ -959,7 +990,7 @@
                 </div>
             </div>
 
-            <div class="ach-card bronze reveal" style="transition-delay:0.25s">
+            <div class="ach-card bronze reveal" style="transition-delay:0.30s">
                 <div class="ach-medal">🥉</div>
                 <div>
                     <div class="ach-year">2024 · TOPC</div>
@@ -968,7 +999,7 @@
                 </div>
             </div>
 
-            <div class="ach-card honor reveal" style="transition-delay:0.30s">
+            <div class="ach-card honor reveal" style="transition-delay:0.35s">
                 <div class="ach-medal">✦</div>
                 <div>
                     <div class="ach-year">2024 · NCPC</div>
@@ -977,7 +1008,7 @@
                 </div>
             </div>
 
-            <div class="ach-card honor reveal" style="transition-delay:0.35s">
+            <div class="ach-card honor reveal" style="transition-delay:0.40s">
                 <div class="ach-medal">✦</div>
                 <div>
                     <div class="ach-year">2025 · NCPC</div>
@@ -986,7 +1017,7 @@
                 </div>
             </div>
 
-            <div class="ach-card honor reveal" style="transition-delay:0.40s">
+            <div class="ach-card honor reveal" style="transition-delay:0.45s">
                 <div class="ach-medal">✦</div>
                 <div>
                     <div class="ach-year">2024 · GiCS</div>
@@ -995,7 +1026,7 @@
                 </div>
             </div>
 
-            <div class="ach-card entry reveal" style="transition-delay:0.45s">
+            <div class="ach-card entry reveal" style="transition-delay:0.50s">
                 <div class="ach-medal">◈</div>
                 <div>
                     <div class="ach-year">2023 · ICPC Regional</div>
@@ -1004,7 +1035,7 @@
                 </div>
             </div>
 
-            <div class="ach-card entry reveal" style="transition-delay:0.50s">
+            <div class="ach-card entry reveal" style="transition-delay:0.55s">
                 <div class="ach-medal">◈</div>
                 <div>
                     <div class="ach-year">2024 · ICPC Regional</div>
@@ -1013,7 +1044,7 @@
                 </div>
             </div>
 
-            <div class="ach-card entry reveal" style="transition-delay:0.55s">
+            <div class="ach-card entry reveal" style="transition-delay:0.60s">
                 <div class="ach-medal">◈</div>
                 <div>
                     <div class="ach-year">2025 · ICPC Regional</div>
@@ -1050,7 +1081,7 @@
         // ── Particle canvas ──
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        let W, H, particles = [], mouse = { x: -9999, y: -9999 };
+        let W, H, particles = [], mouse = {x: -9999, y: -9999};
 
         function resize() {
             W = canvas.width = window.innerWidth;
@@ -1058,10 +1089,10 @@
         }
         resize();
         window.addEventListener('resize', resize);
-        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mousemove', e => {mouse.x = e.clientX; mouse.y = e.clientY;});
 
         class Particle {
-            constructor() { this.reset(); }
+            constructor() {this.reset();}
             reset() {
                 this.x = Math.random() * W;
                 this.y = Math.random() * H;
@@ -1114,7 +1145,7 @@
 
         function animate() {
             ctx.clearRect(0, 0, W, H);
-            particles.forEach(p => { p.update(); p.draw(); });
+            particles.forEach(p => {p.update(); p.draw();});
             drawLines();
             ctx.globalAlpha = 1;
             requestAnimationFrame(animate);
@@ -1134,12 +1165,12 @@
             if (!deleting) {
                 tw.textContent = phrase.slice(0, ci + 1);
                 ci++;
-                if (ci === phrase.length) { deleting = true; setTimeout(type, 1800); return; }
+                if (ci === phrase.length) {deleting = true; setTimeout(type, 1800); return;}
                 setTimeout(type, 80);
             } else {
                 tw.textContent = phrase.slice(0, ci - 1);
                 ci--;
-                if (ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; setTimeout(type, 400); return; }
+                if (ci === 0) {deleting = false; pi = (pi + 1) % phrases.length; setTimeout(type, 400); return;}
                 setTimeout(type, 45);
             }
         }
@@ -1156,7 +1187,7 @@
                     });
                 }
             });
-        }, { threshold: 0.15 });
+        }, {threshold: 0.15});
         reveals.forEach(r => observer.observe(r));
 
         // ── Mobile menu ──
