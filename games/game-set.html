@@ -769,6 +769,10 @@
             let timerHandle = null;
             let startTime = null;
             let gameOver = false;
+            // 結算動畫（成功 400ms / 失敗 500ms）進行中的鎖。
+            // 沒有這個鎖的話，動畫期間再點第 4 張牌會讓 checkSelected() 重入，
+            // 導致同一組 SET 重複計分，並用舊的 indices 把剛補進來的新牌再挖掉一次。
+            let resolving = false;
             // 紀錄玩家找到的各種 SET 類型（依四屬性的全同/全不同組合分類）
             let foundTypeCounts = {};
 
@@ -785,9 +789,12 @@
             // 為每種屬性中文標籤
             const ATTR_LABELS = { count: '數量', color: '顏色', shape: '形狀', shading: '紋路' };
 
-            function shapeSVG(card, index) {
+            // scope 用來區隔「檯面卡片」與「解答面板縮圖」的 pattern id。
+            // 兩邊都渲染同一張牌時，若 id 相同會產生重複的 SVG id（無效 HTML），
+            // 且檯面重繪後縮圖引用的 pattern 會失效，條紋變透明。
+            function shapeSVG(card, index, scope = '') {
                 const color = COLOR_MAP[card.color];
-                const patId = `pat-${card.uid}-${index}`;
+                const patId = `pat-${scope}${card.uid}-${index}`;
                 let fill = color;
                 let defs = '';
 
@@ -817,10 +824,10 @@
     </svg>`;
             }
 
-            function cardMarkup(card, boardIndex) {
+            function cardMarkup(card, boardIndex, scope = '') {
                 let shapes = '';
                 for (let i = 0; i < card.count; i++) {
-                    shapes += shapeSVG(card, i);
+                    shapes += shapeSVG(card, i, scope);
                 }
                 return `
       <span class="card-id">#${boardIndex + 1}</span>
@@ -857,7 +864,7 @@
             }
 
             function onCardClick(uid) {
-                if (gameOver) return;
+                if (gameOver || resolving) return;
 
                 if (selected.includes(uid)) {
                     selected = selected.filter(id => id !== uid);
@@ -876,6 +883,8 @@
             }
 
             function checkSelected() {
+                if (resolving) return;
+                resolving = true;
                 const indices = selected.map(uid => board.findIndex(c => c && c.uid === uid));
                 const cards = indices.map(idx => board[idx]);
                 const result = evaluateTrio(cards[0], cards[1], cards[2]);
@@ -924,6 +933,7 @@
                         renderBoard(indices);
                         clearHintPanel();
 
+                        resolving = false;
                         // 每次配對成功後檢查遊戲是否結束
                         checkGameOver();
                     }, 400);
@@ -934,6 +944,7 @@
                     setTimeout(() => {
                         els.forEach(el => el.classList.remove('wrong', 'selected'));
                         selected = [];
+                        resolving = false;
                     }, 500);
                 }
             }
@@ -1018,15 +1029,20 @@
                         return;
                     }
 
-                    showAlert('檯面上沒有可匹配的組合，自動為您新增 3 張牌！', 2200);
+                    // 牌堆可能只剩 1～2 張，有幾張就補幾張，
+                    // 不要硬補 3 次而在檯面尾端留下 null 造成空格
+                    const addCount = Math.min(3, deck.length);
+                    const newIndices = [];
+                    for (let i = 0; i < addCount; i++) {
+                        newIndices.push(board.length);
+                        board.push(deck.shift());
+                    }
 
-                    const newIdx1 = board.length;
-                    board.push(deck.length > 0 ? deck.shift() : null);
-                    board.push(deck.length > 0 ? deck.shift() : null);
-                    board.push(deck.length > 0 ? deck.shift() : null);
-
-                    renderBoard([newIdx1, newIdx1 + 1, newIdx1 + 2]);
+                    showAlert(`檯面上沒有可匹配的組合，自動為您新增 ${addCount} 張牌！`, 2200);
+                    renderBoard(newIndices);
                     clearHintPanel();
+                    // 補完牌後仍可能無解（牌堆已抽乾），要再判一次是否結束
+                    checkGameOver();
                     return;
                 }
 
@@ -1043,7 +1059,7 @@
                         const boardIdx = board.indexOf(c);
                         return `
           <div class="preview-card">
-            ${cardMarkup(c, boardIdx)}
+            ${cardMarkup(c, boardIdx, `s${index}-`)}
           </div>
         `;
                     }).join('');
@@ -1087,6 +1103,7 @@
                 selected = [];
                 foundCount = 0;
                 gameOver = false;
+                resolving = false;
                 foundTypeCounts = {};
                 statFound.textContent = '0';
                 summaryBox.style.display = 'none';

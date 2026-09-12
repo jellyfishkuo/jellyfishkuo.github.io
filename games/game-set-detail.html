@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/logo.ico">
+    <title>技術剖析 | SET Combinatorics Engine</title>
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="detail.css">
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <header>
+        <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
+        <h1>Combinatorics Engine</h1>
+        <div class="subtitle">SET 練功房：有限體上的三元組、SVG 程序化繪圖與檯面縮編演算法</div>
+        <div class="meta-row">
+            <span class="meta-chip">單檔 <b>HTML</b>・IIFE 封裝</span>
+            <span class="meta-chip">零外部 JS 依賴</span>
+            <span class="meta-chip">牌組 <b>3⁴ = 81</b> 張</span>
+            <span class="meta-chip">全牌組 SET <b>1,080</b> 組</span>
+            <span class="meta-chip">SET 類型 <b>15</b> 種</span>
+        </div>
+    </header>
+
+    <div class="tab-wrapper">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab(0)">🃏 牌組與判定</button>
+            <button class="tab-btn" onclick="switchTab(1)">🎨 渲染與檯面</button>
+            <button class="tab-btn" onclick="switchTab(2)">🔧 工程反省</button>
+        </div>
+    </div>
+
+    <main>
+        <div class="content">
+
+            <!-- ══════════ TAB 1 ══════════ -->
+            <div class="tab-content active">
+
+                <div class="toc">
+                    <div class="toc-title">本頁重點</div>
+                    <ol>
+                        <li><a href="#deck">牌組模型：四維屬性的笛卡兒積</a></li>
+                        <li><a href="#judge">用 Set.size 一次回答兩個問題</a></li>
+                        <li><a href="#gf3">有限體視角：任兩張牌唯一決定第三張</a></li>
+                        <li><a href="#search">全解搜尋的複雜度與可行的優化</a></li>
+                        <li><a href="#stats">實測統計：無解機率與類型分布</a></li>
+                    </ol>
+                </div>
+
+                <section class="section-block" id="deck">
+                    <h2>I. 牌組模型：四維屬性的笛卡兒積</h2>
+                    <p>SET 這副牌的美感來自它的數學結構：每張牌是<strong>四個屬性各取三個值</strong>的一種組合，不多也不少：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>屬性</th>
+                                    <th>值域</th>
+                                    <th>程式碼中的表示</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>數量</td>
+                                    <td>1 / 2 / 3</td>
+                                    <td><span class="mono">count: number</span></td>
+                                </tr>
+                                <tr>
+                                    <td>顏色</td>
+                                    <td>紅 / 綠 / 紫</td>
+                                    <td><span class="mono">'red' | 'green' | 'purple'</span></td>
+                                </tr>
+                                <tr>
+                                    <td>形狀</td>
+                                    <td>橢圓 / 菱形 / 波浪</td>
+                                    <td><span class="mono">'oval' | 'diamond' | 'squiggle'</span></td>
+                                </tr>
+                                <tr>
+                                    <td>紋路</td>
+                                    <td>實心 / 條紋 / 空心</td>
+                                    <td><span class="mono">'solid' | 'striped' | 'empty'</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="math-block">
+                        $$ |D| = 3 \times 3 \times 3 \times 3 = 3^4 = 81 $$
+                    </div>
+
+                    <p>所以建牌組就是一個四層巢狀迴圈，沒有任何硬編碼的牌表：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">buildDeck.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">buildDeck</span>() {
+    <span class="kw">const</span> <span class="var">deck</span> <span class="op">=</span> [];
+    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">count</span> <span class="op">=</span> <span class="num">1</span>; <span class="var">count</span> <span class="op">&lt;=</span> <span class="num">3</span>; <span class="var">count</span><span class="op">++</span>)
+        <span class="kw">for</span> (<span class="kw">const</span> <span class="var">color</span> <span class="kw">of</span> <span class="var">COLORS</span>)
+            <span class="kw">for</span> (<span class="kw">const</span> <span class="var">shape</span> <span class="kw">of</span> <span class="var">SHAPES</span>)
+                <span class="kw">for</span> (<span class="kw">const</span> <span class="var">shading</span> <span class="kw">of</span> <span class="var">SHADINGS</span>)
+                    <span class="var">deck</span>.<span class="fn">push</span>({ <span class="var">count</span>, <span class="var">color</span>, <span class="var">shape</span>, <span class="var">shading</span>, <span class="var">uid</span>: <span class="var">uidCounter</span><span class="op">++</span> });
+    <span class="kw">return</span> <span class="var">deck</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <h3>uid 一個欄位，三種用途</h3>
+                    <p>牌物件裡那個看似平凡的遞增整數 <span class="inline-code">uid</span>，其實同時承擔了三個角色：</p>
+                    <ul class="detail-list">
+                        <li><strong>DOM 與資料的橋樑：</strong>卡片元素上寫 <span class="inline-code">data-uid</span>，之後所有查詢都靠 <span
+                                class="inline-code">[data-uid="..."]</span> 選擇器。</li>
+                        <li><strong>選取集合的身分憑證：</strong><span class="inline-code">selected</span> 陣列存的是 uid
+                            而不是索引。這一點很關鍵 —— 檯面會因為補牌與縮編而重排，如果存索引，重排後選取就會指向錯誤的牌。</li>
+                        <li><strong>SVG pattern 的命名空間：</strong>條紋紋路需要一個 <span class="inline-code">&lt;pattern
+                                id&gt;</span>，這裡用 <span class="inline-code">pat-{uid}-{index}</span> 保證唯一。（這件事後來出了問題，詳見「工程反省」。）</li>
+                    </ul>
+
+                    <div class="callout">
+                        <span class="callout-title">一個容易誤判的細節</span>
+                        <p><span class="inline-code">uidCounter</span> 定義在 IIFE 頂層，而且 <span
+                                class="inline-code">newGame()</span> <strong>不會重置它</strong>。所以第二局的 uid 是 81–161、第三局 162–242。唯一性依然成立，但任何「uid
+                            應該落在 0–80」的假設在重開一局後就不成立了。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="judge">
+                    <h2>II. 用 Set.size 一次回答兩個問題</h2>
+                    <p>SET 的規則是：三張牌在<strong>每一個屬性</strong>上都必須「三者全同」或「三者全不同」。單屬性的判定只有五行：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">checkAttrMatch.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">checkAttrMatch</span>(<span class="var">v1</span>, <span class="var">v2</span>, <span class="var">v3</span>) {
+    <span class="kw">const</span> <span class="var">s</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>([<span class="var">v1</span>, <span class="var">v2</span>, <span class="var">v3</span>]);
+    <span class="kw">if</span> (<span class="var">s</span>.<span class="var">size</span> <span class="op">===</span> <span class="num">1</span>) <span class="kw">return</span> { <span class="var">valid</span>: <span class="kw">true</span>,  <span class="var">type</span>: <span class="str">'全同'</span> };
+    <span class="kw">if</span> (<span class="var">s</span>.<span class="var">size</span> <span class="op">===</span> <span class="num">3</span>) <span class="kw">return</span> { <span class="var">valid</span>: <span class="kw">true</span>,  <span class="var">type</span>: <span class="str">'全不同'</span> };
+    <span class="kw">return</span>                     { <span class="var">valid</span>: <span class="kw">false</span>, <span class="var">type</span>: <span class="str">'不合'</span> };
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>這段程式碼之所以成立，關鍵在於<strong>值域大小恰好等於取樣數（都是 3）</strong>。在這個前提下，去重後的集合大小只有三種可能，而且各自對應唯一的語意：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th><span class="mono">Set.size</span></th>
+                                    <th>意義</th>
+                                    <th>合法？</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="mono">1</span></td>
+                                    <td>三者相同</td>
+                                    <td>✅ 全同</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">2</span></td>
+                                    <td>恰好兩張相同、一張不同</td>
+                                    <td>❌ 唯一的非法型態</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">3</span></td>
+                                    <td>三者互異（必然覆蓋整個值域）</td>
+                                    <td>✅ 全不同</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>注意 <span class="mono">size === 3</span> 那行的推論：因為值域<strong>只有三個值</strong>，三個互不相同的值必然剛好用掉全部三種
+                        —— 所以「互異」自動等於「全不同」，不需要額外檢查。一次 <span class="inline-code">Set</span>
+                        建構就同時回答了「合法嗎」與「是全同還是全不同」兩個問題，而後者正好是 UI 要顯示的判定說明。</p>
+
+                    <div class="callout good">
+                        <span class="callout-title">判定與解釋一次算完</span>
+                        <p><span class="inline-code">evaluateTrio()</span> 回傳的不只是布林值，還帶一個 <span
+                                class="inline-code">breakdown</span> 物件記錄四個屬性各自是「全同」還是「全不同」。這個物件後來被<strong>三個地方共用</strong>：解答面板的屬性標籤、SET
+                            類型統計、遊戲結束總結。UI 完全不需要重算「哪個屬性全同」—— 這是把衍生資訊在來源處一次算好、往下傳遞的典型好處。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="gf3">
+                    <h2>III. 有限體視角：任兩張牌唯一決定第三張</h2>
+                    <p>把每個屬性值映射到 $\{0, 1, 2\}$，一張牌就是有限體 $\mathbb{F}_3$ 上的四維向量。此時「全同或全不同」有一個極漂亮的等價敘述：</p>
+
+                    <div class="math-block">
+                        $$ \{a, b, c\} \text{ 是 SET} \iff a + b + c \equiv \mathbf{0} \pmod 3 $$
+                    </div>
+
+                    <p>（這裡的加法是<strong>逐分量</strong>進行的，四個屬性各自獨立取模。）驗證很簡單：若三者相同，$3a \equiv 0$；若三者互異則是 $0+1+2 = 3 \equiv 0$；而「兩同一異」會得到 $2a + b$，在 $a \ne b$ 時必不為 0。</p>
+
+                    <div class="diagram">
+                        <pre>屬性值編碼：紅=0  綠=1  紫=2
+
+  全同   0 + 0 + 0 = 0  ≡ 0  ✅
+  全同   2 + 2 + 2 = 6  ≡ 0  ✅
+  全不同 0 + 1 + 2 = 3  ≡ 0  ✅
+  兩同一異 1 + 1 + 0 = 2 ≢ 0  ❌
+  兩同一異 2 + 2 + 1 = 5 ≡ 2  ❌</pre>
+                        <div class="diagram-caption">$\mathbb{F}_3$ 上的加法就是 SET 規則本身</div>
+                    </div>
+
+                    <p>這個觀點帶來一個直接的推論：<strong>任意兩張不同的牌，唯一決定第三張</strong>。因為 $c \equiv -(a+b)$ 只有一個解。於是全牌組的 SET 總數可以直接算出來：</p>
+
+                    <div class="math-block">
+                        $$ \frac{\binom{81}{2}}{\binom{3}{2}} = \frac{81 \times 80 / 2}{3} = \frac{3240}{3} = 1080 $$
+                    </div>
+
+                    <p>（每組 SET 含三個「兩張牌的配對」，所以要除以 3。）我把遊戲裡的 <span class="inline-code">findAllSetsIn()</span> 直接餵進完整的 81
+                        張牌驗證，得到的答案正是 <strong>1,080</strong> —— 實作與理論吻合。</p>
+
+                    <div class="callout">
+                        <span class="callout-title">為什麼專案沒有採用這個寫法</span>
+                        <p>$(a+b+c) \bmod 3$ 的版本更短更快，但它需要先把字串屬性編碼成數字，而且<strong>算不出「哪個屬性是全同」</strong>
+                            —— 那正是解答面板要顯示的資訊。現行的 <span class="inline-code">Set.size</span>
+                            版本雖然理論上笨一點，卻同時產出了可讀性與 UI 需要的中文標籤。在這個規模下（每局最多 1,330 次判定），可讀性勝過微優化。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="search">
+                    <h2>IV. 全解搜尋的複雜度與可行的優化</h2>
+                    <p>「提示」功能要列出檯面上<strong>所有</strong>可能的 SET，實作是最直接的三重迴圈：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">findAllSetsIn.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>;     <span class="var">i</span> <span class="op">&lt;</span> <span class="var">cards</span>.<span class="var">length</span>; <span class="var">i</span><span class="op">++</span>)
+<span class="kw">for</span> (<span class="kw">let</span> <span class="var">j</span> <span class="op">=</span> <span class="var">i</span> <span class="op">+</span> <span class="num">1</span>; <span class="var">j</span> <span class="op">&lt;</span> <span class="var">cards</span>.<span class="var">length</span>; <span class="var">j</span><span class="op">++</span>)
+<span class="kw">for</span> (<span class="kw">let</span> <span class="var">k</span> <span class="op">=</span> <span class="var">j</span> <span class="op">+</span> <span class="num">1</span>; <span class="var">k</span> <span class="op">&lt;</span> <span class="var">cards</span>.<span class="var">length</span>; <span class="var">k</span><span class="op">++</span>) {
+    <span class="kw">const</span> <span class="var">res</span> <span class="op">=</span> <span class="fn">evaluateTrio</span>(<span class="var">cards</span>[<span class="var">i</span>], <span class="var">cards</span>[<span class="var">j</span>], <span class="var">cards</span>[<span class="var">k</span>]);
+    <span class="kw">if</span> (<span class="var">res</span>.<span class="var">isSet</span>) <span class="var">solutions</span>.<span class="fn">push</span>({ <span class="var">cards</span>: [...], <span class="var">breakdown</span>: <span class="var">res</span>.<span class="var">breakdown</span> });
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>複雜度是 $\Theta\!\left(\binom{n}{3}\right)$：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>檯面張數 n</th>
+                                    <th>三元組數 C(n,3)</th>
+                                    <th>Set 物件配置數（每組 4 個）</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>12（標準）</td>
+                                    <td><span class="mono">220</span></td>
+                                    <td><span class="mono">880</span></td>
+                                </tr>
+                                <tr>
+                                    <td>15（補一次牌）</td>
+                                    <td><span class="mono">455</span></td>
+                                    <td><span class="mono">1,820</span></td>
+                                </tr>
+                                <tr>
+                                    <td>18</td>
+                                    <td><span class="mono">816</span></td>
+                                    <td><span class="mono">3,264</span></td>
+                                </tr>
+                                <tr>
+                                    <td>21</td>
+                                    <td><span class="mono">1,330</span></td>
+                                    <td><span class="mono">5,320</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>這在 JS 引擎裡是微秒級的工作，完全不需要優化。但如果真要優化，前一節的「兩張決定第三張」性質給了一個 $O(n^2)$ 的做法：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">optimized_search.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// 把每張牌編碼成 0..80 的整數（四位三進位）</span>
+<span class="kw">const</span> <span class="fn">encode</span> <span class="op">=</span> <span class="var">c</span> <span class="op">=></span> <span class="var">c</span>.<span class="var">count</span> <span class="op">-</span> <span class="num">1</span> <span class="op">+</span> <span class="num">3</span> <span class="op">*</span> (<span class="var">CI</span>[<span class="var">c</span>.<span class="var">color</span>] <span class="op">+</span> <span class="num">3</span> <span class="op">*</span> (<span class="var">SI</span>[<span class="var">c</span>.<span class="var">shape</span>] <span class="op">+</span> <span class="num">3</span> <span class="op">*</span> <span class="var">DI</span>[<span class="var">c</span>.<span class="var">shading</span>]));
+
+<span class="kw">const</span> <span class="var">present</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Map</span>();  <span class="cm">// code → card</span>
+<span class="var">cards</span>.<span class="fn">forEach</span>(<span class="var">c</span> <span class="op">=></span> <span class="var">present</span>.<span class="fn">set</span>(<span class="fn">encode</span>(<span class="var">c</span>), <span class="var">c</span>));
+
+<span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="var">n</span>; <span class="var">i</span><span class="op">++</span>) <span class="kw">for</span> (<span class="kw">let</span> <span class="var">j</span> <span class="op">=</span> <span class="var">i</span> <span class="op">+</span> <span class="num">1</span>; <span class="var">j</span> <span class="op">&lt;</span> <span class="var">n</span>; <span class="var">j</span><span class="op">++</span>) {
+    <span class="cm">// 逐位計算 -(a+b) mod 3，直接得到唯一的第三張牌</span>
+    <span class="kw">const</span> <span class="var">third</span> <span class="op">=</span> <span class="fn">thirdCode</span>(<span class="var">code</span>[<span class="var">i</span>], <span class="var">code</span>[<span class="var">j</span>]);
+    <span class="kw">const</span> <span class="var">c3</span> <span class="op">=</span> <span class="var">present</span>.<span class="fn">get</span>(<span class="var">third</span>);
+    <span class="cm">// 加上索引條件避免同一組被找到三次</span>
+    <span class="kw">if</span> (<span class="var">c3</span> <span class="op">&&</span> <span class="var">indexOf</span>(<span class="var">c3</span>) <span class="op">></span> <span class="var">j</span>) <span class="var">solutions</span>.<span class="fn">push</span>([<span class="var">cards</span>[<span class="var">i</span>], <span class="var">cards</span>[<span class="var">j</span>], <span class="var">c3</span>]);
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>n = 21 時從 1,330 次三元組判定降到 210 次配對查表。<strong>我沒有採用它</strong>，因為現行版本在最壞情況也遠低於一幀的預算，而三重迴圈的意圖對讀者一目了然。記錄下來是為了說明「知道有更好的做法，但這裡不需要」。</p>
+                </section>
+
+                <section class="section-block" id="stats">
+                    <h2>V. 實測統計：無解機率與類型分布</h2>
+                    <p>我把遊戲的 <span class="inline-code">buildDeck</span> / <span class="inline-code">shuffle</span> / <span
+                            class="inline-code">findAllSetsIn</span> 原封不動抽出來，做了 20 萬次隨機取樣。這些數字直接解釋了玩家的體感：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>檯面</th>
+                                    <th>平均 SET 組數</th>
+                                    <th>完全無解機率</th>
+                                    <th>大約多久遇到一次</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>12 張</td>
+                                    <td><span class="mono">2.782</span></td>
+                                    <td><span class="mono">3.222 %</span></td>
+                                    <td>每 31 副檯面 1 次</td>
+                                </tr>
+                                <tr>
+                                    <td>15 張</td>
+                                    <td><span class="mono">5.756</span></td>
+                                    <td><span class="mono">0.041 %</span></td>
+                                    <td>每 2,439 副檯面 1 次</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="diagram">
+                        <pre>12 張檯面的 SET 組數分布（200,000 次取樣）
+
+ 0 組  ███▏                       3.2%   ← 需要補牌
+ 1 組  ██████████████▌           14.5%
+ 2 組  ██████████████████████████ 26.2%
+ 3 組  ███████████████████████████ 27.2%
+ 4 組  ██████████████████        18.1%
+ 5 組  ████████                   8.0%
+ 6 組  ██▎                        2.3%
+ 7 組  ▌                          0.5%
+ 8+組  ▏                          0.1%</pre>
+                        <div class="diagram-caption">平均 2.78 組 —— 檯面上通常有兩三組解，但有 3.2% 的機率一組都沒有</div>
+                    </div>
+
+                    <div class="callout good">
+                        <span class="callout-title">這組數字解釋了一個設計決策</span>
+                        <p>3.2% 不是可以忽略的機率 —— 玩十局大概就會碰到一次死局。這正是為什麼「提示」按鈕必須兼任<strong>無解自動補牌</strong>的角色：它不只是給卡關的玩家看答案，而是遊戲能繼續進行的必要機制。補到
+                            15 張之後無解機率驟降到 0.04%，補牌一次幾乎就能解決問題。</p>
+                    </div>
+
+                    <h3>15 種 SET 類型，數量呈完美的 2 的次方</h3>
+                    <p>依「四個屬性各自是全同還是全不同」分類，理論上有 $2^4 = 16$ 種組合，但<strong>四個屬性全同是不可能的</strong>（那代表三張完全一樣的牌，而 81
+                        張牌裡沒有重複），所以恰好 15 種。實測 1,080 組 SET 的分布是：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>「全同」的屬性個數 k</th>
+                                    <th>類型數</th>
+                                    <th>每種類型的組數</th>
+                                    <th>小計</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>0（四屬性全不同）</td>
+                                    <td>1</td>
+                                    <td><span class="mono">216</span></td>
+                                    <td><span class="mono">216</span></td>
+                                </tr>
+                                <tr>
+                                    <td>1</td>
+                                    <td>4</td>
+                                    <td><span class="mono">108</span></td>
+                                    <td><span class="mono">432</span></td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>6</td>
+                                    <td><span class="mono">54</span></td>
+                                    <td><span class="mono">324</span></td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>4</td>
+                                    <td><span class="mono">27</span></td>
+                                    <td><span class="mono">108</span></td>
+                                </tr>
+                                <tr>
+                                    <td>4</td>
+                                    <td>0（不可能）</td>
+                                    <td>—</td>
+                                    <td><span class="mono">0</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>組數服從一個乾淨的公式：</p>
+                    <div class="math-block">
+                        $$ N(k) = 27 \cdot 2^{\,4-k}, \qquad \sum_{k=0}^{3} \binom{4}{k} N(k) = 1080 $$
+                    </div>
+
+                    <p>這也是遊戲結束總結面板的統計基礎：它會列出你這局找到了哪幾種類型、各幾組。<strong>四屬性全不同（216 組，佔 20%）是最常見也最難看出來的類型</strong>
+                        —— 沒有任何一個屬性可以當作「錨點」來輔助辨識。</p>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 2 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>VI. SVG 程序化繪圖：三種形狀與條紋紋路</h2>
+                    <p>81 張牌沒有用任何圖片素材，全部由字串模板即時生成 SVG。三種形狀各有巧思：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>形狀</th>
+                                    <th>SVG 元素</th>
+                                    <th>為什麼這樣畫</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>橢圓</td>
+                                    <td><span class="mono">&lt;rect rx="36"&gt;</span></td>
+                                    <td>用圓角矩形而非 <span class="mono">&lt;ellipse&gt;</span>：rx 幾乎等於半寬，形成膠囊形，更接近實體牌的外觀</td>
+                                </tr>
+                                <tr>
+                                    <td>菱形</td>
+                                    <td><span class="mono">&lt;polygon&gt;</span></td>
+                                    <td>四個頂點，加 <span class="mono">stroke-linejoin="round"</span> 避免尖角爆刺</td>
+                                </tr>
+                                <tr>
+                                    <td>波浪</td>
+                                    <td><span class="mono">&lt;path&gt;</span></td>
+                                    <td>四段三次貝茲曲線（C 指令）組成 S 形後 Z 閉合</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>條紋的關鍵在 patternUnits</h3>
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">striped_pattern.svg</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="op">&lt;</span><span class="fn">pattern</span> <span class="var">id</span>=<span class="str">"pat-42-0"</span> <span class="var">width</span>=<span class="str">"100"</span> <span class="var">height</span>=<span class="str">"9"</span>
+         <span class="var">patternUnits</span>=<span class="str">"userSpaceOnUse"</span><span class="op">&gt;</span>
+    <span class="op">&lt;</span><span class="fn">line</span> <span class="var">x1</span>=<span class="str">"0"</span> <span class="var">y1</span>=<span class="str">"4.5"</span> <span class="var">x2</span>=<span class="str">"100"</span> <span class="var">y2</span>=<span class="str">"4.5"</span>
+          <span class="var">stroke</span>=<span class="str">"var(--set-red)"</span> <span class="var">stroke-width</span>=<span class="str">"2.5"</span><span class="op">/&gt;</span>
+<span class="op">&lt;/</span><span class="fn">pattern</span><span class="op">&gt;</span></pre>
+                        </div>
+                    </div>
+
+                    <p>一格 pattern tile 高 9 單位、正中間一條寬 2.5 的水平線，平鋪後就是等距橫條紋。真正重要的是 <span
+                            class="inline-code">patternUnits="userSpaceOnUse"</span>：</p>
+
+                    <div class="compare">
+                        <div>
+                            <h4 class="bad-h">預設值 objectBoundingBox</h4>
+                            <p>pattern 會依照套用形狀的外框比例被拉伸。菱形、膠囊、波浪的長寬比不同，於是<strong>三種形狀的條紋密度會不一致</strong>，看起來很廉價。</p>
+                        </div>
+                        <div>
+                            <h4 class="good-h">userSpaceOnUse</h4>
+                            <p>pattern 用 viewBox 的使用者座標系，不隨形狀縮放。三種形狀的條紋間距完全相同。</p>
+                        </div>
+                    </div>
+
+                    <p>另外，SVG 的 <span class="inline-code">fill</span> 與 <span class="inline-code">stroke</span> 直接吃 CSS 自訂屬性（<span
+                            class="inline-code">fill="var(--set-red)"</span>），所以整套配色的唯一真相來源就是 <span class="inline-code">:root</span>
+                        —— 想調整紅綠紫的色相，改三行 CSS 就好，不必碰 JavaScript。</p>
+                </section>
+
+                <section class="section-block">
+                    <h2>VII. 檯面縮編：不用 splice 的四步演算法</h2>
+                    <p>這是整個專案裡最有趣的一段邏輯。需求看起來很簡單，但暗藏衝突：</p>
+                    <ul class="detail-list">
+                        <li>配對成功後，被選走的三張牌要<strong>在原位</strong>補上新牌（不能讓整個版面位移）</li>
+                        <li>但若之前因為無解而補過牌（檯面 &gt; 12 張），成功配對後應該<strong>縮回 12 張</strong>，而不是無限膨脹</li>
+                    </ul>
+
+                    <p>解法的第一步就決定了一切：<strong>挖洞時用 <span class="inline-code">null</span> 佔位，絕不用 <span
+                                class="inline-code">splice</span></strong>。這樣陣列長度與其他牌的索引都不變，CSS 上再用一個 <span
+                            class="inline-code">.card.empty</span>（透明、<span class="inline-code">pointer-events: none</span>）撐住 grid
+                        格位。之後的四個步驟：</p>
+
+                    <div class="diagram">
+                        <pre>初始：15 張檯面，玩家選走 index 0, 1, 2
+
+ [ 0][ 1][ 2][ 3][ 4]        c0  c1  c2  c3  c4
+ [ 5][ 6][ 7][ 8][ 9]   →    c5  c6  c7  c8  c9
+ [10][11][12][13][14]        c10 c11 c12 c13 c14
+
+① 挖洞（null 佔位，長度不變）
+ [ ✕][ ✕][ ✕][c3][c4]  c5 ... c14
+
+② 從尾端 pop 到剩 12 格，收進 extraCards
+ extraCards = [c14, c13, c12]
+ board.length = 12
+
+③ 由左往右填洞，優先用 extraCards，用完才抽牌堆
+ [c14][c13][c12][c3][c4]  c5 ... c11        ← 淨效果：15 → 12
+
+④ 若 pop 出來的牌比洞還多（檯面 ≥ 18 張），推回尾端
+ board.push(...) 剩餘的 extraCards</pre>
+                        <div class="diagram-caption">同一段程式碼同時實現「原位補牌」與「智慧縮編」兩種行為</div>
+                    </div>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">board_shrink.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// ① 把被選中的位置挖空（保留長度）</span>
+<span class="var">indices</span>.<span class="fn">forEach</span>(<span class="var">idx</span> <span class="op">=></span> { <span class="var">board</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="kw">null</span>; });
+
+<span class="cm">// ② 超過 12 張就從尾端收回來</span>
+<span class="kw">let</span> <span class="var">extraCards</span> <span class="op">=</span> [];
+<span class="kw">while</span> (<span class="var">board</span>.<span class="var">length</span> <span class="op">></span> <span class="num">12</span>) {
+    <span class="kw">let</span> <span class="var">c</span> <span class="op">=</span> <span class="var">board</span>.<span class="fn">pop</span>();
+    <span class="kw">if</span> (<span class="var">c</span> <span class="op">!==</span> <span class="kw">null</span>) <span class="var">extraCards</span>.<span class="fn">push</span>(<span class="var">c</span>);
+}
+
+<span class="cm">// ③ 填洞：先用尾端搬來的，沒有才抽牌堆</span>
+<span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="var">board</span>.<span class="var">length</span>; <span class="var">i</span><span class="op">++</span>) {
+    <span class="kw">if</span> (<span class="var">board</span>[<span class="var">i</span>] <span class="op">===</span> <span class="kw">null</span>) {
+        <span class="kw">if</span> (<span class="var">extraCards</span>.<span class="var">length</span> <span class="op">></span> <span class="num">0</span>) <span class="var">board</span>[<span class="var">i</span>] <span class="op">=</span> <span class="var">extraCards</span>.<span class="fn">shift</span>();
+        <span class="kw">else if</span> (<span class="var">deck</span>.<span class="var">length</span> <span class="op">></span> <span class="num">0</span>) <span class="var">board</span>[<span class="var">i</span>] <span class="op">=</span> <span class="var">deck</span>.<span class="fn">shift</span>();
+    }
+}
+
+<span class="cm">// ④ 檯面 ≥18 張時 pop 出的會比洞多，推回尾端</span>
+<span class="kw">while</span> (<span class="var">extraCards</span>.<span class="var">length</span> <span class="op">></span> <span class="num">0</span>) <span class="var">board</span>.<span class="fn">push</span>(<span class="var">extraCards</span>.<span class="fn">shift</span>());</pre>
+                        </div>
+                    </div>
+
+                    <div class="callout warn">
+                        <span class="callout-title">一個已知的小瑕疵：牌序被鏡射</span>
+                        <p>步驟 ② 用 <span class="inline-code">pop()</span>（從尾端取）而步驟 ③ 用 <span class="inline-code">shift()</span>（從頭取），兩者方向相反，所以尾端三張牌會<strong>以反序</strong>落到前面的洞裡。功能完全正確，但視覺上牌的位置跳動不太直覺。加一個
+                            <span class="inline-code">extraCards.reverse()</span> 或改用 <span class="inline-code">board.splice(12)</span>
+                            取尾段即可保序 —— 這是留著沒改的小債。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VIII. 兩個小而有效的 UI 決策</h2>
+                    <div class="tech-card">
+                        <h3>1. 用 outline 而不是 border 畫選取框</h3>
+                        <p>卡片有四種狀態框：選取（金）、提示高亮（藍）、正確（綠）、錯誤（紅）。全部用 <span class="inline-code">outline</span> 實作，而 <span
+                                class="inline-code">.card</span> 的基礎樣式預先寫好 <span class="inline-code">outline: 3px solid
+                                transparent</span>。</p>
+                        <p>原因是 <strong>outline 不佔盒模型空間</strong>。如果用 border，切換狀態時卡片尺寸會變化，觸發 reflow 讓整個 grid
+                            抖一下；用 outline 則只是重繪，而且因為透明框一開始就存在，連 outline 寬度都不會變。</p>
+
+                        <h3>2. 非阻塞的自製彈窗</h3>
+                        <p>原生 <span class="inline-code">alert()</span> 會凍結 JS 執行緒 —— 對這個遊戲是致命的，因為配對的視覺回饋依賴 <span
+                                class="inline-code">setTimeout</span>（成功 400ms 綠框、失敗 500ms 紅框）。彈窗一凍結，動畫節奏就亂掉。</p>
+                        <p>自製彈窗用 <span class="inline-code">visibility</span> + <span class="inline-code">opacity</span> 的 transition
+                            實作（用 <span class="inline-code">display</span> 就吃不到過場動畫），並支援 <span
+                                class="inline-code">autoCloseMs = 0</span> 表示常駐。更重要的是：改成非阻塞之後，作者乾脆讓「配對成功／失敗」<strong>完全不彈窗</strong>，只留下綠框紅框，把彈窗保留給「無解補牌」與「遊戲結束」這兩個真正需要告知的時機。</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 3 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>IX. 一個真正的競態 bug：判定重入</h2>
+                    <p>這是全站自我審查中找到最嚴重的問題，而且它<strong>會實際影響分數與牌面</strong>。</p>
+
+                    <h3>觸發條件</h3>
+                    <p>配對成功後，程式會先亮綠框，然後 <span class="inline-code">setTimeout(..., 400)</span> 才真正動資料。問題出在點擊處理器<strong>在這 400ms
+                            內沒有任何鎖</strong>：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">the_bug.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">onCardClick</span>(<span class="var">uid</span>) {
+    <span class="kw">if</span> (<span class="var">gameOver</span>) <span class="kw">return</span>;
+
+    <span class="kw">if</span> (<span class="var">selected</span>.<span class="fn">includes</span>(<span class="var">uid</span>)) { <span class="cm">/* 取消選取 */</span> <span class="kw">return</span>; }
+    <span class="kw">if</span> (<span class="var">selected</span>.<span class="var">length</span> <span class="op">&lt;</span> <span class="num">3</span>) { <span class="var">selected</span>.<span class="fn">push</span>(<span class="var">uid</span>); <span class="fn">syncSelection</span>(); }
+
+    <span class="cm">// 🐛 selected 已經是 3 張、但 400ms 的結算還沒跑</span>
+    <span class="cm">//    此時點第 4 張牌：上面兩個 if 都不成立，卻會掉進這裡</span>
+    <span class="kw">if</span> (<span class="var">selected</span>.<span class="var">length</span> <span class="op">===</span> <span class="num">3</span>) {
+        <span class="fn">checkSelected</span>();          <span class="cm">// ← 同一組 SET 被判定第二次</span>
+    }
+}</pre>
+                        </div>
+                    </div>
+
+                    <h3>後果</h3>
+                    <ol class="step-list">
+                        <li><span class="inline-code">recordFoundType()</span> 被呼叫兩次 → 結束總結的類型組數<strong>多算</strong>。</li>
+                        <li>排入<strong>第二個</strong> 400ms timeout，而它捕捉的是<em>舊的</em> <span class="inline-code">indices</span>。</li>
+                        <li>第一個 timeout 正常完成挖洞、補牌；第二個 timeout 接著用舊索引把<strong>剛補進來的三張新牌再挖掉一次</strong>，並且 <span
+                                class="inline-code">foundCount++</span>。</li>
+                        <li>淨結果：分數多加一分、白白吃掉三張牌、牌堆莫名少了三張。</li>
+                    </ol>
+
+                    <div class="callout bad">
+                        <span class="callout-title">為什麼這種 bug 很難在手動測試中發現</span>
+                        <p>它需要在 400ms 的視窗內完成「第四次點擊」。正常玩的時候，人看到綠框會自然停下來 ——
+                            但<strong>手速快的玩家、或連點的玩家一定會踩到</strong>。而且症狀是「分數怎麼多了一分」這種模糊的異常，不會拋錯、不會當掉，很容易被當成自己記錯。</p>
+                    </div>
+
+                    <h3>修法：一個結算鎖</h3>
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">the_fix.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">let</span> <span class="var">resolving</span> <span class="op">=</span> <span class="kw">false</span>;   <span class="cm">// 結算動畫進行中</span>
+
+<span class="kw">function</span> <span class="fn">onCardClick</span>(<span class="var">uid</span>) {
+    <span class="kw">if</span> (<span class="var">gameOver</span> <span class="op">||</span> <span class="var">resolving</span>) <span class="kw">return</span>;   <span class="cm">// ← 入口就擋掉</span>
+    <span class="cm">// ...</span>
+}
+
+<span class="kw">function</span> <span class="fn">checkSelected</span>() {
+    <span class="kw">if</span> (<span class="var">resolving</span>) <span class="kw">return</span>;                  <span class="cm">// ← 雙重保險</span>
+    <span class="var">resolving</span> <span class="op">=</span> <span class="kw">true</span>;
+
+    <span class="kw">if</span> (<span class="var">result</span>.<span class="var">isSet</span>) {
+        <span class="fn">setTimeout</span>(() <span class="op">=></span> {
+            <span class="cm">/* 挖洞、縮編、補牌、計分 */</span>
+            <span class="var">resolving</span> <span class="op">=</span> <span class="kw">false</span>;            <span class="cm">// ← 動畫結束才解鎖</span>
+            <span class="fn">checkGameOver</span>();
+        }, <span class="num">400</span>);
+    } <span class="kw">else</span> {
+        <span class="fn">setTimeout</span>(() <span class="op">=></span> { <span class="cm">/* 清紅框 */</span> <span class="var">resolving</span> <span class="op">=</span> <span class="kw">false</span>; }, <span class="num">500</span>);
+    }
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>鎖必須加在<strong>兩個地方</strong>：<span class="inline-code">onCardClick</span> 的入口（讓第四次點擊完全無效，連選取狀態都不改）以及
+                        <span class="inline-code">checkSelected</span> 的開頭（防止任何其他呼叫路徑繞過）。<span class="inline-code">newGame()</span>
+                        也要重置它，否則在結算動畫中按「重新開始」會讓遊戲永久鎖死。</p>
+
+                    <div class="callout good">
+                        <span class="callout-title">驗證方式</span>
+                        <p>用 jsdom 載入實際頁面，連點三張牌觸發判定，接著<strong>在動畫期間</strong>再點第四張，斷言（1）選取數不變（2）分數不變（3）動畫結束後鎖已釋放、可以繼續操作。這種「時序相關」的
+                            bug 靠人工測試極不可靠，但用程式模擬點擊就非常確定。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>X. 另外兩個修掉的問題</h2>
+
+                    <div class="tech-card">
+                        <h3>1. 重複的 SVG pattern id</h3>
+                        <p>條紋 pattern 的 id 是 <span class="inline-code">pat-{uid}-{index}</span>，在檯面內確實唯一。但「提示」面板的解答縮圖會對<strong>同一張牌物件</strong>再呼叫一次
+                            <span class="inline-code">cardMarkup()</span>，於是產生<strong>完全相同的 id</strong> —— 文件裡出現重複 id，是無效 HTML。</p>
+                        <p>目前之所以看起來正常，是因為瀏覽器解析 <span class="inline-code">url(#id)</span> 時取文件順序的第一個，而 <span
+                                class="inline-code">.board</span> 剛好在 <span class="inline-code">aside</span> 之前，所以縮圖引用到的是檯面卡片的
+                            pattern，顏色與幾何又完全一樣。<strong>但這是巧合，不是設計</strong>：一旦檯面重繪（<span class="inline-code">boardEl.innerHTML =
+                                ''</span>）而面板還在，被引用的 pattern 就消失了，條紋會變透明。</p>
+                        <p>修法是給 <span class="inline-code">shapeSVG()</span> 與 <span class="inline-code">cardMarkup()</span> 加一個 <span
+                                class="inline-code">scope</span> 參數，解答面板傳入 <span class="inline-code">`s${index}-`</span>，讓兩邊的
+                            id 命名空間徹底分離。</p>
+
+                        <h3>2. 牌堆剩 1～2 張時補牌會塞進 null</h3>
+                        <p>無解自動補牌的原本寫法是連續三次 <span class="inline-code">board.push(deck.length > 0 ? deck.shift() : null)</span>。因為外層只檢查過一次
+                            <span class="inline-code">deck.length === 0</span>，牌堆只剩 1～2 張時，第二、三次 push 會塞進 <span
+                                class="inline-code">null</span>，檯面尾端出現不必要的空格。</p>
+                        <p>改成 <span class="inline-code">Math.min(3, deck.length)</span> —— 有幾張就補幾張，並在補完後補呼叫一次 <span
+                                class="inline-code">checkGameOver()</span>（因為補完可能仍然無解，而牌堆已經抽乾，那就是遊戲該結束的時刻）。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>XI. 誠實的已知限制</h2>
+                    <ul class="detail-list">
+                        <li><strong>靜默死局。</strong><span class="inline-code">checkGameOver()</span>
+                            只在「配對成功後」與「按提示發現無解」時被呼叫。如果牌堆已空、檯面無解，而玩家就是不按提示也不操作，遊戲不會自己宣告結束，計時器會繼續跑。標準 SET
+                            是發牌時就檢查，這裡採用懶惰偵測，換來的是實作簡單。</li>
+                        <li><strong>初始 12 張沒有檢查是否有解。</strong>約 3.2% 的機率一開局就無解，玩家必須先按一次提示才會拿到補牌。這是上一點的同源問題。</li>
+                        <li><strong>提示高亮只支援滑鼠。</strong>解答項目用 <span class="inline-code">mouseenter</span> / <span
+                                class="inline-code">mouseleave</span> 高亮對應卡片，觸控裝置完全觸發不到 —— 而 CSS 又給了 <span
+                                class="inline-code">cursor: pointer</span>，形成「看起來可點、實際不可點」的落差。應該補上 <span
+                                class="inline-code">click</span> 與 <span class="inline-code">focus</span> 事件。</li>
+                        <li><strong>卡片完全無法用鍵盤操作。</strong>卡片是純 <span class="inline-code">&lt;div&gt;</span>，沒有 <span
+                                class="inline-code">tabindex</span>、沒有 <span class="inline-code">role</span>、沒有 <span
+                                class="inline-code">aria-pressed</span>、也沒有 keydown 處理。SVG 也缺 <span class="inline-code">role="img"</span>
+                            與標題，螢幕閱讀器無法得知「兩個紅色空心菱形」這種資訊。</li>
+                        <li><strong>顏色是規則的一部分，但沒有色盲輔助。</strong>紅與綠是 SET
+                            四屬性之一，紅綠色盲玩家難以區分。正確做法是提供一個「顯示屬性文字」的輔助模式，或改用色盲友善的三色調色盤。<span class="inline-code">.correct</span> /
+                            <span class="inline-code">.wrong</span> 的回饋也只靠綠框紅框，沒有文字或圖示替代。</li>
+                        <li><strong><span class="inline-code">.solution-panel</span> 的 <span
+                                    class="inline-code">!important</span> 是順序造成的技術債。</strong>兩個 media query 寫在基礎規則<em>之前</em>，同特異度下後者勝出，所以只能靠
+                            <span class="inline-code">!important</span> 壓過去。把 media query 移到檔尾就能拿掉。</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="play-card">
+                <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">🃏</div>
+                <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
+                    檯面平均藏著 <strong>2.78 組</strong> SET。內建全解偵測，卡關時可以看到所有解與四屬性判定拆解。
+                </p>
+                <a href="game-set.html" class="btn">Launch Interactive Demo</a>
+                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
+                    Procedural SVG · No Assets</p>
+            </div>
+
+            <div class="side-box">
+                <h4>Quick Facts</h4>
+                <ul class="spec-list">
+                    <li><span>牌組大小</span><span>3⁴ = 81</span></li>
+                    <li><span>全牌組 SET</span><span>1,080 組</span></li>
+                    <li><span>SET 類型</span><span>15 種</span></li>
+                    <li><span>12 張無解率</span><span>3.22 %</span></li>
+                    <li><span>15 張無解率</span><span>0.04 %</span></li>
+                    <li><span>搜尋複雜度</span><span>Θ(C(n,3))</span></li>
+                    <li><span>圖形素材</span><span>0（純 SVG）</span></li>
+                </ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list">
+                    <li><a href="pentomino-detail.html" style="color:var(--accent2); text-decoration:none">Pentomino
+                            Solver →</a></li>
+                    <li><a href="1A2B-detail.html" style="color:var(--accent2); text-decoration:none">1A2B 猜數字 →</a>
+                    </li>
+                    <li><a href="infinite-tictactoe-detail.html"
+                            style="color:var(--accent2); text-decoration:none">無限井字棋 →</a></li>
+                    <li><a href="coc-card-detail.html" style="color:var(--accent2); text-decoration:none">卡牌交易站 →</a>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer
+        style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
+        © 2026 果汁龍 · Engineered with Passion.
+    </footer>
+
+    <script>
+        function switchTab(index) {
+            const btns = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+            btns.forEach((b, i) => b.classList.toggle('active', i === index));
+            contents.forEach((c, i) => c.classList.toggle('active', i === index));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>

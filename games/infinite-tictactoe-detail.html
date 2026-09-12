@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/logo.ico">
+    <title>技術剖析 | Infinite Tic-Tac-Toe Solved</title>
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="detail.css">
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <header>
+        <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
+        <h1>Solved Game</h1>
+        <div class="subtitle">無限井字棋：把一個有環的賽局完整求解，並發現「中央是陷阱」</div>
+        <div class="meta-row">
+            <span class="meta-chip">可達局面 <b>116,074</b></span>
+            <span class="meta-chip">賽局值 <b>先手必勝</b></span>
+            <span class="meta-chip">收官 <b>13 手</b></span>
+            <span class="meta-chip">AI: negamax + <b>α-β</b></span>
+            <span class="meta-chip">搜尋深度 <b>12</b></span>
+        </div>
+    </header>
+
+    <div class="tab-wrapper">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab(0)">♾️ 規則與賽局論</button>
+            <button class="tab-btn" onclick="switchTab(1)">🤖 AI 與實作</button>
+            <button class="tab-btn" onclick="switchTab(2)">🔧 工程反省</button>
+        </div>
+    </div>
+
+    <main>
+        <div class="content">
+
+            <!-- ══════════ TAB 1 ══════════ -->
+            <div class="tab-content active">
+
+                <div class="toc">
+                    <div class="toc-title">本頁重點</div>
+                    <ol>
+                        <li><a href="#rule">規則設計：三子上限如何消滅平手</a></li>
+                        <li><a href="#state">狀態必須記住「順序」</a></li>
+                        <li><a href="#solve">完整求解：有環賽局的逆向歸納</a></li>
+                        <li><a href="#pitfall">我踩到的坑：必勝卻走不出去</a></li>
+                        <li><a href="#result">結果：先手必勝，而且只有「邊」能贏</a></li>
+                    </ol>
+                </div>
+
+                <section class="section-block" id="rule">
+                    <h2>I. 規則設計：三子上限如何消滅平手</h2>
+                    <p>標準井字棋是<strong>已被完全解出的和局遊戲</strong>：雙方完美下法必定平手，所以成年人玩三局就會膩。這個變體只改一條規則：</p>
+
+                    <div class="callout good">
+                        <span class="callout-title">核心規則</span>
+                        <p>每位玩家在盤面上<strong>最多只能有 3 顆棋子</strong>。當你落下第 4 子時，你<strong>最早放的那一顆會同時消失</strong>。勝負以「落子並移除舊子之後」的盤面判定
+                            —— 也就是說，如果連線需要用到即將消失的那顆棋子，這步<strong>不算贏</strong>。</p>
+                    </div>
+
+                    <p>這條規則帶來一個結構性的後果：</p>
+
+                    <div class="math-block">
+                        $$ |Q_X| + |Q_O| \le 3 + 3 = 6 < 9 $$
+                    </div>
+
+                    <p>雙方棋子加起來最多 6 顆，而盤面有 9 格 —— 所以<strong>永遠至少有 3 格是空的</strong>。盤面不會被填滿，於是<strong>「無處可走」這種平手結局在規則上不存在</strong>。我用隨機對局實測 200 場，單方棋子數的最大值恆為 3、盤面從未被填滿、每一場都產生了勝者。</p>
+
+                    <div class="callout warn">
+                        <span class="callout-title">但這不等於「賽局論上沒有和局」</span>
+                        <p>這是很容易混淆的一點，值得說清楚：<strong>規則上沒有平手結局</strong>（不會出現無子可下的僵局），但<strong>賽局論上仍然可能是和局</strong>
+                            —— 因為雙方都可以永遠互相封鎖，讓對局無限延續下去。這種「無限延續」在賽局論裡就是和局（draw by infinite play）。</p>
+                        <p>換句話說，這個遊戲從「有限、必然結束、必定平手」的標準井字棋，變成了「<strong>無限、可能不結束、勝負未知</strong>」的賽局。而「勝負未知」正是我想弄清楚的問題。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="state">
+                    <h2>II. 狀態必須記住「順序」</h2>
+                    <p>要分析這個遊戲，第一件事是想清楚「什麼構成一個局面」。標準井字棋的局面就是盤面本身（9 格各為空/X/O）加上輪到誰。但這個變體<strong>還必須包含落子的先後順序</strong>
+                        —— 因為「下一顆會消失的是哪一個」直接決定了可行的攻擊與防守。</p>
+
+                    <div class="diagram">
+                        <pre>兩個盤面完全相同、但賽局意義完全不同的局面：
+
+        X 的落子順序 (1)(5)(9)          X 的落子順序 (9)(5)(1)
+     ┌───┬───┬───┐                 ┌───┬───┬───┐
+     │ X │   │   │                 │ X │   │   │  ← 第 1 格最新
+     ├───┼───┼───┤                 ├───┼───┼───┤
+     │   │ X │   │                 │   │ X │   │
+     ├───┼───┼───┤                 ├───┼───┼───┤
+     │   │   │ X │  ← 最舊，下一手消失   │   │   │ X │
+     └───┴───┴───┘                 └───┴───┴───┘
+
+  X 想連 1-5-9？落子時第 1 格會消失 → 不算贏   X 想連 1-5-9？消失的是第 9 格 → 也不算贏
+  但 X 若改連 1-2-3，第 9 格消失不影響 → 可贏   X 若連 7-8-9，第 1 格消失不影響 → 可贏</pre>
+                        <div class="diagram-caption">同一個盤面因為落子順序不同，可行的獲勝路線完全不一樣</div>
+                    </div>
+
+                    <p>所以狀態的定義是：</p>
+
+                    <div class="math-block">
+                        $$ s = \big(\, Q_X,\ Q_O,\ p \,\big), \qquad Q_i = \text{該玩家棋子的有序佇列（長度} \le 3\text{）} $$
+                    </div>
+
+                    <p>實作上就是兩個 FIFO 佇列。落子與回溯是完全對稱的一對操作 —— 這對後面的搜尋至關重要：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">state_transition.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// 落子：放上新子，超過上限就同時移除最舊的。回傳被移除的位置（無則 -1）</span>
+<span class="kw">function</span> <span class="fn">place</span>(<span class="var">st</span>, <span class="var">pos</span>) {
+    <span class="kw">const</span> <span class="var">p</span> <span class="op">=</span> <span class="var">st</span>.<span class="var">turn</span>;
+    <span class="var">st</span>.<span class="var">cells</span>[<span class="var">pos</span>] <span class="op">=</span> <span class="var">p</span>;
+    <span class="kw">const</span> <span class="var">q</span> <span class="op">=</span> <span class="var">st</span>.<span class="var">queues</span>[<span class="var">p</span>];
+    <span class="var">q</span>.<span class="fn">push</span>(<span class="var">pos</span>);
+    <span class="kw">let</span> <span class="var">removed</span> <span class="op">=</span> <span class="op">-</span><span class="num">1</span>;
+    <span class="kw">if</span> (<span class="var">q</span>.<span class="var">length</span> <span class="op">></span> <span class="var">MAX_PIECES</span>) {
+        <span class="var">removed</span> <span class="op">=</span> <span class="var">q</span>.<span class="fn">shift</span>();     <span class="cm">// 最舊的出隊</span>
+        <span class="var">st</span>.<span class="var">cells</span>[<span class="var">removed</span>] <span class="op">=</span> <span class="num">0</span>;
+    }
+    <span class="var">st</span>.<span class="var">turn</span> <span class="op">=</span> <span class="num">3</span> <span class="op">-</span> <span class="var">p</span>;
+    <span class="kw">return</span> <span class="var">removed</span>;
+}
+
+<span class="cm">// 還原一步：把 place 做過的事逐一反轉（供搜尋回溯用）</span>
+<span class="kw">function</span> <span class="fn">unplace</span>(<span class="var">st</span>, <span class="var">pos</span>, <span class="var">removed</span>, <span class="var">player</span>) {
+    <span class="var">st</span>.<span class="var">cells</span>[<span class="var">pos</span>] <span class="op">=</span> <span class="num">0</span>;
+    <span class="var">st</span>.<span class="var">queues</span>[<span class="var">player</span>].<span class="fn">pop</span>();
+    <span class="kw">if</span> (<span class="var">removed</span> <span class="op">>=</span> <span class="num">0</span>) {
+        <span class="var">st</span>.<span class="var">queues</span>[<span class="var">player</span>].<span class="fn">unshift</span>(<span class="var">removed</span>);   <span class="cm">// 放回隊首</span>
+        <span class="var">st</span>.<span class="var">cells</span>[<span class="var">removed</span>] <span class="op">=</span> <span class="var">player</span>;
+    }
+    <span class="var">st</span>.<span class="var">turn</span> <span class="op">=</span> <span class="var">player</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="callout good">
+                        <span class="callout-title">先驗證對稱性，再寫搜尋</span>
+                        <p>我做的第一個測試是：隨機亂走幾十步，記下狀態快照，然後 <span class="inline-code">place</span> → <span
+                                class="inline-code">unplace</span>，斷言狀態<strong>逐位元組完全還原</strong>（比對 <span
+                                class="inline-code">cells</span>、兩個佇列、輪次）。跑 2,000 輪全過。</p>
+                        <p>這個測試看起來很無聊，但它是所有後續結果的地基：<strong>回溯只要有一絲不對稱，深度搜尋算出來的東西全部是垃圾</strong>，而且症狀會是「AI
+                            偶爾下很怪的一步」這種幾乎不可能除錯的現象。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="solve">
+                    <h2>III. 完整求解：有環賽局的逆向歸納</h2>
+                    <p>既然狀態定義清楚了，一個很自然的問題浮現：<strong>這個遊戲的賽局值是什麼？先手有沒有必勝策略？</strong></p>
+                    <p>從初始局面出發做 BFS，枚舉所有可達且尚未產生連線的局面，得到：</p>
+
+                    <div class="math-block">
+                        $$ |S_{\text{reachable}}| = 116{,}074 $$
+                    </div>
+
+                    <p>十萬個狀態對現代電腦是小規模，可以完整求解。但這裡有個關鍵困難：<strong>賽局圖有環</strong>（雙方可以走回同一個局面），所以不能用標準的「從終局往回算」的極小極大，那個方法只適用於有向無環圖。</p>
+
+                    <h3>三值的逆向歸納（attractor computation）</h3>
+                    <p>正確的做法是三值分類，並用類似 BFS 的方式從終局向外傳播：</p>
+
+                    <ol class="step-list">
+                        <li><strong>初始化：</strong>存在「一步就連線」走法的局面 → 行動方 <span class="tech-badge">WIN</span>，距離 1。</li>
+                        <li><strong>傳播規則 A：</strong>若某個子局面是 <span class="tech-badge">LOSS</span>（對手行動方必敗），則父局面是 <span
+                                class="tech-badge">WIN</span> —— 只要有<em>一條</em>路能把對手推進必敗局面就夠了。</li>
+                        <li><strong>傳播規則 B：</strong>若某局面的<em>所有</em>子局面都是 <span class="tech-badge">WIN</span>（不管怎麼走都讓對手贏），則它是
+                            <span class="tech-badge">LOSS</span>。實作上用一個計數器，每確認一個子節點為 WIN 就減一，歸零時判定必敗。</li>
+                        <li><strong>剩下的就是和局：</strong>傳播結束後仍未被歸類的局面 → <span class="tech-badge">DRAW</span>。它們的意義是「雙方都無法逼出勝負，可以無限延續」
+                            —— 這正是有環賽局特有的第三種結果。</li>
+                    </ol>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">retrograde_analysis.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// unresolved[i] = 還沒被確認為 WIN 的子節點數</span>
+<span class="kw">while</span> (<span class="var">heap</span>.<span class="var">size</span>) {
+    <span class="kw">const</span> [<span class="var">d</span>, <span class="var">s</span>] <span class="op">=</span> <span class="var">heap</span>.<span class="fn">pop</span>();      <span class="cm">// 依距離遞增取出</span>
+    <span class="kw">if</span> (<span class="var">d</span> <span class="op">!==</span> <span class="var">dist</span>[<span class="var">s</span>]) <span class="kw">continue</span>;         <span class="cm">// 過期項目</span>
+
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="var">p</span> <span class="kw">of</span> <span class="var">parents</span>[<span class="var">s</span>]) {
+        <span class="kw">if</span> (<span class="var">value</span>[<span class="var">p</span>] <span class="op">!==</span> <span class="var">DRAW</span>) <span class="kw">continue</span>;    <span class="cm">// 已定案</span>
+
+        <span class="kw">if</span> (<span class="var">value</span>[<span class="var">s</span>] <span class="op">===</span> <span class="var">LOSS</span>) {
+            <span class="cm">// 🎯 規則 A：能把對手推進必敗局面 → 自己必勝</span>
+            <span class="var">value</span>[<span class="var">p</span>] <span class="op">=</span> <span class="var">WIN</span>;
+            <span class="var">dist</span>[<span class="var">p</span>] <span class="op">=</span> <span class="var">d</span> <span class="op">+</span> <span class="num">1</span>;
+            <span class="var">heap</span>.<span class="fn">push</span>(<span class="var">dist</span>[<span class="var">p</span>], <span class="var">p</span>);
+        } <span class="kw">else</span> {
+            <span class="var">maxChildDist</span>[<span class="var">p</span>] <span class="op">=</span> Math.<span class="fn">max</span>(<span class="var">maxChildDist</span>[<span class="var">p</span>], <span class="var">d</span>);
+            <span class="cm">// 🎯 規則 B：所有走法都讓對手贏 → 自己必敗</span>
+            <span class="kw">if</span> (<span class="op">--</span><span class="var">unresolved</span>[<span class="var">p</span>] <span class="op">===</span> <span class="num">0</span>) {
+                <span class="var">value</span>[<span class="var">p</span>] <span class="op">=</span> <span class="var">LOSS</span>;
+                <span class="var">dist</span>[<span class="var">p</span>] <span class="op">=</span> <span class="var">maxChildDist</span>[<span class="var">p</span>] <span class="op">+</span> <span class="num">1</span>;
+                <span class="var">heap</span>.<span class="fn">push</span>(<span class="var">dist</span>[<span class="var">p</span>], <span class="var">p</span>);
+            }
+        }
+    }
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>局面價值（對行動方而言）</th>
+                                    <th>數量</th>
+                                    <th>佔比</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>必勝 WIN</td>
+                                    <td><span class="mono">78,613</span></td>
+                                    <td><span class="mono">67.7 %</span></td>
+                                </tr>
+                                <tr>
+                                    <td>必敗 LOSS</td>
+                                    <td><span class="mono">24,268</span></td>
+                                    <td><span class="mono">20.9 %</span></td>
+                                </tr>
+                                <tr>
+                                    <td>和局 DRAW（可無限延續）</td>
+                                    <td><span class="mono">13,193</span></td>
+                                    <td><span class="mono">11.4 %</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>超過三分之二的局面對行動方是必勝的 —— 這個遊戲的攻擊性遠比標準井字棋強烈。</p>
+                </section>
+
+                <section class="section-block" id="pitfall">
+                    <h2>IV. 我踩到的坑：明明必勝卻走不出去</h2>
+                    <p>算出 WIN / LOSS / DRAW 之後，我寫了一個驗證程式：讓 X 依策略走，窮舉 O 的<strong>所有</strong>防守，確認 X 每次都贏。策略的第一版看起來理所當然：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">broken_strategy.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// 🐛 第一版：找到任何一個「讓對手必敗」的走法就走</span>
+<span class="kw">for</span> (<span class="kw">const</span> <span class="var">m</span> <span class="kw">of</span> <span class="fn">emptyCells</span>(<span class="var">st</span>)) {
+    <span class="fn">place</span>(<span class="var">st</span>, <span class="var">m</span>);
+    <span class="kw">if</span> (<span class="fn">winningLine</span>(<span class="var">st</span>, <span class="var">X</span>)) <span class="kw">return</span> <span class="var">m</span>;          <span class="cm">// 直接贏</span>
+    <span class="kw">if</span> (<span class="var">value</span>[<span class="fn">idx</span>(<span class="var">st</span>)] <span class="op">===</span> <span class="var">LOSS</span>) <span class="kw">return</span> <span class="var">m</span>;   <span class="cm">// 對手必敗 → 走這步</span>
+    <span class="fn">unplace</span>(<span class="var">st</span>, <span class="var">m</span>, ...);
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>驗證結果：<strong>123 條路線失敗，最長跑到 41 手還沒收官</strong>。</p>
+
+                    <div class="callout bad">
+                        <span class="callout-title">原因：必勝 ≠ 會贏</span>
+                        <p>在<strong>有環</strong>的賽局裡，「走到一個對手必敗的局面」不足以保證獲勝，因為你可能在一堆必勝局面之間<strong>無限繞圈</strong>
+                            —— 每一步都維持著理論上的優勢，卻永遠不兌現。這是有限賽局的直覺失效的地方：在 DAG 上，任何往下走的路都會抵達終局；在有環圖上不會。</p>
+                        <p>修法是策略必須讓<strong>「距離獲勝的步數」嚴格遞減</strong>。這也是為什麼上一節的逆向歸納要用<strong>優先佇列依距離遞增處理</strong>（Dijkstra
+                            式），而不是普通的 FIFO —— 只有這樣算出的 <span class="inline-code">dist</span> 才具備最小性，可以拿來當策略的下降指標。</p>
+                    </div>
+
+                    <div class="compare">
+                        <div>
+                            <h4 class="bad-h">錯誤：任選一個必敗子節點</h4>
+                            <p>優勢永遠維持，但可能永不收官。123 條路線失敗，41 手仍未結束。</p>
+                        </div>
+                        <div>
+                            <h4 class="good-h">正確：選 dist 最小的必敗子節點</h4>
+                            <p>每步距離嚴格 −1，單調遞減保證有限步內抵達終局。98 條路線全數獲勝。</p>
+                        </div>
+                    </div>
+
+                    <p>修正後的窮舉驗證結果：</p>
+                    <div class="diagram">
+                        <pre>窮舉 O 的所有防守 → 98 條收官路線
+最長 13 手（ply），X 落子 7 次
+失敗路線：0 條
+
+✅ 先手必勝已驗證</pre>
+                        <div class="diagram-caption">X 依「距離遞減」策略走，O 無論怎麼防都會輸</div>
+                    </div>
+                </section>
+
+                <section class="section-block" id="result">
+                    <h2>V. 結果：先手必勝，而且只有「邊」能贏</h2>
+                    <p>初始局面的賽局值是 <strong>先手必勝，13 手收官</strong>。但真正有趣的是<strong>九種開局第一手的價值分布</strong>：</p>
+
+                    <div class="diagram">
+                        <pre>     ┌─────┬─────┬─────┐
+     │  1  │  2  │  3  │        1 角 → 和局
+     │  角  │ 邊 ★│  角  │        2 邊 → ★ 必勝（13 手）
+     ├─────┼─────┼─────┤        3 角 → 和局
+     │  4  │  5  │  6  │        4 邊 → ★ 必勝（13 手）
+     │ 邊 ★│  中  │ 邊 ★│        5 中 → 和局
+     ├─────┼─────┼─────┤        6 邊 → ★ 必勝（13 手）
+     │  7  │  8  │  9  │        7 角 → 和局
+     │  角  │ 邊 ★│  角  │        8 邊 → ★ 必勝（13 手）
+     └─────┴─────┴─────┘        9 角 → 和局</pre>
+                        <div class="diagram-caption">只有四個「邊」格是必勝開局，中央與四角都是和局</div>
+                    </div>
+
+                    <div class="callout good">
+                        <span class="callout-title">這和標準井字棋完全相反</span>
+                        <p>在標準井字棋裡，<strong>中央是最強的第一手</strong>（它參與四條連線，角落三條，邊只有兩條）。但在三子上限的變體裡，<strong>中央變成了和局，只有邊格必勝</strong>。</p>
+                        <p>直覺上的解釋是：中央參與的連線最多，代表它<strong>同時也是最容易被利用的位置</strong>
+                            —— 而在這個變體裡，你的棋子會不斷消失，佔住一個「潛力大但需要長期維持」的格子反而是負擔。邊格參與的連線少，卻更容易在三顆棋子的短生命週期內兌現成實際的連線。這是一條規則改動就翻轉了整個開局理論。</p>
+                    </div>
+
+                    <div class="callout">
+                        <span class="callout-title">對遊戲設計的實際影響</span>
+                        <p>先手有必勝策略，這對一個休閒遊戲來說是個真實的平衡問題。我在實作上的處理是：<strong>提供「先手／後手」選項</strong>，讓玩家可以選擇執 X（較有利）或執 O（挑戰）。既然數學已經告訴我先手優勢是結構性的、無法靠規則微調消除，那就把它變成一個明確的難度選項，而不是假裝它不存在。</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 2 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>VI. AI：negamax + Alpha-Beta，以及一個變體特有的評估難題</h2>
+                    <p>遊戲內的 AI <strong>不使用</strong>上面那張 116,074 筆的解答表 —— 那樣就變成查表機器人，而且無法調整難度。它是一個標準的深度受限
+                        negamax 搜尋，配 alpha-beta 剪枝：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">negamax.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">negamax</span>(<span class="var">st</span>, <span class="var">depth</span>, <span class="var">alpha</span>, <span class="var">beta</span>) {
+    <span class="kw">let</span> <span class="var">best</span> <span class="op">=</span> <span class="op">-</span><span class="var">Infinity</span>, <span class="var">bestMove</span> <span class="op">=</span> <span class="op">-</span><span class="num">1</span>;
+
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="var">m</span> <span class="kw">of</span> <span class="fn">emptyCells</span>(<span class="var">st</span>)) {
+        <span class="kw">const</span> <span class="var">player</span> <span class="op">=</span> <span class="var">st</span>.<span class="var">turn</span>;
+        <span class="kw">const</span> <span class="var">removed</span> <span class="op">=</span> <span class="fn">place</span>(<span class="var">st</span>, <span class="var">m</span>);
+        <span class="kw">let</span> <span class="var">score</span>;
+
+        <span class="kw">if</span> (<span class="fn">winningLine</span>(<span class="var">st</span>, <span class="var">player</span>)) {
+            <span class="var">score</span> <span class="op">=</span> <span class="var">WIN_SCORE</span> <span class="op">+</span> <span class="var">depth</span>;   <span class="cm">// 剩餘深度越多 = 越早贏 = 越好</span>
+        } <span class="kw">else if</span> (<span class="var">depth</span> <span class="op">&lt;=</span> <span class="num">1</span>) {
+            <span class="var">score</span> <span class="op">=</span> <span class="op">-</span><span class="fn">evaluate</span>(<span class="var">st</span>);      <span class="cm">// turn 已換人，取負轉回 player 視角</span>
+        } <span class="kw">else</span> {
+            <span class="var">score</span> <span class="op">=</span> <span class="op">-</span><span class="fn">negamax</span>(<span class="var">st</span>, <span class="var">depth</span> <span class="op">-</span> <span class="num">1</span>, <span class="op">-</span><span class="var">beta</span>, <span class="op">-</span><span class="var">alpha</span>).<span class="var">score</span>;
+        }
+        <span class="fn">unplace</span>(<span class="var">st</span>, <span class="var">m</span>, <span class="var">removed</span>, <span class="var">player</span>);
+
+        <span class="kw">if</span> (<span class="var">score</span> <span class="op">></span> <span class="var">best</span>) { <span class="var">best</span> <span class="op">=</span> <span class="var">score</span>; <span class="var">bestMove</span> <span class="op">=</span> <span class="var">m</span>; }
+        <span class="kw">if</span> (<span class="var">score</span> <span class="op">></span> <span class="var">alpha</span>) <span class="var">alpha</span> <span class="op">=</span> <span class="var">score</span>;
+        <span class="kw">if</span> (<span class="var">alpha</span> <span class="op">>=</span> <span class="var">beta</span>) <span class="kw">break</span>;              <span class="cm">// 剪枝</span>
+    }
+    <span class="kw">return</span> { <span class="var">score</span>: <span class="var">best</span>, <span class="var">move</span>: <span class="var">bestMove</span> };
+}</pre>
+                        </div>
+                    </div>
+
+                    <h3>評估函式必須認得「即將消失的棋子」</h3>
+                    <p>這是本變體與標準井字棋最大的實作差異。一般井字棋的評估函式看到「某條線上我有 2 顆、第 3 格是空的」就判定為強烈威脅。但在這裡，<strong>如果那 2 顆之中包含即將消失的那一顆，這個威脅是假的</strong>
+                        —— 你落下第 3 子的同時，最舊的那顆就消失了，連線不成立。</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">evaluate.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">lineScore</span>(<span class="var">st</span>, <span class="var">p</span>) {
+    <span class="cm">// 該玩家下一手會消失的棋子位置（未滿 3 子則為 -1）</span>
+    <span class="kw">const</span> <span class="var">doomed</span> <span class="op">=</span> <span class="fn">doomedCell</span>(<span class="var">st</span>, <span class="var">p</span>);
+    <span class="kw">let</span> <span class="var">s</span> <span class="op">=</span> <span class="num">0</span>;
+
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="var">line</span> <span class="kw">of</span> <span class="var">LINES</span>) {
+        <span class="kw">let</span> <span class="var">mine</span> <span class="op">=</span> <span class="num">0</span>, <span class="var">theirs</span> <span class="op">=</span> <span class="num">0</span>, <span class="var">doomedInLine</span> <span class="op">=</span> <span class="kw">false</span>;
+        <span class="kw">for</span> (<span class="kw">const</span> <span class="var">idx</span> <span class="kw">of</span> <span class="var">line</span>) {
+            <span class="kw">if</span> (<span class="var">st</span>.<span class="var">cells</span>[<span class="var">idx</span>] <span class="op">===</span> <span class="var">p</span>) {
+                <span class="var">mine</span><span class="op">++</span>;
+                <span class="kw">if</span> (<span class="var">idx</span> <span class="op">===</span> <span class="var">doomed</span>) <span class="var">doomedInLine</span> <span class="op">=</span> <span class="kw">true</span>;
+            } <span class="kw">else if</span> (<span class="var">st</span>.<span class="var">cells</span>[<span class="var">idx</span>] <span class="op">===</span> <span class="num">3</span> <span class="op">-</span> <span class="var">p</span>) <span class="var">theirs</span><span class="op">++</span>;
+        }
+        <span class="kw">if</span> (<span class="var">theirs</span> <span class="op">></span> <span class="num">0</span>) <span class="kw">continue</span>;   <span class="cm">// 被封死的線沒有價值</span>
+
+        <span class="cm">// 🎯 用到即將消失的棋子，威脅大打折（12 → 3）</span>
+        <span class="kw">if</span> (<span class="var">mine</span> <span class="op">===</span> <span class="num">2</span>) <span class="var">s</span> <span class="op">+=</span> <span class="var">doomedInLine</span> <span class="op">?</span> <span class="num">3</span> <span class="op">:</span> <span class="num">12</span>;
+        <span class="kw">else if</span> (<span class="var">mine</span> <span class="op">===</span> <span class="num">1</span>) <span class="var">s</span> <span class="op">+=</span> <span class="num">1</span>;
+    }
+    <span class="kw">return</span> <span class="var">s</span> <span class="op">+</span> <span class="var">positionalBonus</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>沒有這個折價，AI 會不斷追逐永遠兌現不了的假威脅，同時漏掉對手真正的攻勢。</p>
+                </section>
+
+                <section class="section-block">
+                    <h2>VII. 難度階梯與實測強度</h2>
+                    <p>難度就是搜尋深度加上一點刻意的失誤率：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>難度</th>
+                                    <th>搜尋深度</th>
+                                    <th>隨機亂下機率</th>
+                                    <th>空盤思考時間</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>簡單</td>
+                                    <td><span class="mono">2</span></td>
+                                    <td><span class="mono">45 %</span></td>
+                                    <td>&lt; 1 ms</td>
+                                </tr>
+                                <tr>
+                                    <td>普通</td>
+                                    <td><span class="mono">5</span></td>
+                                    <td><span class="mono">12 %</span></td>
+                                    <td>&lt; 1 ms</td>
+                                </tr>
+                                <tr>
+                                    <td>困難</td>
+                                    <td><span class="mono">12</span></td>
+                                    <td><span class="mono">0 %</span></td>
+                                    <td><span class="mono">約 40 ms</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>對戰實測（每組數十至上百場）：</p>
+                    <ul class="detail-list">
+                        <li><strong>困難 vs 隨機亂下：100 : 0</strong></li>
+                        <li><strong>困難（先手）vs 普通：40 : 0</strong></li>
+                        <li><strong>困難 vs 困難：先手方 20 : 0 全勝</strong> —— 這個現象在我求解之前就出現了，事後回頭看，它正是「先手必勝」的實證訊號。</li>
+                    </ul>
+
+                    <div class="callout good">
+                        <span class="callout-title">最漂亮的驗證：AI 自己找到了理論最佳開局</span>
+                        <p>我拿求解結果去檢查 AI 的第一手選擇（各跑 200 次）：</p>
+                        <div class="diagram" style="margin-top:1rem">
+                            <pre>困難（深度 12）   邊 100%                    ← 完全命中理論必勝手
+普通（深度 5）    邊 92%   角 5%   中 4%
+簡單（深度 2）    中 62%   角 20%  邊 19%    ← 落入「中央最強」的錯誤直覺</pre>
+                        </div>
+                        <p>深度 12 的啟發式搜尋<strong>在不知道解答表的情況下，100% 選中了唯一的必勝開局</strong>；而深度 2
+                            的淺層搜尋則落入了標準井字棋的直覺陷阱，62% 選中央 —— 那在這個變體裡只是和局。啟發式評估的品質，就這樣被賽局論的答案量化了出來。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VIII. 前端：讓「即將消失」變得看得見</h2>
+                    <p>這個變體最大的體驗風險是：玩家會忘記自己的棋子要消失，然後在關鍵時刻愣住。UI 上用了三層提示：</p>
+                    <ul class="detail-list">
+                        <li><strong>虛線框 + 呼吸閃爍：</strong>輪到你時，下一手會被移除的那顆棋子套上 <span class="inline-code">.doomed</span>，虛線邊框加
+                            1.4 秒的 opacity 動畫。</li>
+                        <li><strong>狀態列文字：</strong>「落子後第 N 格會消失」，把視覺提示翻譯成明確的文字。</li>
+                        <li><strong>步數紀錄：</strong>每一步都記下「X → 第 7 格（第 1 格消失）」，讓玩家可以回溯理解棋子的生命週期。</li>
+                    </ul>
+                    <p>另外一個細節：<strong>只提示「輪到的那一方」即將消失的棋子</strong>。同時顯示雙方的話畫面太吵，而且對手的消失預告在你思考時是干擾而非資訊。</p>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 3 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>IX. 工程反省：手機版整個重做</h2>
+                    <p>這頁上線後我用裝置模擬做了一輪檢查，發現手機版雖然<strong>沒有排版溢出</strong>，但體驗上有幾個實質問題。值得記錄的是：這些問題用桌機瀏覽器縮視窗<strong>測不出來</strong>。</p>
+
+                    <div class="callout warn">
+                        <span class="callout-title">一個誤導我很久的測試假象</span>
+                        <p>我一開始用 headless Chrome 加 <span class="inline-code">--window-size=390,844</span> 截圖，看到棋盤第 3、6、9
+                            格被切掉，以為是嚴重的溢出 bug。實際上那是假象 —— <strong>macOS 上的 headless Chrome 有 500px 的最小視窗限制</strong>，所以它是「用
+                            500px 排版再裁切成 390px」。</p>
+                        <p>正確的做法是用 CDP 的裝置模擬（<span class="inline-code">Emulation.setDeviceMetricsOverride</span>），讓 <span
+                                class="inline-code">meta viewport</span> 真正生效。換過去之後才量到真實數據。<strong>工具的限制會偽裝成程式的
+                            bug</strong>，這個教訓比那個 bug 本身有價值。</p>
+                    </div>
+
+                    <p>真實量到的問題與修法：</p>
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>問題</th>
+                                    <th>修法</th>
+                                    <th>效果</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>棋盤被 padding 擠小（320px 螢幕只有 222px）</td>
+                                    <td>手機斷點縮小內距</td>
+                                    <td>222 → 267px，格子 66 → 85px</td>
+                                </tr>
+                                <tr>
+                                    <td>整頁 1,386px 要一直捲</td>
+                                    <td>壓縮標題與側欄間距</td>
+                                    <td>1,386 → 1,182px，遊戲面板可一屏看完</td>
+                                </tr>
+                                <tr>
+                                    <td>點過的格子 hover 一直亮著</td>
+                                    <td>hover 限定 <span class="mono">(hover: hover)</span>，改用 <span class="mono">:active</span></td>
+                                    <td>觸控回饋正常</td>
+                                </tr>
+                                <tr>
+                                    <td>連續落子有雙擊縮放延遲</td>
+                                    <td><span class="mono">touch-action: manipulation</span></td>
+                                    <td>消除 300ms 延遲</td>
+                                </tr>
+                                <tr>
+                                    <td>90 顆粒子每幀 4,005 次距離計算</td>
+                                    <td>手機降為 34 顆並關閉連線</td>
+                                    <td>避免掉幀</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">touch_first.css</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">/* hover 只給真的有指標的裝置：手機上 :hover 會「黏住」
+   —— 點過的格子會一直亮著，看起來像選取了卻取消不掉 */</span>
+<span class="kw">@media</span> (<span class="op">hover</span>: hover) <span class="kw">and</span> (<span class="op">pointer</span>: fine) {
+    <span class="var">.cell:hover:not(:disabled):not(.filled)</span> {
+        <span class="op">border-color</span>: <span class="fn">rgba</span>(<span class="num">124</span>, <span class="num">58</span>, <span class="num">237</span>, <span class="num">0.6</span>);
+    }
+}
+
+<span class="cm">/* 手機改用「按下瞬間」的回饋 */</span>
+<span class="var">.cell:not(:disabled):not(.filled):active</span> {
+    <span class="op">transform</span>: <span class="fn">scale</span>(<span class="num">0.96</span>);
+}</pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>X. 裝飾性功能不該拖垮主功能</h2>
+                    <p>用 jsdom 寫自動化測試時，整個遊戲完全開不起來 —— 因為測試環境沒有 canvas 實作，<span class="inline-code">getContext('2d')</span> 回傳
+                        <span class="inline-code">null</span>，粒子動畫的第一行就拋 TypeError，而它排在遊戲初始化<strong>之前</strong>。</p>
+                    <p>這不只是測試環境的問題：Tor Browser 預設封鎖 canvas 指紋，部分隱私擴充套件也會讓 <span class="inline-code">getContext</span> 回傳
+                        null。修法是把背景動畫包成函式、加上能力檢測，並用 <span class="inline-code">try/catch</span> 隔離：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">isolation.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">initBackground</span>() {
+    <span class="kw">const</span> <span class="var">ctx</span> <span class="op">=</span> <span class="var">canvas</span> <span class="op">&&</span> <span class="var">canvas</span>.<span class="var">getContext</span> <span class="op">?</span> <span class="var">canvas</span>.<span class="fn">getContext</span>(<span class="str">'2d'</span>) <span class="op">:</span> <span class="kw">null</span>;
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">ctx</span>) <span class="kw">return</span>;    <span class="cm">// 環境不支援就安靜跳過</span>
+    <span class="cm">// ...</span>
+}
+<span class="kw">try</span> { <span class="fn">initBackground</span>(); } <span class="kw">catch</span> (<span class="var">err</span>) { <span class="cm">/* 背景動畫失敗就算了，遊戲照常 */</span> }</pre>
+                        </div>
+                    </div>
+
+                    <p>同樣的 bug 也存在於<a href="1A2B-detail.html" style="color:var(--accent2)">1A2B</a> 那頁（同源的粒子背景程式碼），一併修掉了。<strong>一個純裝飾的背景動畫，不該成為整個應用的單點故障。</strong></p>
+                </section>
+
+                <section class="section-block">
+                    <h2>XI. 誠實的已知限制</h2>
+                    <ul class="detail-list">
+                        <li><strong>AI 不是完美的。</strong>它是深度 12 的啟發式搜尋，不查解答表。深度 12
+                            在中局可能看不到更深的必勝路線，所以理論上一個完美的人類玩家（尤其執先手走邊格）可以贏過困難難度。我刻意不把 116,074 筆解答表塞進頁面 ——
+                            那會讓遊戲變成不可能贏的查表機器人，而且檔案大小會爆掉。</li>
+                        <li><strong>手機橫向仍需小幅捲動。</strong>844×390 時棋盤下緣超出視窗約 70px。要完全塞進去得把棋盤縮到 240px 以下，反而更難點，所以保留捲動。</li>
+                        <li><strong>沒有棋譜記錄或悔棋。</strong>步數紀錄只是文字，無法回溯到任意一步。實作悔棋需要保存狀態堆疊（含兩個佇列），不難但還沒做。</li>
+                        <li><strong>無障礙仍不完整。</strong>棋格是 <span class="inline-code">&lt;button&gt;</span> 且有 <span
+                                class="inline-code">aria-label</span>、狀態列是 <span class="inline-code">role="status"</span> 的 live
+                            region，這部分還可以；但「即將消失」這個關鍵資訊主要靠虛線與閃爍傳達，螢幕閱讀器使用者只能靠狀態列的文字。</li>
+                        <li><strong>先手優勢無法消除。</strong>已由求解證明是結構性的。目前用「可選先後手」處理，但若要真正平衡，得改規則（例如後手第一手可以放兩子，或改成 4
+                            子上限）—— 那就是另一個遊戲了。</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="play-card">
+                <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">♾️</div>
+                <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
+                    知道答案之後再玩一次：<strong>第一手下邊格</strong>，看你能不能把 13 手的必勝路線走出來。
+                </p>
+                <a href="infinite-tictactoe.html" class="btn">Launch Interactive Demo</a>
+                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
+                    Solved &amp; Verified</p>
+            </div>
+
+            <div class="side-box">
+                <h4>Solved Facts</h4>
+                <ul class="spec-list">
+                    <li><span>可達局面</span><span>116,074</span></li>
+                    <li><span>行動方必勝</span><span>67.7 %</span></li>
+                    <li><span>行動方必敗</span><span>20.9 %</span></li>
+                    <li><span>和局（有環）</span><span>11.4 %</span></li>
+                    <li><span>開局賽局值</span><span>先手必勝</span></li>
+                    <li><span>收官步數</span><span>13 手</span></li>
+                    <li><span>必勝第一手</span><span>4 個邊格</span></li>
+                    <li><span>驗證路線</span><span>98 條全勝</span></li>
+                </ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list">
+                    <li><a href="pentomino-detail.html" style="color:var(--accent2); text-decoration:none">Pentomino
+                            Solver →</a></li>
+                    <li><a href="1A2B-detail.html" style="color:var(--accent2); text-decoration:none">1A2B 猜數字 →</a>
+                    </li>
+                    <li><a href="game-set-detail.html" style="color:var(--accent2); text-decoration:none">SET 練功房
+                            →</a></li>
+                    <li><a href="coc-card-detail.html" style="color:var(--accent2); text-decoration:none">卡牌交易站 →</a>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer
+        style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
+        © 2026 果汁龍 · Engineered with Passion.
+    </footer>
+
+    <script>
+        function switchTab(index) {
+            const btns = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+            btns.forEach((b, i) => b.classList.toggle('active', i === index));
+            contents.forEach((c, i) => c.classList.toggle('active', i === index));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>

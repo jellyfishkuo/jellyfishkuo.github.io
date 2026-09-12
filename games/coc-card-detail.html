@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/logo.ico">
+    <title>技術剖析 | Card Trade Manager</title>
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="detail.css">
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <header>
+        <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
+        <h1>Local-First State</h1>
+        <div class="subtitle">卡牌交易站：純前端狀態管理、資料防呆，與一個對齊格位的小演算法</div>
+        <div class="meta-row">
+            <span class="meta-chip">單檔 <b>HTML</b>・1,600+ 行</span>
+            <span class="meta-chip">零外部 JS 依賴</span>
+            <span class="meta-chip">卡牌 <b>60</b> 張・4 分區</span>
+            <span class="meta-chip">持久化 <b>localStorage</b></span>
+            <span class="meta-chip">自製 <b>hyperscript</b></span>
+        </div>
+    </header>
+
+    <div class="tab-wrapper">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab(0)">🗃️ 資料模型</button>
+            <button class="tab-btn" onclick="switchTab(1)">🔀 配對與渲染</button>
+            <button class="tab-btn" onclick="switchTab(2)">🔧 工程反省</button>
+        </div>
+    </div>
+
+    <main>
+        <div class="content">
+
+            <!-- ══════════ TAB 1 ══════════ -->
+            <div class="tab-content active">
+
+                <div class="toc">
+                    <div class="toc-title">本頁重點</div>
+                    <ol>
+                        <li><a href="#shape">狀態的形狀：領域資料與 UI 狀態放在一起</a></li>
+                        <li><a href="#sparse">稀疏 map 與「推導而非儲存」的三態</a></li>
+                        <li><a href="#persist">localStorage：版本號放在 key 裡的代價</a></li>
+                        <li><a href="#async">容錯的不對稱：讀取有防護，寫入沒有</a></li>
+                    </ol>
+                </div>
+
+                <section class="section-block" id="shape">
+                    <h2>I. 狀態的形狀</h2>
+                    <p>這個工具解決的問題很具體：《部落衝突》玩家常有多個帳號，卡牌可以在帳號之間交換，但遊戲本身沒有提供跨帳號的收藏總覽。所以核心資料就三塊：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">state_shape.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre>{
+    <span class="var">cards</span>: [                                  <span class="cm">// 固定 60 張，全域共用</span>
+        { <span class="var">id</span>: <span class="str">"holy-1"</span>, <span class="var">categoryId</span>: <span class="str">"holy"</span>, <span class="var">name</span>: <span class="str">"野蠻人"</span> },
+        <span class="cm">// ...</span>
+    ],
+    <span class="var">accounts</span>: [
+        {
+            <span class="var">id</span>: <span class="str">"a1x2y3"</span>,
+            <span class="var">name</span>: <span class="str">"帳號 1"</span>,
+            <span class="var">inventory</span>: { <span class="str">"holy-1"</span>: <span class="num">3</span>, <span class="str">"dark-5"</span>: <span class="num">1</span> }   <span class="cm">// 稀疏 map</span>
+        }
+    ],
+    <span class="var">ui</span>: {                                     <span class="cm">// ⚠️ UI 狀態也一起持久化</span>
+        <span class="var">view</span>: <span class="str">"inventory"</span>, <span class="var">activeAccountId</span>: <span class="kw">null</span>,
+        <span class="var">matrixCat</span>: <span class="str">"holy"</span>, <span class="var">tradeA</span>: <span class="kw">null</span>, <span class="var">tradeB</span>: <span class="kw">null</span>,
+        <span class="var">pickX</span>: <span class="kw">null</span>, <span class="var">pickY</span>: <span class="kw">null</span>
+    }
+}</pre>
+                        </div>
+                    </div>
+
+                    <h3>三個值得討論的決定</h3>
+
+                    <div class="tech-card">
+                        <h3>1. 卡牌是全域共享的，不屬於任何帳號</h3>
+                        <p><span class="inline-code">state.cards</span> 只有一份。帳號只透過 <span class="inline-code">inventory</span>
+                            這個 map 引用卡牌 id。所以在「設定」頁改一張卡的名字，會<strong>同時影響所有帳號</strong> —— 這正是想要的語意（同一張卡就是同一張卡）。</p>
+
+                        <h3>2. 卡牌 id 是可預測的合成鍵</h3>
+                        <p><span class="inline-code">id = categoryId + "-" + 序號</span>，例如 <span
+                                class="inline-code">holy-1</span> 到 <span class="inline-code">holy-19</span>。這讓 inventory
+                            可以用純粹的物件 map 表示，不需要額外的索引結構。代價是 id 帶有語意 —— 如果哪天要改分區歸屬，id 就會說謊。</p>
+
+                        <h3>3. UI 狀態與領域資料混在同一顆 state</h3>
+                        <p><span class="inline-code">view</span>（目前在哪個分頁）、<span class="inline-code">matrixCat</span>、<span
+                                class="inline-code">pickX</span> / <span class="inline-code">pickY</span>（交易時選了哪兩張卡）都跟著一起寫進
+                            localStorage。</p>
+                        <div class="compare">
+                            <div>
+                                <h4 class="good-h">好處</h4>
+                                <p>重新整理後<strong>完整還原工作現場</strong> —— 分頁、選中的分區、甚至選到一半的交易組合都在。對一個「邊看遊戲邊登記」的工具來說體驗很好。</p>
+                            </div>
+                            <div>
+                                <h4 class="bad-h">代價</h4>
+                                <p>匯出的備份 JSON 夾帶 UI 垃圾；而且 <span class="inline-code">ui.tradeCat</span> 這個欄位<strong>從頭到尾沒有任何讀取者</strong>，是純粹的死欄位，卻會一直被序列化進備份檔。</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block" id="sparse">
+                    <h2>II. 稀疏 map 與「推導而非儲存」的三態</h2>
+                    <p><span class="inline-code">inventory</span> 是稀疏的：沒有記錄的卡等於 0 張。查詢一律走同一個 helper：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">countOf.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">countOf</span>(<span class="var">account</span>, <span class="var">cardId</span>) {
+    <span class="kw">return</span> <span class="var">account</span> <span class="op">&&</span> <span class="var">account</span>.<span class="var">inventory</span>[<span class="var">cardId</span>] <span class="op">?</span> <span class="var">account</span>.<span class="var">inventory</span>[<span class="var">cardId</span>] <span class="op">:</span> <span class="num">0</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>「收藏狀態」<strong>不是一個儲存的欄位，而是從張數推導出來的三態</strong>：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>張數 n</th>
+                                    <th>語意</th>
+                                    <th>視覺</th>
+                                    <th>可否交換</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="mono">0</span></td>
+                                    <td>缺這張</td>
+                                    <td>紅底</td>
+                                    <td>可以接收</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">1</span></td>
+                                    <td>剛好持有</td>
+                                    <td>一般</td>
+                                    <td>不動（留著自用）</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">≥ 2</span></td>
+                                    <td>有多餘</td>
+                                    <td>綠框</td>
+                                    <td>可以付出</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>這個規則貫穿整個應用，一致性很好。但它也暴露了一個明顯的重構機會：</p>
+
+                    <div class="callout warn">
+                        <span class="callout-title">魔術數字 2 被硬編在至少 6 個地方</span>
+                        <p><span class="inline-code">count >= 2</span> 這個判斷散落在卡片元件、清單頁統計、跨帳號總表、交易欄的可選判定、配對演算法、交易驗證 ——
+                            六處各寫一次。「留一張自用、多的才能換」是一條<strong>領域規則</strong>，它應該有名字（例如 <span class="inline-code">const KEEP_FOR_SELF =
+                                1;</span>）。</p>
+                        <p>現在如果玩家想改成「留兩張自用」，得改六個地方，而且沒有任何機制保證你全部改到。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="persist">
+                    <h2>III. localStorage：版本號放在 key 裡的代價</h2>
+                    <p>持久化極簡：一個 key、整包序列化。</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">persistence.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">var</span> <span class="var">STORAGE_KEY</span> <span class="op">=</span> <span class="str">"cardTradeManagerV1"</span>;   <span class="cm">// 版本號在 key 名稱裡</span>
+
+<span class="cm">// 每一個 mutation 都是：改 state → saveState() → render()</span>
+<span class="kw">function</span> <span class="fn">saveState</span>() {
+    <span class="var">localStorage</span>.<span class="fn">setItem</span>(<span class="var">STORAGE_KEY</span>, <span class="var">JSON</span>.<span class="fn">stringify</span>(<span class="var">state</span>));
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>把版本號放在 key 名稱（<span class="inline-code">...V1</span>）而不是 payload 裡面，是個很常見的做法，但它有一個具體的後果：</p>
+
+                    <div class="callout bad">
+                        <span class="callout-title">既有使用者永遠看不到新卡</span>
+                        <p><span class="inline-code">state.cards</span> 是<strong>整包被持久化</strong>的。<span
+                                class="inline-code">buildDefaultCards()</span> 只會在「首次進站」或「重設資料」時執行。所以之後在原始碼裡新增卡牌名稱、或調整某個分區的
+                            <span class="inline-code">count</span>，<strong>對已經玩過的使用者完全無效</strong> —— 他們的 localStorage
+                            裡是舊的卡牌表。</p>
+                        <p>更麻煩的是 <span class="inline-code">CATEGORY_DEFS[].count</span>
+                            同時被當成兩個地方的依據：（1）清單頁的分母「x/19 種持有」（2）格位偏移計算。一旦程式碼裡的 <span class="inline-code">count</span> 與使用者
+                            localStorage 裡實際的卡牌筆數<strong>脫節</strong>，統計數字與排版偏移會同時出錯。</p>
+                        <p>解法要嘛改 <span class="inline-code">STORAGE_KEY</span>（丟掉所有人的資料，很粗暴），要嘛寫真正的 migration。正確做法是在 payload
+                            內放 <span class="inline-code">schemaVersion</span>，載入時比對並補齊缺少的卡牌 —— 這是目前明確欠下的技術債。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="async">
+                    <h2>IV. 容錯的不對稱：讀取有防護，寫入沒有</h2>
+                    <p>載入路徑一開始就有 <span class="inline-code">try/catch</span>，涵蓋 <span class="inline-code">getItem</span>（Safari
+                        私密瀏覽會直接 throw）與 <span class="inline-code">JSON.parse</span>。但<strong>寫入路徑完全沒有防護</strong>。</p>
+
+                    <p>這在什麼情況下會炸？</p>
+                    <ul class="detail-list">
+                        <li>localStorage 配額用滿（<span class="inline-code">QuotaExceededError</span>）</li>
+                        <li>Safari 私密瀏覽模式</li>
+                        <li>使用者停用了 cookie / 網站資料</li>
+                        <li>iOS 裝置儲存空間不足</li>
+                    </ul>
+
+                    <p>而所有 mutation 的順序都是 <span class="inline-code">saveState(); render();</span> —— <span
+                            class="inline-code">saveState</span> 一拋例外，<strong>後面的 <span class="inline-code">render()</span>
+                            就不會執行</strong>。使用者按下「＋」，張數沒有變、畫面沒有反應、也沒有任何錯誤訊息。「按了沒反應」是最難回報也最難除錯的一種故障。</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">saveState_fixed.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// 寫入要和讀取一樣有容錯，而且失敗必須讓使用者知道</span>
+<span class="kw">function</span> <span class="fn">saveState</span>() {
+    <span class="kw">try</span> {
+        <span class="var">localStorage</span>.<span class="fn">setItem</span>(<span class="var">STORAGE_KEY</span>, <span class="var">JSON</span>.<span class="fn">stringify</span>(<span class="var">state</span>));
+        <span class="kw">return</span> <span class="kw">true</span>;
+    } <span class="kw">catch</span> (<span class="var">e</span>) {
+        <span class="var">console</span>.<span class="fn">error</span>(<span class="str">"儲存失敗"</span>, <span class="var">e</span>);
+        <span class="fn">showToast</span>(<span class="str">"⚠ 無法儲存：瀏覽器空間不足或處於私密瀏覽模式，"</span> <span class="op">+</span>
+                  <span class="str">"這次的變更重新整理後會消失"</span>);
+        <span class="kw">return</span> <span class="kw">false</span>;
+    }
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="callout good">
+                        <span class="callout-title">為什麼選擇「繼續 render」而不是中止</span>
+                        <p>接住例外之後有兩種選擇：回滾這次變更，或者讓它留在記憶體但告知使用者無法保存。我選後者
+                            —— 對這種登記型工具來說，「這一輪還能繼續用、只是離開就沒了」遠比「完全無法操作」有用。關鍵是<strong>必須明確告知</strong>，不能默默吞掉。</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 2 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>V. 交易配對演算法</h2>
+                    <p>核心邏輯是一次掃描分成兩桶，再取笛卡兒積：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">computeSuggestions.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="var">cards</span>.<span class="fn">forEach</span>(<span class="kw">function</span> (<span class="var">c</span>) {
+    <span class="kw">var</span> <span class="var">ca</span> <span class="op">=</span> <span class="fn">countOf</span>(<span class="var">accA</span>, <span class="var">c</span>.<span class="var">id</span>), <span class="var">cb</span> <span class="op">=</span> <span class="fn">countOf</span>(<span class="var">accB</span>, <span class="var">c</span>.<span class="var">id</span>);
+
+    <span class="cm">// A 有多的（≥2）且 B 完全沒有（=0）才算 B 真的需要</span>
+    <span class="kw">if</span> (<span class="var">ca</span> <span class="op">>=</span> <span class="num">2</span> <span class="op">&&</span> <span class="var">cb</span> <span class="op">===</span> <span class="num">0</span>) <span class="var">aSpareBNeed</span>.<span class="fn">push</span>(<span class="var">c</span>);
+    <span class="kw">if</span> (<span class="var">cb</span> <span class="op">>=</span> <span class="num">2</span> <span class="op">&&</span> <span class="var">ca</span> <span class="op">===</span> <span class="num">0</span>) <span class="var">bSpareANeed</span>.<span class="fn">push</span>(<span class="var">c</span>);
+});
+
+<span class="cm">// 兩桶取笛卡兒積 → 每一組「A 付出 x、B 付出 y」都是一個建議</span>
+<span class="var">aSpareBNeed</span>.<span class="fn">forEach</span>(<span class="var">x</span> <span class="op">=></span> <span class="var">bSpareANeed</span>.<span class="fn">forEach</span>(<span class="var">y</span> <span class="op">=></span> {
+    <span class="var">pairs</span>.<span class="fn">push</span>({ <span class="var">cardX</span>: <span class="var">x</span>, <span class="var">cardY</span>: <span class="var">y</span> });
+}));</pre>
+                        </div>
+                    </div>
+
+                    <h3>為什麼是「恰為 0」而不是「≤ 1」</h3>
+                    <p>這是整段程式碼裡最值得說的一行。判定「對方需要這張」用的是 <span class="inline-code">cb === 0</span>，而不是直覺上的「對方少於 2 張」。原始碼裡有註解說明原因：</p>
+
+                    <div class="callout good">
+                        <span class="callout-title">收斂性考量</span>
+                        <p>只要對方<strong>已經有 1 張就算「有了」</strong>，不再建議繼續給。如果用 <span class="inline-code">cb &lt;= 1</span>，那麼交換完成後
+                            —— B 得到第 1 張、A 從 2 張變 1 張 —— 這組配對<strong>仍然符合條件</strong>，會一直留在建議清單裡，形成永遠做不完的建議。</p>
+                        <p>換句話說，這個 <span class="inline-code">=== 0</span> 是為了讓「建議清單」這個狀態機能<strong>單調收斂</strong>。這種「執行動作後條件必須失效」的設計，是所有推薦／待辦系統都要處理的問題。</p>
+                    </div>
+
+                    <h3>兩個沒對齊的地方</h3>
+                    <div class="tech-card">
+                        <h3>1. 建議與實際執行用了兩套規則</h3>
+                        <p><span class="inline-code">computeSuggestions</span> 要求「接收方恰為 0」，但實際執行交易的 <span
+                                class="inline-code">executeTrade</span> <strong>只驗證雙方各自付出的卡 ≥ 2</strong>，不要求接收方缺少該卡。</p>
+                        <p>結果是：手動選卡比系統建議<strong>寬鬆得多</strong>。玩家可以做出建議清單永遠不會提出的交換（例如雙方都已有 1 張的卡互換）。這不是 bug ——
+                            手動操作寬鬆一點是合理的 —— 但<strong>同一條領域規則有兩套實作</strong>，長期一定會發散。</p>
+
+                        <h3>2. CAP = 60 的截斷有系統性偏差</h3>
+                        <p>建議清單用 <span class="inline-code">CAP = 60</span> 截斷。問題是它<strong>按 <span
+                                    class="inline-code">CATEGORY_DEFS</span> 的宣告順序填滿</strong>，所以聖水（19 張，最大）容易吃掉配額，而超級部隊（排在最後）在配對多的時候可能<strong>完全被截掉</strong>。</p>
+                        <p>我算了一下最壞情況的規模：</p>
+                        <div class="table-wrap">
+                            <table class="kv">
+                                <thead>
+                                    <tr>
+                                        <th>分區</th>
+                                        <th>卡數 n</th>
+                                        <th>最多建議組數</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>聖水</td>
+                                        <td>19</td>
+                                        <td><span class="mono">90</span>（9 × 10）</td>
+                                    </tr>
+                                    <tr>
+                                        <td>闇黑重油</td>
+                                        <td>13</td>
+                                        <td><span class="mono">42</span>（6 × 7）</td>
+                                    </tr>
+                                    <tr>
+                                        <td>建築大師基地</td>
+                                        <td>11</td>
+                                        <td><span class="mono">30</span>（5 × 6）</td>
+                                    </tr>
+                                    <tr>
+                                        <td>超級部隊</td>
+                                        <td>17</td>
+                                        <td><span class="mono">72</span>（8 × 9）</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>合計</strong></td>
+                                        <td>60</td>
+                                        <td><strong><span class="mono">234</span></strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p>最壞情況下有 234 組建議，但只顯示 60 組 —— <strong>最多 74% 被截掉，而 UI 沒有任何「還有更多」的提示</strong>。使用者會以為那就是全部。</p>
+                    </div>
+
+                    <div class="callout">
+                        <span class="callout-title">如果要認真做，這裡是升級點</span>
+                        <p>目前的建議清單<strong>完全沒有排序</strong>，而且笛卡兒積會讓同一張 <span class="inline-code">cardX</span>
+                            重複出現 N 次（配上每個可能的 <span class="inline-code">cardY</span>），語意上高度冗餘。</p>
+                        <p>更好的模型是把它看成<strong>二分圖最大匹配</strong>：一邊是「A 的多餘卡」、另一邊是「B 的多餘卡」，目標是找出一組互不重複的交換方案，讓雙方一次補齊最多的空缺。用貪婪或匈牙利演算法都能做，輸出會從「234
+                            組雜亂的可能」變成「這 7 組換完，雙方各補 7 張」這種可以直接執行的方案。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VI. 最巧妙的一段：格位對齊補償</h2>
+                    <p>這是整個專案裡我最喜歡的一段程式碼，因為它解決的是一個<strong>純粹來自現實世界的需求</strong>。</p>
+
+                    <p>問題是這樣：遊戲裡的卡牌是<strong>連續排在同一條 6 欄的隊列</strong>裡，不分區塊。但這個工具為了可讀性，把四個分區<strong>切成獨立的區塊</strong>顯示。於是每個分區在畫面上都從新的一行開始，與遊戲裡的實際位置<strong>對不上</strong>
+                        —— 玩家沒辦法用畫面上的位置去對照遊戲裡要點哪一張。</p>
+
+                    <p>解法是：在每個分區前面補上「上一個分區尾巴剩下的格數」的隱形佔位格。</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">grid_offset.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">var</span> <span class="var">GRID_COLS</span> <span class="op">=</span> <span class="num">6</span>;
+
+<span class="kw">function</span> <span class="fn">computeCategoryOffsets</span>() {
+    <span class="kw">var</span> <span class="var">offsets</span> <span class="op">=</span> {}, <span class="var">running</span> <span class="op">=</span> <span class="num">0</span>;
+    <span class="var">CATEGORY_DEFS</span>.<span class="fn">forEach</span>(<span class="kw">function</span> (<span class="var">cat</span>) {
+        <span class="var">offsets</span>[<span class="var">cat</span>.<span class="var">id</span>] <span class="op">=</span> <span class="var">running</span>;
+        <span class="var">running</span> <span class="op">=</span> (<span class="var">running</span> <span class="op">+</span> <span class="var">cat</span>.<span class="var">count</span>) <span class="op">%</span> <span class="var">GRID_COLS</span>;
+    });
+    <span class="kw">return</span> <span class="var">offsets</span>;
+}
+
+<span class="cm">// 隱形佔位格：visibility:hidden 保留格位（不能用 display:none）</span>
+<span class="kw">function</span> <span class="fn">appendCardGrid</span>(<span class="var">grid</span>, <span class="var">cat</span>, <span class="var">nodes</span>) {
+    <span class="kw">var</span> <span class="var">lead</span> <span class="op">=</span> <span class="var">CATEGORY_LEAD_OFFSET</span>[<span class="var">cat</span>.<span class="var">id</span>] <span class="op">||</span> <span class="num">0</span>;
+    <span class="kw">for</span> (<span class="kw">var</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="var">lead</span>; <span class="var">i</span><span class="op">++</span>) <span class="var">grid</span>.<span class="fn">appendChild</span>(<span class="fn">emptySlotNode</span>());
+    <span class="var">nodes</span>.<span class="fn">forEach</span>(<span class="var">n</span> <span class="op">=></span> <span class="var">grid</span>.<span class="fn">appendChild</span>(<span class="var">n</span>));
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>四個分區的卡數是 19 / 13 / 11 / 17，代入 $(\text{running} + \text{count}) \bmod 6$ 就得到偏移量 0 / 1 / 2 / 1：</p>
+
+                    <div class="diagram">
+                        <pre>聖水卡牌（19 張，偏移 0）
+   01 02 03 04 05 06
+   07 08 09 10 11 12
+   13 14 15 16 17 18
+   19                      ← 尾端剩 1 格
+
+闇黑重油卡牌（13 張，偏移 1）
+    · 01 02 03 04 05       ← 補 1 格，接上聖水的尾巴
+   06 07 08 09 10 11
+   12 13                   ← 尾端剩 2 格
+
+建築大師基地卡牌（11 張，偏移 2）
+    ·  · 01 02 03 04       ← 補 2 格
+   05 06 07 08 09 10
+   11                      ← 尾端剩 1 格
+
+超級部隊卡牌（17 張，偏移 1）
+    · 01 02 03 04 05       ← 補 1 格
+   06 07 08 09 10 11
+   12 13 14 15 16 17       ← 剛好填滿</pre>
+                        <div class="diagram-caption">· = 隱形佔位格。分區雖然分開顯示，位置仍與遊戲內的 6 欄連續排列一致</div>
+                    </div>
+
+                    <p>佔位格用 <span class="inline-code">visibility: hidden</span> 而不是 <span
+                            class="inline-code">display: none</span> —— 後者會讓格子從 grid 流中消失，偏移就失效了。另外它們加了 <span
+                            class="inline-code">aria-hidden="true"</span>，不會被螢幕閱讀器讀出來。</p>
+
+                    <div class="callout warn">
+                        <span class="callout-title">但這個機制在窄螢幕會失效</span>
+                        <p><span class="inline-code">GRID_COLS = 6</span> 是<strong>硬編在 JavaScript 裡</strong>的，而 CSS 在
+                            920 / 600 / 420px 三個斷點把 <span class="inline-code">.card-grid</span> 降成 4 / 3 / 2 欄。</p>
+                        <p>於是在手機上，JS 按 6 欄算出的偏移格數套用在 3 欄的版面上，<strong>對齊完全失效，反而多出無意義的空洞</strong>。這是「同一個常數在 CSS 與 JS
+                            各有一份」的典型後果 —— 而且它只在特定螢幕寬度下顯現，桌機開發完全看不到。</p>
+                        <p>正解是讓 JS 讀取實際欄數（用 <span class="inline-code">getComputedStyle</span> 解析 <span
+                                class="inline-code">grid-template-columns</span>，或改用 CSS 變數當單一真相來源），並在 <span
+                                class="inline-code">resize</span> 時重算。這個修法需要動到渲染流程，目前還沒做。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VII. 自製 hyperscript 與全量重繪</h2>
+                    <p>整個 UI 沒有框架、沒有模板字串，而是一個 23 行的 <span class="inline-code">el()</span> 函式：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">el.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">el</span>(<span class="var">tag</span>, <span class="var">attrs</span>, <span class="var">children</span>) {
+    <span class="kw">var</span> <span class="var">node</span> <span class="op">=</span> <span class="var">document</span>.<span class="fn">createElement</span>(<span class="var">tag</span>);
+    <span class="var">Object</span>.<span class="fn">keys</span>(<span class="var">attrs</span> <span class="op">||</span> {}).<span class="fn">forEach</span>(<span class="kw">function</span> (<span class="var">k</span>) {
+        <span class="kw">if</span> (<span class="var">k</span> <span class="op">===</span> <span class="str">"class"</span>) <span class="var">node</span>.<span class="var">className</span> <span class="op">=</span> <span class="var">attrs</span>[<span class="var">k</span>];
+        <span class="kw">else if</span> (<span class="var">k</span> <span class="op">===</span> <span class="str">"html"</span>) <span class="var">node</span>.<span class="var">innerHTML</span> <span class="op">=</span> <span class="var">attrs</span>[<span class="var">k</span>];
+        <span class="kw">else if</span> (<span class="var">k</span>.<span class="fn">indexOf</span>(<span class="str">"on"</span>) <span class="op">===</span> <span class="num">0</span> <span class="op">&&</span> <span class="kw">typeof</span> <span class="var">attrs</span>[<span class="var">k</span>] <span class="op">===</span> <span class="str">"function"</span>)
+            <span class="var">node</span>.<span class="fn">addEventListener</span>(<span class="var">k</span>.<span class="fn">slice</span>(<span class="num">2</span>), <span class="var">attrs</span>[<span class="var">k</span>]);
+        <span class="kw">else if</span> (<span class="kw">typeof</span> <span class="var">attrs</span>[<span class="var">k</span>] <span class="op">===</span> <span class="str">"boolean"</span>) {
+            <span class="cm">// 🎯 boolean HTML 屬性靠「存在」生效，不是靠值。</span>
+            <span class="cm">//    setAttribute(k, false) 反而會把 disabled 打開！</span>
+            <span class="kw">if</span> (<span class="var">attrs</span>[<span class="var">k</span>]) <span class="var">node</span>.<span class="fn">setAttribute</span>(<span class="var">k</span>, <span class="str">""</span>);
+            <span class="kw">else</span> <span class="var">node</span>.<span class="fn">removeAttribute</span>(<span class="var">k</span>);
+        }
+        <span class="kw">else</span> <span class="var">node</span>.<span class="fn">setAttribute</span>(<span class="var">k</span>, <span class="var">attrs</span>[<span class="var">k</span>]);
+    });
+    <span class="cm">// children 是字串就建立文字節點（天然免疫注入）</span>
+    <span class="kw">return</span> <span class="var">node</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>那個 boolean 分支是真的被用到的（<span class="inline-code">disabled: !(pickXCard &amp;&amp; pickYCard)</span>），而且它處理的正是一個經典陷阱：<span
+                            class="inline-code">setAttribute("disabled", false)</span> 會產生 <span
+                            class="inline-code">disabled="false"</span>，而 HTML 的 boolean 屬性<strong>只看存不存在</strong>，所以按鈕反而被停用了。</p>
+
+                    <div class="callout warn">
+                        <span class="callout-title">一個還沒引爆的地雷</span>
+                        <p><span class="inline-code">el()</span> 支援 <span class="inline-code">html</span> → <span
+                                class="inline-code">innerHTML</span>。目前<strong>沒有任何呼叫點使用它</strong>，所有使用者輸入（帳號名、卡名）都走 <span
+                                class="inline-code">createTextNode</span>，所以實際上是安全的。但這個未使用的分支等著某天有人「順手」拿它塞使用者輸入 ——
+                            那就是 XSS。沒用到的危險 API 應該直接刪掉，而不是留著。</p>
+                    </div>
+
+                    <h3>全量重繪的規模與代價</h3>
+                    <p>每次狀態變更都是 <span class="inline-code">saveState(); render();</span>，而 <span
+                            class="inline-code">render()</span> 會 <span class="inline-code">innerHTML = ""</span> 然後整棵重建：</p>
+                    <ul class="detail-list">
+                        <li>卡牌清單頁：60 張 tile</li>
+                        <li><strong>交易配對頁：2 個帳號 × 60 張 = 120 張 tile</strong>，加上最多 60 列建議</li>
+                        <li>按一次「＋」＝ 整包 JSON 寫入 localStorage ＋ 重建整個視圖</li>
+                    </ul>
+                    <p>60 張卡的規模跑起來仍然順，這是「資料量小到可以無腦重繪」的合理取捨。但它也意味著這個架構無法直接擴展到數百張卡或十幾個帳號。</p>
+
+                    <div class="callout">
+                        <span class="callout-title">一個不一致：同一個問題用了兩種解法</span>
+                        <p>全量重繪會摧毀焦點與輸入狀態。程式裡對這件事有兩種處理：</p>
+                        <p>（1）卡片的數量 <span class="inline-code">&lt;input&gt;</span> 用 <span class="inline-code">change</span> 而非 <span
+                                class="inline-code">input</span> 事件，所以打字過程不會被重繪打斷；<br>
+                            （2）<span class="inline-code">renameCard()</span> 則是<strong>刻意不呼叫 <span
+                                    class="inline-code">render()</span></strong>，因為重繪會讓設定頁的輸入框全部重建、游標飛掉。</p>
+                        <p>兩種解法都合理，但它們是同一個根本問題（全量重繪與表單狀態衝突）的不同權宜之計。副作用是 <span class="inline-code">renameCard</span>
+                            改完名字後，其他視圖不會立即同步，而且空白名稱會被靜默忽略 —— 輸入框顯示空的，但資料沒變，顯示與狀態不一致。</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 3 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>VIII. 一條會讓應用「磚化」的路徑</h2>
+                    <p>這是我在審查時最在意的問題，因為它的後果是<strong>不可自行恢復的</strong>。</p>
+
+                    <p>原本的載入驗證只檢查兩個欄位是否為 truthy：</p>
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">weak_validation.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">var</span> <span class="var">parsed</span> <span class="op">=</span> <span class="var">JSON</span>.<span class="fn">parse</span>(<span class="var">raw</span>);
+<span class="cm">// 🐛 只檢查「存在」，不檢查型別，也不檢查內容合法性</span>
+<span class="kw">if</span> (<span class="op">!</span><span class="var">parsed</span>.<span class="var">cards</span> <span class="op">||</span> <span class="op">!</span><span class="var">parsed</span>.<span class="var">accounts</span>) <span class="kw">return</span> <span class="fn">defaultState</span>();
+<span class="kw">return</span> <span class="var">parsed</span>;</pre>
+                        </div>
+                    </div>
+
+                    <p>於是有好幾條路徑可以炸掉整個應用：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>髒資料</th>
+                                    <th>會發生什麼</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="mono">cards: "x"</span>（字串）</td>
+                                    <td>通過 truthy 檢查 → <span class="mono">state.cards.filter</span> 拋 TypeError</td>
+                                </tr>
+                                <tr>
+                                    <td>帳號缺 <span class="mono">inventory</span></td>
+                                    <td><span class="mono">countOf</span> 只守了 account，<span class="mono">undefined[cardId]</span> 直接
+                                        throw</td>
+                                </tr>
+                                <tr>
+                                    <td>未知的 <span class="mono">categoryId</span></td>
+                                    <td><span class="mono">getCategory()</span> 回 undefined → <span class="mono">cat.color</span> 爆炸</td>
+                                </tr>
+                                <tr>
+                                    <td>數量是字串 <span class="mono">"3"</span></td>
+                                    <td><span class="mono">cur + delta</span> 變成字串串接：<span class="mono">"3" + 1 = "31"</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="callout bad">
+                        <span class="callout-title">為什麼「磚化」這個詞不誇張</span>
+                        <p>壞資料<strong>已經在 localStorage 裡了</strong>。載入 → 拋錯 → 白畫面。使用者重新整理 → 再次載入同一份壞資料 → 再次白畫面。<strong>沒有任何自我修復路徑</strong>，唯一的出路是手動清除瀏覽器資料
+                            —— 而一般使用者不會知道怎麼做，只會覺得「這個網站壞了」。</p>
+                        <p>髒資料從哪來？匯入手改過的備份檔、瀏覽器擴充套件、跨版本的資料殘留、或者單純是某次寫入被中斷。<strong>只要資料會離開你的程式再回來，就必須假設它是壞的。</strong></p>
+                    </div>
+
+                    <h3>修法：一個統一的正規化入口</h3>
+                    <p>我加了一個 <span class="inline-code">normalizeState()</span>，讓 <strong>localStorage 載入與檔案匯入共用同一道防線</strong>：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">normalizeState.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">normalizeState</span>(<span class="var">s</span>) {
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">s</span> <span class="op">||</span> <span class="kw">typeof</span> <span class="var">s</span> <span class="op">!==</span> <span class="str">"object"</span>) <span class="kw">return</span> <span class="kw">null</span>;
+    <span class="cm">// 型別檢查，不是 truthy 檢查</span>
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">Array</span>.<span class="fn">isArray</span>(<span class="var">s</span>.<span class="var">cards</span>) <span class="op">||</span> <span class="op">!</span><span class="var">Array</span>.<span class="fn">isArray</span>(<span class="var">s</span>.<span class="var">accounts</span>)) <span class="kw">return</span> <span class="kw">null</span>;
+
+    <span class="kw">var</span> <span class="var">validCatIds</span> <span class="op">=</span> <span class="var">CATEGORY_DEFS</span>.<span class="fn">map</span>(<span class="var">c</span> <span class="op">=></span> <span class="var">c</span>.<span class="var">id</span>);
+    <span class="cm">// 丟掉分區不明的卡，避免 getCategory 回 undefined 後整頁 crash</span>
+    <span class="var">s</span>.<span class="var">cards</span> <span class="op">=</span> <span class="var">s</span>.<span class="var">cards</span>
+        .<span class="fn">filter</span>(<span class="var">c</span> <span class="op">=></span> <span class="var">c</span> <span class="op">&&</span> <span class="kw">typeof</span> <span class="var">c</span>.<span class="var">id</span> <span class="op">===</span> <span class="str">"string"</span>
+                  <span class="op">&&</span> <span class="var">validCatIds</span>.<span class="fn">indexOf</span>(<span class="var">c</span>.<span class="var">categoryId</span>) <span class="op">!==</span> <span class="op">-</span><span class="num">1</span>)
+        .<span class="fn">map</span>(<span class="var">c</span> <span class="op">=></span> ({ <span class="var">id</span>: <span class="var">c</span>.<span class="var">id</span>, <span class="var">categoryId</span>: <span class="var">c</span>.<span class="var">categoryId</span>,
+                     <span class="var">name</span>: (<span class="kw">typeof</span> <span class="var">c</span>.<span class="var">name</span> <span class="op">===</span> <span class="str">"string"</span> <span class="op">&&</span> <span class="var">c</span>.<span class="var">name</span>.<span class="fn">trim</span>()) <span class="op">?</span> <span class="var">c</span>.<span class="var">name</span> <span class="op">:</span> <span class="var">c</span>.<span class="var">id</span> }));
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">s</span>.<span class="var">cards</span>.<span class="var">length</span>) <span class="kw">return</span> <span class="kw">null</span>;
+
+    <span class="var">s</span>.<span class="var">accounts</span> <span class="op">=</span> <span class="var">s</span>.<span class="var">accounts</span>
+        .<span class="fn">filter</span>(<span class="var">a</span> <span class="op">=></span> <span class="var">a</span> <span class="op">&&</span> <span class="kw">typeof</span> <span class="var">a</span>.<span class="var">id</span> <span class="op">===</span> <span class="str">"string"</span>)
+        .<span class="fn">map</span>(<span class="kw">function</span> (<span class="var">a</span>) {
+            <span class="kw">var</span> <span class="var">raw</span> <span class="op">=</span> (<span class="var">a</span>.<span class="var">inventory</span> <span class="op">&&</span> <span class="kw">typeof</span> <span class="var">a</span>.<span class="var">inventory</span> <span class="op">===</span> <span class="str">"object"</span>) <span class="op">?</span> <span class="var">a</span>.<span class="var">inventory</span> <span class="op">:</span> {};
+            <span class="kw">var</span> <span class="var">inv</span> <span class="op">=</span> {};
+            <span class="var">Object</span>.<span class="fn">keys</span>(<span class="var">raw</span>).<span class="fn">forEach</span>(<span class="kw">function</span> (<span class="var">k</span>) {
+                <span class="kw">var</span> <span class="var">n</span> <span class="op">=</span> <span class="fn">parseInt</span>(<span class="var">raw</span>[<span class="var">k</span>], <span class="num">10</span>);   <span class="cm">// 字串數量轉整數</span>
+                <span class="kw">if</span> (<span class="op">!</span><span class="fn">isNaN</span>(<span class="var">n</span>) <span class="op">&&</span> <span class="var">n</span> <span class="op">></span> <span class="num">0</span>) <span class="var">inv</span>[<span class="var">k</span>] <span class="op">=</span> <span class="var">n</span>;
+            });
+            <span class="kw">return</span> {
+                <span class="var">id</span>: <span class="var">a</span>.<span class="var">id</span>,
+                <span class="var">name</span>: (<span class="kw">typeof</span> <span class="var">a</span>.<span class="var">name</span> <span class="op">===</span> <span class="str">"string"</span> <span class="op">&&</span> <span class="var">a</span>.<span class="var">name</span>.<span class="fn">trim</span>()) <span class="op">?</span> <span class="var">a</span>.<span class="var">name</span> <span class="op">:</span> <span class="str">"未命名帳號"</span>,
+                <span class="var">inventory</span>: <span class="var">inv</span>
+            };
+        });
+
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">s</span>.<span class="var">ui</span> <span class="op">||</span> <span class="kw">typeof</span> <span class="var">s</span>.<span class="var">ui</span> <span class="op">!==</span> <span class="str">"object"</span>) <span class="var">s</span>.<span class="var">ui</span> <span class="op">=</span> <span class="fn">defaultState</span>().<span class="var">ui</span>;
+    <span class="kw">return</span> <span class="var">s</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>設計原則是<strong>「盡量修好，修不好就退回預設值」</strong>：能救的（缺 inventory、字串數量、空名稱）就地修正；救不了的（cards 不是陣列、全部卡牌都無效）回傳 <span
+                            class="inline-code">null</span> 讓呼叫端走 <span class="inline-code">defaultState()</span>。使用者最壞情況是回到初始狀態，而不是看到白畫面。</p>
+
+                    <div class="callout good">
+                        <span class="callout-title">驗證方式</span>
+                        <p>用 jsdom 在載入頁面<strong>之前</strong>先把髒資料寫進 localStorage，然後斷言頁面仍然正常渲染。三組測資：（1）含未知分區的卡＋字串數量＋缺
+                            inventory 的帳號（2）<span class="inline-code">cards</span> 是字串、<span class="inline-code">accounts</span>
+                            是數字（3）正常資料。</p>
+                        <p>順帶一提：jsdom 在 <span class="inline-code">file://</span> 這種 opaque origin 下<strong>不提供
+                                localStorage</strong>，要用 <span class="inline-code">https://</span> 的 URL 才有。而這個限制反而意外驗證了另一件事 ——
+                            即使 <span class="inline-code">localStorage</span> 完全不存在（拋 ReferenceError），頁面因為有 try/catch
+                            仍然能正常渲染。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>IX. 另外三個修掉的小問題</h2>
+                    <div class="tech-card">
+                        <h3>1. 刪除帳號沒有清掉已選的卡</h3>
+                        <p><span class="inline-code">deleteAccount()</span> 原本只清 <span class="inline-code">tradeA</span> / <span
+                                class="inline-code">tradeB</span>，殘留的 <span class="inline-code">pickX</span> / <span
+                                class="inline-code">pickY</span> 會被下一次 render
+                            帶進交易預覽區。不會炸（執行交易時會驗證），但狀態不乾淨，使用者會看到指向已刪除帳號的選擇。</p>
+
+                        <h3>2. 匯出檔名用了 UTC 日期</h3>
+                        <p><span class="inline-code">new Date().toISOString().slice(0, 10)</span> 取的是 <strong>UTC 日期</strong>。台灣是
+                            UTC+8，所以早上 8 點以前匯出的備份，檔名會標成<strong>前一天</strong>。備份檔的日期標錯是很討厭的問題，因為你會依賴它判斷哪份是最新的。改用 <span
+                                class="inline-code">getFullYear()</span> / <span class="inline-code">getMonth()</span> / <span
+                                class="inline-code">getDate()</span> 組本地日期。</p>
+
+                        <h3>3. Toast 不是 live region</h3>
+                        <p>所有操作回饋都走 toast，但它沒有 <span class="inline-code">role="status"</span> / <span
+                                class="inline-code">aria-live</span>，對螢幕閱讀器完全不可見 —— 也就是說「交易完成」、「不能跟自己交易」這些關鍵回饋，視障使用者收不到。加兩個屬性就解決。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>X. 誠實的已知限制</h2>
+                    <ul class="detail-list">
+                        <li><strong>沒有 schema 版本與 migration。</strong>前面詳述過：新增卡牌對既有使用者無效。這是目前最大的結構性債。</li>
+                        <li><strong>格位偏移在窄螢幕失效。</strong><span class="inline-code">GRID_COLS = 6</span> 硬編在 JS，CSS 卻會降成 4 / 3 / 2
+                            欄。需要讓兩者共用單一真相來源。</li>
+                        <li><strong>建議清單不排序、會冗餘、被截斷且無提示。</strong>應該改成二分圖匹配的輸出。</li>
+                        <li><strong>魔術數字 2 散落六處。</strong>「留一張自用」這條領域規則應該有名字。</li>
+                        <li><strong>沒有交易歷史與復原。</strong><span class="inline-code">executeTrade</span> 是四行算術的原地修改，換錯了只能手動改回來。</li>
+                        <li><strong>用原生 <span class="inline-code">prompt</span> / <span class="inline-code">confirm</span> /
+                                <span class="inline-code">alert</span>。</strong>省掉大量程式碼，代價是無法樣式化、行動裝置體驗差，而且在 sandboxed iframe
+                            中會被封鎖。</li>
+                        <li><strong>帳號重命名只綁 <span class="inline-code">dblclick</span>，沒有任何視覺提示。</strong>可發現性很差，而且沒有鍵盤等價操作。</li>
+                        <li><strong>無障礙缺口。</strong>帳號 chip 與卡牌 tile 都是 <span class="inline-code">&lt;div&gt;</span> 加
+                            click，不可 focus、不可鍵盤操作，也沒有 <span class="inline-code">role</span> / <span
+                                class="inline-code">aria-pressed</span>。分頁沒有 tab pattern 語意。矩陣表格缺 <span
+                                class="inline-code">&lt;caption&gt;</span> 與 <span class="inline-code">scope</span>。狀態全部只靠顏色（紅／綠）傳達，色弱使用者無法辨識。</li>
+                        <li><strong>ES5 語法風格但需要現代瀏覽器。</strong>全篇用 <span class="inline-code">var</span> 與 <span
+                                class="inline-code">function</span>，看起來很保守，實際上用了 <span class="inline-code">NodeList.forEach</span>、<span
+                                class="inline-code">Element.closest</span>、CSS 自訂屬性、<span class="inline-code">position:
+                                sticky</span>、<span class="inline-code">:focus-visible</span> —— IE11 根本跑不起來。這種「語法保守、API 激進」的不一致沒有意義，不如直接用現代語法。</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="play-card">
+                <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">◆</div>
+                <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
+                    多帳號卡牌總表、交易配對建議與 JSON 備份匯出。資料<strong>只存在你的瀏覽器</strong>，沒有後端。
+                </p>
+                <a href="coc-card.html" class="btn">Launch Interactive Demo</a>
+                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
+                    Local-First · No Backend</p>
+            </div>
+
+            <div class="side-box">
+                <h4>Quick Facts</h4>
+                <ul class="spec-list">
+                    <li><span>卡牌總數</span><span>60（19+13+11+17）</span></li>
+                    <li><span>分區數</span><span>4</span></li>
+                    <li><span>格位欄數</span><span>6</span></li>
+                    <li><span>偏移量</span><span>0 / 1 / 2 / 1</span></li>
+                    <li><span>建議上限</span><span>CAP = 60</span></li>
+                    <li><span>最壞建議數</span><span>234 組</span></li>
+                    <li><span>交易頁 tile 數</span><span>120</span></li>
+                </ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list">
+                    <li><a href="pentomino-detail.html" style="color:var(--accent2); text-decoration:none">Pentomino
+                            Solver →</a></li>
+                    <li><a href="1A2B-detail.html" style="color:var(--accent2); text-decoration:none">1A2B 猜數字 →</a>
+                    </li>
+                    <li><a href="game-set-detail.html" style="color:var(--accent2); text-decoration:none">SET 練功房
+                            →</a></li>
+                    <li><a href="infinite-tictactoe-detail.html"
+                            style="color:var(--accent2); text-decoration:none">無限井字棋 →</a></li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer
+        style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
+        © 2026 果汁龍 · Engineered with Passion.
+    </footer>
+
+    <script>
+        function switchTab(index) {
+            const btns = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+            btns.forEach((b, i) => b.classList.toggle('active', i === index));
+            contents.forEach((c, i) => c.classList.toggle('active', i === index));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>

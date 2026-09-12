@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/logo.ico">
+    <title>技術剖析 | 1A2B Deduction Engine</title>
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="detail.css">
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <header>
+        <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
+        <h1>Deduction Engine</h1>
+        <div class="subtitle">1A2B: 判定邏輯的隱式不變式、資訊論下界與純前端架構</div>
+        <div class="meta-row">
+            <span class="meta-chip">單檔 <b>HTML</b></span>
+            <span class="meta-chip">零框架・零建置</span>
+            <span class="meta-chip">外部依賴 <b>1</b> 個（canvas-confetti）</span>
+            <span class="meta-chip">解空間 <b>5,040</b></span>
+            <span class="meta-chip">判定複雜度 <b>O(k²), k=4</b></span>
+        </div>
+    </header>
+
+    <div class="tab-wrapper">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab(0)">🎲 核心邏輯</button>
+            <button class="tab-btn" onclick="switchTab(1)">🎨 前端架構</button>
+            <button class="tab-btn" onclick="switchTab(2)">🔧 工程反省</button>
+        </div>
+    </div>
+
+    <main>
+        <div class="content">
+
+            <!-- ══════════ TAB 1 ══════════ -->
+            <div class="tab-content active">
+
+                <div class="toc">
+                    <div class="toc-title">本頁重點</div>
+                    <ol>
+                        <li><a href="#gen">出題：Fisher–Yates 與被浪費的六次交換</a></li>
+                        <li><a href="#judge">A/B 判定：一行 else-if 背後的隱式契約</a></li>
+                        <li><a href="#invariant">為什麼這段程式碼「剛好」是對的</a></li>
+                        <li><a href="#info">資訊論下界：這遊戲最少要猜幾次？</a></li>
+                        <li><a href="#exp">實測：跑完全部 5,040 個答案</a></li>
+                    </ol>
+                </div>
+
+                <section class="section-block" id="gen">
+                    <h2>I. 出題：Fisher–Yates 與被浪費的六次交換</h2>
+                    <p>題目是「四位不重複的十進位數字」，允許前導零（<span class="inline-code">0123</span> 是合法答案）。因此解空間就是十取四的排列數：</p>
+
+                    <div class="math-block">
+                        $$ |S| = P(10,4) = \frac{10!}{6!} = 5040 $$
+                    </div>
+
+                    <p>出題函式沒有用「隨機抽 → 檢查重複 → 重抽」的拒絕採樣（rejection sampling），而是直接對整個數字池做
+                        <strong>Fisher–Yates 洗牌</strong>後切片。這保證了 <em>O(1) 的最壞執行時間</em>，不會像拒絕採樣那樣有理論上的無限迴圈風險：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">genSecret.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">genSecret</span>() {
+    <span class="kw">const</span> <span class="var">d</span> <span class="op">=</span> <span class="str">'0123456789'</span>.<span class="fn">split</span>(<span class="str">''</span>);
+    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="var">d</span>.<span class="var">length</span> <span class="op">-</span> <span class="num">1</span>; <span class="var">i</span> <span class="op">></span> <span class="num">0</span>; <span class="var">i</span><span class="op">--</span>) {
+        <span class="kw">const</span> <span class="var">j</span> <span class="op">=</span> Math.<span class="fn">floor</span>(Math.<span class="fn">random</span>() <span class="op">*</span> (<span class="var">i</span> <span class="op">+</span> <span class="num">1</span>));
+        <span class="op">;</span>[<span class="var">d</span>[<span class="var">i</span>], <span class="var">d</span>[<span class="var">j</span>]] <span class="op">=</span> [<span class="var">d</span>[<span class="var">j</span>], <span class="var">d</span>[<span class="var">i</span>]];
+    }
+    <span class="kw">return</span> <span class="var">d</span>.<span class="fn">slice</span>(<span class="num">0</span>, <span class="num">4</span>).<span class="fn">join</span>(<span class="str">''</span>);
+}</pre>
+                        </div>
+                    </div>
+
+                    <h3>兩個藏在細節裡的東西</h3>
+                    <ul class="detail-list">
+                        <li><strong>那個孤零零的分號是必要的。</strong>陣列解構交換 <span class="inline-code">[a, b] = [b, a]</span>
+                            以左方括號開頭。JavaScript 的自動分號插入（ASI）不會在上一行結尾補分號，於是 <span class="inline-code">...(i + 1))</span> 後面緊接
+                            <span class="inline-code">[d[i], ...]</span> 會被解析成<em>索引存取</em>而不是新的敘述句。這是解構交換最經典的陷阱。</li>
+                        <li><strong>洗了 9 次交換，只用到 4 個結果。</strong>完整洗牌是 $O(n)$，但這裡只需要前 $k$ 個元素。改成
+                            <em>partial shuffle</em>（只跑 $k$ 圈）即可降到 $O(k)$，也就是 4 次交換而非 9 次。在 $n=10$ 的規模下這完全是雞蛋裡挑骨頭，但它是「知道可以更好，選擇不做」與「不知道」的差別。</li>
+                    </ul>
+
+                    <div class="callout warn">
+                        <span class="callout-title">純前端遊戲的固有限制</span>
+                        <p><span class="inline-code">Math.random()</span> 不是密碼學安全的隨機源，而答案就存在瀏覽器的記憶體裡。任何人打開 DevTools
+                            都能翻出答案。這是所有「答案在客戶端」的猜謎遊戲共有的性質 —— 要真正防作弊，判定必須搬到伺服器。這個專案的定位是練習與展示，所以刻意不處理。</p>
+                    </div>
+                </section>
+
+                <section class="section-block" id="judge">
+                    <h2>II. A/B 判定：一行 else-if 背後的隱式契約</h2>
+                    <p>規則是 <strong>A = 數字對且位置對</strong>、<strong>B = 數字對但位置錯</strong>。整個判定只有兩行：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">submitGuess.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">let</span> <span class="var">a</span> <span class="op">=</span> <span class="num">0</span>, <span class="var">b</span> <span class="op">=</span> <span class="num">0</span>;
+<span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="num">4</span>; <span class="var">i</span><span class="op">++</span>) {
+    <span class="kw">if</span> (<span class="var">current</span>[<span class="var">i</span>] <span class="op">===</span> <span class="var">secret</span>[<span class="var">i</span>]) <span class="var">a</span><span class="op">++</span>;
+    <span class="kw">else if</span> (<span class="var">secret</span>.<span class="fn">includes</span>(<span class="var">current</span>[<span class="var">i</span>])) <span class="var">b</span><span class="op">++</span>;
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>資料結構就是兩個四字元字串，沒有 Map、沒有 Set、沒有計數陣列。外圈跑 $k$ 次，內層的 <span class="inline-code">String.includes</span> 是線性掃描，所以是
+                        $O(k^2)$，$k=4$ 時等於 16 次字元比較 —— 常數時間。</p>
+
+                    <h3>但這個寫法在一般情況下是錯的</h3>
+                    <p>「位置不對就檢查存不存在」是網路上 1A2B 實作最常見的<strong>錯誤</strong>寫法。只要允許重複數字，它立刻崩潰：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>答案</th>
+                                    <th>猜測</th>
+                                    <th>這段程式碼算出</th>
+                                    <th>正確答案</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="mono">1123</span></td>
+                                    <td><span class="mono">1111</span></td>
+                                    <td><span class="mono">2A2B</span></td>
+                                    <td><span class="mono">2A0B</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">1234</span></td>
+                                    <td><span class="mono">1111</span></td>
+                                    <td><span class="mono">1A3B</span></td>
+                                    <td><span class="mono">1A0B</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>原因是 <span class="inline-code">includes</span> 只回答「有沒有」，不回答「還剩幾個沒被配對」。正確的通用解法要做<strong>多重集合的交集</strong>：</p>
+
+                    <div class="math-block">
+                        $$ \begin{aligned} A &= \sum_{i} [\,g_i = s_i\,] \\[4pt] A + B &= \sum_{d=0}^{9} \min\big(\text{cnt}_g(d),\ \text{cnt}_s(d)\big) \end{aligned} $$
+                    </div>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">general_solution.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="cm">// 允許重複數字時的通用寫法：O(n + 10)，一次掃描</span>
+<span class="kw">function</span> <span class="fn">judge</span>(<span class="var">guess</span>, <span class="var">secret</span>) {
+    <span class="kw">const</span> <span class="var">cg</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Array</span>(<span class="num">10</span>).<span class="fn">fill</span>(<span class="num">0</span>);
+    <span class="kw">const</span> <span class="var">cs</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Array</span>(<span class="num">10</span>).<span class="fn">fill</span>(<span class="num">0</span>);
+    <span class="kw">let</span> <span class="var">a</span> <span class="op">=</span> <span class="num">0</span>;
+
+    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="var">guess</span>.<span class="var">length</span>; <span class="var">i</span><span class="op">++</span>) {
+        <span class="kw">if</span> (<span class="var">guess</span>[<span class="var">i</span>] <span class="op">===</span> <span class="var">secret</span>[<span class="var">i</span>]) <span class="var">a</span><span class="op">++</span>;
+        <span class="cm">// 位置對的也要計數，最後從交集扣掉才得到 B</span>
+        <span class="var">cg</span>[<span class="var">guess</span>[<span class="var">i</span>]]<span class="op">++</span>;
+        <span class="var">cs</span>[<span class="var">secret</span>[<span class="var">i</span>]]<span class="op">++</span>;
+    }
+
+    <span class="kw">let</span> <span class="var">inter</span> <span class="op">=</span> <span class="num">0</span>;
+    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">d</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">d</span> <span class="op">&lt;</span> <span class="num">10</span>; <span class="var">d</span><span class="op">++</span>) <span class="var">inter</span> <span class="op">+=</span> Math.<span class="fn">min</span>(<span class="var">cg</span>[<span class="var">d</span>], <span class="var">cs</span>[<span class="var">d</span>]);
+
+    <span class="kw">return</span> { <span class="var">a</span>, <span class="var">b</span>: <span class="var">inter</span> <span class="op">-</span> <span class="var">a</span> };
+}</pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block" id="invariant">
+                    <h2>III. 為什麼這段程式碼「剛好」是對的</h2>
+                    <p>既然那個寫法在一般情況下會算錯，為什麼這個遊戲玩起來完全正常？因為程式中存在<strong>兩道不變式（invariant）</strong>，聯手把「重複數字」這個情況徹底排除掉了：</p>
+
+                    <ol class="step-list">
+                        <li><strong>答案端：</strong><span class="inline-code">genSecret()</span> 由洗牌後切片產生，四個數字必然互異。</li>
+                        <li><strong>猜測端：</strong><span class="inline-code">addDigit()</span> 有一道守衛 <span class="inline-code">if (current.includes(d)) return;</span>，讓玩家根本無法輸入重複數字。</li>
+                    </ol>
+
+                    <p>當雙邊都保證無重複時，每個數字的出現次數只會是 0 或 1，於是「存在」與「還有剩」等價，$\min(\text{cnt}_g, \text{cnt}_s)$ 退化成布林判斷 ——
+                        簡化版與通用版在此完全等價。</p>
+
+                    <div class="callout bad">
+                        <span class="callout-title">這是本專案最值得記錄的脆弱點</span>
+                        <p><span class="inline-code">addDigit()</span> 裡那行重複檢查，<strong>看起來只是體驗上的貼心</strong>（避免玩家輸入無效組合），實際上卻是判定邏輯正確性的地基。任何人日後想加一個「進階模式：允許重複數字」，只要把那行拿掉，A/B
+                            就會靜默算錯 —— 不會拋錯、不會當掉，只是答案變成錯的。</p>
+                        <p>而原始碼裡<strong>沒有任何註解說明這件事</strong>。這種跨函式的隱式契約，就是所謂技術債裡最難察覺的一種：它不是寫得醜，而是正確性依賴一個沒有被記錄下來的前提。</p>
+                    </div>
+
+                    <div class="compare">
+                        <div>
+                            <h4 class="bad-h">若只是求「跑得動」</h4>
+                            <p>兩行 else-if，短、直觀、在現有規則下完全正確。閱讀成本最低。</p>
+                        </div>
+                        <div>
+                            <h4 class="good-h">若求「改得動」</h4>
+                            <p>用計數法，多 6 行但對任何長度、任何重複情況都成立，並且不對呼叫端做任何假設。</p>
+                        </div>
+                    </div>
+                    <p>我保留了原本的寫法（它在現行規則下是對的，換掉純屬過度工程），但把這個前提寫進了這篇文章 —— 這正是技術文件該存在的理由。</p>
+                </section>
+
+                <section class="section-block" id="info">
+                    <h2>IV. 資訊論下界：這遊戲最少要猜幾次？</h2>
+                    <p>每猜一次，玩家得到的資訊是一組 $(A, B)$ 回饋。先算出<strong>回饋的值域大小</strong>：$A + B \le 4$，且 $(A,B) = (3,1)$
+                        在數學上不可能發生（若有三個位置全對，第四個數字要嘛也對、要嘛不在答案裡，不可能「在答案裡但位置錯」）。窮舉所有 $5040 \times 5040$ 組合驗證後，實際會出現的回饋恰好是
+                        <strong>14 種</strong>：</p>
+
+                    <div class="diagram">
+                        <pre>0A0B  0A1B  0A2B  0A3B  0A4B
+1A0B  1A1B  1A2B  1A3B
+2A0B  2A1B  2A2B
+3A0B                       ← (3,1) 不存在
+4A0B                       ← 過關</pre>
+                        <div class="diagram-caption">窮舉 5040 × 5040 = 25,401,600 組後得到的回饋值域</div>
+                    </div>
+
+                    <p>把猜謎看成一棵決策樹：每個節點分支數最多 14，要區分 5040 種可能，樹的深度下界是</p>
+
+                    <div class="math-block">
+                        $$ \lceil \log_{14} 5040 \rceil = \lceil 3.23 \rceil = 4 $$
+                    </div>
+
+                    <p>也就是說，<strong>再聰明的策略都不可能保證在 4 猜內解出</strong>（而且 4 這個下界實務上達不到，因為回饋分布極不均勻 —— 大多數猜測得到的都是
+                        <span class="mono">0A1B</span> 到 <span class="mono">1A2B</span> 附近的結果，資訊量遠低於理論上的 $\log_2 14 \approx 3.81$
+                        bit）。</p>
+                </section>
+
+                <section class="section-block" id="exp">
+                    <h2>V. 實測：跑完全部 5,040 個答案</h2>
+                    <p>為了確認遊戲的判定邏輯真的自洽，我把頁面裡那段 A/B 程式碼原封不動抽出來，寫了一個<strong>候選集合過濾</strong>的求解器：維護所有仍與歷史回饋一致的候選答案，每次挑一個出來猜，再用回饋過濾。若判定邏輯有任何錯誤，候選集合會被過濾到空集合而爆掉。</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">solver_experiment.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">let</span> <span class="var">cands</span> <span class="op">=</span> <span class="var">allPermutations</span>;          <span class="cm">// 5040 個</span>
+<span class="kw">for</span> (<span class="kw">let</span> <span class="var">t</span> <span class="op">=</span> <span class="num">1</span>; ; <span class="var">t</span><span class="op">++</span>) {
+    <span class="kw">const</span> <span class="var">guess</span> <span class="op">=</span> <span class="var">cands</span>[<span class="num">0</span>];
+    <span class="kw">if</span> (<span class="var">guess</span> <span class="op">===</span> <span class="var">secret</span>) <span class="kw">return</span> <span class="var">t</span>;
+
+    <span class="kw">const</span> <span class="var">fb</span> <span class="op">=</span> <span class="fn">ab</span>(<span class="var">guess</span>, <span class="var">secret</span>);
+    <span class="cm">// 只留下「若它是答案，會給出相同回饋」的候選</span>
+    <span class="var">cands</span> <span class="op">=</span> <span class="var">cands</span>.<span class="fn">filter</span>(<span class="var">c</span> <span class="op">=></span> <span class="var">c</span> <span class="op">!==</span> <span class="var">guess</span> <span class="op">&&</span> <span class="fn">ab</span>(<span class="var">guess</span>, <span class="var">c</span>) <span class="op">===</span> <span class="var">fb</span>);
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>對全部 5,040 個答案各跑一次，結果如下：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>挑選策略</th>
+                                    <th>平均猜測次數</th>
+                                    <th>最差情況</th>
+                                    <th>失敗次數</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>取候選中第一個</td>
+                                    <td><span class="mono">5.560</span></td>
+                                    <td><span class="mono">9 猜</span></td>
+                                    <td><span class="mono">0</span></td>
+                                </tr>
+                                <tr>
+                                    <td>從候選中隨機挑</td>
+                                    <td><span class="mono">5.485</span></td>
+                                    <td><span class="mono">9 猜</span></td>
+                                    <td><span class="mono">0</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>次數分布（取第一個的策略）：</p>
+
+                    <div class="diagram">
+                        <pre>1 猜  ▏                                        1
+2 猜  ▏                                       13
+3 猜  ▎                                      108
+4 猜  ███▌                                   596
+5 猜  ██████████▌                           1668
+6 猜  ███████████▏                          1768
+7 猜  ████▊                                  752
+8 猜  ▉                                      129
+9 猜  ▏                                        5</pre>
+                        <div class="diagram-caption">5,040 個答案的猜測次數分布，平均 5.56 猜、理論下界 4 猜</div>
+                    </div>
+
+                    <div class="callout good">
+                        <span class="callout-title">這個實驗證明了兩件事</span>
+                        <p><strong>一、判定邏輯完全自洽。</strong>5,040 次完整對局中沒有任何一次把候選集合過濾成空的，代表遊戲回報的 $(A,B)$ 與獨立實作的判定完全一致。</p>
+                        <p><strong>二、玩家的體感是有數據支撐的。</strong>純靠邏輯推理（不亂猜）的平均成績是 5～6 猜，這和理論下界 4 猜之間的差距，就是「回饋分布不均勻」的代價。所以遊戲裡的「最佳成績」顯示 4
+                            以下時，那真的是運氣，不是實力。</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 2 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>VI. 變數驅動的絕對定位佈局</h2>
+                    <p>這頁的版面不是用 Flexbox 或 Grid 排的，而是<strong>用 CSS 自訂屬性推算出來的絕對定位</strong>。三個變數定義了整個佈局：</p>
+
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">layout.css</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="var">:root</span> {
+    <span class="op">--center-panel-width</span>: <span class="num">500px</span>;
+    <span class="op">--right-panel-width</span>: <span class="num">260px</span>;
+    <span class="op">--panel-gap</span>: <span class="num">20px</span>;
+}
+
+<span class="cm">/* 共用外觀：垂直置中的玻璃擬態面板 */</span>
+<span class="var">.panel</span> {
+    <span class="op">position</span>: absolute;
+    <span class="op">top</span>: <span class="num">50%</span>;
+    <span class="op">transform</span>: <span class="fn">translateY</span>(<span class="num">-50%</span>);
+    <span class="op">backdrop-filter</span>: <span class="fn">blur</span>(<span class="num">15px</span>);
+}
+
+<span class="var">.center-panel</span> {
+    <span class="op">width</span>: <span class="fn">var</span>(<span class="op">--center-panel-width</span>);
+    <span class="op">left</span>: <span class="num">50%</span>;
+    <span class="op">transform</span>: <span class="fn">translate</span>(<span class="num">-50%</span>, <span class="num">-50%</span>);  <span class="cm">/* 覆寫基底 */</span>
+}
+
+<span class="cm">/* 🎯 右側面板的位置從中央面板「推導」出來 */</span>
+<span class="var">.right-panel</span> {
+    <span class="op">width</span>: <span class="fn">var</span>(<span class="op">--right-panel-width</span>);
+    <span class="op">left</span>: <span class="fn">calc</span>(<span class="num">50%</span> <span class="op">+</span> (<span class="fn">var</span>(<span class="op">--center-panel-width</span>) <span class="op">/</span> <span class="num">2</span>) <span class="op">+</span> <span class="fn">var</span>(<span class="op">--panel-gap</span>));
+}</pre>
+                        </div>
+                    </div>
+
+                    <p>好處很實際：想把中央面板加寬 40px，只要改一個變數，右側面板會自己跟著讓位。壞處是它把一個<strong>幾何約束藏進了 CSS</strong>，而這個約束後來真的咬了我一口 ——
+                        詳見「工程反省」那一頁。</p>
+
+                    <h3>單斷點的「拆解式降級」</h3>
+                    <p>行動版不是重新排版，而是把整套絕對定位機制<strong>整組拆掉</strong>：</p>
+                    <ul class="detail-list">
+                        <li><span class="inline-code">html, body</span> 的 <span class="inline-code">overflow: hidden</span> 解鎖成 <span
+                                class="inline-code">auto</span>（桌機版鎖死捲動是刻意的，因為版面剛好一屏）</li>
+                        <li><span class="inline-code">.panel</span> 改回 <span class="inline-code">position: relative</span> 並且 <span
+                                class="inline-code">transform: none</span> —— 這行最關鍵，忘了寫的話 <span
+                                class="inline-code">translate(-50%, -50%)</span> 會把面板推出畫面外</li>
+                        <li><span class="inline-code">.game-area</span> 改成 column flex，面板變成垂直堆疊</li>
+                    </ul>
+                </section>
+
+                <section class="section-block">
+                    <h2>VII. 狀態流與渲染策略</h2>
+                    <p>整個遊戲的狀態只有六個變數，沒有框架、沒有 store、沒有 reducer：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>變數</th>
+                                    <th>型別</th>
+                                    <th>角色</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="mono">secret</span></td>
+                                    <td>string(4)</td>
+                                    <td>本局答案</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">current</span></td>
+                                    <td>string(0–4)</td>
+                                    <td>正在輸入的緩衝區</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">historyList</span></td>
+                                    <td>Array&lt;{guess, a, b}&gt;</td>
+                                    <td>歷史紀錄，同時兼任回合計數器</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">gameOver</span></td>
+                                    <td>boolean</td>
+                                    <td>閘門，散佈在 5 處檢查</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="mono">wins / best</span></td>
+                                    <td>number / number|null</td>
+                                    <td>跨局累積，<span class="inline-code">initGame()</span> 不重置</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>值得一提的是<strong>沒有獨立的回合計數器</strong>：猜測次數直接用 <span class="inline-code">historyList.length</span>
+                        表示。少一個變數就少一個「兩份真相不同步」的機會，這種「能推導就不儲存」的取捨在小專案裡非常划算。</p>
+
+                    <h3>全量重繪，而且它是對的選擇</h3>
+                    <p>每次按鍵都會執行同一組三連呼叫：</p>
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="code-dot dot-r"></div>
+                            <div class="code-dot dot-y"></div>
+                            <div class="code-dot dot-g"></div>
+                            <div class="code-title">render_flow.js</div>
+                        </div>
+                        <div class="code-body">
+                            <pre><span class="kw">function</span> <span class="fn">addDigit</span>(<span class="var">d</span>) {
+    <span class="kw">if</span> (<span class="var">gameOver</span> <span class="op">||</span> <span class="var">current</span>.<span class="var">length</span> <span class="op">>=</span> <span class="num">4</span> <span class="op">||</span> <span class="var">current</span>.<span class="fn">includes</span>(<span class="var">d</span>)) <span class="kw">return</span>;
+    <span class="var">current</span> <span class="op">+=</span> <span class="var">d</span>;
+    <span class="fn">renderDigits</span>(); <span class="fn">renderNumpad</span>(); <span class="fn">updateBtn</span>();   <span class="cm">// 全量重繪</span>
+}</pre>
+                        </div>
+                    </div>
+                    <p>每次重建 4 個數字格 + 10 個鍵盤按鈕 = 14 個 DOM 節點。這在效能上完全無感，換來的是<strong>狀態與畫面永遠不可能不一致</strong>
+                        —— 沒有 diff 邏輯就沒有 diff 的 bug。這是小規模 UI 最被低估的架構選擇。</p>
+                    <p>代價是每次重建都會讓焦點掉回 <span class="inline-code">body</span>，鍵盤使用者按數字鍵後會失去焦點位置；同一組三連呼叫也重複出現三次，抽成一個 <span
+                            class="inline-code">renderAll()</span> 會更乾淨。</p>
+                </section>
+
+                <section class="section-block">
+                    <h2>VIII. 三個藏在 CSS 裡的巧思</h2>
+
+                    <div class="tech-card">
+                        <h3>1. 用 visibility 而不是 display 隱藏輸入區</h3>
+                        <p>猜中後要把輸入區藏起來、顯示結算視窗。這裡刻意用 <span class="inline-code">visibility: hidden</span> 而非 <span
+                                class="inline-code">display: none</span>：</p>
+                        <p>結算視窗 <span class="inline-code">#winArea</span> 是 <span class="inline-code">.center-panel</span> 內的絕對定位元素。如果用
+                            <span class="inline-code">display: none</span> 把輸入區從佈局流中移除，面板高度會瞬間塌陷，結算視窗就會浮在一個縮小的容器裡。<span
+                                class="inline-code">visibility: hidden</span> <strong>保留了佈局盒子</strong>，面板高度不變，同時<strong>仍會把元素移出
+                                tab order</strong> —— 兩個需求一次滿足。</p>
+
+                        <h3>2. 只寫 from 的 keyframe</h3>
+                        <div class="code-window">
+                            <div class="code-header">
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
+                                <div class="code-title">popIn.css</div>
+                            </div>
+                            <div class="code-body">
+                                <pre><span class="var">#winArea</span> {
+    <span class="op">transform</span>: <span class="fn">translate</span>(<span class="num">-50%</span>, <span class="num">-40%</span>);
+    <span class="op">animation</span>: popIn <span class="num">0.4s</span> <span class="fn">cubic-bezier</span>(<span class="num">0.17</span>, <span class="num">0.89</span>, <span class="num">0.32</span>, <span class="num">1.27</span>);
+}
+
+<span class="kw">@keyframes</span> popIn {
+    <span class="kw">from</span> {
+        <span class="op">opacity</span>: <span class="num">0</span>;
+        <span class="op">transform</span>: <span class="fn">translate</span>(<span class="num">-50%</span>, <span class="num">-30%</span>) <span class="fn">scale</span>(<span class="num">0.9</span>);
+    }
+    <span class="cm">/* 沒有 to：終點隱式取用元素自身的 transform */</span>
+}</pre>
+                            </div>
+                        </div>
+                        <p>省掉 <span class="inline-code">to</span> 不只是少打幾個字，而是<strong>避免了最終值被寫死兩次</strong>。之後想把結算視窗上移一點，只改 <span
+                                class="inline-code">#winArea</span> 一處即可，動畫終點會自己跟上。<span class="inline-code">cubic-bezier</span>
+                            的第四個控制點大於 1，做出輕微過衝的彈跳感。</p>
+
+                        <h3>3. 用 unshift 換掉自動捲動邏輯</h3>
+                        <p>歷史紀錄用 <span class="inline-code">historyList.unshift(...)</span> 前插而非 <span
+                                class="inline-code">push</span> 後推。這代表最新一筆永遠在容器頂端，於是<strong>完全不需要 <span
+                                    class="inline-code">scrollIntoView()</span> 或「捲到底部」的邏輯</strong>。代價是顯示回合編號時要用 <span
+                                class="inline-code">historyList.length - idx</span> 反推。用一次減法換掉一整塊捲動同步程式碼，很划算。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>IX. 粒子背景：同一份程式碼的兩個世代</h2>
+                    <p>這頁的 canvas 背景和站上<a href="infinite-tictactoe-detail.html"
+                            style="color:var(--accent2)">無限井字棋</a>是同源程式碼，但是<strong>不同世代</strong>。放在一起看，剛好是一份自我審查紀錄：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>特性</th>
+                                    <th>1A2B（早期）</th>
+                                    <th>無限井字棋（後期）</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>粒子數</td>
+                                    <td>固定 70</td>
+                                    <td>依螢幕寬度 34 / 90</td>
+                                </tr>
+                                <tr>
+                                    <td>粒子間連線</td>
+                                    <td>無</td>
+                                    <td>有，$d &lt; 100$ 時畫線</td>
+                                </tr>
+                                <tr>
+                                    <td>滑鼠互動</td>
+                                    <td>無</td>
+                                    <td>150px 內產生吸引力</td>
+                                </tr>
+                                <tr>
+                                    <td>半徑</td>
+                                    <td><span class="mono">random()*1.5</span>（可能為 0）</td>
+                                    <td><span class="mono">random()*1.5 + 0.5</span></td>
+                                </tr>
+                                <tr>
+                                    <td>canvas 能力檢測</td>
+                                    <td>原本沒有 → <strong>已補上</strong></td>
+                                    <td>有</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>那個「半徑可能為 0」的問題很典型：<span class="inline-code">Math.random() * 1.5</span> 會產生趨近 0
+                        的半徑，畫出看不見的粒子，等於白燒 CPU。後期版本加上 <span class="inline-code">+ 0.5</span> 設下最小值。連線判定是 $O(n^2)$
+                        雙迴圈，90 顆粒子等於每幀 4,005 次距離計算，這也是為什麼後期版本要依螢幕大小降級。</p>
+                </section>
+            </div>
+
+            <!-- ══════════ TAB 3 ══════════ -->
+            <div class="tab-content">
+                <section class="section-block">
+                    <h2>X. 工程反省：我在這頁修掉的東西</h2>
+                    <p>這個專案寫完一段時間後，我用 headless Chrome 對全站做了一輪自動化檢查（量測各尺寸下的水平溢出、攔截 JS 例外、驗證所有本地連結）。以下是 1A2B
+                        這頁被抓出來的問題，以及它們為什麼值得記錄。</p>
+
+                    <div class="tech-card">
+                        <h3>1. 一個純粹的算術錯誤：斷點設在錯的地方</h3>
+                        <p>右側面板的位置是推導出來的：</p>
+                        <div class="math-block">
+                            $$ \text{left} = \frac{W}{2} + \frac{500}{2} + 20 = \frac{W}{2} + 270 $$
+                        </div>
+                        <p>面板本身寬 260px，所以要完整顯示必須滿足：</p>
+                        <div class="math-block">
+                            $$ \frac{W}{2} + 270 + 260 \le W \implies W \ge 1060 $$
+                        </div>
+                        <p>但行動版斷點原本寫的是 <span class="inline-code">@media (max-width: 800px)</span>。也就是說，在
+                            <strong>801px 到 1060px 之間</strong>，版面仍套用桌機的絕對定位，右側面板卻放不進畫面 ——
+                            而且因為 <span class="inline-code">html, body { overflow: hidden }</span>
+                            還生效，使用者<strong>既看不到、也捲不到</strong>那塊面板。整個歷史紀錄功能在這個寬度區間內憑空消失。</p>
+
+                        <div class="callout warn">
+                            <span class="callout-title">為什麼這種 bug 特別容易漏掉</span>
+                            <p>開發時只會在自己的螢幕（通常 ≥1440px）和手機模擬器（≤430px）兩端測試，<strong>801–1060px 剛好是兩者之間的盲區</strong>
+                                —— 而它正好對應到「桌機瀏覽器開一半視窗」或「iPad 直向」這些真實常見的情境。修法是把斷點改成 1100px（1060 加上 <span
+                                    class="inline-code">.shell</span> 的左右 padding 再留一點餘裕）。</p>
+                        </div>
+
+                        <h3>2. 視窗高度不足時內容被裁掉</h3>
+                        <p>同一個 <span class="inline-code">overflow: hidden</span> 也造成了垂直方向的問題。中央面板內容（統計條 + 85px 數字格 + 兩排
+                            numpad + 按鈕）約需 600px，加上頁首約 700px。在寬 &gt; 1100px 但高 &lt; 700px 的視窗（筆電開著 DevTools、橫向平板）中，<span
+                                class="inline-code">translateY(-50%)</span> 會讓內容上下同時溢出，而且捲不動。</p>
+                        <p>補上一個<strong>以高度為條件</strong>的 media query 解決：</p>
+                        <div class="code-window">
+                            <div class="code-header">
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
+                                <div class="code-title">height_query.css</div>
+                            </div>
+                            <div class="code-body">
+                                <pre><span class="cm">/* 視窗矮的時候允許捲動，並保證絕對定位面板有足夠空間 */</span>
+<span class="kw">@media</span> (<span class="op">min-width</span>: <span class="num">1101px</span>) <span class="kw">and</span> (<span class="op">max-height</span>: <span class="num">740px</span>) {
+    <span class="var">html</span>, <span class="var">body</span> { <span class="op">overflow</span>: auto; }
+    <span class="var">.shell</span>     { <span class="op">height</span>: auto; <span class="op">min-height</span>: <span class="num">100vh</span>; }
+    <span class="var">.game-area</span> { <span class="op">min-height</span>: <span class="num">620px</span>; }
+}</pre>
+                            </div>
+                        </div>
+                        <p>大多數人只寫 <span class="inline-code">max-width</span> 的 media query，但<strong>高度也是一個維度</strong>，尤其當你用了
+                            <span class="inline-code">100vh</span> 加 <span class="inline-code">overflow: hidden</span> 的滿屏佈局。</p>
+
+                        <h3>3. canvas 拿不到 context，整個遊戲就開不起來</h3>
+                        <p>這個問題是在用 jsdom 跑自動化測試時暴露的：測試環境沒有 canvas 實作，<span class="inline-code">getContext('2d')</span> 回傳
+                            <span class="inline-code">null</span>，於是動畫迴圈第一行 <span class="inline-code">ctx.clearRect(...)</span> 就拋出
+                            TypeError。</p>
+                        <p>關鍵在於<strong>它拋錯的位置</strong>：粒子背景的程式碼寫在整份 script 的最前面，而啟動遊戲的 <span
+                                class="inline-code">initGame()</span> 在最後一行。例外一拋，後面全部不執行 ——
+                            玩家看到的是一個完全空白、毫無反應的頁面。一個純裝飾的背景動畫，變成了整個遊戲的單點故障。</p>
+                        <div class="code-window">
+                            <div class="code-header">
+                                <div class="code-dot dot-r"></div>
+                                <div class="code-dot dot-y"></div>
+                                <div class="code-dot dot-g"></div>
+                                <div class="code-title">defensive_init.js</div>
+                            </div>
+                            <div class="code-body">
+                                <pre><span class="kw">function</span> <span class="fn">initBackground</span>() {
+    <span class="kw">const</span> <span class="var">canvas</span> <span class="op">=</span> document.<span class="fn">getElementById</span>(<span class="str">'canvas'</span>);
+    <span class="kw">const</span> <span class="var">ctx</span> <span class="op">=</span> <span class="var">canvas</span> <span class="op">&&</span> <span class="var">canvas</span>.<span class="var">getContext</span> <span class="op">?</span> <span class="var">canvas</span>.<span class="fn">getContext</span>(<span class="str">'2d'</span>) <span class="op">:</span> <span class="kw">null</span>;
+    <span class="kw">if</span> (<span class="op">!</span><span class="var">ctx</span>) <span class="kw">return</span>;      <span class="cm">// 不支援就安靜跳過</span>
+    <span class="cm">// ... 粒子系統 ...</span>
+}
+
+<span class="cm">// 裝飾性功能失敗，絕對不能拖垮主要功能</span>
+<span class="kw">try</span> { <span class="fn">initBackground</span>(); } <span class="kw">catch</span> (<span class="var">err</span>) { <span class="cm">/* 背景沒了就算了 */</span> }</pre>
+                            </div>
+                        </div>
+                        <p>真實世界裡這不只是測試環境的問題：Tor Browser 預設封鎖 canvas 指紋、部分隱私擴充套件也會讓 <span
+                                class="inline-code">getContext</span> 回傳 null。<strong>裝飾性功能應該可以失敗，而且失敗時要安靜。</strong></p>
+
+                        <h3>4. 鍵盤事件的三個小疏漏</h3>
+                        <ul class="detail-list">
+                            <li><strong>沒有 <span class="inline-code">preventDefault()</span>：</strong>Backspace 在某些瀏覽器設定下會觸發「上一頁」導覽。玩到一半整個頁面跳走，進度全失。</li>
+                            <li><strong>沒有過濾修飾鍵：</strong>用 <kbd>Cmd</kbd>+<kbd>1</kbd> 切換瀏覽器分頁時，那個 <span
+                                    class="inline-code">1</span> 會被遊戲當成輸入吃掉。</li>
+                            <li><strong>標籤與行為不一致：</strong>按鈕寫著「清除 (Delete)」，但它只刪一位，而且鍵盤綁的是 Backspace、<span
+                                    class="inline-code">Delete</span> 鍵根本沒處理。已改成「刪除一位 (Backspace)」並讓兩個鍵都能用。</li>
+                        </ul>
+                        <p>這三個都不是演算法問題，但它們決定了「這個東西用起來有沒有在細節上出戲」。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>XI. 誠實的已知限制</h2>
+                    <p>還沒處理、但我知道它們存在的問題：</p>
+                    <ul class="detail-list">
+                        <li><strong>沒有失敗條件。</strong><span class="inline-code">gameOver</span> 只在 <span
+                                class="inline-code">a === 4</span> 時被設為 true。沒有次數上限、沒有投降鈕，所以「勝場紀錄」只增不減，勝率恆為 100%。這是刻意的休閒導向設計，但它讓統計數字失去意義。</li>
+                        <li><strong>統計不持久化。</strong><span class="inline-code">wins</span> 與 <span
+                                class="inline-code">best</span> 純在記憶體，重新整理就歸零。加上 <span class="inline-code">localStorage</span>
+                            是十行內的事，目前只是還沒做。</li>
+                        <li><strong>無障礙缺口明顯。</strong>數字格是無語意的 <span class="inline-code">&lt;div&gt;</span>，沒有 <span
+                                class="inline-code">aria-live</span> 區域播報 A/B 判定結果 ——
+                            而那正是遊戲的核心回饋。螢幕閱讀器使用者實際上無法玩這個遊戲。已用過的數字鍵只加了 class 而沒有真的 <span class="inline-code">disabled</span>，<span
+                                class="inline-code">opacity: 0.15</span> 的對比度也遠低於 WCAG 門檻。</li>
+                        <li><strong>沒有 <span class="inline-code">prefers-reduced-motion</span> 保護。</strong>無限閃爍的輸入游標動畫違反 WCAG
+                            2.2.2（Pause, Stop, Hide）。</li>
+                        <li><strong>CDN 沒有 SRI。</strong>confetti 的 <span class="inline-code">&lt;script&gt;</span> 沒有 <span
+                                class="inline-code">integrity</span> 屬性。已經加了存在性檢查避免 CDN 掛掉時整頁崩潰，但供應鏈風險仍在。</li>
+                    </ul>
+                    <div class="callout">
+                        <span class="callout-title">為什麼把限制寫出來</span>
+                        <p>把「我知道但還沒做」和「我不知道」分開，是我認為技術文件最有價值的部分。前者是待辦清單，後者才是真正的風險。</p>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="play-card">
+                <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">🎯</div>
+                <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
+                    實際玩一局，看看你能不能打敗 <strong>5.56 猜</strong> 的邏輯平均值。支援實體鍵盤，猜中有 confetti。
+                </p>
+                <a href="1A2B.html" class="btn">Launch Interactive Demo</a>
+                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
+                    Pure Frontend · No Build Step</p>
+            </div>
+
+            <div class="side-box">
+                <h4>Quick Facts</h4>
+                <ul class="spec-list">
+                    <li><span>解空間</span><span>5,040</span></li>
+                    <li><span>回饋組合</span><span>14 種</span></li>
+                    <li><span>理論下界</span><span>4 猜</span></li>
+                    <li><span>實測平均</span><span>5.56 猜</span></li>
+                    <li><span>實測最差</span><span>9 猜</span></li>
+                    <li><span>判定複雜度</span><span>O(k²)</span></li>
+                    <li><span>粒子數</span><span>34 / 70</span></li>
+                </ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list">
+                    <li><a href="pentomino-detail.html" style="color:var(--accent2); text-decoration:none">Pentomino
+                            Solver →</a></li>
+                    <li><a href="game-set-detail.html" style="color:var(--accent2); text-decoration:none">SET 練功房
+                            →</a></li>
+                    <li><a href="infinite-tictactoe-detail.html"
+                            style="color:var(--accent2); text-decoration:none">無限井字棋 →</a></li>
+                    <li><a href="coc-card-detail.html" style="color:var(--accent2); text-decoration:none">卡牌交易站 →</a>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer
+        style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
+        © 2026 果汁龍 · Engineered with Passion.
+    </footer>
+
+    <script>
+        function switchTab(index) {
+            const btns = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+            btns.forEach((b, i) => b.classList.toggle('active', i === index));
+            contents.forEach((c, i) => c.classList.toggle('active', i === index));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>

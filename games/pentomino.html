@@ -3,9 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <link rel="icon" href="puzzle.ico">
+    <!-- 不鎖 user-scalable：禁止縮放違反 WCAG 1.4.4（Resize Text）。
+         拖曳時的畫面鎖定改由 body.play-mode-locked 的 touch-action: none 負責。 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" href="../assets/puzzle.ico">
     <title>Pentomino 拼圖</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <style>
@@ -334,13 +335,112 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
+            padding-bottom: 20px;
         }
 
-        .s-desc {
+        /* 求解器主面板 */
+        .s-panel {
+            width: 100%;
+            max-width: 470px;
+            background: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
+            border: 1px solid #334155;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        .s-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .s-title {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #f8fafc;
+        }
+
+        .s-sub {
+            margin: 4px 0 0;
+            font-size: 0.78rem;
             color: #94a3b8;
-            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        /* 障礙物計數徽章 */
+        .s-badge {
+            flex-shrink: 0;
+            min-width: 62px;
             text-align: center;
-            font-size: 0.9rem;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            font-variant-numeric: tabular-nums;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .s-badge.ready {
+            border-color: var(--accent-yellow);
+            box-shadow: 0 0 14px rgba(251, 191, 36, 0.25);
+        }
+
+        .s-badge b {
+            font-size: 1.35rem;
+            color: var(--accent-yellow);
+            line-height: 1;
+        }
+
+        .s-badge span {
+            display: block;
+            font-size: 0.62rem;
+            color: #94a3b8;
+            margin-top: 3px;
+            letter-spacing: 0.08em;
+        }
+
+        /* 快速設定 */
+        .s-presets {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .s-presets-label {
+            font-size: 0.7rem;
+            color: #64748b;
+            letter-spacing: 0.08em;
+            margin-right: 2px;
+        }
+
+        .s-chip {
+            font-family: inherit;
+            font-size: 0.75rem;
+            padding: 6px 11px;
+            border-radius: 100px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #cbd5e1;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+        }
+
+        .s-chip:hover:not(:disabled) {
+            border-color: var(--accent-blue);
+            color: #fff;
+            background: #16253c;
+        }
+
+        .s-chip:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         #s-board {
@@ -349,6 +449,7 @@
             gap: 0;
             width: 100%;
             max-width: 420px;
+            margin: 0 auto;
             background: #334155;
             padding: 8px;
             border-radius: 12px;
@@ -433,20 +534,124 @@
         }
 
         .s-controls {
-            margin: 20px 0;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
+            margin: 16px 0 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
 
+        .s-controls .btn-style {
+            margin: 0;
+            font-size: 0.85rem;
+            padding: 11px 8px;
+        }
+
+        /* 代號切換鈕橫跨整列，避免在兩欄格線裡留下空洞 */
+        #s-labelBtn {
+            grid-column: 1 / -1;
+        }
+
+        /* 狀態列：改為自動高度，長訊息不會溢出（原本固定 24px） */
         #s-status {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: bold;
             color: var(--accent-yellow);
-            height: 24px;
+            min-height: 22px;
             text-align: center;
-            margin-bottom: 20px;
+            margin-top: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        #s-status.busy {
+            color: #7dd3fc;
+        }
+
+        #s-status.warn {
+            color: #fca5a5;
+        }
+
+        #s-status.done {
+            color: #86efac;
+        }
+
+        /* 解答導覽 */
+        .s-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #334155;
+        }
+
+        .s-nav .btn-style {
+            margin: 0;
+            flex: 1;
+            font-size: 0.78rem;
+            padding: 9px 6px;
+        }
+
+        .s-nav-info {
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .s-nav-info b {
+            color: var(--accent-yellow);
+            font-size: 1rem;
+        }
+
+        /* 效能指標 */
+        .s-metrics {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+            font-size: 0.72rem;
+            color: #64748b;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .s-metrics span b {
+            color: #94a3b8;
+        }
+
+        /* 骨牌代號（色盲輔助：不只用顏色區分骨牌） */
+        .s-cell.s-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(var(--cell-size) * 0.4);
+            font-weight: 800;
+            color: rgba(0, 0, 0, 0.55);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+
+        .s-cell:focus-visible {
+            outline: 3px solid var(--accent-yellow);
+            outline-offset: 1px;
+            z-index: 2;
+        }
+
+        @media (max-width: 560px) {
+            .s-panel {
+                padding: 14px 12px;
+                border-radius: 14px;
+            }
+
+            .s-controls {
+                gap: 8px;
+            }
+
+            .s-controls .btn-style {
+                font-size: 0.78rem;
+                padding: 10px 6px;
+            }
         }
 
         /* --- 📸 戰績圖片彈出視窗 (Modal) --- */
@@ -539,13 +744,45 @@
     </div>
 
     <div id="solver-view" class="hidden-view">
-        <p class="s-desc">請點擊設定 4 個障礙物（目前：<span id="s-count">0</span>/4）</p>
-        <div id="s-board"></div>
-        <div class="s-controls">
-            <button id="s-solveBtn" class="btn-style btn-blue">💡 開始計算</button>
-            <button id="s-resetBtn" class="btn-style btn-red">🧹 重設網格</button>
+        <div class="s-panel">
+            <div class="s-head">
+                <div>
+                    <h2 class="s-title">💡 自由解答</h2>
+                    <p class="s-sub">點格子放 4 個障礙物，回溯演算法會逐一找出 12 塊骨牌的所有填法</p>
+                </div>
+                <div class="s-badge" id="s-badge">
+                    <b id="s-count">0</b>
+                    <span>/ 4 障礙</span>
+                </div>
+            </div>
+
+            <div class="s-presets">
+                <span class="s-presets-label">快速擺法</span>
+                <button class="s-chip" id="s-preset-center">中央 2×2</button>
+                <button class="s-chip" id="s-preset-corners">四個角</button>
+                <button class="s-chip" id="s-preset-diag">對角線</button>
+                <button class="s-chip" id="s-preset-random">🎲 隨機</button>
+            </div>
+
+            <div id="s-board" role="grid" aria-label="8×8 求解盤面，點擊格子設定障礙物"></div>
+
+            <div class="s-controls">
+                <button id="s-solveBtn" class="btn-style btn-blue">💡 開始計算</button>
+                <button id="s-cancelBtn" class="btn-style btn-red hidden-view">⏹ 停止計算</button>
+                <button id="s-resetBtn" class="btn-style btn-red">🧹 重設網格</button>
+                <button id="s-labelBtn" class="btn-style btn-blue" style="background:#475569">🔤 顯示代號</button>
+            </div>
+
+            <div id="s-status" role="status" aria-live="polite"></div>
+
+            <div class="s-nav hidden-view" id="s-nav">
+                <button id="s-prevBtn" class="btn-style btn-blue">← 上一個</button>
+                <span class="s-nav-info">第 <b id="s-solIndex">1</b> / <span id="s-solTotal">1</span> 個解</span>
+                <button id="s-nextBtn" class="btn-style btn-blue">下一個 →</button>
+            </div>
+
+            <div class="s-metrics" id="s-metrics"></div>
         </div>
-        <div id="s-status"></div>
     </div>
 
     <div id="share-modal" class="hidden-view">
@@ -1089,20 +1326,153 @@
         //  💡 模組 2：自由解答 (Solver Mode)
         // ==========================================
         {
-            const boardEl = document.getElementById('s-board'), blocked = new Set(), cells = [];
-            let solverGenerator = null, solutionCount = 0;
+            /* ── 盤面與狀態 ────────────────────────────── */
+            const boardEl = document.getElementById('s-board');
+            const blocked = new Set();
+            const cells = [];
+            const $ = id => document.getElementById(id);
 
+            let solverGenerator = null;   // null = 尚未開始或已重設
+            let solutions = [];           // 已找到的解（每個都是複製過的 grid）
+            let viewIndex = -1;           // 目前顯示第幾個解
+            let searching = false;
+            let cancelRequested = false;
+            let exhausted = false;        // 搜尋空間已窮盡
+            let nodes = 0;                // 已探索節點數（進度指標）
+            let elapsed = 0;              // 累計耗時（ms）
+            let showLabels = false;
+
+            const desc = i => `第 ${Math.floor(i / 8) + 1} 列第 ${i % 8 + 1} 格`;
+            const fmt = n => n.toLocaleString('en-US');
+
+            /* ── 建立 64 個格子 ───────────────────────────
+               DOM 順序就是座標：index = row * 8 + col，
+               演算法完全依賴這個順序，不能改變 append 的次序。 */
             for (let i = 0; i < 64; i++) {
-                const cell = document.createElement('div'); cell.className = 's-cell';
-                cell.onclick = () => {
-                    if (solverGenerator !== null) return;
-                    if (blocked.has(i)) { blocked.delete(i); cell.classList.remove('s-blocked'); }
-                    else if (blocked.size < 4) { blocked.add(i); cell.classList.add('s-blocked'); }
-                    document.getElementById('s-count').innerText = blocked.size;
+                const cell = document.createElement('div');
+                cell.className = 's-cell';
+                // 無障礙資訊用 attribute 帶，才不會被後續的 className 重設清掉
+                cell.setAttribute('role', 'gridcell');
+                cell.setAttribute('tabindex', '0');
+                cell.onclick = () => toggleBlocked(i);
+                cell.onkeydown = (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBlocked(i); }
                 };
-                boardEl.appendChild(cell); cells.push(cell);
+                boardEl.appendChild(cell);
+                cells.push(cell);
             }
 
+            function toggleBlocked(i) {
+                if (searching) { setStatus('計算中無法修改盤面，請先按「停止計算」', 'warn'); return; }
+                if (solverGenerator !== null) { setStatus('要換盤面請先按「重設網格」', 'warn'); return; }
+
+                if (blocked.has(i)) {
+                    blocked.delete(i);
+                } else if (blocked.size < 4) {
+                    blocked.add(i);
+                } else {
+                    setStatus('已經有 4 個障礙物了，先點掉一個再選', 'warn');
+                    return;
+                }
+                paintBoard(null);
+                updateControls();
+                if (blocked.size === 4) setStatus('4 個障礙物就位，可以開始計算了');
+                else setStatus('');
+            }
+
+            /* ── 畫面更新 ─────────────────────────────── */
+            function setStatus(msg, kind) {
+                const el = $('s-status');
+                el.className = kind || '';
+                el.innerText = msg;
+            }
+
+            function updateMetrics() {
+                const parts = [];
+                if (nodes > 0) parts.push(`<span>探索節點 <b>${fmt(nodes)}</b></span>`);
+                if (elapsed > 0) parts.push(`<span>耗時 <b>${elapsed < 1000 ? Math.round(elapsed) + ' ms' : (elapsed / 1000).toFixed(2) + ' s'}</b></span>`);
+                if (solutions.length > 0) parts.push(`<span>已找到 <b>${solutions.length}</b> 個解</span>`);
+                $('s-metrics').innerHTML = parts.join('');
+            }
+
+            function updateControls() {
+                const solveBtn = $('s-solveBtn');
+                const cancelBtn = $('s-cancelBtn');
+                const nav = $('s-nav');
+
+                $('s-count').innerText = blocked.size;
+                $('s-badge').classList.toggle('ready', blocked.size === 4);
+
+                cancelBtn.classList.toggle('hidden-view', !searching);
+                solveBtn.classList.toggle('hidden-view', searching);
+
+                if (exhausted) {
+                    solveBtn.innerText = solutions.length ? '✅ 已找出全部解' : '❌ 此地形無解';
+                    solveBtn.disabled = true;
+                } else if (solutions.length > 0) {
+                    solveBtn.innerText = '🔍 尋找下一個解';
+                    solveBtn.disabled = false;
+                } else {
+                    solveBtn.innerText = '💡 開始計算';
+                    solveBtn.disabled = blocked.size !== 4;
+                }
+
+                [$('s-resetBtn'), $('s-preset-center'), $('s-preset-corners'), $('s-preset-diag'), $('s-preset-random')]
+                    .forEach(b => { b.disabled = searching; });
+
+                nav.classList.toggle('hidden-view', solutions.length === 0);
+                $('s-solIndex').innerText = viewIndex + 1;
+                $('s-solTotal').innerText = solutions.length + (exhausted ? '' : '+');
+                $('s-prevBtn').disabled = searching || viewIndex <= 0;
+                $('s-nextBtn').disabled = searching || (viewIndex >= solutions.length - 1 && exhausted);
+
+                updateMetrics();
+            }
+
+            // grid 為 null 時只畫障礙物；否則畫出該解的骨牌與輪廓
+            function paintBoard(grid) {
+                const outerLine = '3px solid #0f172a';
+                const innerLine = '1px solid rgba(255,255,255,0.2)';
+
+                for (let i = 0; i < 64; i++) {
+                    const c = cells[i];
+                    c.className = 's-cell';
+                    c.style.cssText = '';
+                    c.textContent = '';
+
+                    if (blocked.has(i)) {
+                        c.classList.add('s-blocked');
+                        c.setAttribute('aria-label', `${desc(i)}：障礙物`);
+                        continue;
+                    }
+
+                    const name = grid ? grid[i] : null;
+                    if (name && name !== 'BLOCK') {
+                        c.className = `s-cell s-piece ${name}` + (showLabels ? ' s-label' : '');
+                        if (showLabels) c.textContent = name;
+                        c.setAttribute('aria-label', `${desc(i)}：骨牌 ${name}`);
+
+                        // 用邊框畫出整塊骨牌的輪廓：與同一塊相鄰的邊用細線，外緣用粗線
+                        const r = Math.floor(i / 8), col = i % 8;
+                        const topSame = r > 0 && grid[i - 8] === name;
+                        const bottomSame = r < 7 && grid[i + 8] === name;
+                        const leftSame = col > 0 && grid[i - 1] === name;
+                        const rightSame = col < 7 && grid[i + 1] === name;
+                        c.style.borderTop = topSame ? innerLine : outerLine;
+                        c.style.borderBottom = bottomSame ? innerLine : outerLine;
+                        c.style.borderLeft = leftSame ? innerLine : outerLine;
+                        c.style.borderRight = rightSame ? innerLine : outerLine;
+                        c.style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
+                        c.style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
+                        c.style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
+                        c.style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
+                    } else {
+                        c.setAttribute('aria-label', `${desc(i)}：空格`);
+                    }
+                }
+            }
+
+            /* ── 12 種五格骨牌與其旋轉／鏡像變體 ──────────── */
             const SHAPES = {
                 F: [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], L: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1]],
                 P: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0]], N: [[0, 1], [1, 1], [2, 1], [2, 0], [3, 0]], T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
@@ -1114,9 +1484,10 @@
             for (let key in SHAPES) {
                 const variants = []; let curr = SHAPES[key];
                 for (let i = 0; i < 8; i++) {
-                    if (i === 4) curr = curr.map(([r, c]) => [r, -c]);
-                    curr = curr.map(([r, c]) => [c, -r]);
+                    if (i === 4) curr = curr.map(([r, c]) => [r, -c]);   // 第 5 圈起先做水平鏡像
+                    curr = curr.map(([r, c]) => [c, -r]);                // 每圈旋轉 90°
                     const minY = Math.min(...curr.map(p => p[0])), minX = Math.min(...curr.map(p => p[1]));
+                    // 平移正規化後排序（row-major）：backtrack 的錨定依賴 v[0] 是最小格
                     const normalized = curr.map(([r, c]) => [r - minY, c - minX]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
                     const s = JSON.stringify(normalized);
                     if (!variants.find(v => JSON.stringify(v) === s)) variants.push(normalized);
@@ -1124,6 +1495,7 @@
                 ALL_VARIANTS[key] = variants;
             }
 
+            /* ── 剪枝：任一空白連通區的大小不是 5 的倍數就不可能填滿 ── */
             function getIslands(currentGrid) {
                 const visited = new Set();
                 for (let i = 0; i < 64; i++) {
@@ -1143,12 +1515,18 @@
                 return true;
             }
 
+            const TICK_NODES = 3000;   // 每探索這麼多節點就讓出一次控制權
+
             function* createSolver() {
                 const grid = Array(64).fill(null); blocked.forEach(idx => grid[idx] = 'BLOCK');
                 const remaining = Object.keys(ALL_VARIANTS);
 
                 function* backtrack(currentGrid, pieces) {
-                    if (pieces.length === 0) { yield currentGrid; return; }
+                    // 週期性 yield null 當作「喘息點」，讓外層驅動迴圈能把控制權交還瀏覽器。
+                    // 這是把原本會凍結畫面的同步搜尋改成可中斷的關鍵，演算法本身不受影響。
+                    if (++nodes % TICK_NODES === 0) yield null;
+
+                    if (pieces.length === 0) { yield currentGrid.slice(); return; }   // 複製一份，避免回溯把已回報的解清空
                     const firstEmpty = currentGrid.indexOf(null); if (firstEmpty === -1) return;
                     const r = Math.floor(firstEmpty / 8), c = firstEmpty % 8;
 
@@ -1170,39 +1548,129 @@
                 yield* backtrack(grid, remaining);
             }
 
-            document.getElementById('s-solveBtn').onclick = () => {
-                if (blocked.size !== 4) return alert("請剛好選取 4 個空格作為障礙物！");
-                const btn = document.getElementById('s-solveBtn'), status = document.getElementById('s-status');
-                if (solverGenerator === null) { solverGenerator = createSolver(); solutionCount = 0; }
-                status.innerText = "計算中..."; btn.disabled = true;
+            /* ── 搜尋驅動：時間切片，每幀最多算 16ms ────────── */
+            const FRAME_BUDGET = 16;
 
-                setTimeout(() => {
-                    const result = solverGenerator.next();
-                    if (!result.done) {
-                        solutionCount++;
-                        cells.forEach(c => { if (!c.classList.contains('s-blocked')) { c.className = 's-cell'; c.style = ''; } });
-                        result.value.forEach((name, i) => {
-                            if (name && name !== 'BLOCK') {
-                                cells[i].className = `s-cell s-piece ${name}`;
-                                const r = Math.floor(i / 8), c = i % 8;
-                                const topSame = r > 0 && result.value[i - 8] === name, bottomSame = r < 7 && result.value[i + 8] === name, leftSame = c > 0 && result.value[i - 1] === name, rightSame = c < 7 && result.value[i + 1] === name;
-                                const outerLine = '3px solid #0f172a', innerLine = '1px solid rgba(255,255,255,0.2)';
-                                cells[i].style.borderTop = topSame ? innerLine : outerLine; cells[i].style.borderBottom = bottomSame ? innerLine : outerLine; cells[i].style.borderLeft = leftSame ? innerLine : outerLine; cells[i].style.borderRight = rightSame ? innerLine : outerLine;
-                                cells[i].style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px'; cells[i].style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px'; cells[i].style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px'; cells[i].style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
-                            }
-                        });
-                        status.innerText = `成功！(目前為第 ${solutionCount} 個解)`; btn.innerText = "尋找下一個解"; btn.disabled = false;
-                    } else {
-                        status.innerText = solutionCount > 0 ? `搜尋完畢！共有 ${solutionCount} 個解。` : "這個地形完全無解！"; btn.innerText = "已無更多解"; btn.disabled = true;
+            function startSearch() {
+                if (blocked.size !== 4) {
+                    setStatus(`還需要 ${4 - blocked.size} 個障礙物（總共要 4 個）`, 'warn');
+                    return;
+                }
+                if (exhausted) return;
+                if (solverGenerator === null) {
+                    solverGenerator = createSolver();
+                    solutions = []; viewIndex = -1; nodes = 0; elapsed = 0;
+                }
+                searching = true; cancelRequested = false;
+                updateControls();
+                setStatus('計算中…', 'busy');
+                requestAnimationFrame(step);
+            }
+
+            function step() {
+                if (cancelRequested) {
+                    searching = false;
+                    setStatus(`已停止（探索了 ${fmt(nodes)} 個節點）`, 'warn');
+                    updateControls();
+                    return;
+                }
+
+                const t0 = performance.now();
+                while (performance.now() - t0 < FRAME_BUDGET) {
+                    const res = solverGenerator.next();
+                    if (res.done) {
+                        elapsed += performance.now() - t0;
+                        exhausted = true; searching = false;
+                        if (solutions.length === 0) setStatus('這個地形完全無解 —— 12 塊骨牌無法填滿剩下的 60 格', 'warn');
+                        else setStatus(`搜尋完畢！這個地形共有 ${solutions.length} 個解`, 'done');
+                        updateControls();
+                        return;
                     }
-                }, 50);
+                    if (res.value === null) continue;         // 只是喘息點，不是解
+
+                    elapsed += performance.now() - t0;
+                    solutions.push(res.value);
+                    viewIndex = solutions.length - 1;
+                    searching = false;
+                    paintBoard(res.value);
+                    setStatus(`找到第 ${solutions.length} 個解！`, 'done');
+                    updateControls();
+                    return;
+                }
+
+                elapsed += performance.now() - t0;
+                setStatus(`計算中… 已探索 ${fmt(nodes)} 個節點`, 'busy');
+                updateMetrics();
+                requestAnimationFrame(step);
+            }
+
+            /* ── 解答導覽 ─────────────────────────────── */
+            function showSolution(idx) {
+                viewIndex = Math.max(0, Math.min(idx, solutions.length - 1));
+                paintBoard(solutions[viewIndex]);
+                setStatus(`第 ${viewIndex + 1} 個解`, 'done');
+                updateControls();
+            }
+
+            /* ── 快速擺法 ─────────────────────────────── */
+            function applyPreset(indices) {
+                if (searching) return;
+                if (solverGenerator !== null) resetGrid();
+                blocked.clear();
+                indices.forEach(i => blocked.add(i));
+                paintBoard(null);
+                updateControls();
+                setStatus('4 個障礙物就位，可以開始計算了');
+            }
+
+            function randomFour() {
+                const pool = [];
+                for (let i = 0; i < 64; i++) pool.push(i);
+                for (let i = pool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pool[i], pool[j]] = [pool[j], pool[i]];
+                }
+                return pool.slice(0, 4);
+            }
+
+            function resetGrid() {
+                cancelRequested = true;
+                searching = false;
+                blocked.clear();
+                solverGenerator = null;
+                solutions = []; viewIndex = -1;
+                exhausted = false; nodes = 0; elapsed = 0;
+                paintBoard(null);
+                setStatus('');
+                updateControls();
+            }
+
+            /* ── 事件綁定 ─────────────────────────────── */
+            $('s-solveBtn').onclick = () => {
+                // 已經有解且還沒看到最後一個 → 先顯示下一個已找到的解
+                if (solutions.length > 0 && viewIndex < solutions.length - 1) showSolution(viewIndex + 1);
+                else startSearch();
+            };
+            $('s-cancelBtn').onclick = () => { cancelRequested = true; };
+            $('s-resetBtn').onclick = resetGrid;
+            $('s-prevBtn').onclick = () => showSolution(viewIndex - 1);
+            $('s-nextBtn').onclick = () => {
+                if (viewIndex < solutions.length - 1) showSolution(viewIndex + 1);
+                else startSearch();
+            };
+            $('s-labelBtn').onclick = () => {
+                showLabels = !showLabels;
+                $('s-labelBtn').innerText = showLabels ? '🔤 隱藏代號' : '🔤 顯示代號';
+                paintBoard(viewIndex >= 0 ? solutions[viewIndex] : null);
             };
 
-            document.getElementById('s-resetBtn').onclick = () => {
-                blocked.clear(); cells.forEach(c => { c.className = 's-cell'; c.style = ''; });
-                solverGenerator = null; solutionCount = 0; document.getElementById('s-count').innerText = "0"; document.getElementById('s-status').innerText = "";
-                const btn = document.getElementById('s-solveBtn'); btn.innerText = "💡 開始計算"; btn.disabled = false;
-            };
+            $('s-preset-center').onclick = () => applyPreset([27, 28, 35, 36]);
+            $('s-preset-corners').onclick = () => applyPreset([0, 7, 56, 63]);
+            $('s-preset-diag').onclick = () => applyPreset([0, 21, 42, 63]);
+            $('s-preset-random').onclick = () => applyPreset(randomFour());
+
+            paintBoard(null);
+            updateControls();
         }
 
     </script>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="../assets/logo.ico">
+    <link rel="icon" href="assets/logo.ico">
     <title>果汁龍的網站</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
@@ -181,10 +181,15 @@
         }
 
         h1 {
-            font-size: clamp(3rem, 8vw, 7rem);
+            /* 下限不能太大：#hero 是 align-items:flex-start 的 flex 容器，h1 會用 max-content
+               寬度，字級過大時「& algorithms.」單行就會撐破視窗（手機曾溢出到 435px） */
+            font-size: clamp(2rem, 9vw, 7rem);
             font-weight: 800;
             line-height: 1.05;
             letter-spacing: -0.02em;
+            width: 100%;
+            max-width: 100%;
+            overflow-wrap: break-word;
             opacity: 0;
             animation: fadeUp 0.8s 0.5s forwards;
         }
@@ -295,10 +300,13 @@
         }
 
         h2 {
-            font-size: clamp(2rem, 4vw, 3.5rem);
+            /* 下限同樣不能太大：Syne 800 的「Competition」單字在 2rem 下要 289px，
+               窄螢幕會撐破 #achievements 的容器 */
+            font-size: clamp(1.6rem, 4.5vw, 3.5rem);
             font-weight: 800;
             line-height: 1.1;
             margin-bottom: 1.5rem;
+            overflow-wrap: break-word;
         }
 
         p {
@@ -351,7 +359,8 @@
 
         .skills-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            /* min(…, 100%) 讓軌道在窄螢幕可以縮到比下限更小，否則 grid 會撐破容器 */
+            grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
             gap: 1.2rem;
             margin-top: 3rem;
         }
@@ -407,7 +416,7 @@
 
         .projects-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
             gap: 1.5rem;
             margin-top: 3rem;
         }
@@ -605,7 +614,7 @@
 
         .ach-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
             gap: 1rem;
             margin-top: 3rem;
         }
@@ -697,9 +706,40 @@
             #about,
             #skills,
             #projects,
+            #achievements,
             #contact {
                 padding-left: 6vw;
                 padding-right: 6vw;
+            }
+        }
+
+        /* 窄螢幕：.stat-num 的「100+」在 2.5rem 下無法斷行，
+           會把 1fr 1fr 撐成 125px/187px 而溢出，這裡改為單欄 */
+        @media (max-width: 420px) {
+            .about-stats {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .stat-box {
+                padding: 1.1rem 1.2rem;
+                display: flex;
+                align-items: baseline;
+                gap: 0.8rem;
+            }
+
+            .stat-num {
+                font-size: 1.9rem;
+            }
+
+            .stat-label {
+                margin-top: 0;
+            }
+
+            footer {
+                flex-direction: column;
+                gap: 0.6rem;
+                text-align: center;
             }
         }
     </style>
@@ -874,8 +914,9 @@
             <div class="project-card reveal">
                 <div class="project-tag">Algorithm / JS</div>
                 <div class="project-title">Pentomino 8x8 Solver</div>
-                <div class="project-desc">基於 Backtracking 演算法實作的高效能五格骨牌求解器。加入孤島偵測優化效能，並透過 Generator 支援多重解的動態視覺化展示。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                <div class="project-desc">基於 Backtracking 演算法實作的高效能五格骨牌求解器。加入孤島偵測剪枝，並用 Generator
+                    的時間切片讓搜尋可中斷、可顯示進度，支援逐一瀏覽多重解。經典的中央 2×2 缺口共有 520 個解。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="games/pentomino-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/pentomino.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
@@ -898,7 +939,8 @@
                 <div class="project-title">1A2B 猜數字</div>
                 <div class="project-desc">基於純前端技術實作的經典猜數字遊戲。具備動態粒子背景、猜測歷史紀錄面板，支援實體鍵盤操作，並結合 Canvas Confetti
                     特效提供過關回饋體驗。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="games/1A2B-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/1A2B.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
@@ -909,7 +951,8 @@
                 <div class="project-title">SET 練功房</div>
                 <div class="project-desc">經典邏輯桌遊 SET 的純前端練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合，並提供計時、SET
                     類型統計與可展開的規則說明。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="games/game-set-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/game-set.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
@@ -918,9 +961,12 @@
             <div class="project-card reveal" style="transition-delay:0.4s">
                 <div class="project-tag">Web Game / JS</div>
                 <div class="project-title">無限井字棋</div>
-                <div class="project-desc">井字棋的無限變體：每人場上最多 3 子，落下第 4 子時最舊的會消失，因此永遠不會平手。內建 negamax +
-                    Alpha-Beta 剪枝的 AI 對手（三種強度）、消失預告提示與先後手選擇。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                <div class="project-desc">井字棋的無限變體：每人場上最多 3 子，落下第 4 子時最舊的會消失。內建 negamax + Alpha-Beta 的 AI
+                    對手（三種強度）。我另外用逆向歸納把這個遊戲<strong style="color:var(--accent2)">完整求解</strong>了 ——
+                    116,074 個局面、先手必勝，而且只有下「邊」才贏。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="games/infinite-tictactoe-detail.html" class="project-link"
+                        style="margin-top:0;">技術介紹 →</a>
                     <a href="games/infinite-tictactoe.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
@@ -931,7 +977,8 @@
                 <div class="project-title">部落衝突卡牌交易站</div>
                 <div class="project-desc">為《部落衝突》玩家打造的多帳號卡牌收藏與交換管理器。支援跨帳號卡牌總表、交易配對推薦與資料設定，透過純前端與
                     localStorage 保存資料，方便管理多個帳號間的卡牌調度。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="games/coc-card-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/coc-card.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
@@ -1087,81 +1134,88 @@
         <span>Built with ♥ &amp; lots of ☕</span>
     </footer>
 
-    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
     <script>
         // ── Particle canvas ──
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let W, H, particles = [], mouse = {x: -9999, y: -9999};
+        // 包成函式並加能力檢測：隱私設定或擴充套件擋掉 canvas 時 getContext 會回 null，
+        // 若讓例外冒出去，後面的 typewriter 與 scroll reveal 都不會執行 ——
+        // 而 .reveal 預設是 opacity: 0，等於整頁內容永遠不會出現。
+        function initParticles() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+            if (!ctx) return;
+            let W, H, particles = [], mouse = {x: -9999, y: -9999};
 
-        function resize() {
-            W = canvas.width = window.innerWidth;
-            H = canvas.height = window.innerHeight;
-        }
-        resize();
-        window.addEventListener('resize', resize);
-        window.addEventListener('mousemove', e => {mouse.x = e.clientX; mouse.y = e.clientY;});
-
-        class Particle {
-            constructor() {this.reset();}
-            reset() {
-                this.x = Math.random() * W;
-                this.y = Math.random() * H;
-                this.vx = (Math.random() - 0.5) * 0.4;
-                this.vy = (Math.random() - 0.5) * 0.4;
-                this.r = Math.random() * 1.5 + 0.5;
-                this.alpha = Math.random() * 0.5 + 0.1;
-                this.color = Math.random() > 0.5 ? '#7c3aed' : '#06b6d4';
+            function resize() {
+                W = canvas.width = window.innerWidth;
+                H = canvas.height = window.innerHeight;
             }
-            update() {
-                const dx = mouse.x - this.x, dy = mouse.y - this.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 150) {
-                    this.vx += (dx / dist) * 0.015;
-                    this.vy += (dy / dist) * 0.015;
+            resize();
+            window.addEventListener('resize', resize);
+            window.addEventListener('mousemove', e => {mouse.x = e.clientX; mouse.y = e.clientY;});
+
+            class Particle {
+                constructor() {this.reset();}
+                reset() {
+                    this.x = Math.random() * W;
+                    this.y = Math.random() * H;
+                    this.vx = (Math.random() - 0.5) * 0.4;
+                    this.vy = (Math.random() - 0.5) * 0.4;
+                    this.r = Math.random() * 1.5 + 0.5;
+                    this.alpha = Math.random() * 0.5 + 0.1;
+                    this.color = Math.random() > 0.5 ? '#7c3aed' : '#06b6d4';
                 }
-                this.vx *= 0.995; this.vy *= 0.995;
-                this.x += this.vx; this.y += this.vy;
-                if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+                update() {
+                    const dx = mouse.x - this.x, dy = mouse.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 150) {
+                        this.vx += (dx / dist) * 0.015;
+                        this.vy += (dy / dist) * 0.015;
+                    }
+                    this.vx *= 0.995; this.vy *= 0.995;
+                    this.x += this.vx; this.y += this.vy;
+                    if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = this.alpha;
+                    ctx.fill();
+                }
             }
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.globalAlpha = this.alpha;
-                ctx.fill();
-            }
-        }
 
-        for (let i = 0; i < 120; i++) particles.push(new Particle());
+            for (let i = 0; i < 120; i++) particles.push(new Particle());
 
-        function drawLines() {
-            for (let i = 0; i < particles.length; i++) {
-                for (let j = i + 1; j < particles.length; j++) {
-                    const dx = particles[i].x - particles[j].x;
-                    const dy = particles[i].y - particles[j].y;
-                    const d = Math.sqrt(dx * dx + dy * dy);
-                    if (d < 100) {
-                        ctx.beginPath();
-                        ctx.moveTo(particles[i].x, particles[i].y);
-                        ctx.lineTo(particles[j].x, particles[j].y);
-                        ctx.strokeStyle = '#7c3aed';
-                        ctx.globalAlpha = (1 - d / 100) * 0.15;
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
+            function drawLines() {
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const d = Math.sqrt(dx * dx + dy * dy);
+                        if (d < 100) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = '#7c3aed';
+                            ctx.globalAlpha = (1 - d / 100) * 0.15;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
                     }
                 }
             }
+
+            function animate() {
+                ctx.clearRect(0, 0, W, H);
+                particles.forEach(p => {p.update(); p.draw();});
+                drawLines();
+                ctx.globalAlpha = 1;
+                requestAnimationFrame(animate);
+            }
+            animate();
         }
 
-        function animate() {
-            ctx.clearRect(0, 0, W, H);
-            particles.forEach(p => {p.update(); p.draw();});
-            drawLines();
-            ctx.globalAlpha = 1;
-            requestAnimationFrame(animate);
-        }
-        animate();
+        try { initParticles(); } catch (err) { /* 背景動畫是裝飾，失敗不影響頁面內容 */ }
 
         // ── Typewriter ──
         const phrases = [

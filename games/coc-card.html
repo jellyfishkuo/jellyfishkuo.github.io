@@ -896,7 +896,7 @@
     </footer>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
     (function () {
@@ -964,22 +964,74 @@
         };
       }
 
+      // 把外部來源（localStorage / 匯入檔）的資料整理成程式能安全使用的形狀。
+      // 原本只檢查 cards / accounts 是否為 truthy，型別不對或分區代號不存在時，
+      // 後面的 state.cards.filter 或 getCategory(...).color 會直接 TypeError，
+      // 而壞資料已經寫進 localStorage，連重新整理都救不回來。
+      function normalizeState(s) {
+        if (!s || typeof s !== "object") return null;
+        if (!Array.isArray(s.cards) || !Array.isArray(s.accounts)) return null;
+
+        var validCatIds = CATEGORY_DEFS.map(function (c) { return c.id; });
+        s.cards = s.cards
+          .filter(function (c) {
+            return c && typeof c.id === "string" && validCatIds.indexOf(c.categoryId) !== -1;
+          })
+          .map(function (c) {
+            return {
+              id: c.id,
+              categoryId: c.categoryId,
+              name: (typeof c.name === "string" && c.name.trim()) ? c.name : c.id
+            };
+          });
+        if (!s.cards.length) return null;
+
+        s.accounts = s.accounts
+          .filter(function (a) { return a && typeof a.id === "string"; })
+          .map(function (a) {
+            var raw = (a.inventory && typeof a.inventory === "object") ? a.inventory : {};
+            var inv = {};
+            Object.keys(raw).forEach(function (k) {
+              // 數量若是字串，adjustCount 的 cur + delta 會變成字串串接（"3" + 1 = "31"）
+              var n = parseInt(raw[k], 10);
+              if (!isNaN(n) && n > 0) inv[k] = n;
+            });
+            return {
+              id: a.id,
+              name: (typeof a.name === "string" && a.name.trim()) ? a.name : "未命名帳號",
+              inventory: inv
+            };
+          });
+
+        if (!s.ui || typeof s.ui !== "object") s.ui = defaultState().ui;
+        return s;
+      }
+
       function loadState() {
         try {
           var raw = localStorage.getItem(STORAGE_KEY);
           if (!raw) return defaultState();
-          var parsed = JSON.parse(raw);
-          if (!parsed.cards || !parsed.accounts) return defaultState();
-          if (!parsed.ui) parsed.ui = { view: "inventory", activeAccountId: null, matrixCat: "holy", tradeA: null, tradeB: null, tradeCat: "holy", pickX: null, pickY: null };
-          return parsed;
+          var clean = normalizeState(JSON.parse(raw));
+          return clean || defaultState();
         } catch (e) {
           console.error("讀取資料失敗，改用預設值", e);
           return defaultState();
         }
       }
 
+      // 寫入要和讀取一樣有容錯：Safari 私密瀏覽、儲存空間滿、
+      // 或使用者停用 cookie 時 setItem 會直接 throw。
+      // 若不接住，例外會從 mutation 一路冒出去，連後面的 render() 都不會執行，
+      // 使用者只會看到「按了沒反應」。
       function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          return true;
+        } catch (e) {
+          console.error("儲存失敗", e);
+          showToast("⚠ 無法儲存：瀏覽器空間不足或處於私密瀏覽模式，這次的變更重新整理後會消失");
+          return false;
+        }
       }
 
       var state = loadState();
@@ -1049,6 +1101,9 @@
         ensureActiveAccount();
         if (state.ui.tradeA === id) state.ui.tradeA = null;
         if (state.ui.tradeB === id) state.ui.tradeB = null;
+        // 連帶清掉已選的卡，否則刪帳號後預覽區還留著上一組選擇
+        state.ui.pickX = null;
+        state.ui.pickY = null;
         saveState(); render();
       }
 
@@ -1151,8 +1206,10 @@
         var url = URL.createObjectURL(blob);
         var a = document.createElement("a");
         var d = new Date();
+        // 用本地日期，不要用 toISOString()（那是 UTC，台灣早上 8 點前會標成前一天）
+        var stamp = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
         a.href = url;
-        a.download = "card-trade-manager-backup-" + d.toISOString().slice(0, 10) + ".json";
+        a.download = "card-trade-manager-backup-" + stamp + ".json";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1163,11 +1220,10 @@
         var reader = new FileReader();
         reader.onload = function (e) {
           try {
-            var parsed = JSON.parse(e.target.result);
-            if (!parsed.cards || !parsed.accounts) throw new Error("格式不正確");
+            var parsed = normalizeState(JSON.parse(e.target.result));
+            if (!parsed) throw new Error("格式不正確");
             if (!confirm("匯入將會覆蓋目前所有資料，確定要繼續嗎？")) return;
             state = parsed;
-            if (!state.ui) state.ui = { view: "inventory", activeAccountId: null, matrixCat: "holy", tradeA: null, tradeB: null, tradeCat: "holy", pickX: null, pickY: null };
             ensureActiveAccount();
             saveState();
             render();
