@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/puzzle.ico">
+    <title>無限井字棋</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #05050f;
+            --surface: rgba(13, 13, 30, 0.8);
+            --border: rgba(124, 58, 237, 0.25);
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --x-color: #06b6d4;
+            --o-color: #f472b6;
+            --mono: 'Space Mono', monospace;
+            --sans: 'Syne', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            overflow-x: hidden;
+        }
+
+        #canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .shell {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 4rem;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 1.4rem;
+            left: 1.5rem;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-decoration: none;
+            letter-spacing: 0.08em;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: var(--accent2);
+        }
+
+        .hero-tag {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--accent2);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            margin-bottom: 0.6rem;
+        }
+
+        .game-title {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+
+        .game-title .gradient {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .game-sub {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: 0.8rem;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Layout ── */
+        .game-area {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 300px;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            backdrop-filter: blur(14px);
+            padding: 1.5rem;
+            box-shadow: 0 20px 45px -20px rgba(0, 0, 0, 0.7);
+        }
+
+        /* ── Status ── */
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.7rem;
+            font-family: var(--mono);
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            min-height: 2rem;
+            margin-bottom: 1.2rem;
+            text-align: center;
+        }
+
+        .turn-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.9rem;
+            height: 1.9rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-family: var(--sans);
+            font-size: 1.05rem;
+            border: 1px solid currentColor;
+        }
+
+        .turn-chip.x {
+            color: var(--x-color);
+            background: rgba(6, 182, 212, 0.12);
+        }
+
+        .turn-chip.o {
+            color: var(--o-color);
+            background: rgba(244, 114, 182, 0.12);
+        }
+
+        /* ── Board ── */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .cell {
+            position: relative;
+            aspect-ratio: 1;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            padding: 14%;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: inherit;
+            color: inherit;
+        }
+
+        .cell:hover:not(:disabled):not(.filled) {
+            border-color: rgba(124, 58, 237, 0.6);
+            background: rgba(124, 58, 237, 0.08);
+        }
+
+        .cell:focus-visible {
+            outline: 2px solid var(--accent2);
+            outline-offset: 3px;
+        }
+
+        .cell:disabled {
+            cursor: default;
+        }
+
+        .cell.filled {
+            cursor: default;
+        }
+
+        .cell-index {
+            position: absolute;
+            top: 7px;
+            left: 9px;
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: rgba(148, 163, 184, 0.35);
+            line-height: 1;
+        }
+
+        .cell svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .cell svg path,
+        .cell svg circle {
+            fill: none;
+            stroke-width: 11;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .mark-x path {
+            stroke: var(--x-color);
+            filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.5));
+        }
+
+        .mark-o circle {
+            stroke: var(--o-color);
+            filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.45));
+        }
+
+        /* 落子動畫 */
+        .cell.pop svg {
+            animation: pop 0.25s ease-out;
+        }
+
+        @keyframes pop {
+            from {
+                transform: scale(0.4);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 下一手就會消失的棋子 */
+        .cell.doomed svg {
+            animation: doom 1.4s ease-in-out infinite;
+        }
+
+        .cell.doomed {
+            border-style: dashed;
+            border-color: rgba(148, 163, 184, 0.4);
+        }
+
+        @keyframes doom {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.22;
+            }
+        }
+
+        .cell.win {
+            border-color: rgba(124, 58, 237, 0.9);
+            background: rgba(124, 58, 237, 0.18);
+            animation: winPulse 0.9s ease-in-out infinite;
+        }
+
+        @keyframes winPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 22px 4px rgba(124, 58, 237, 0.35);
+            }
+        }
+
+        /* ── Controls ── */
+        .controls {
+            display: flex;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 1.6rem;
+        }
+
+        .btn {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.7rem 1.4rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.3s, border-color 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 8px 26px rgba(124, 58, 237, 0.35);
+        }
+
+        /* ── Side panel ── */
+        .side-title {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--accent2);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .side-block + .side-block {
+            margin-top: 1.8rem;
+            padding-top: 1.6rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.6rem;
+            text-align: center;
+        }
+
+        .score-box {
+            padding: 0.8rem 0.4rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .score-num {
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .score-num.x {
+            color: var(--x-color);
+        }
+
+        .score-num.o {
+            color: var(--o-color);
+        }
+
+        .score-label {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            color: var(--muted);
+            margin-top: 0.3rem;
+            letter-spacing: 0.05em;
+        }
+
+        .field {
+            margin-bottom: 0.9rem;
+        }
+
+        .field label {
+            display: block;
+            font-family: var(--mono);
+            font-size: 0.66rem;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+
+        select {
+            width: 100%;
+            padding: 0.6rem 0.7rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(13, 13, 30, 0.95);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        select:focus-visible {
+            outline: 2px solid var(--accent2);
+            outline-offset: 2px;
+        }
+
+        .log {
+            max-height: 240px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            font-family: var(--mono);
+            font-size: 0.74rem;
+        }
+
+        .log-empty {
+            color: var(--muted);
+        }
+
+        .log-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid transparent;
+        }
+
+        .log-row.x {
+            border-left-color: var(--x-color);
+        }
+
+        .log-row.o {
+            border-left-color: var(--o-color);
+        }
+
+        .log-no {
+            color: var(--muted);
+            font-size: 0.68rem;
+            min-width: 1.7rem;
+        }
+
+        .log-vanish {
+            color: var(--muted);
+            font-size: 0.68rem;
+        }
+
+        /* ── Rules ── */
+        .rules {
+            margin-top: 1.8rem;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(13, 13, 30, 0.6);
+            overflow: hidden;
+        }
+
+        .rules summary {
+            padding: 1rem 1.4rem;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.95rem;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .rules summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .rules summary::after {
+            content: "▼";
+            font-size: 0.7rem;
+            color: var(--muted);
+        }
+
+        .rules[open] summary::after {
+            content: "▲";
+        }
+
+        .rules-content {
+            padding: 0 1.4rem 1.3rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.08);
+        }
+
+        .rules-content ul {
+            margin-top: 1rem;
+            padding-left: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.7;
+        }
+
+        .rules-content strong {
+            color: var(--text);
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 2.5rem;
+            transform: translate(-50%, 1.5rem);
+            padding: 0.9rem 1.6rem;
+            border-radius: 10px;
+            background: rgba(13, 13, 30, 0.95);
+            border: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s, transform 0.25s, visibility 0.25s;
+            z-index: 999;
+            text-align: center;
+            max-width: 90vw;
+        }
+
+        .toast.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, 0);
+        }
+
+        @media (max-width: 860px) {
+            .game-area {
+                grid-template-columns: 1fr;
+            }
+
+            .shell {
+                padding-top: 3.6rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="shell">
+        <a href="../index.html" class="back-link">← 回到首頁</a>
+
+        <div class="header">
+            <div class="hero-tag">// Web Game</div>
+            <h1 class="game-title">無限<span class="gradient">井字棋</span></h1>
+            <div class="game-sub">每人場上最多 3 子 — 下第 4 子時，最舊的那顆會消失。永遠不會平手。</div>
+        </div>
+
+        <div class="game-area">
+            <section class="panel">
+                <div class="status" id="status" role="status" aria-live="polite"></div>
+
+                <div class="board" id="board"></div>
+
+                <div class="controls">
+                    <button class="btn btn-primary" id="btn-restart">重新開始</button>
+                    <button class="btn" id="btn-reset-score">歸零比分</button>
+                </div>
+            </section>
+
+            <aside class="panel">
+                <div class="side-block">
+                    <div class="side-title">比分</div>
+                    <div class="score-grid">
+                        <div class="score-box">
+                            <div class="score-num x" id="score-x">0</div>
+                            <div class="score-label">X 勝</div>
+                        </div>
+                        <div class="score-box">
+                            <div class="score-num o" id="score-o">0</div>
+                            <div class="score-label">O 勝</div>
+                        </div>
+                        <div class="score-box">
+                            <div class="score-num" id="score-round">1</div>
+                            <div class="score-label">第幾局</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="side-block">
+                    <div class="side-title">設定</div>
+                    <div class="field">
+                        <label for="sel-mode">對手</label>
+                        <select id="sel-mode">
+                            <option value="pvp">雙人對戰</option>
+                            <option value="ai" selected>電腦對戰</option>
+                        </select>
+                    </div>
+                    <div class="field ai-only" id="field-level">
+                        <label for="sel-level">電腦強度</label>
+                        <select id="sel-level">
+                            <option value="easy">簡單</option>
+                            <option value="normal" selected>普通</option>
+                            <option value="hard">困難</option>
+                        </select>
+                    </div>
+                    <div class="field ai-only" id="field-side">
+                        <label for="sel-side">你的角色</label>
+                        <select id="sel-side">
+                            <option value="1" selected>X（先手，較有利）</option>
+                            <option value="2">O（後手，挑戰）</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="side-block">
+                    <div class="side-title">步數紀錄</div>
+                    <div class="log" id="log">
+                        <span class="log-empty">還沒有落子</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <details class="rules">
+            <summary>📜 遊戲規則（點擊展開）</summary>
+            <div class="rules-content">
+                <ul>
+                    <li><strong>基本盤：</strong>3×3 棋盤，X 先下，輪流落子，先連成一線（橫、豎、斜）者勝。</li>
+                    <li><strong>三子上限：</strong>每位玩家在盤面上最多只能有 <strong>3 顆棋子</strong>。當你落下第 4 子時，你<strong>最早放的那一顆會同時消失</strong>。</li>
+                    <li><strong>消失預告：</strong>當你已經有 3 顆子時，下一手將被移除的棋子會以<strong>虛線框閃爍</strong>提示。</li>
+                    <li><strong>連線判定：</strong>勝負以「落子並移除舊子之後」的盤面計算。也就是說，如果連線需要用到即將消失的那顆棋子，這步<strong>不算贏</strong>。</li>
+                    <li><strong>沒有平手：</strong>盤面永遠不會被填滿，所以這個遊戲不存在和局，只會有人先連成一線。</li>
+                    <li><strong>快捷鍵：</strong>數字鍵 <strong>1–9</strong> 對應九宮格落子，<strong>R</strong> 重新開始一局。</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        (function () {
+            "use strict";
+
+            /* ────────────── 背景粒子（純裝飾，失敗不影響遊戲） ────────────── */
+            function initBackground() {
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+                if (!ctx) return;                 // 環境不支援 canvas 就跳過背景
+                let W, H;
+                const mouse = { x: -9999, y: -9999 };
+                const particles = [];
+
+                function resize() {
+                    W = canvas.width = window.innerWidth;
+                    H = canvas.height = window.innerHeight;
+                }
+                resize();
+                window.addEventListener('resize', resize);
+                window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+                class Particle {
+                    constructor() { this.reset(); }
+                    reset() {
+                        this.x = Math.random() * W;
+                        this.y = Math.random() * H;
+                        this.vx = (Math.random() - 0.5) * 0.4;
+                        this.vy = (Math.random() - 0.5) * 0.4;
+                        this.r = Math.random() * 1.5 + 0.5;
+                        this.alpha = Math.random() * 0.5 + 0.1;
+                        this.color = Math.random() > 0.5 ? '#7c3aed' : '#06b6d4';
+                    }
+                    update() {
+                        const dx = mouse.x - this.x, dy = mouse.y - this.y;
+                        const dist = Math.hypot(dx, dy);
+                        if (dist < 150 && dist > 0) {
+                            this.vx += (dx / dist) * 0.015;
+                            this.vy += (dy / dist) * 0.015;
+                        }
+                        this.vx *= 0.995; this.vy *= 0.995;
+                        this.x += this.vx; this.y += this.vy;
+                        if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+                    }
+                    draw() {
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                        ctx.fillStyle = this.color;
+                        ctx.globalAlpha = this.alpha;
+                        ctx.fill();
+                    }
+                }
+
+                for (let i = 0; i < 90; i++) particles.push(new Particle());
+
+                function drawLines() {
+                    for (let i = 0; i < particles.length; i++) {
+                        for (let j = i + 1; j < particles.length; j++) {
+                            const dx = particles[i].x - particles[j].x;
+                            const dy = particles[i].y - particles[j].y;
+                            const d = Math.hypot(dx, dy);
+                            if (d < 100) {
+                                ctx.beginPath();
+                                ctx.moveTo(particles[i].x, particles[i].y);
+                                ctx.lineTo(particles[j].x, particles[j].y);
+                                ctx.strokeStyle = '#7c3aed';
+                                ctx.globalAlpha = (1 - d / 100) * 0.15;
+                                ctx.lineWidth = 0.5;
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+
+                function animate() {
+                    ctx.clearRect(0, 0, W, H);
+                    particles.forEach(p => { p.update(); p.draw(); });
+                    drawLines();
+                    ctx.globalAlpha = 1;
+                    requestAnimationFrame(animate);
+                }
+                animate();
+            }
+
+            try { initBackground(); } catch (err) { /* 背景動畫失敗就算了，遊戲照常 */ }
+
+            /* ────────────── 遊戲核心 ────────────── */
+            const X = 1, O = 2;
+            const MAX_PIECES = 3;
+            const LINES = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+
+            function newState() {
+                return {
+                    cells: new Array(9).fill(0),
+                    queues: { 1: [], 2: [] },
+                    turn: X
+                };
+            }
+
+            // 落子：放上新子，若超過上限則同時移除最舊的一顆。回傳被移除的位置（無則 -1）
+            function place(st, pos) {
+                const p = st.turn;
+                st.cells[pos] = p;
+                const q = st.queues[p];
+                q.push(pos);
+                let removed = -1;
+                if (q.length > MAX_PIECES) {
+                    removed = q.shift();
+                    st.cells[removed] = 0;
+                }
+                st.turn = 3 - p;
+                return removed;
+            }
+
+            // 還原一步（供 AI 搜尋回溯用）
+            function unplace(st, pos, removed, player) {
+                st.cells[pos] = 0;
+                st.queues[player].pop();
+                if (removed >= 0) {
+                    st.queues[player].unshift(removed);
+                    st.cells[removed] = player;
+                }
+                st.turn = player;
+            }
+
+            function winningLine(st, p) {
+                for (const line of LINES) {
+                    if (st.cells[line[0]] === p && st.cells[line[1]] === p && st.cells[line[2]] === p) {
+                        return line;
+                    }
+                }
+                return null;
+            }
+
+            function emptyCells(st) {
+                const out = [];
+                for (let i = 0; i < 9; i++) if (st.cells[i] === 0) out.push(i);
+                return out;
+            }
+
+            // 下一手會消失的棋子位置（尚未滿 3 子則為 -1）
+            function doomedCell(st, p) {
+                const q = st.queues[p];
+                return q.length >= MAX_PIECES ? q[0] : -1;
+            }
+
+            /* ────────────── AI（negamax + alpha-beta） ────────────── */
+            const CENTER_BONUS = [0, 0, 0, 0, 3, 0, 0, 0, 0];
+            const CORNER_BONUS = [1, 0, 1, 0, 0, 0, 1, 0, 1];
+
+            function lineScore(st, p) {
+                const doomed = doomedCell(st, p);
+                const opp = 3 - p;
+                let s = 0;
+                for (const line of LINES) {
+                    let mine = 0, theirs = 0, doomedInLine = false;
+                    for (const idx of line) {
+                        if (st.cells[idx] === p) {
+                            mine++;
+                            if (idx === doomed) doomedInLine = true;
+                        } else if (st.cells[idx] === opp) {
+                            theirs++;
+                        }
+                    }
+                    if (theirs > 0) continue;
+                    if (mine === 2) s += doomedInLine ? 3 : 12;  // 用到即將消失的子，威脅大打折
+                    else if (mine === 1) s += 1;
+                }
+                for (let i = 0; i < 9; i++) {
+                    if (st.cells[i] === p) s += CENTER_BONUS[i] + CORNER_BONUS[i];
+                }
+                return s;
+            }
+
+            // 從 st.turn（該走的一方）的角度評分
+            function evaluate(st) {
+                const me = st.turn;
+                return lineScore(st, me) - 1.15 * lineScore(st, 3 - me);
+            }
+
+            const WIN_SCORE = 100000;
+
+            function negamax(st, depth, alpha, beta) {
+                const moves = emptyCells(st);
+                let best = -Infinity;
+                let bestMove = moves[0];
+
+                for (const m of moves) {
+                    const player = st.turn;
+                    const removed = place(st, m);
+                    let score;
+                    if (winningLine(st, player)) {
+                        score = WIN_SCORE + depth;            // 越早贏越好
+                    } else if (depth <= 1) {
+                        score = -evaluate(st);                 // st.turn 已換人，取負轉回 player 視角
+                    } else {
+                        score = -negamax(st, depth - 1, -beta, -alpha).score;
+                    }
+                    unplace(st, m, removed, player);
+
+                    if (score > best) { best = score; bestMove = m; }
+                    if (score > alpha) alpha = score;
+                    if (alpha >= beta) break;
+                }
+                return { score: best, move: bestMove };
+            }
+
+            const DEPTH = { easy: 2, normal: 5, hard: 12 };
+            const BLUNDER = { easy: 0.45, normal: 0.12, hard: 0 };
+
+            function pickAiMove(st, level) {
+                const moves = emptyCells(st);
+                if (moves.length === 0) return -1;
+
+                // 一定要先擋掉「對手下一手就贏」以外，弱等級會偶爾亂下
+                if (Math.random() < (BLUNDER[level] || 0)) {
+                    return moves[Math.floor(Math.random() * moves.length)];
+                }
+
+                // 打散順序，避免同分時總是選同一格，讓對局有變化
+                const order = moves.slice();
+                for (let i = order.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [order[i], order[j]] = [order[j], order[i]];
+                }
+
+                const work = {
+                    cells: st.cells.slice(),
+                    queues: { 1: st.queues[1].slice(), 2: st.queues[2].slice() },
+                    turn: st.turn
+                };
+
+                const depth = DEPTH[level] || 4;
+                let best = -Infinity, bestMove = order[0];
+                let alpha = -Infinity;
+
+                for (const m of order) {
+                    const player = work.turn;
+                    const removed = place(work, m);
+                    let score;
+                    if (winningLine(work, player)) {
+                        score = WIN_SCORE + depth;
+                    } else if (depth <= 1) {
+                        score = -evaluate(work);
+                    } else {
+                        score = -negamax(work, depth - 1, -Infinity, -alpha).score;
+                    }
+                    unplace(work, m, removed, player);
+
+                    if (score > best) { best = score; bestMove = m; alpha = score; }
+                }
+                return bestMove;
+            }
+
+            /* ────────────── UI ────────────── */
+            const boardEl = document.getElementById('board');
+            const statusEl = document.getElementById('status');
+            const logEl = document.getElementById('log');
+            const toastEl = document.getElementById('toast');
+            const scoreXEl = document.getElementById('score-x');
+            const scoreOEl = document.getElementById('score-o');
+            const scoreRoundEl = document.getElementById('score-round');
+            const selMode = document.getElementById('sel-mode');
+            const selLevel = document.getElementById('sel-level');
+            const selSide = document.getElementById('sel-side');
+            const aiOnlyFields = Array.from(document.querySelectorAll('.ai-only'));
+
+            const MARK_SVG = {
+                1: '<svg class="mark-x" viewBox="0 0 100 100" aria-hidden="true"><path d="M18 18 L82 82"/><path d="M82 18 L18 82"/></svg>',
+                2: '<svg class="mark-o" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="32"/></svg>'
+            };
+            const MARK_TEXT = { 1: 'X', 2: 'O' };
+
+            let state = newState();
+            let cellEls = [];
+            let lastMove = -1;
+            let winner = 0;
+            let winLine = null;
+            let locked = false;      // AI 思考中或已結束時鎖住輸入
+            let moveNo = 0;
+            let logRows = [];
+            let score = { 1: 0, 2: 0 };
+            let round = 1;
+            let toastTimer = null;
+
+            function buildBoard() {
+                boardEl.innerHTML = '';
+                cellEls = [];
+                for (let i = 0; i < 9; i++) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'cell';
+                    btn.dataset.pos = String(i);
+                    btn.innerHTML = `<span class="cell-index">${i + 1}</span>`;
+                    btn.addEventListener('click', () => onCellClick(i));
+                    boardEl.appendChild(btn);
+                    cellEls.push(btn);
+                }
+            }
+
+            // 人類在 AI 模式下執的一方（pvp 模式沒有意義）
+            function humanSide() {
+                return Number(selSide.value) === O ? O : X;
+            }
+
+            function isAiTurn() {
+                return selMode.value === 'ai' && state.turn !== humanSide() && !winner;
+            }
+
+            function render() {
+                const doomX = doomedCell(state, X);
+                const doomO = doomedCell(state, O);
+
+                cellEls.forEach((el, i) => {
+                    const v = state.cells[i];
+                    const marked = v !== 0;
+
+                    el.className = 'cell' + (marked ? ' filled' : '');
+                    el.innerHTML = `<span class="cell-index">${i + 1}</span>` + (marked ? MARK_SVG[v] : '');
+                    el.disabled = marked || locked || !!winner;
+
+                    if (marked && i === lastMove) el.classList.add('pop');
+
+                    // 只提示「輪到的那一方」即將消失的棋子，避免畫面太吵
+                    const doomed = state.turn === X ? doomX : doomO;
+                    if (!winner && marked && i === doomed) el.classList.add('doomed');
+
+                    if (winLine && winLine.includes(i)) el.classList.add('win');
+
+                    el.setAttribute('aria-label', marked
+                        ? `第 ${i + 1} 格：${MARK_TEXT[v]}`
+                        : `第 ${i + 1} 格：空格`);
+                });
+
+                renderStatus();
+                renderLog();
+                scoreXEl.textContent = score[X];
+                scoreOEl.textContent = score[O];
+                scoreRoundEl.textContent = round;
+            }
+
+            function renderStatus() {
+                if (winner) {
+                    const who = selMode.value === 'ai'
+                        ? (winner === humanSide() ? '你贏了！' : '電腦贏了')
+                        : '連成一線，獲勝！';
+                    statusEl.innerHTML =
+                        `<span class="turn-chip ${winner === X ? 'x' : 'o'}">${MARK_TEXT[winner]}</span>
+                         <span>${who}</span>`;
+                    return;
+                }
+
+                const p = state.turn;
+                const doom = doomedCell(state, p);
+                let label = selMode.value === 'ai'
+                    ? (p === humanSide() ? '換你下' : '電腦思考中…')
+                    : `輪到 ${MARK_TEXT[p]}`;
+                const hint = doom >= 0 ? `　·　落子後第 ${doom + 1} 格會消失` : '';
+
+                statusEl.innerHTML =
+                    `<span class="turn-chip ${p === X ? 'x' : 'o'}">${MARK_TEXT[p]}</span>
+                     <span>${label}${hint}</span>`;
+            }
+
+            function renderLog() {
+                if (logRows.length === 0) {
+                    logEl.innerHTML = '<span class="log-empty">還沒有落子</span>';
+                    return;
+                }
+                logEl.innerHTML = logRows.map(r => `
+                    <div class="log-row ${r.player === X ? 'x' : 'o'}">
+                        <span class="log-no">${r.no}.</span>
+                        <span>${MARK_TEXT[r.player]} → 第 ${r.pos + 1} 格</span>
+                        ${r.removed >= 0 ? `<span class="log-vanish">(第 ${r.removed + 1} 格消失)</span>` : ''}
+                    </div>`).reverse().join('');
+                logEl.scrollTop = 0;
+            }
+
+            function showToast(msg, ms = 2600) {
+                toastEl.textContent = msg;
+                toastEl.classList.add('show');
+                if (toastTimer) clearTimeout(toastTimer);
+                if (ms > 0) toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+            }
+
+            function celebrate() {
+                if (typeof confetti !== 'function') return;
+                confetti({ particleCount: 90, spread: 70, origin: { y: 0.65 }, colors: ['#7c3aed', '#06b6d4', '#f472b6'] });
+            }
+
+            function doMove(pos) {
+                const player = state.turn;
+                const removed = place(state, pos);
+                lastMove = pos;
+                moveNo++;
+                logRows.push({ no: moveNo, player, pos, removed });
+
+                const line = winningLine(state, player);
+                if (line) {
+                    winner = player;
+                    winLine = line;
+                    locked = true;
+                    score[player]++;
+                    render();
+                    const playerIsHuman = selMode.value !== 'ai' || player === humanSide();
+                    if (playerIsHuman) celebrate();
+                    showToast(selMode.value === 'ai'
+                        ? (playerIsHuman ? '🎉 你連成一線，贏了！' : '💀 電腦連成一線了，再來一局？')
+                        : `🎉 ${MARK_TEXT[player]} 連成一線，獲勝！`, 0);
+                    return;
+                }
+
+                render();
+                maybeAiMove();
+            }
+
+            function maybeAiMove() {
+                if (!isAiTurn()) return;
+                locked = true;
+                render();
+                // 稍等一下再下，讓玩家看清盤面變化
+                setTimeout(() => {
+                    const pos = pickAiMove(state, selLevel.value);
+                    locked = false;
+                    if (pos >= 0) doMove(pos);
+                    else render();
+                }, 420);
+            }
+
+            function onCellClick(pos) {
+                if (winner || locked) return;
+                if (state.cells[pos] !== 0) return;
+                doMove(pos);
+            }
+
+            function restart(keepScore = true) {
+                state = newState();
+                lastMove = -1;
+                winner = 0;
+                winLine = null;
+                locked = false;
+                moveNo = 0;
+                logRows = [];
+                if (!keepScore) { score = { 1: 0, 2: 0 }; round = 1; }
+                toastEl.classList.remove('show');
+                render();
+                maybeAiMove();
+            }
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                if (moveNo > 0) round++;
+                restart(true);
+            });
+
+            document.getElementById('btn-reset-score').addEventListener('click', () => {
+                restart(false);
+                showToast('比分已歸零');
+            });
+
+            function syncSettingsVisibility() {
+                const show = selMode.value === 'ai';
+                aiOnlyFields.forEach(el => { el.style.display = show ? '' : 'none'; });
+            }
+
+            function newSession() {
+                syncSettingsVisibility();
+                round = 1;
+                score = { 1: 0, 2: 0 };
+                restart(true);
+            }
+
+            selMode.addEventListener('change', newSession);
+            selLevel.addEventListener('change', newSession);
+            selSide.addEventListener('change', newSession);
+
+            document.addEventListener('keydown', e => {
+                if (e.target instanceof HTMLSelectElement) return;
+                if (e.key >= '1' && e.key <= '9') {
+                    onCellClick(Number(e.key) - 1);
+                } else if (e.key === 'r' || e.key === 'R') {
+                    if (moveNo > 0) round++;
+                    restart(true);
+                }
+            });
+
+            buildBoard();
+            syncSettingsVisibility();
+            restart(true);
+        })();
+    </script>
+</body>
+
+</html>
