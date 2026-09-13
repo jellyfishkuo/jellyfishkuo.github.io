@@ -32,7 +32,7 @@
            ① 寬度：托盤在手機上是 10 格寬，10 × 9vw = 90vw 剛好塞得進畫面
            ② 高度：4.6dvh 讓棋盤隨畫面高度縮放，盡量讓棋盤與托盤同時看得到
            上限 44px 是為了平板不要過大 */
-        @media (max-width: 1000px) {
+        @media (max-width: 1190px) {
             :root {
                 --cell-size: min(9vw, 4.6dvh, 44px);
                 --board-pad: 6px;
@@ -202,13 +202,13 @@
             align-items: center;
         }
 
-        @media (min-width: 1001px) {
+        @media (min-width: 1191px) {
             .right-tray {
                 justify-content: center;
             }
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1190px) {
             .tray-panel {
                 padding: 8px;
                 border-radius: 14px;
@@ -248,6 +248,8 @@
                所以框的大小必然一致，切換分頁不會跳動 */
             width: max-content;
             max-width: 100%;
+            margin-left: auto;
+            margin-right: auto;
             padding: var(--board-pad);
             background: #334155;
             border: 1px solid #0f172a;
@@ -320,7 +322,7 @@
             padding: 11px 8px;
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1190px) {
             .controls {
                 gap: 5px;
             }
@@ -333,7 +335,7 @@
             height: 40px;
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1190px) {
             .share-container {
                 height: 32px;
             }
@@ -357,7 +359,7 @@
             align-self: flex-start;
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1190px) {
             .tray-label {
                 align-self: center;
                 margin-bottom: 5px;
@@ -422,12 +424,17 @@
             box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
         }
 
+        /* 表頭高度在兩個模式中鎖成一致：棋盤上方只有這一塊，
+           高度固定 → 切換分頁時棋盤的垂直位置完全不會跳動 */
         .s-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 14px;
+            /* 下限要比兩個模式的表頭內容都高（實測最高 78.7px），
+               否則內容較多的那一邊會把表頭撐高、棋盤就跟著往下移 */
+            min-height: 80px;
         }
 
         .s-title {
@@ -498,7 +505,8 @@
             align-items: center;
             gap: 6px;
             flex-wrap: wrap;
-            margin-bottom: 14px;
+            justify-content: center;
+            margin-top: 14px;
         }
 
         .s-presets-label {
@@ -533,10 +541,6 @@
 
         /* #s-board 的外框與格子尺寸已與 #board 共用（見上方每日挑戰區段），
            這裡只留求解器自己的互動狀態 */
-        #s-board {
-            margin: 0 auto;
-        }
-
         .s-cell {
             cursor: pointer;
             transition: background 0.2s;
@@ -773,12 +777,19 @@
         }
         /* ── 手機版 play 模式的壓縮樣式 ──
            放在樣式表最後，確保能覆寫前面 .controls / .p-date / .tray-label 等基礎規則 */
-        @media (max-width: 1000px) {
+        @media (max-width: 1190px) {
             #play-view {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 gap: 6px;
+            }
+
+            /* 這個佔位欄只為了讓桌機的三欄格線左右對稱；
+               堆疊版面下它仍是 flex item，會多出一個 gap 把面板往下推 6px，
+               導致切換分頁時棋盤位置不一致 */
+            .left-spacer {
+                display: none;
             }
 
             .center-board {
@@ -793,13 +804,40 @@
                 width: 100%;
             }
 
-            /* play 模式不能捲動，手機上必須把固定開銷壓到最低 */
-            .p-panel .s-head {
+            /* 手機上把固定開銷壓到最低。
+               注意：margin-bottom 與 min-height 必須「兩個模式一起改」，
+               只改其中一個就會讓棋盤的垂直位置在切換分頁時跳動。 */
+            .s-head {
                 margin-bottom: 8px;
+                min-height: 48px;
                 align-items: center;
             }
 
-            .p-panel .s-title {
+            /* 求解器的說明在手機上縮成一行，表頭才塞得進 48px */
+            .s-sub-more {
+                display: none;
+            }
+
+            /* 快速擺法縮小，讓標籤與四顆按鈕在手機上排成一行 */
+            .s-presets {
+                gap: 5px;
+                margin-top: 10px;
+            }
+
+            .s-presets-label {
+                font-size: 0.66rem;
+            }
+
+            .s-chip {
+                font-size: 0.7rem;
+                /* 內距再收 2px，四顆按鈕加標籤才排得進一行（390px 下實測需 284/295） */
+                padding: 5px 7px;
+            }
+
+            /* ⚠️ 表頭裡的元素一律「兩個模式一起縮」。
+               只縮其中一邊（例如只寫 .p-panel .s-badge）會讓兩邊表頭高度不同，
+               棋盤的垂直位置就會在切換分頁時跳動。 */
+            .s-head .s-title {
                 font-size: 0.95rem;
             }
 
@@ -814,16 +852,16 @@
                 padding: 1px 7px;
             }
 
-            .p-panel .s-badge {
+            .s-head .s-badge {
                 min-width: 54px;
                 padding: 5px 8px;
             }
 
-            .p-panel .s-badge b {
+            .s-head .s-badge b {
                 font-size: 1.05rem;
             }
 
-            .p-panel .s-badge span {
+            .s-head .s-badge span {
                 font-size: 0.55rem;
                 margin-top: 1px;
             }
@@ -847,6 +885,12 @@
             }
         }
 
+        /* 更窄的機型：拿掉「快速擺法」標籤，四顆按鈕才排得進一行 */
+        @media (max-width: 385px) {
+            .s-presets-label {
+                display: none;
+            }
+        }
     </style>
 </head>
 
@@ -903,7 +947,8 @@
             <div class="s-head">
                 <div>
                     <h2 class="s-title">💡 自由解答</h2>
-                    <p class="s-sub">點格子放 4 個障礙物，回溯演算法會逐一找出 12 塊骨牌的所有填法</p>
+                    <p class="s-sub">點格子放 4 個障礙物<span class="s-sub-more">，回溯演算法會逐一找出 12
+                            塊骨牌的所有填法</span></p>
                 </div>
                 <div class="s-badge" id="s-badge">
                     <b id="s-count">0</b>
@@ -911,6 +956,10 @@
                 </div>
             </div>
 
+            <div id="s-board" role="grid" aria-label="8×8 求解盤面，點擊格子設定障礙物"></div>
+
+            <!-- 快速擺法放在棋盤下方，讓棋盤上方只有表頭 ——
+                 這樣兩個模式的棋盤才會落在完全相同的位置，方便對照 -->
             <div class="s-presets">
                 <span class="s-presets-label">快速擺法</span>
                 <button class="s-chip" id="s-preset-center">中央 2×2</button>
@@ -918,8 +967,6 @@
                 <button class="s-chip" id="s-preset-diag">對角線</button>
                 <button class="s-chip" id="s-preset-random">🎲 隨機</button>
             </div>
-
-            <div id="s-board" role="grid" aria-label="8×8 求解盤面，點擊格子設定障礙物"></div>
 
             <div class="s-controls">
                 <button id="s-solveBtn" class="btn-style btn-blue">💡 開始計算</button>
@@ -973,19 +1020,30 @@
 
         let globalSyncPositions = null;
 
-        tabPlay.onclick = () => {
+        // 兩個模式的棋盤在文件中的座標完全相同（表頭高度、棋盤尺寸與置中方式都對齊了），
+        // 所以每次切換都回到同一個基準捲動位置，棋盤就一定停在畫面上完全相同的地方，
+        // 方便玩家把求解器算出的擺法對照回每日挑戰的盤面。
+        //
+        // 為什麼不「保留原本的捲動位置」？因為自由解答那頁比較短，
+        // 可捲動範圍不一樣，瀏覽器會把捲動位置夾住，反而造成棋盤在兩邊對不齊。
+        function switchView(apply) {
+            apply();
+            window.scrollTo(0, 0);
+            requestAnimationFrame(() => window.scrollTo(0, 0));
+        }
+
+        tabPlay.onclick = () => switchView(() => {
             tabPlay.classList.add('active'); tabSolver.classList.remove('active');
             viewPlay.classList.remove('hidden-view'); viewSolver.classList.add('hidden-view');
             document.body.classList.add('play-mode-locked'); document.body.classList.remove('solver-mode-active');
-            window.scrollTo(0, 0);
             if (globalSyncPositions) setTimeout(() => { window.dispatchEvent(new Event('resize')); globalSyncPositions(false); }, 50);
-        };
+        });
 
-        tabSolver.onclick = () => {
+        tabSolver.onclick = () => switchView(() => {
             tabSolver.classList.add('active'); tabPlay.classList.remove('active');
             viewPlay.classList.add('hidden-view'); viewSolver.classList.remove('hidden-view');
             document.body.classList.remove('play-mode-locked'); document.body.classList.add('solver-mode-active');
-        };
+        });
 
         // ==========================================
         //  🎮 模組 1：親手操作 (Play Mode)
@@ -1013,7 +1071,12 @@
         let seconds = 0;
         let timerActive = false;
         let timerInt;
-        let isMobileView = window.innerWidth < 1000;
+        // 並排版面（棋盤在中央、托盤在右）需要的最小寬度：
+        // 面板 456px + 左右兩欄各 364px = 1184px。低於這個寬度就改成上下堆疊，
+        // 這樣兩個模式都是「面板置中」，切換分頁時棋盤的水平位置才會一致。
+        // CSS 的斷點（1190px）必須與這個值一致。
+        const SIDE_BY_SIDE_MIN = 1190;
+        let isMobileView = window.innerWidth < SIDE_BY_SIDE_MIN;
         let activeDragPiece = null;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
@@ -1320,7 +1383,7 @@
         ro.observe(document.getElementById('board')); ro.observe(document.getElementById('tray-container'));
         window.addEventListener('resize', () => {
             if (document.getElementById('play-view').classList.contains('hidden-view')) return;
-            const currentlyMobile = window.innerWidth < 1000;
+            const currentlyMobile = window.innerWidth < SIDE_BY_SIDE_MIN;
             if (currentlyMobile !== isMobileView) { isMobileView = currentlyMobile; setupTrayAndPieces(); }
             syncAllPositions(false);
         });
