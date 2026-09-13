@@ -21,13 +21,21 @@
             --panel-bg: #1e293b;
             --accent-blue: #3b82f6;
             --accent-yellow: #fbbf24;
-            --cell-size: 45px;
+
+            /* 兩個模式的棋盤都由這個變數推導，切換分頁時盤面尺寸完全一致 */
+            --cell-size: 50px;
+            --board-pad: 8px;
+            --board-frame: calc(var(--cell-size) * 8 + var(--board-pad) * 2);
         }
 
-        /* 手機版極限縮放，改用 dvh (動態螢幕高度) */
+        /* 手機版的格子尺寸受兩個條件約束：
+           ① 寬度：托盤在手機上是 10 格寬，10 × 9vw = 90vw 剛好塞得進畫面
+           ② 高度：4.6dvh 讓棋盤隨畫面高度縮放，盡量讓棋盤與托盤同時看得到
+           上限 44px 是為了平板不要過大 */
         @media (max-width: 1000px) {
             :root {
-                --cell-size: min(9vw, 4.2dvh, 38px);
+                --cell-size: min(9vw, 4.6dvh, 44px);
+                --board-pad: 6px;
             }
         }
 
@@ -44,10 +52,12 @@
             overflow-x: hidden;
         }
 
-        /* 🎮 拖曳模式下的專屬畫面鎖定 */
+        /* 🎮 拖曳模式：只擋掉「下拉重新整理」的彈跳，不再整頁鎖死。
+           原本的 overflow:hidden + touch-action:none 會讓矮螢幕上超出畫面的托盤
+           完全碰不到（因為根本捲不下去）。拖曳本身的安全由
+           .piece-container 的 touch-action:none + setPointerCapture + preventDefault
+           保證，不需要在 body 上再鎖一層。 */
         body.play-mode-locked {
-            overflow: hidden;
-            touch-action: none;
             overscroll-behavior: none;
         }
 
@@ -179,78 +189,115 @@
             padding-left: 30px;
         }
 
-        @media (min-width: 1000px) {
+        /* 托盤外框：與主面板同一套外觀，桌機時垂直置中對齊棋盤 */
+        .tray-panel {
+            width: max-content;
+            background: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
+            border: 1px solid #334155;
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @media (min-width: 1001px) {
             .right-tray {
-                margin-top: 32px;
+                justify-content: center;
             }
         }
 
         @media (max-width: 1000px) {
-            #play-view {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .center-board {
-                gap: 6px;
-            }
-
-            .right-tray {
-                padding-left: 0;
-                margin-top: 2px;
-                align-items: center;
+            .tray-panel {
+                padding: 8px;
+                border-radius: 14px;
+                max-width: 100%;
             }
         }
 
-        #status-bar {
-            width: 100%;
-            max-width: calc(var(--cell-size) * 8);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            color: var(--accent-yellow);
-            font-size: clamp(0.9rem, 3vw, 1.1rem);
-            padding: 0 5px;
-            flex-shrink: 0;
+
+
+        @media (max-width: 560px) {
+
+            .s-panel,
+            .p-panel {
+                padding: 14px 12px;
+                border-radius: 14px;
+            }
+
+            .s-head {
+                margin-bottom: 12px;
+            }
+
+            .controls {
+                gap: 8px;
+                margin-top: 12px;
+            }
+
+            .controls .btn-style {
+                font-size: 0.78rem;
+                padding: 10px 6px;
+            }
         }
 
-        #board-wrapper {
-            background: var(--panel-bg);
-            padding: 6px;
-            border-radius: 10px;
+        /* 棋盤外框：兩個模式共用同一組樣式與尺寸 */
+        #board-wrapper,
+        #s-board {
+            /* 依內容自然撐開，外框才會是正方形；兩個模式的格子尺寸與內距相同，
+               所以框的大小必然一致，切換分頁不會跳動 */
+            width: max-content;
+            max-width: 100%;
+            padding: var(--board-pad);
+            background: #334155;
+            border: 1px solid #0f172a;
+            border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            border: 1px solid #334155;
             flex-shrink: 0;
         }
 
-        #board {
+        #board,
+        #s-board {
             display: grid;
             grid-template-columns: repeat(8, var(--cell-size));
             gap: 0;
+        }
+
+        #board {
             width: max-content;
         }
 
-        .cell {
+        /* 格子：兩個模式的外觀一致（圓角 + 細框，看起來是分開的方塊） */
+        .cell,
+        .s-cell {
             width: var(--cell-size);
             height: var(--cell-size);
             background: #cbd5e1;
-            box-shadow: inset 0 0 0 1px #94a3b8;
+            border: 1px solid #475569;
+            border-radius: 4px;
+        }
+
+        .cell {
             display: flex;
             align-items: center;
             justify-content: center;
             color: #475569;
             font-weight: 800;
-            font-size: calc(var(--cell-size) * 0.35);
+            font-size: calc(var(--cell-size) * 0.32);
             user-select: none;
         }
 
-        .cell.blocked {
+        /* 障礙物 / 日期格：與求解器的 .s-blocked 相同視覺 */
+        .cell.blocked,
+        .s-cell.s-blocked {
             background: #0f172a !important;
-            color: var(--accent-blue) !important;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 0 1px #000;
+            border: 2px solid #000 !important;
+            border-radius: 6px !important;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .cell.blocked {
+            color: var(--accent-yellow) !important;
         }
 
         #board.hide-text .cell:not(.blocked) span {
@@ -260,11 +307,17 @@
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 10px;
             width: 100%;
-            max-width: calc(var(--cell-size) * 8);
+            margin-top: 16px;
             flex-shrink: 0;
             touch-action: none;
+        }
+
+        .controls .btn-style {
+            margin: 0;
+            font-size: 0.85rem;
+            padding: 11px 8px;
         }
 
         @media (max-width: 1000px) {
@@ -273,25 +326,42 @@
             }
         }
 
+        /* 預留戰績按鈕的位置（按鈕用 visibility 切換），避免過關時版面跳動 */
         .share-container {
-            grid-column: span 2;
+            grid-column: 1 / -1;
             width: 100%;
             height: 40px;
         }
 
         @media (max-width: 1000px) {
             .share-container {
-                height: 35px;
+                height: 32px;
             }
         }
 
+        /* 積木托盤：外觀與棋盤外框呼應（同色系、同圓角） */
         #tray-container {
-            background: var(--panel-bg);
-            border-radius: 8px;
-            border: 1px solid #334155;
+            background: #253449;
+            border-radius: 12px;
+            border: 1px solid #0f172a;
             position: relative;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.45), 0 10px 25px rgba(0, 0, 0, 0.35);
             flex-shrink: 0;
+        }
+
+        .tray-label {
+            font-size: 0.72rem;
+            color: #64748b;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+            align-self: flex-start;
+        }
+
+        @media (max-width: 1000px) {
+            .tray-label {
+                align-self: center;
+                margin-bottom: 5px;
+            }
         }
 
         .piece-container {
@@ -320,11 +390,12 @@
             filter: none !important;
         }
 
+        /* 邊框與圓角由 Piece.draw() 依相鄰情況逐格計算（見 JS），
+           這裡只留共通樣式。border-box 確保加了邊框後仍精準對齊格線。 */
         .p-block {
             position: absolute;
             box-sizing: border-box;
-            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3), inset 0 0 10px rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
+            box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.18);
         }
 
         /* =========================================
@@ -338,10 +409,12 @@
             padding-bottom: 20px;
         }
 
-        /* 求解器主面板 */
-        .s-panel {
+        /* 主面板：每日挑戰與自由解答共用同一種外觀 */
+        .s-panel,
+        .p-panel {
             width: 100%;
-            max-width: 470px;
+            /* 棋盤框 + 左右內距 36px + 面板自身邊框 2px */
+            max-width: calc(var(--board-frame) + 40px);
             background: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
             border: 1px solid #334155;
             border-radius: 18px;
@@ -394,6 +467,21 @@
             font-size: 1.35rem;
             color: var(--accent-yellow);
             line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 每日挑戰：今天要留下的四個日期格 */
+        .p-date {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: var(--accent-yellow);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
         }
 
         .s-badge span {
@@ -443,29 +531,14 @@
             cursor: not-allowed;
         }
 
+        /* #s-board 的外框與格子尺寸已與 #board 共用（見上方每日挑戰區段），
+           這裡只留求解器自己的互動狀態 */
         #s-board {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 0;
-            width: 100%;
-            max-width: 420px;
             margin: 0 auto;
-            background: #334155;
-            padding: 8px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            border: 1px solid #0f172a;
-            box-sizing: border-box;
         }
 
         .s-cell {
-            aspect-ratio: 1 / 1;
-            width: 100%;
-            background: #cbd5e1;
             cursor: pointer;
-            box-sizing: border-box;
-            border: 1px solid #475569;
-            border-radius: 4px;
             transition: background 0.2s;
         }
 
@@ -474,10 +547,6 @@
         }
 
         .s-cell.s-blocked {
-            background: #0f172a !important;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
-            border: 2px solid #000 !important;
-            border-radius: 6px !important;
             cursor: not-allowed;
         }
 
@@ -638,12 +707,8 @@
             z-index: 2;
         }
 
+        /* 面板與按鈕的手機樣式已與每日挑戰共用（見上方 560px 斷點） */
         @media (max-width: 560px) {
-            .s-panel {
-                padding: 14px 12px;
-                border-radius: 14px;
-            }
-
             .s-controls {
                 gap: 8px;
             }
@@ -706,6 +771,82 @@
             margin: 10px 0;
             border: 1px solid #0f172a;
         }
+        /* ── 手機版 play 模式的壓縮樣式 ──
+           放在樣式表最後，確保能覆寫前面 .controls / .p-date / .tray-label 等基礎規則 */
+        @media (max-width: 1000px) {
+            #play-view {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .center-board {
+                gap: 6px;
+                width: 100%;
+            }
+
+            .right-tray {
+                padding-left: 0;
+                margin-top: 0;
+                align-items: center;
+                width: 100%;
+            }
+
+            /* play 模式不能捲動，手機上必須把固定開銷壓到最低 */
+            .p-panel .s-head {
+                margin-bottom: 8px;
+                align-items: center;
+            }
+
+            .p-panel .s-title {
+                font-size: 0.95rem;
+            }
+
+            /* 說明文字在手機上省略，日期標籤留著（那是每天的目標） */
+            .p-hint {
+                display: none;
+            }
+
+            .p-date {
+                margin-top: 3px;
+                font-size: 0.78rem;
+                padding: 1px 7px;
+            }
+
+            .p-panel .s-badge {
+                min-width: 54px;
+                padding: 5px 8px;
+            }
+
+            .p-panel .s-badge b {
+                font-size: 1.05rem;
+            }
+
+            .p-panel .s-badge span {
+                font-size: 0.55rem;
+                margin-top: 1px;
+            }
+
+            /* 四顆功能鍵改成一排，省下一整列的高度 */
+            .controls {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 6px;
+                margin-top: 10px;
+            }
+
+            .controls .btn-style {
+                font-size: 0.68rem;
+                padding: 9px 2px;
+                border-radius: 6px;
+            }
+
+            /* 托盤在手機上不需要標題，直接顯示積木 */
+            .tray-label {
+                display: none;
+            }
+        }
+
     </style>
 </head>
 
@@ -721,25 +862,39 @@
     <div id="play-view">
         <div class="left-spacer"></div>
         <div class="center-board">
-            <div id="status-bar">
-                <span id="target-date">載入中...</span>
-                <span id="timer">00:00</span>
-            </div>
-            <div id="board-wrapper">
-                <div id="board"></div>
-            </div>
-            <div class="controls">
-                <button id="rotateBtn" class="btn-style btn-blue" disabled>🔄 旋轉 90°</button>
-                <button id="flipBtn" class="btn-style btn-blue" disabled>↔️ 翻面</button>
-                <button id="toggleTextBtn" class="btn-style btn-blue" style="background:#475569">👁️ 隱藏文字</button>
-                <button id="resetBtn" class="btn-style btn-red">🧹 重排積木</button>
-                <div class="share-container">
-                    <button id="shareBtn" class="btn-style btn-green" style="visibility: hidden;">📸 產生戰績小卡</button>
+            <div class="p-panel">
+                <div class="s-head">
+                    <div>
+                        <h2 class="s-title">🎮 每日挑戰</h2>
+                        <p class="s-sub p-hint">用 12 塊骨牌填滿盤面，只留下今天的日期</p>
+                        <span class="p-date" id="target-date">載入中...</span>
+                    </div>
+                    <div class="s-badge" id="timer-badge">
+                        <b id="timer">00:00</b>
+                        <span>計時</span>
+                    </div>
+                </div>
+
+                <div id="board-wrapper">
+                    <div id="board"></div>
+                </div>
+
+                <div class="controls">
+                    <button id="rotateBtn" class="btn-style btn-blue" disabled>🔄 旋轉 90°</button>
+                    <button id="flipBtn" class="btn-style btn-blue" disabled>↔️ 翻面</button>
+                    <button id="toggleTextBtn" class="btn-style btn-blue" style="background:#475569">👁️ 隱藏文字</button>
+                    <button id="resetBtn" class="btn-style btn-red">🧹 重排積木</button>
+                    <div class="share-container">
+                        <button id="shareBtn" class="btn-style btn-green" style="visibility: hidden;">📸 產生戰績小卡</button>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="right-tray">
-            <div id="tray-container"></div>
+            <div class="tray-panel">
+                <div class="tray-label">🧩 積木托盤 — 拖到盤面上</div>
+                <div id="tray-container"></div>
+            </div>
         </div>
     </div>
 
@@ -941,6 +1096,11 @@
                     this.el.removeChild(this.el.lastChild);
                 }
 
+                // 判斷某個相對座標上有沒有同一塊骨牌的方格，用來畫出整塊的輪廓
+                const has = (r, c) => this.blocks.some(([br, bc]) => br === r && bc === c);
+                const OUTER = '2px solid rgba(3, 8, 20, 0.75)';
+                const INNER = '1px solid rgba(255, 255, 255, 0.18)';
+
                 // 直接修改現有節點的座標，不銷毀 DOM，防止滑鼠跟丟！
                 this.blocks.forEach(([r, c], i) => {
                     const b = this.el.children[i];
@@ -948,6 +1108,19 @@
                     b.style.height = currentCellSize + 'px';
                     b.style.left = (c * currentCellSize) + 'px';
                     b.style.top = (r * currentCellSize) + 'px';
+
+                    // 與求解器盤面同一套畫法：對內的邊用細線、對外的邊用粗線，
+                    // 外側轉角才切圓角，整塊骨牌看起來就是一個完整的形狀
+                    const up = has(r - 1, c), down = has(r + 1, c);
+                    const left = has(r, c - 1), right = has(r, c + 1);
+                    b.style.borderTop = up ? INNER : OUTER;
+                    b.style.borderBottom = down ? INNER : OUTER;
+                    b.style.borderLeft = left ? INNER : OUTER;
+                    b.style.borderRight = right ? INNER : OUTER;
+                    b.style.borderTopLeftRadius = (up || left) ? '0' : '7px';
+                    b.style.borderTopRightRadius = (up || right) ? '0' : '7px';
+                    b.style.borderBottomLeftRadius = (down || left) ? '0' : '7px';
+                    b.style.borderBottomRightRadius = (down || right) ? '0' : '7px';
                 });
             }
 
