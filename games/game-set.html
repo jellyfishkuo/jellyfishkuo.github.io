@@ -100,7 +100,7 @@
             min-width: 170px;
         }
 
-        .mode-field > span {
+        .mode-field>span {
             color: var(--text-muted);
             font-size: 0.72rem;
             font-weight: 700;
@@ -1016,6 +1016,7 @@
             // WebRTC / PeerJS：房主是唯一權威，加入者只提交 claim。
             let peer = null;
             let connection = null;
+            let connectionTimeout = null;
             let onlineRole = null;           // 'host' | 'guest' | null
             let onlineConnected = false;
             let roomCode = '';
@@ -1737,7 +1738,17 @@
 
             function attachConnection(conn) {
                 connection = conn;
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = setTimeout(() => {
+                    if (onlineConnected || connection !== conn) return;
+                    try { conn.close(); } catch (_) { }
+                    connection = null;
+                    setConnectionStatus('連線逾時，請確認房間碼後再試。', 'error');
+                    resetOnlineControls();
+                }, 12000);
                 conn.on('open', () => {
+                    if (connectionTimeout) clearTimeout(connectionTimeout);
+                    connectionTimeout = null;
                     onlineConnected = true;
                     btnLeaveRoom.hidden = false;
                     btnCreateRoom.disabled = true;
@@ -1750,6 +1761,8 @@
                 });
                 conn.on('data', handlePeerData);
                 conn.on('close', () => {
+                    if (connectionTimeout) clearTimeout(connectionTimeout);
+                    connectionTimeout = null;
                     onlineConnected = false;
                     connection = null;
                     selected = [];
@@ -1762,7 +1775,17 @@
                     }
                     syncModeUI();
                 });
-                conn.on('error', () => setConnectionStatus('資料連線發生錯誤。', 'error'));
+                conn.on('error', () => {
+                    if (connectionTimeout) clearTimeout(connectionTimeout);
+                    connectionTimeout = null;
+                    onlineConnected = false;
+                    setConnectionStatus('資料連線發生錯誤，請確認房間碼後再試。', 'error');
+                    if (onlineRole === 'guest') {
+                        try { conn.close(); } catch (_) { }
+                        connection = null;
+                        resetOnlineControls();
+                    }
+                });
             }
 
             function resetOnlineControls() {
@@ -1777,6 +1800,8 @@
 
             function disconnectOnline(showStatus = true) {
                 clearGameTimers();
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = null;
                 onlineConnected = false;
                 if (connection) {
                     try { connection.close(); } catch (_) { }
