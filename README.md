@@ -8,7 +8,7 @@
 
 ## 這個 repo 是什麼
 
-一個 GitHub Pages 網站，包含個人簡介、競賽紀錄，以及六個自己寫的互動專案。每個專案都有兩個入口：
+一個 GitHub Pages 網站，包含個人簡介、競賽紀錄，以及七個作品；其中六個是可直接操作的互動遊戲／工具。每個互動專案都有兩個入口：
 
 - **直接試玩** —— 可以立刻操作的成品
 - **技術介紹** —— 針對工程師讀者寫的深入剖析，包含演算法推導、設計取捨、實測數據，以及誠實記錄的已知限制
@@ -19,6 +19,7 @@
 |---|---|---|---|
 | Pentomino 8×8 求解器 | 演算法 / 拖曳互動 | [pentomino.html](games/pentomino.html) | [pentomino-detail.html](games/pentomino-detail.html) |
 | 無限井字棋 | 賽局論 / AI | [infinite-tictactoe.html](games/infinite-tictactoe.html) | [infinite-tictactoe-detail.html](games/infinite-tictactoe-detail.html) |
+| 立式五子棋 | 重力棋盤 / AI 搜尋 | [vertical-gomoku.html](games/vertical-gomoku.html) | [vertical-gomoku-detail.html](games/vertical-gomoku-detail.html) |
 | SET 練功房 | 組合數學 / SVG | [game-set.html](games/game-set.html) | [game-set-detail.html](games/game-set-detail.html) |
 | 1A2B 猜數字 | 邏輯推理 / 資訊論 | [1A2B.html](games/1A2B.html) | [1A2B-detail.html](games/1A2B-detail.html) |
 | 部落衝突卡牌交易站 | 狀態管理 / localStorage | [coc-card.html](games/coc-card.html) | [coc-card-detail.html](games/coc-card-detail.html) |
@@ -48,6 +49,8 @@
     ├── pentomino-detail.html
     ├── infinite-tictactoe.html
     ├── infinite-tictactoe-detail.html
+    ├── vertical-gomoku.html   # 9×8 重力式五子棋 + 三段難度 AI
+    ├── vertical-gomoku-detail.html
     ├── game-set.html
     ├── game-set-detail.html
     ├── 1A2B.html
@@ -61,7 +64,7 @@
 **沒有建置流程。** 沒有 npm、沒有打包工具、沒有 CI。改完 HTML 推上 `main`，GitHub Pages 就會部署。
 
 - **遊戲頁是自我完備的單檔**：HTML + 內嵌 CSS + 內嵌 JS 全部在同一個檔案裡。優點是任何一頁都能單獨複製、單獨打開；代價是頁面之間有些重複的程式碼（例如粒子背景）。
-- **技術介紹頁共用 [`games/detail.css`](games/detail.css)**：這五頁的樣式高度一致，各自內嵌會變成五份 900 行的複本，所以抽成共用樣式表。
+- **技術介紹頁共用 [`games/detail.css`](games/detail.css)**：所有技術介紹頁的樣式高度一致，各自內嵌會變成多份 900 行的複本，所以抽成共用樣式表。
 - **外部依賴只有三個 CDN 資源**：Google Fonts（Space Mono / Syne 等）、[canvas-confetti](https://github.com/catdad/canvas-confetti)（過關特效）、[MathJax](https://www.mathjax.org/)（技術介紹頁的數學式）。沒有 CDN 也不會壞掉，只是少了特效與排版精緻度。
 - **視覺語言**：深色底 + 紫（`#7c3aed`）青（`#06b6d4`）漸層，`Syne` 做標題、`Space Mono` 做等寬與標籤。
 - **資料一律留在本機**：卡牌交易站用 `localStorage`，沒有後端、沒有帳號、沒有追蹤。
@@ -85,7 +88,8 @@ npx serve .
 1. 在 `games/` 放 `你的專案.html`（單檔，自我完備）。
 2. 想寫技術介紹就加 `games/你的專案-detail.html`，`<head>` 裡連 `detail.css`，沿用 `.tech-card` / `.code-window` / `.callout` / `.table-wrap` 這些現成元件。
 3. 在 `index.html` 的 `#projects` 區塊複製一張 `.project-card`，補上「技術介紹」與「直接試玩」兩個連結。
-4. 記得檢查：
+4. 在其他新版技術文章的「其他技術剖析」側欄補上交叉連結，並同步 README 的專案表與檔案樹。
+5. 記得檢查：
    - `<html lang="zh-Hant">` 與 `<meta name="viewport">` 都要有，且**不要**鎖 `user-scalable=no`（違反 WCAG 1.4.4）
    - favicon 路徑從 `games/` 出發是 `../assets/...`
    - 在 320 / 390 / 768 / 1280px 四個寬度看一下有沒有水平溢出

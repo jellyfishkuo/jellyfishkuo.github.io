@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../assets/puzzle.ico">
+    <title>技術剖析 | Vertical Gomoku AI</title>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="detail.css">
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <header>
+        <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
+        <h1>Gravity Search</h1>
+        <div class="subtitle">立式五子棋：用重力壓縮行動空間，再以時間受限的 Alpha-Beta 搜尋做決策</div>
+        <div class="meta-row">
+            <span class="meta-chip">棋盤 <b>9 × 8</b></span>
+            <span class="meta-chip">合法行動最多 <b>9</b></span>
+            <span class="meta-chip">評估窗口 <b>116</b></span>
+            <span class="meta-chip">AI 深度最高 <b>7</b></span>
+            <span class="meta-chip">Hard 預算 <b>240 ms</b></span>
+        </div>
+    </header>
+
+    <div class="tab-wrapper">
+        <div class="tabs-container" role="tablist" aria-label="立式五子棋技術介紹章節">
+            <button class="tab-btn active" id="tab-rules" role="tab" aria-selected="true"
+                aria-controls="panel-rules" tabindex="0" onclick="switchTab(0)">🧱 重力與規則</button>
+            <button class="tab-btn" id="tab-ai" role="tab" aria-selected="false"
+                aria-controls="panel-ai" tabindex="-1" onclick="switchTab(1)">🤖 AI 搜尋</button>
+            <button class="tab-btn" id="tab-engineering" role="tab" aria-selected="false"
+                aria-controls="panel-engineering" tabindex="-1" onclick="switchTab(2)">🛡️ 工程防護</button>
+        </div>
+    </div>
+
+    <main>
+        <div class="content">
+            <div class="tab-content active" id="panel-rules" role="tabpanel" aria-labelledby="tab-rules" tabindex="0">
+                <div class="toc">
+                    <div class="toc-title">本頁重點</div>
+                    <ol>
+                        <li><a href="#gravity">為什麼重力讓五子棋變成另一個問題</a></li>
+                        <li><a href="#state">O(1) 落子：盤面加一個 heights 向量</a></li>
+                        <li><a href="#win">勝負判定只從最後落點向外掃</a></li>
+                        <li><a href="#space">行動空間與完整盤面窗口</a></li>
+                    </ol>
+                </div>
+
+                <section class="section-block" id="gravity">
+                    <h2>I. 重力改變了問題的形狀</h2>
+                    <p>一般五子棋每一手可以放在任何空格；立式五子棋則只能選擇<strong>欄位</strong>，棋子會落在該欄最低空格。這不是單純加一個動畫，而是把狀態空間的分支因子整個改掉：</p>
+                    <div class="compare">
+                        <div>
+                            <h4 class="bad-h">一般 9×8 五子棋</h4>
+                            <p>空盤第一手有 72 個合法位置，第二手 71 個。深度 4 的暴力樹約為 $72\times71\times70\times69$，超過 2,400 萬個節點。</p>
+                        </div>
+                        <div>
+                            <h4 class="good-h">重力式 9×8 五子棋</h4>
+                            <p>不論盤面多空，一手最多只有 9 個欄位。深度 4 的粗略上界是 $9^4=6,561$；滿欄後還會繼續下降。</p>
+                        </div>
+                    </div>
+                    <p>重力同時帶來新的戰術限制：某個看似可以補成五連線的空格，如果下方還有空位，玩家根本無法立刻放到那裡。AI 因此不能只看「幾顆連在一起」，還必須透過真正的落子函式產生合法後繼狀態。</p>
+
+                    <div class="diagram">
+                        <pre>玩家選第 5 欄
+
+       ▼
+  · · · · ○ · · · ·       ○ 不是指定某一格
+  · · · · │ · · · ·       它會一路往下
+  · · · · │ · · · ·
+  · · · · ● · · · ·       直到碰到既有棋子或底部
+  · · · · ● · · · ·
+  ─────────────────
+    1 2 3 4 5 6 7 8 9</pre>
+                        <div class="diagram-caption">合法 action 是欄位 0–8，不是 72 個格子的任意座標</div>
+                    </div>
+                </section>
+
+                <section class="section-block" id="state">
+                    <h2>II. O(1) 落子：盤面加一個 heights 向量</h2>
+                    <p>盤面用長度 72 的 <span class="inline-code">Int8Array</span> 表示，索引公式是 <span class="inline-code">row * 9 + col</span>。除此之外另存一個長度 9 的 <span class="inline-code">heights</span>，記錄每欄已經有幾顆棋子：</p>
+
+                    <div class="code-window">
+                        <div class="code-header"><div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div><div class="code-title">state.js</div></div>
+                        <div class="code-body"><pre><span class="kw">function</span> <span class="fn">createState</span>() {
+    <span class="kw">return</span> {
+        <span class="var">cells</span>: <span class="kw">new</span> <span class="fn">Int8Array</span>(<span class="var">ROWS</span> <span class="op">*</span> <span class="var">COLS</span>),
+        <span class="var">heights</span>: <span class="kw">new</span> <span class="fn">Int8Array</span>(<span class="var">COLS</span>),
+        <span class="var">turn</span>: <span class="var">P1</span>, <span class="var">moveCount</span>: <span class="num">0</span>, <span class="var">lastMove</span>: <span class="op">-</span><span class="num">1</span>
+    };
+}</pre></div>
+                    </div>
+
+                    <p>若沒有 <span class="inline-code">heights</span>，每次選欄都要從底部向上掃到第一個空格，最壞 $O(R)$。有了欄高，落點直接由公式得到：</p>
+                    <div class="math-block">$$ row = ROWS - 1 - heights[col] $$</div>
+
+                    <div class="code-window">
+                        <div class="code-header"><div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div><div class="code-title">drop-and-undo.js</div></div>
+                        <div class="code-body"><pre><span class="kw">function</span> <span class="fn">drop</span>(<span class="var">st</span>, <span class="var">col</span>) {
+    <span class="kw">if</span> (<span class="var">st</span>.<span class="var">heights</span>[<span class="var">col</span>] <span class="op">>=</span> <span class="var">ROWS</span>) <span class="kw">return</span> <span class="op">-</span><span class="num">1</span>;
+    <span class="kw">const</span> <span class="var">row</span> <span class="op">=</span> <span class="var">ROWS</span> <span class="op">-</span> <span class="num">1</span> <span class="op">-</span> <span class="var">st</span>.<span class="var">heights</span>[<span class="var">col</span>];
+    <span class="kw">const</span> <span class="var">idx</span> <span class="op">=</span> <span class="var">row</span> <span class="op">*</span> <span class="var">COLS</span> <span class="op">+</span> <span class="var">col</span>;
+    <span class="var">st</span>.<span class="var">cells</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="var">st</span>.<span class="var">turn</span>;
+    <span class="var">st</span>.<span class="var">heights</span>[<span class="var">col</span>]<span class="op">++</span>;
+    <span class="var">st</span>.<span class="var">turn</span> <span class="op">=</span> <span class="num">3</span> <span class="op">-</span> <span class="var">st</span>.<span class="var">turn</span>;
+    <span class="kw">return</span> <span class="var">idx</span>;
+}</pre></div>
+                    </div>
+
+                    <p><span class="inline-code">undoDrop()</span> 逐項反轉這些操作。這不是附帶功能，而是搜尋正確性的地基：AI 在同一份狀態上反覆「落子 → 遞迴 → 還原」，若有任何欄高、回合或最後落點沒有復原，後面的搜尋結果都不可信。本次開發以 Node.js 一次性腳本對 3,000 個隨機局面執行 drop/undo，逐位元組比對前後快照，全部一致。</p>
+                </section>
+
+                <section class="section-block" id="win">
+                    <h2>III. 勝負判定只從最後落點向外掃</h2>
+                    <p>每次落子後，盤面上唯一新增的連線一定包含<strong>剛落下的那顆棋子</strong>。因此不必重掃全盤，只要從最後落點往四組方向延伸：</p>
+                    <div class="table-wrap"><table class="kv"><thead><tr><th>方向向量</th><th>代表方向</th><th>雙向掃描</th></tr></thead><tbody>
+                        <tr><td><span class="mono">[0, 1]</span></td><td>橫向</td><td>左／右</td></tr>
+                        <tr><td><span class="mono">[1, 0]</span></td><td>直向</td><td>上／下</td></tr>
+                        <tr><td><span class="mono">[1, 1]</span></td><td>下降斜線</td><td>左上／右下</td></tr>
+                        <tr><td><span class="mono">[1, -1]</span></td><td>上升斜線</td><td>右上／左下</td></tr>
+                    </tbody></table></div>
+
+                    <div class="code-window">
+                        <div class="code-header"><div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div><div class="code-title">winningCells.js</div></div>
+                        <div class="code-body"><pre><span class="kw">for</span> (<span class="kw">const</span> [<span class="var">dr</span>, <span class="var">dc</span>] <span class="kw">of</span> <span class="var">DIRECTIONS</span>) {
+    <span class="kw">const</span> <span class="var">line</span> <span class="op">=</span> [<span class="var">lastIdx</span>];
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="var">sign</span> <span class="kw">of</span> [<span class="op">-</span><span class="num">1</span>, <span class="num">1</span>]) {
+        <span class="kw">let</span> <span class="var">r</span> <span class="op">=</span> <span class="var">row</span> <span class="op">+</span> <span class="var">dr</span> <span class="op">*</span> <span class="var">sign</span>;
+        <span class="kw">let</span> <span class="var">c</span> <span class="op">=</span> <span class="var">col</span> <span class="op">+</span> <span class="var">dc</span> <span class="op">*</span> <span class="var">sign</span>;
+        <span class="kw">while</span> (<span class="fn">inBounds</span>(<span class="var">r</span>, <span class="var">c</span>) <span class="op">&&</span> <span class="var">st</span>.<span class="var">cells</span>[<span class="fn">indexOf</span>(<span class="var">r</span>, <span class="var">c</span>)] <span class="op">===</span> <span class="var">player</span>) {
+            <span class="var">line</span>.<span class="fn">push</span>(<span class="fn">indexOf</span>(<span class="var">r</span>, <span class="var">c</span>));
+            <span class="var">r</span> <span class="op">+=</span> <span class="var">dr</span> <span class="op">*</span> <span class="var">sign</span>; <span class="var">c</span> <span class="op">+=</span> <span class="var">dc</span> <span class="op">*</span> <span class="var">sign</span>;
+        }
+    }
+    <span class="kw">if</span> (<span class="var">line</span>.<span class="var">length</span> <span class="op">>=</span> <span class="num">5</span>) <span class="kw">return</span> <span class="var">line</span>;
+}</pre></div>
+                    </div>
+
+                    <p>它同時回傳完整連線，UI 可以直接把五顆或更多棋子全部高亮。本次一次性核心驗證涵蓋橫、直、兩種斜向與六連線，不只測最常見的橫向案例。</p>
+                </section>
+
+                <section class="section-block" id="space">
+                    <h2>IV. 盤面共有 116 個評估窗口</h2>
+                    <p>勝負判定可以從最後落點局部掃描；但 AI 的靜態評估要知道全盤有哪些潛在五連線，因此枚舉所有長度恰為 5 的窗口：</p>
+                    <div class="math-block">$$ 8(9-5+1) + 9(8-5+1) + 2(8-5+1)(9-5+1) = 40 + 36 + 40 = 116 $$</div>
+                    <p>每個窗口若同時有雙方棋子，就已被封死而不計分；只含單方棋子時依數量給分。這 116 個窗口是後面 AI 評估函式的完整幾何基礎。</p>
+                </section>
+            </div>
+
+            <div class="tab-content" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" tabindex="0">
+                <section class="section-block">
+                    <h2>V. 戰術底線放在搜尋之前</h2>
+                    <p>深度受限的 AI 最大風險，是因為時間到或難度隨機而漏掉「下一手就結束」的局面。因此選步流程先做兩個不受難度影響的檢查：</p>
+                    <ol class="step-list">
+                        <li>逐欄模擬自己的落子；若任何一欄立即連五，直接下，不進搜尋。</li>
+                        <li>把回合暫時切成對手，逐欄測試；若對手下一手可連五，立即封鎖。</li>
+                        <li>只有沒有立即勝負時，才進入難度隨機與 Alpha-Beta 搜尋。</li>
+                    </ol>
+                    <div class="callout good"><span class="callout-title">簡單不等於故意看不見</span><p>簡單難度有 34% 機率隨機選合法欄，但這個隨機分支在戰術檢查之後。它可能在長期布局上犯錯，卻不會放棄眼前已經完成的五連線，也不會無視你下一手的明顯勝局。</p></div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VI. Iterative Deepening + Negamax + Alpha-Beta</h2>
+                    <p>核心搜尋使用 negamax：零和賽局裡「我的分數」等於「對手分數的負值」，所以 minimax 的 max/min 兩套遞迴可以合併成一個函式：</p>
+                    <div class="math-block">$$ V(s) = \max_{a \in A(s)} \big(-V(T(s,a))\big) $$</div>
+                    <p>Alpha-Beta 維護目前已知下界 $\alpha$ 與上界 $\beta$；當 $\alpha \ge \beta$ 時，後續分支不可能改變祖先決策，可以直接剪掉。</p>
+
+                    <div class="code-window">
+                        <div class="code-header"><div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div><div class="code-title">iterative-deepening.js</div></div>
+                        <div class="code-body"><pre><span class="kw">for</span> (<span class="kw">let</span> <span class="var">depth</span> <span class="op">=</span> <span class="num">1</span>; <span class="var">depth</span> <span class="op">&lt;=</span> <span class="var">maxDepth</span>; <span class="var">depth</span><span class="op">++</span>) {
+    <span class="kw">try</span> {
+        <span class="kw">const</span> <span class="var">result</span> <span class="op">=</span> <span class="fn">searchWholeLayer</span>(<span class="var">depth</span>);
+        <span class="var">bestMove</span> <span class="op">=</span> <span class="var">result</span>.<span class="var">move</span>;      <span class="cm">// 只有完整跑完這層才採用</span>
+        <span class="var">completedDepth</span> <span class="op">=</span> <span class="var">depth</span>;
+    } <span class="kw">catch</span> (<span class="var">TIMEOUT</span>) {
+        <span class="kw">break</span>;                           <span class="cm">// 保留上一層完整答案</span>
+    }
+}</pre></div>
+                    </div>
+
+                    <p>Iterative deepening 不是重複浪費工作：前一層找到的最佳欄位會在下一層優先搜尋，讓 Alpha-Beta 更早取得高品質的 $\alpha$，通常能剪掉更多分支。時間到時，AI 至少持有上一個完整深度的答案，不會拿「只搜尋一半」的偏頗結果。</p>
+
+                    <div class="table-wrap"><table class="kv"><thead><tr><th>難度</th><th>最大深度</th><th>時間預算</th><th>長期布局隨機率</th></tr></thead><tbody>
+                        <tr><td>簡單</td><td><span class="mono">2</span></td><td><span class="mono">20 ms</span></td><td>34%</td></tr>
+                        <tr><td>普通</td><td><span class="mono">4</span></td><td><span class="mono">85 ms</span></td><td>8%</td></tr>
+                        <tr><td>困難</td><td><span class="mono">7</span></td><td><span class="mono">240 ms</span></td><td>0%</td></tr>
+                    </tbody></table></div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VII. 三個讓搜尋真的跑得動的細節</h2>
+                    <div class="tech-card">
+                        <h3>1. Move Ordering：從中央向外</h3>
+                        <p>欄位順序固定為 <span class="inline-code">[4,3,5,2,6,1,7,0,8]</span>。中央欄參與的橫向與斜向窗口最多，通常也是較好的走法。先找到好走法不改變答案，卻會大幅提高 Alpha-Beta 的剪枝率。上一層搜尋的最佳欄還會被提升到第一順位。</p>
+
+                        <h3>2. Transposition Table</h3>
+                        <p>不同落子順序可能到達同一個盤面。快取表以「72 格內容 + 輪到誰」為 key，保存搜尋深度、分數、上下界旗標與最佳走法。這裡不用隨機 Zobrist hash，而使用完整三進位字串；配置成本較高，但<strong>保證沒有 hash collision</strong>，小型前端遊戲更重視可靠性。</p>
+
+                        <h3>3. 降低時間檢查成本</h3>
+                        <p>每個根候選與新深度開始前都無條件讀取時鐘；遞迴內則利用位元運算 <span class="inline-code">(nodes &amp; 63) === 0</span>，每 64 個節點檢查一次。這是<strong>目標時間預算</strong>而非作業系統層級的硬 deadline：單一節點不能被中途打斷，但比原本每 512 節點檢查更能限制慢速裝置上的超時誤差。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>VIII. 局面評估：窗口分數必須反對稱</h2>
+                    <p>深度到底後尚未分出勝負，就計算 116 個窗口。窗口內同時有雙方棋子時價值為零；只有一方時使用非線性分數：</p>
+                    <div class="table-wrap"><table class="kv"><thead><tr><th>同色棋子數</th><th>分數</th><th>意義</th></tr></thead><tbody>
+                        <tr><td>1</td><td>2</td><td>非常弱的潛力</td></tr>
+                        <tr><td>2</td><td>13</td><td>開始成形</td></tr>
+                        <tr><td>3</td><td>95</td><td>需要關注的威脅</td></tr>
+                        <tr><td>4</td><td>2,200</td><td>接近決勝；若落點可達通常必須處理</td></tr>
+                        <tr><td>5</td><td>1,000,000</td><td>理論終局（正常會更早由勝負判定攔截）</td></tr>
+                    </tbody></table></div>
+                    <p>對手窗口使用完全相同的權重再取負值，讓評估函式滿足 Negamax 必要的反對稱條件：</p>
+                    <div class="math-block">$$ evaluate(s,p) = -evaluate(s,3-p) $$</div>
+                    <p>如果為了「偏重防守」而只把對手分數乘上 1.08，交換玩家後就不會恰好變號，搜尋深度的奇偶會讓攻守偏好反轉。要保留 Negamax 的正確語意，攻守權重必須對稱。棋子越靠近中央欄仍會取得較高位置分，但這項分數同樣以正負對稱計算。</p>
+
+                    <h3>實際量測</h3>
+                    <p>以下數據直接用頁面裡的核心，在目前機器上各跑 12 次；Hard 沒有隨機分支：</p>
+                    <div class="table-wrap"><table class="kv"><thead><tr><th>局面</th><th>完成深度</th><th>平均節點</th><th>平均時間</th><th>最慢</th></tr></thead><tbody>
+                        <tr><td>空盤 / Hard</td><td>7</td><td><span class="mono">52,149</span></td><td><span class="mono">94.17 ms</span></td><td>97.65 ms</td></tr>
+                        <tr><td>固定中盤 / Hard</td><td>7</td><td><span class="mono">57,619</span></td><td><span class="mono">116.55 ms</span></td><td>118.90 ms</td></tr>
+                        <tr><td>固定中盤 / Normal</td><td>4</td><td><span class="mono">2,011</span></td><td><span class="mono">4.34 ms</span></td><td>4.78 ms</td></tr>
+                    </tbody></table></div>
+                    <p>時間預算是目標值，不是硬性即時保證；搜尋若完成最大深度就立即回傳，所以普通難度通常只需數毫秒。慢速裝置可能因一個尚未完成的節點而小幅超過目標。</p>
+                </section>
+            </div>
+
+            <div class="tab-content" id="panel-engineering" role="tabpanel" aria-labelledby="tab-engineering" tabindex="0">
+                <section class="section-block">
+                    <h2>IX. 非同步競態：舊 AI 不能落到新棋局</h2>
+                    <p>AI 為了讓玩家看清落子，會延遲 360ms 才開始搜尋。這創造了一個常見競態：玩家落子後立刻按「重新開始」或切換難度，舊的 timer 若未取消，就可能在新棋局裡莫名下一顆棋。</p>
+
+                    <div class="code-window">
+                        <div class="code-header"><div class="code-dot dot-r"></div><div class="code-dot dot-y"></div><div class="code-dot dot-g"></div><div class="code-title">session-token.js</div></div>
+                        <div class="code-body"><pre><span class="kw">let</span> <span class="var">sessionId</span> <span class="op">=</span> <span class="num">0</span>;
+<span class="kw">let</span> <span class="var">aiTimer</span> <span class="op">=</span> <span class="kw">null</span>;
+
+<span class="kw">function</span> <span class="fn">scheduleAi</span>() {
+    <span class="kw">const</span> <span class="var">token</span> <span class="op">=</span> <span class="var">sessionId</span>;
+    <span class="var">aiTimer</span> <span class="op">=</span> <span class="fn">setTimeout</span>(() <span class="op">=></span> {
+        <span class="kw">if</span> (<span class="var">token</span> <span class="op">!==</span> <span class="var">sessionId</span>) <span class="kw">return</span>;
+        <span class="kw">const</span> <span class="var">result</span> <span class="op">=</span> <span class="fn">chooseAiMove</span>(<span class="fn">cloneState</span>(<span class="var">state</span>));
+        <span class="kw">if</span> (<span class="var">token</span> <span class="op">!==</span> <span class="var">sessionId</span>) <span class="kw">return</span>;
+        <span class="fn">finishMove</span>(...);
+    }, <span class="num">360</span>);
+}
+
+<span class="kw">function</span> <span class="fn">cancelAi</span>() {
+    <span class="var">sessionId</span><span class="op">++</span>;
+    <span class="fn">clearTimeout</span>(<span class="var">aiTimer</span>);
+}</pre></div>
+                    </div>
+
+                    <p>這裡同時使用兩層防護：<span class="inline-code">clearTimeout</span> 取消已知 timer；單調遞增的 session token 防止已經進入 callback 的舊工作提交結果。本次開發以 Headless Chrome 一次性驗證：在 AI 等待期間切換設定，等待 850ms 後新盤仍為 0 顆棋子。</p>
+                </section>
+
+                <section class="section-block">
+                    <h2>X. 棋子不能反過來撐大棋格</h2>
+                    <p>站上另一款棋類遊戲曾在 iOS Safari 發生過：<span class="inline-code">aspect-ratio</span> 容器裡的流內 SVG 使用 <span class="inline-code">height:100%</span>，Safari 把它退回替換元素預設的 150px 高，結果第一顆棋子一出現，整個棋盤突然變大並壓到按鈕。</p>
+                    <p>這款遊戲從一開始就不用流內圖片：棋子由 <span class="inline-code">.cell::after</span> 偽元素繪製，並以 <span class="inline-code">position:absolute; inset:10%</span> 完全脫離排版流。棋格尺寸只由 CSS Grid 和棋盤 aspect ratio 決定，棋子永遠無法反過來影響它。</p>
+                    <div class="callout good"><span class="callout-title">行動版一次性實測</span><p>開發環境為 macOS Headless Chrome；430、390、375、320px 四種模擬寬度都驗證：無水平溢出、棋格保持正方形、觸控落子與 AI 回應後棋盤及棋格尺寸逐像素不變。這些驗證腳本不屬於靜態網站部署內容。</p></div>
+                </section>
+
+                <section class="section-block">
+                    <h2>XI. 誠實的已知限制</h2>
+                    <ul class="detail-list">
+                        <li><strong>Hard 不是完美解。</strong>它最多搜尋 7 層並使用啟發式評估，不是完整解出 9×8 的賽局；足夠有挑戰性，但不能宣稱不可戰勝。</li>
+                        <li><strong>搜尋仍在主執行緒。</strong>Hard 最壞可能佔用約 240ms，期間動畫會短暫停頓。更進一步應把純搜尋核心移入 Web Worker；目前以時間預算換取單檔實作的簡潔。</li>
+                        <li><strong>Transposition key 會配置字串。</strong>完整盤面字串沒有碰撞，卻帶來配置與 GC 成本。更大的棋盤應改用 64/128-bit Zobrist hash，並接受極低的碰撞風險。</li>
+                        <li><strong>沒有悔棋。</strong>AI 模式的悔棋應一次撤回玩家與 AI 兩手，還要處理「AI 正在等待」的競態；目前只提供重新開始。</li>
+                        <li><strong>啟發式不理解所有重力可達性。</strong>窗口分數知道幾顆同色，卻不直接估算窗口中空格距離目前欄高還差幾層；深度搜尋會修正近程錯覺，但葉節點評估仍可能高估懸空威脅。</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="play-card">
+                <div style="font-size:4rem;margin-bottom:1rem;text-shadow:0 0 30px var(--accent-glow);">🔵</div>
+                <h3 style="color:white;font-size:1.6rem;margin:0 0 .5rem;">Experience It</h3>
+                <p style="font-size:.95rem;margin-top:1rem;color:var(--muted);line-height:1.6;">選擇欄位讓棋子落下，在 9×8 棋盤上搶先完成橫、直或斜向五連線。</p>
+                <a href="vertical-gomoku.html" class="btn">Launch Interactive Demo</a>
+                <p style="margin-top:1.5rem;font-size:.75rem;font-family:'Space Mono';color:var(--accent2);">Gravity · Search · Tactics</p>
+            </div>
+
+            <div class="side-box">
+                <h4>Quick Facts</h4>
+                <ul class="spec-list">
+                    <li><span>棋盤</span><span>9 × 8</span></li>
+                    <li><span>勝利</span><span>連續 5 顆</span></li>
+                    <li><span>最大分支</span><span>9</span></li>
+                    <li><span>評估窗口</span><span>116</span></li>
+                    <li><span>搜尋</span><span>Negamax + αβ</span></li>
+                    <li><span>最高深度</span><span>7</span></li>
+                    <li><span>Hard 空盤</span><span>約 94 ms</span></li>
+                </ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list">
+                    <li><a href="pentomino-detail.html" style="color:var(--accent2);text-decoration:none">Pentomino Solver →</a></li>
+                    <li><a href="infinite-tictactoe-detail.html" style="color:var(--accent2);text-decoration:none">無限井字棋 →</a></li>
+                    <li><a href="game-set-detail.html" style="color:var(--accent2);text-decoration:none">SET 練功房 →</a></li>
+                    <li><a href="1A2B-detail.html" style="color:var(--accent2);text-decoration:none">1A2B 猜數字 →</a></li>
+                    <li><a href="coc-card-detail.html" style="color:var(--accent2);text-decoration:none">卡牌交易站 →</a></li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer style="padding:4rem 10vw;color:var(--muted);font-size:.85rem;font-family:'Space Mono';border-top:1px solid var(--border);text-align:center;">© 2026 果汁龍 · Engineered with Passion.</footer>
+
+    <script>
+        const articleTabs = Array.from(document.querySelectorAll('[role="tab"]'));
+        const articlePanels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+
+        function switchTab(index, focus = false) {
+            articleTabs.forEach((button, i) => {
+                const active = i === index;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-selected', String(active));
+                button.tabIndex = active ? 0 : -1;
+            });
+            articlePanels.forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+                content.hidden = i !== index;
+            });
+            if (focus) articleTabs[index].focus();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        document.querySelector('.tabs-container').addEventListener('keydown', event => {
+            const current = articleTabs.indexOf(document.activeElement);
+            if (current < 0) return;
+            let next = current;
+            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (current + 1) % articleTabs.length;
+            else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (current - 1 + articleTabs.length) % articleTabs.length;
+            else if (event.key === 'Home') next = 0;
+            else if (event.key === 'End') next = articleTabs.length - 1;
+            else return;
+            event.preventDefault();
+            switchTab(next, true);
+        });
+
+        // 初始時也設定 hidden，讓輔助技術只讀到目前分頁。
+        switchTab(0);
+    </script>
+</body>
+
+</html>
