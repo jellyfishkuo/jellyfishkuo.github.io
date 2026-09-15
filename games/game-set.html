@@ -1644,6 +1644,18 @@
 
             /* ── Online：PeerJS / WebRTC，房主權威 ─────────────────── */
             const PEER_PREFIX = 'jellyfish-set-room-';
+            const PEER_OPTIONS = {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun.cloudflare.com:3478' }
+                    ]
+                }
+            };
 
             function sendToPeer(message) {
                 if (!connection || !connection.open) return false;
@@ -1743,12 +1755,13 @@
                     if (onlineConnected || connection !== conn) return;
                     try { conn.close(); } catch (_) { }
                     connection = null;
-                    setConnectionStatus('連線逾時，請確認房間碼後再試。', 'error');
+                    setConnectionStatus('P2P 連線逾時；可能是其中一方的 NAT 或防火牆阻擋直連，請換網路後再試。', 'error');
                     resetOnlineControls();
-                }, 12000);
-                conn.on('open', () => {
+                }, 25000);
+                const handleOpen = () => {
                     if (connectionTimeout) clearTimeout(connectionTimeout);
                     connectionTimeout = null;
+                    if (onlineConnected) return;
                     onlineConnected = true;
                     btnLeaveRoom.hidden = false;
                     btnCreateRoom.disabled = true;
@@ -1758,7 +1771,8 @@
                     syncModeUI();
                     if (onlineRole === 'host') startAuthoritativeGame();
                     else sendToPeer({ type: 'hello' });
-                });
+                };
+                conn.on('open', handleOpen);
                 conn.on('data', handlePeerData);
                 conn.on('close', () => {
                     if (connectionTimeout) clearTimeout(connectionTimeout);
@@ -1786,6 +1800,7 @@
                         resetOnlineControls();
                     }
                 });
+                if (conn.open) handleOpen();
             }
 
             function resetOnlineControls() {
@@ -1832,7 +1847,7 @@
                 btnCreateRoom.disabled = btnJoinRoom.disabled = true;
                 roomInput.disabled = true;
                 btnLeaveRoom.hidden = false;
-                peer = new window.Peer(`${PEER_PREFIX}${roomCode}`);
+                peer = new window.Peer(`${PEER_PREFIX}${roomCode}`, PEER_OPTIONS);
 
                 peer.on('open', () => {
                     roomCodeEl.textContent = roomCode;
@@ -1877,7 +1892,7 @@
                 roomInput.disabled = true;
                 btnLeaveRoom.hidden = false;
                 setConnectionStatus(`正在尋找房間 ${code}…`);
-                peer = new window.Peer();
+                peer = new window.Peer(undefined, PEER_OPTIONS);
                 peer.on('open', () => attachConnection(peer.connect(`${PEER_PREFIX}${code}`, { reliable: true })));
                 peer.on('error', error => {
                     const type = error && error.type ? error.type : '連線錯誤';
