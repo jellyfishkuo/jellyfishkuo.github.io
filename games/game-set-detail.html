@@ -31,7 +31,7 @@
         <div class="subtitle">SET 練功房：有限體上的三元組、SVG 程序化繪圖與檯面縮編演算法</div>
         <div class="meta-row">
             <span class="meta-chip">單檔 <b>HTML</b>・IIFE 封裝</span>
-            <span class="meta-chip">零外部 JS 依賴</span>
+            <span class="meta-chip">單人 / 電腦 / <b>WebRTC</b> 雙人</span>
             <span class="meta-chip">牌組 <b>3⁴ = 81</b> 張</span>
             <span class="meta-chip">全牌組 SET <b>1,080</b> 組</span>
             <span class="meta-chip">SET 類型 <b>15</b> 種</span>
@@ -728,7 +728,85 @@
                 </section>
 
                 <section class="section-block">
-                    <h2>XI. 誠實的已知限制</h2>
+                    <h2>XI. 電腦對戰與四位數房間碼連線</h2>
+                    <p>這是後來加上去的兩個模式，設計時盡量沿用現有的「一份權威狀態＋一個結算鎖」骨架，而不是另起一套架構。</p>
+
+                    <h3>電腦對戰：搶時間，不搶棋力</h3>
+                    <p>SET 的判定本身很簡單，AI 真正的挑戰不是「找不找得到解」，而是「模擬真人反應速度」。所以電腦對手的邏輯是：每隔一段時間檢查檯面上有沒有
+                        SET，找到就送出<strong>任意一組</strong>合法解，完全不比較哪組「更好」。難度只調整思考延遲：</p>
+
+                    <div class="table-wrap">
+                        <table class="kv">
+                            <thead>
+                                <tr>
+                                    <th>難度</th>
+                                    <th>延遲區間</th>
+                                    <th>體感</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>簡單</td>
+                                    <td><span class="mono">7,000 – 10,000 ms</span></td>
+                                    <td>玩家幾乎每次都能搶先</td>
+                                </tr>
+                                <tr>
+                                    <td>普通</td>
+                                    <td><span class="mono">4,000 – 6,000 ms</span></td>
+                                    <td>偶爾被電腦搶走明顯的解</td>
+                                </tr>
+                                <tr>
+                                    <td>困難</td>
+                                    <td><span class="mono">2,000 – 3,000 ms</span></td>
+                                    <td>盤面上顯眼的 SET 幾乎搶不到</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p>電腦「送出」的結果不是直接改資料，而是走跟真人一模一樣的 <span class="inline-code">processClaim()</span>
+                        路徑，這麼做是為了讓單人、電腦、連線三種模式共用同一套判定與計分邏輯，不必為 AI 開後門。</p>
+
+                    <h3>雙人連線：四位碼、WebRTC、房主權威</h3>
+                    <p>需求很直白：兩人各自打開頁面，其中一人建立房間拿到一個四位數字碼，另一人輸入這個碼就能連線對戰，<strong>誰先送出合法的三張牌，分數就算誰的</strong>，不需要任何一方按確認或等審核。</p>
+
+                    <p>靜態的 GitHub Pages 網站沒有後端，所以無法自建 signaling server。這裡採用
+                        <a href="https://peerjs.com/" target="_blank" rel="noopener">PeerJS</a>（精確釘選 1.5.5 版）搭配它預設提供的免費 Cloud
+                        signaling 服務完成 WebRTC 握手，資料本身仍是瀏覽器之間直接的 P2P 傳輸。房主建立房間時，把「固定前綴 + 四位數字」設成自己的
+                        <span class="inline-code">Peer</span> ID；加入者輸入四位碼後直接用同一個組合字串呼叫
+                        <span class="inline-code">peer.connect()</span>，兩邊就能配對成功而不需要另外的房間資料庫。根據
+                        <a href="https://peerjs.com/client/getting-started" target="_blank" rel="noopener">PeerJS 官方文件</a>，自訂 ID
+                        本身就支援任意字母數字組合，這讓四位碼可以直接當成可讀、好口頭傳達的房間識別碼（內容經改寫整理，非逐字引用）。</p>
+
+                    <div class="callout warn">
+                        <span class="callout-title">這個做法的代價</span>
+                        <p>四位碼只有一萬種組合，且共用公開的 Cloud signaling，理論上可能撞到別人正在用的房號；某些對稱型 NAT 環境下 WebRTC
+                            可能建立不了直連（沒有自架 TURN 伺服器）；房主分頁一關閉，這個房間就整個消失，因為權威狀態只存在房主的記憶體裡。這些都是「零後端」換來的取捨，已在
+                            UI 文案與此頁一併記錄，不是隱藏的地雷。</p>
+                    </div>
+
+                    <p>連線建立後，房主是唯一的權威來源：檯面、分數、剩餘牌堆都以房主端為準。任何一方選滿三張牌就立刻透過 <span
+                            class="inline-code">sendToPeer()</span> 送出 claim，<strong>房主收到後直接用
+                            <span class="inline-code">processClaim()</span> 驗證並套用，不等待、不彈窗、不需要人工確認</strong>——這是使用者明確要的行為：先送達的一方自動得分，比的是網路延遲與手速，不是誰先按下「同意」。房主驗證的內容包括：</p>
+
+                    <ul class="detail-list">
+                        <li>三個 uid 是否仍然都在目前的檯面上（防止對方送出已經被消耗掉的牌）。</li>
+                        <li>這三張牌是否真的構成合法 SET（不信任對方端的判定結果，一律用房主自己的 <span class="inline-code">evaluateTrio()</span> 重新算一次）。</li>
+                        <li>claim 附帶的 <span class="inline-code">gameId</span> / <span class="inline-code">revision</span> 是否與房主目前的局次一致（避免網路延遲造成的「過期 claim」在補牌之後才送達，卻被誤判成合法）。</li>
+                    </ul>
+
+                    <p>驗證通過就立刻執行跟單人模式相同的挖洞、縮編、補牌、加分流程，再把新的權威檯面快照廣播給加入者；驗證失敗就靜默忽略（例如對方送出的是已經被消耗掉的牌），不會顯示任何「審核中」之類的中間狀態。</p>
+
+                    <div class="callout good">
+                        <span class="callout-title">驗證方式</span>
+                        <p>用 headless Chrome 開兩個分頁模擬房主與加入者：建立房間、輸入四位碼、確認雙方牌面完全同步；讓加入者先送出一組合法
+                            SET、房主稍後才送出同一組，斷言只有加入者得分、房主不會重複得分；確認頁面上不存在任何「驗證」「確認搶答」之類的按鈕；重開連線後雙方牌面仍保持一致；全程沒有未攔截的
+                            JS 例外。</p>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <h2>XII. 誠實的已知限制</h2>
                     <ul class="detail-list">
                         <li><strong>靜默死局。</strong><span class="inline-code">checkGameOver()</span>
                             只在「配對成功後」與「按提示發現無解」時被呼叫。如果牌堆已空、檯面無解，而玩家就是不按提示也不操作，遊戲不會自己宣告結束，計時器會繼續跑。標準 SET
@@ -775,6 +853,8 @@
                     <li><span>15 張無解率</span><span>0.04 %</span></li>
                     <li><span>搜尋複雜度</span><span>Θ(C(n,3))</span></li>
                     <li><span>圖形素材</span><span>0（純 SVG）</span></li>
+                    <li><span>連線方式</span><span>PeerJS 1.5.5 / WebRTC</span></li>
+                    <li><span>房間碼</span><span>四位數字</span></li>
                 </ul>
             </div>
 

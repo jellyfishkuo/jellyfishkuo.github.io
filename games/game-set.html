@@ -4,12 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SET練功房</title>
+    <title>SET 練功房</title>
+    <link rel="icon" href="../assets/puzzle.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
         rel="stylesheet">
+    <!-- PeerJS 只在「雙人連線」模式使用；CDN 失敗不影響單人與 AI 模式。 -->
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
     <style>
         :root {
             --card-bg: #ffffff;
@@ -69,6 +72,190 @@
             margin: 0;
             letter-spacing: 0.03em;
             color: #1a1918;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        .mode-panel {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border: 1px solid #d4d0c5;
+            border-radius: 10px;
+            background: #f6f5f0;
+        }
+
+        .mode-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .mode-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 170px;
+        }
+
+        .mode-field > span {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .mode-field select,
+        .online-actions input {
+            min-height: 42px;
+            padding: 8px 10px;
+            border: 1px solid #c7c2b6;
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text-main);
+            font: inherit;
+            font-size: 0.9rem;
+        }
+
+        .mode-message {
+            flex: 1;
+            min-width: 210px;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-left: 3px solid var(--accent-gold);
+            border-radius: 4px;
+            background: #eeebe3;
+            color: #5f5a53;
+            font-size: 0.83rem;
+            line-height: 1.5;
+        }
+
+        .online-panel {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #d4d0c5;
+        }
+
+        .online-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .online-actions input {
+            width: 132px;
+            text-align: center;
+            font-family: 'Space Grotesk', monospace;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+        }
+
+        .online-or {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .room-code-box {
+            margin-top: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border: 1px solid #c7c2b6;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .room-code-box span {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .room-code-box strong {
+            color: var(--set-purple);
+            font-family: 'Space Grotesk', monospace;
+            font-size: 1.45rem;
+            letter-spacing: 0.18em;
+        }
+
+        .room-code-box button {
+            padding: 5px 9px;
+            font-size: 0.75rem;
+        }
+
+        .connection-status {
+            margin-top: 10px;
+            color: #4a4641;
+            font-size: 0.83rem;
+            font-weight: 600;
+        }
+
+        .connection-status.connected {
+            color: var(--set-green);
+        }
+
+        .connection-status.error {
+            color: var(--set-red);
+        }
+
+        .online-note {
+            margin: 7px 0 0;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 600px) {
+            .mode-panel {
+                padding: 12px;
+            }
+
+            .mode-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .mode-field,
+            .mode-message {
+                min-width: 0;
+            }
+
+            .mode-message {
+                grid-column: 1 / -1;
+            }
+
+            .online-actions {
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
+            }
+
+            .online-actions input {
+                width: 100%;
+            }
+
+            .online-actions #btn-create-room,
+            .online-actions #btn-leave-room {
+                grid-column: 1 / -1;
+            }
+
+            .room-code-box {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .opponent-stat .num {
+            color: var(--set-red);
+        }
+
+        .card.remote-result {
+            outline-color: #3b82f6;
         }
 
         .stats {
@@ -400,10 +587,11 @@
 
         .preview-card {
             position: relative;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 6px 4px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            /* 和主檯面的 .card 使用完全相同的相對內距 */
+            padding: 6% 8%;
             aspect-ratio: 1.55 / 1;
             display: flex;
             align-items: center;
@@ -417,16 +605,17 @@
             left: 4px;
         }
 
-        /* 解答面板內的縮圖卡片：讓圖案縮小以符合小框，不會超出邊界 */
+        /* 解答縮圖與檯面卡片使用同一組 SVG 尺寸比例。
+           原本縮成 70% / 26%，在小卡片裡會顯得圖案更小、留白更大。 */
         .preview-card .card-shapes {
             width: 100%;
             height: 100%;
         }
 
         .preview-card .card-shapes svg {
-            height: 70% !important;
-            width: 26% !important;
-            max-width: 30% !important;
+            height: 90% !important;
+            width: 28% !important;
+            max-width: 32% !important;
         }
 
         .rules-breakdown {
@@ -601,7 +790,11 @@
                 <div class="stats">
                     <div class="stat">
                         <span class="num" id="stat-found">0</span>
-                        <span class="label">已配對</span>
+                        <span class="label" id="stat-local-label">你的分數</span>
+                    </div>
+                    <div class="stat opponent-stat" id="opponent-stat">
+                        <span class="num" id="stat-opponent">0</span>
+                        <span class="label" id="stat-opponent-label">對手分數</span>
                     </div>
                     <div class="stat">
                         <span class="num" id="stat-deck">81</span>
@@ -613,6 +806,46 @@
                     </div>
                 </div>
             </header>
+
+            <section class="mode-panel" aria-label="遊戲模式與連線設定">
+                <div class="mode-row">
+                    <label class="mode-field" for="game-mode">
+                        <span>遊戲模式</span>
+                        <select id="game-mode">
+                            <option value="solo" selected>單人練習</option>
+                            <option value="ai">電腦競速</option>
+                            <option value="online">雙人連線</option>
+                        </select>
+                    </label>
+                    <label class="mode-field" id="ai-level-field" for="ai-level">
+                        <span>電腦速度</span>
+                        <select id="ai-level">
+                            <option value="easy">悠閒（約 7–10 秒）</option>
+                            <option value="normal" selected>普通（約 4–6 秒）</option>
+                            <option value="hard">快速（約 2–3 秒）</option>
+                        </select>
+                    </label>
+                    <div class="mode-message" id="mode-message" role="status" aria-live="polite">和電腦比誰先找到 SET。</div>
+                </div>
+
+                <div class="online-panel" id="online-panel" hidden>
+                    <div class="online-actions">
+                        <button type="button" class="btn-primary" id="btn-create-room">建立房間</button>
+                        <span class="online-or">或</span>
+                        <input id="room-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+                            autocomplete="one-time-code" aria-label="四位數房間碼" placeholder="輸入 4 位碼">
+                        <button type="button" id="btn-join-room">加入房間</button>
+                        <button type="button" id="btn-leave-room" hidden>離開連線</button>
+                    </div>
+                    <div class="room-code-box" id="room-code-box" hidden>
+                        <span>房間碼</span>
+                        <strong id="room-code">----</strong>
+                        <button type="button" id="btn-copy-code">複製</button>
+                    </div>
+                    <div class="connection-status" id="connection-status">尚未連線：建立房間，或輸入朋友的四位數代碼。</div>
+                    <p class="online-note">選滿三張會立即送出，系統以搶答抵達順序判定，先送達者得分。牌局透過 WebRTC 點對點同步；部分公司／校園網路可能因 NAT 或防火牆無法連線。</p>
+                </div>
+            </section>
 
             <div class="board" id="board"></div>
 
@@ -697,6 +930,7 @@
             function closeAlert() {
                 customAlert.classList.remove('show');
                 if (customAlertTimer) clearTimeout(customAlertTimer);
+                customAlertTimer = null;
             }
 
             customAlertBtn.addEventListener('click', closeAlert);
@@ -765,21 +999,54 @@
             let deck = [];
             let board = [];
             let selected = [];
-            let foundCount = 0;
+            let foundCount = 0;              // 本局雙方合計成功組數
+            let scores = { a: 0, b: 0 };     // solo/AI: a=玩家,b=AI；online: a=房主,b=加入者
             let timerHandle = null;
             let startTime = null;
             let gameOver = false;
-            // 結算動畫（成功 400ms / 失敗 500ms）進行中的鎖。
-            // 沒有這個鎖的話，動畫期間再點第 4 張牌會讓 checkSelected() 重入，
-            // 導致同一組 SET 重複計分，並用舊的 indices 把剛補進來的新牌再挖掉一次。
             let resolving = false;
-            // 紀錄玩家找到的各種 SET 類型（依四屬性的全同/全不同組合分類）
-            let foundTypeCounts = {};
+            let resolutionTimer = null;
+            let aiTimer = null;
+            let pendingClaimTimer = null;
+            let gameEpoch = 0;               // 讓舊 timeout 在重新開局後自動失效
+            let gameId = '';
+            let revision = 0;
+            let mode = 'solo';
+
+            // WebRTC / PeerJS：房主是唯一權威，加入者只提交 claim。
+            let peer = null;
+            let connection = null;
+            let onlineRole = null;           // 'host' | 'guest' | null
+            let onlineConnected = false;
+            let roomCode = '';
+            let claimCounter = 0;
+
+            // 每位玩家各自的 SET 類型統計
+            let foundTypeCounts = { a: {}, b: {} };
 
             const boardEl = document.getElementById('board');
             const statFound = document.getElementById('stat-found');
+            const statOpponent = document.getElementById('stat-opponent');
+            const opponentStat = document.getElementById('opponent-stat');
+            const statLocalLabel = document.getElementById('stat-local-label');
+            const statOpponentLabel = document.getElementById('stat-opponent-label');
             const statDeck = document.getElementById('stat-deck');
             const statTime = document.getElementById('stat-time');
+            const gameModeEl = document.getElementById('game-mode');
+            const aiLevelEl = document.getElementById('ai-level');
+            const aiLevelField = document.getElementById('ai-level-field');
+            const modeMessageEl = document.getElementById('mode-message');
+            const onlinePanel = document.getElementById('online-panel');
+            const roomInput = document.getElementById('room-input');
+            const roomCodeBox = document.getElementById('room-code-box');
+            const roomCodeEl = document.getElementById('room-code');
+            const connectionStatusEl = document.getElementById('connection-status');
+            const btnCreateRoom = document.getElementById('btn-create-room');
+            const btnJoinRoom = document.getElementById('btn-join-room');
+            const btnLeaveRoom = document.getElementById('btn-leave-room');
+            const btnCopyCode = document.getElementById('btn-copy-code');
+            const btnHint = document.getElementById('btn-hint');
+            const btnRestart = document.getElementById('btn-restart');
             const solutionListEl = document.getElementById('solution-list');
             const solutionCountText = document.getElementById('solution-count-text');
             const summaryBox = document.getElementById('summary-box');
@@ -788,6 +1055,11 @@
 
             // 為每種屬性中文標籤
             const ATTR_LABELS = { count: '數量', color: '顏色', shape: '形狀', shading: '紋路' };
+            const CARD_LABELS = {
+                color: { red: '紅色', green: '綠色', purple: '紫色' },
+                shape: { oval: '橢圓', diamond: '菱形', squiggle: '波浪' },
+                shading: { solid: '實心', striped: '條紋', empty: '空心' }
+            };
 
             // scope 用來區隔「檯面卡片」與「解答面板縮圖」的 pattern id。
             // 兩邊都渲染同一張牌時，若 id 相同會產生重複的 SVG id（無效 HTML），
@@ -835,6 +1107,56 @@
     `;
             }
 
+            function localActor() {
+                return mode === 'online' && onlineRole === 'guest' ? 'b' : 'a';
+            }
+
+            function otherActor(actor) {
+                return actor === 'a' ? 'b' : 'a';
+            }
+
+            function hasAuthority() {
+                return mode !== 'online' || onlineRole === 'host';
+            }
+
+            function canInteract() {
+                if (gameOver || resolving) return false;
+                if (mode === 'online') return onlineConnected;
+                return true;
+            }
+
+            function updateScoreboard() {
+                const me = localActor();
+                const opponent = otherActor(me);
+                statFound.textContent = scores[me] || 0;
+                statOpponent.textContent = scores[opponent] || 0;
+                opponentStat.hidden = mode === 'solo';
+                statLocalLabel.textContent = mode === 'solo' ? '已配對' : '你的分數';
+                statOpponentLabel.textContent = mode === 'ai'
+                    ? '電腦分數'
+                    : (onlineRole === 'guest' ? '房主分數' : '對手分數');
+            }
+
+            function setModeMessage(message) {
+                modeMessageEl.textContent = message;
+            }
+
+            function setConnectionStatus(message, kind = '') {
+                connectionStatusEl.textContent = message;
+                connectionStatusEl.className = `connection-status${kind ? ` ${kind}` : ''}`;
+            }
+
+            function syncModeUI() {
+                mode = gameModeEl.value;
+                aiLevelField.hidden = mode !== 'ai';
+                onlinePanel.hidden = mode !== 'online';
+                btnHint.hidden = mode !== 'solo';
+                if (mode === 'solo') setModeMessage('單人練習：可以使用提示查看所有解答。');
+                else if (mode === 'ai') setModeMessage('和電腦比誰先找到 SET。電腦速度只影響思考時間，不會偷看你的選取。');
+                else setModeMessage(onlineConnected ? '雙方正在搶同一副牌，選滿三張立即送出，先送達者得分。' : '先建立或加入四位數房間，連線後才會開始。');
+                updateScoreboard();
+            }
+
             function renderBoard(enteringIndices = []) {
                 boardEl.innerHTML = '';
                 board.forEach((card, idx) => {
@@ -848,11 +1170,25 @@
                     el.className = 'card';
                     if (enteringIndices.includes(idx)) el.classList.add('entering');
                     el.dataset.uid = card.uid;
+                    el.dataset.count = card.count;
+                    el.dataset.color = card.color;
+                    el.dataset.shape = card.shape;
+                    el.dataset.shading = card.shading;
                     el.innerHTML = cardMarkup(card, idx);
+                    el.setAttribute('role', 'button');
+                    el.setAttribute('tabindex', '0');
+                    el.setAttribute('aria-label', `卡片 ${idx + 1}：${card.count} 個${CARD_LABELS.color[card.color]}${CARD_LABELS.shading[card.shading]}${CARD_LABELS.shape[card.shape]}`);
                     el.addEventListener('click', () => onCardClick(card.uid));
+                    el.addEventListener('keydown', event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onCardClick(card.uid);
+                        }
+                    });
                     boardEl.appendChild(el);
                 });
                 statDeck.textContent = deck.length;
+                updateScoreboard();
                 syncSelection();
             }
 
@@ -864,7 +1200,7 @@
             }
 
             function onCardClick(uid) {
-                if (gameOver || resolving) return;
+                if (!canInteract()) return;
 
                 if (selected.includes(uid)) {
                     selected = selected.filter(id => id !== uid);
@@ -883,70 +1219,153 @@
             }
 
             function checkSelected() {
-                if (resolving) return;
-                resolving = true;
-                const indices = selected.map(uid => board.findIndex(c => c && c.uid === uid));
-                const cards = indices.map(idx => board[idx]);
-                const result = evaluateTrio(cards[0], cards[1], cards[2]);
-                const els = selected.map(uid => boardEl.querySelector(`.card[data-uid="${uid}"]`));
+                if (resolving || selected.length !== 3) return;
+                const uids = selected.slice();
 
-                if (result.isSet) {
-                    // 答對了！組合正確，卡牌亮綠框 (移除了通知顯示)
-                    els.forEach(el => el.classList.add('correct'));
-
-                    // 紀錄這組 SET 的類型
-                    recordFoundType(result.breakdown);
-
-                    setTimeout(() => {
-                        // 1. 將被選中的位置挖空
-                        indices.forEach(idx => { board[idx] = null; });
-
-                        // 2. 如果版面大於 12 張，從尾端把「非空」的牌拿出來填補空缺
-                        let extraCards = [];
-                        while (board.length > 12) {
-                            let c = board.pop(); // 從尾巴拿
-                            if (c !== null) extraCards.push(c);
-                        }
-
-                        // 3. 把陣列中的空洞補齊
-                        for (let i = 0; i < board.length; i++) {
-                            if (board[i] === null) {
-                                if (extraCards.length > 0) {
-                                    // 優先用尾端多出來的牌補洞 (平移補位)
-                                    board[i] = extraCards.shift();
-                                } else if (deck.length > 0) {
-                                    // 否則才從牌堆抽
-                                    board[i] = deck.shift();
-                                }
-                            }
-                        }
-
-                        // 4. 若尾端的牌還沒用完 (防呆機制)，放回陣列尾端
-                        while (extraCards.length > 0) {
-                            board.push(extraCards.shift());
-                        }
-
+                if (mode === 'online' && onlineRole === 'guest') {
+                    if (!onlineConnected || !connection || !connection.open) {
                         selected = [];
-                        foundCount++;
-                        statFound.textContent = foundCount;
-
-                        renderBoard(indices);
-                        clearHintPanel();
-
+                        syncSelection();
+                        showAlert('尚未連上房主，無法提交搶答。');
+                        return;
+                    }
+                    resolving = true;
+                    const claimId = `g-${Date.now()}-${++claimCounter}`;
+                    connection.send({ type: 'claim', claimId, gameId, revision, uids });
+                    setModeMessage('已送出搶答，等待房主驗證…');
+                    if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
+                    const epoch = gameEpoch;
+                    pendingClaimTimer = setTimeout(() => {
+                        if (epoch !== gameEpoch || !resolving) return;
                         resolving = false;
-                        // 每次配對成功後檢查遊戲是否結束
-                        checkGameOver();
-                    }, 400);
-                } else {
-                    // 選錯時：亮紅框，但不再跳出通知干擾畫面
-                    els.forEach(el => el.classList.add('wrong'));
-
-                    setTimeout(() => {
-                        els.forEach(el => el.classList.remove('wrong', 'selected'));
                         selected = [];
-                        resolving = false;
-                    }, 500);
+                        syncSelection();
+                        setConnectionStatus('房主沒有回應，請確認連線狀態。', 'error');
+                    }, 5000);
+                    return;
                 }
+
+                processClaim(localActor(), uids);
+            }
+
+            function validateClaim(uids) {
+                if (!Array.isArray(uids) || uids.length !== 3 || new Set(uids).size !== 3) return null;
+                const indices = uids.map(uid => board.findIndex(card => card && card.uid === Number(uid)));
+                if (indices.some(index => index < 0)) return null;
+                const cards = indices.map(index => board[index]);
+                const result = evaluateTrio(cards[0], cards[1], cards[2]);
+                return { indices, cards, result };
+            }
+
+            function claimElements(uids) {
+                return uids
+                    .map(uid => boardEl.querySelector(`.card[data-uid="${Number(uid)}"]`))
+                    .filter(Boolean);
+            }
+
+            function processClaim(actor, uids, meta = {}) {
+                if (!hasAuthority() || gameOver) return;
+
+                // Online 房主用 gameId + revision 拒絕舊畫面的搶答；client 傳來的分數與牌面一律不採信。
+                if (mode === 'online' && meta.remote &&
+                    (meta.gameId !== gameId || meta.revision !== revision)) {
+                    sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, reason: '牌面已更新' });
+                    sendSnapshot();
+                    return;
+                }
+                if (resolving) {
+                    if (meta.remote) sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, reason: '另一位玩家更快' });
+                    return;
+                }
+
+                const checked = validateClaim(uids);
+                if (!checked || !checked.result.isSet) {
+                    if (meta.remote) {
+                        sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, reason: '這三張不是 SET' });
+                        return;
+                    }
+                    animateRejectedClaim(uids);
+                    return;
+                }
+
+                resolving = true;
+                if (aiTimer) clearTimeout(aiTimer);
+                const els = claimElements(uids);
+                els.forEach(el => {
+                    el.classList.add('correct');
+                    if (actor !== localActor()) el.classList.add('remote-result');
+                });
+
+                if (mode === 'online') {
+                    sendToPeer({
+                        type: 'claim-result', claimId: meta.claimId || `h-${Date.now()}`,
+                        accepted: true, actor, uids, revision
+                    });
+                }
+
+                const epoch = gameEpoch;
+                resolutionTimer = setTimeout(() => {
+                    if (epoch !== gameEpoch) return;
+                    applyAcceptedClaim(actor, uids, checked.result.breakdown, checked.indices);
+                }, 400);
+            }
+
+            function animateRejectedClaim(uids, reason = '') {
+                resolving = true;
+                claimElements(uids).forEach(el => el.classList.add('wrong'));
+                const epoch = gameEpoch;
+                resolutionTimer = setTimeout(() => {
+                    if (epoch !== gameEpoch) return;
+                    selected = [];
+                    resolving = false;
+                    renderBoard();
+                    if (reason) setModeMessage(reason);
+                }, 500);
+            }
+
+            function compactAndRefill(indices) {
+                indices.forEach(index => { board[index] = null; });
+                const extraCards = [];
+                while (board.length > 12) {
+                    const card = board.pop();
+                    if (card !== null) extraCards.push(card);
+                }
+                for (let i = 0; i < board.length; i++) {
+                    if (board[i] !== null) continue;
+                    if (extraCards.length > 0) board[i] = extraCards.shift();
+                    else if (deck.length > 0) board[i] = deck.shift();
+                }
+                while (extraCards.length > 0) board.push(extraCards.shift());
+            }
+
+            function ensureBattleHasSet() {
+                const entering = [];
+                if (mode === 'solo') return entering;
+                while (findAllSetsIn(board.filter(Boolean)).length === 0 && deck.length > 0) {
+                    const count = Math.min(3, deck.length);
+                    for (let i = 0; i < count; i++) {
+                        entering.push(board.length);
+                        board.push(deck.shift());
+                    }
+                }
+                return entering;
+            }
+
+            function applyAcceptedClaim(actor, uids, breakdown, originalIndices) {
+                compactAndRefill(originalIndices);
+                scores[actor]++;
+                foundCount++;
+                recordFoundType(actor, breakdown);
+                selected = [];
+                revision++;
+                const entering = originalIndices.concat(ensureBattleHasSet());
+                resolving = false;
+                renderBoard(entering);
+                clearHintPanel();
+                checkGameOver();
+
+                if (mode === 'online') sendSnapshot();
+                if (!gameOver) scheduleAi();
             }
 
             // 依四屬性的「全同/全不同」組合建立唯一鍵，作為 SET 的種類
@@ -956,31 +1375,45 @@
                     .join('|');
             }
 
-            function recordFoundType(breakdown) {
+            function recordFoundType(actor, breakdown) {
                 const key = patternKey(breakdown);
-                if (!foundTypeCounts[key]) {
-                    foundTypeCounts[key] = { breakdown: { ...breakdown }, count: 0 };
+                const actorTypes = foundTypeCounts[actor] || (foundTypeCounts[actor] = {});
+                if (!actorTypes[key]) {
+                    actorTypes[key] = { breakdown: { ...breakdown }, count: 0 };
                 }
-                foundTypeCounts[key].count++;
+                actorTypes[key].count++;
             }
 
             // 檢查遊戲是否結束：牌堆已空且檯面上再也沒有任何可配對的組合
             function checkGameOver() {
-                if (gameOver) return;
+                if (gameOver || !hasAuthority()) return;
 
-                const validCards = board.filter(c => c !== null);
-                const remainingSets = findAllSetsIn(validCards);
-
+                const remainingSets = findAllSetsIn(board.filter(Boolean));
                 if (deck.length === 0 && remainingSets.length === 0) {
                     gameOver = true;
                     if (timerHandle) clearInterval(timerHandle);
+                    if (aiTimer) clearTimeout(aiTimer);
                     showGameSummary();
-                    showAlert(`遊戲結束！你總共找到了 ${foundCount} 組 SET。`, 0);
+                    updateScoreboard();
+                    const me = localActor();
+                    const mine = scores[me] || 0;
+                    const theirs = scores[otherActor(me)] || 0;
+                    const result = mode === 'solo'
+                        ? `遊戲結束！你總共找到了 ${mine} 組 SET。`
+                        : (mine === theirs ? `遊戲結束，${mine}：${theirs} 平手！` : `遊戲結束，${mine}：${theirs}，${mine > theirs ? '你贏了！' : '對手獲勝。'}`);
+                    showAlert(result, 0);
                 }
             }
 
             function showGameSummary() {
-                const entries = Object.values(foundTypeCounts);
+                const me = localActor();
+                const entries = Object.values(foundTypeCounts[me] || {});
+                const summarySub = summaryBox.querySelector('.summary-sub');
+                if (mode === 'solo') {
+                    summarySub.textContent = '以下是你找到的各種 SET 類型與組數：';
+                } else {
+                    summarySub.textContent = `最終比分：你 ${scores[me] || 0}：${scores[otherActor(me)] || 0} 對手。以下是你找到的 SET 類型：`;
+                }
 
                 if (entries.length === 0) {
                     summaryListEl.innerHTML =
@@ -1003,7 +1436,7 @@
                     }).join('');
                 }
 
-                summaryTotalCount.textContent = `${foundCount} 組`;
+                summaryTotalCount.textContent = `${scores[me] || 0} 組`;
                 summaryBox.style.display = 'block';
 
                 // 收合解答清單以突顯總結
@@ -1012,13 +1445,51 @@
                     '<p style="color: #9ca3af; font-size: 0.85rem;">本局已結束。</p>';
             }
 
+            const AI_DELAYS = {
+                easy: [7000, 10000],
+                normal: [4000, 6000],
+                hard: [2000, 3000]
+            };
+
+            function scheduleAi() {
+                if (mode !== 'ai' || gameOver || !hasAuthority()) return;
+                if (aiTimer) clearTimeout(aiTimer);
+                const range = AI_DELAYS[aiLevelEl.value] || AI_DELAYS.normal;
+                const delay = range[0] + Math.random() * (range[1] - range[0]);
+                const epoch = gameEpoch;
+                setModeMessage(`電腦正在觀察牌面… 約 ${(delay / 1000).toFixed(1)} 秒後可能搶答。`);
+
+                aiTimer = setTimeout(() => {
+                    if (epoch !== gameEpoch || mode !== 'ai' || gameOver) return;
+                    if (resolving) {
+                        scheduleAi();
+                        return;
+                    }
+                    const sets = findAllSetsIn(board.filter(Boolean));
+                    if (!sets.length) {
+                        ensureBattleHasSet();
+                        revision++;
+                        renderBoard();
+                        checkGameOver();
+                        if (!gameOver) scheduleAi();
+                        return;
+                    }
+                    const picked = sets[Math.floor(Math.random() * sets.length)];
+                    processClaim('b', picked.cards.map(card => card.uid));
+                }, delay);
+            }
+
             function clearHintPanel() {
                 solutionListEl.innerHTML = '<p style="color: #9ca3af; font-size: 0.85rem;">牌面已更新，請重新按提示。</p>';
                 solutionCountText.textContent = '點擊「提示」將在此列出所有解法與屬性判定。';
             }
 
             function showHints() {
-                if (gameOver) return;
+                if (gameOver || resolving) return;
+                if (mode !== 'solo') {
+                    showAlert('競速模式不提供解答提示，才不會洩漏共享牌局。');
+                    return;
+                }
 
                 const validCards = board.filter(c => c !== null);
                 const sets = findAllSetsIn(validCards);
@@ -1094,37 +1565,343 @@
                 });
             }
 
-            function newGame() {
+            function startTimer(elapsedSeconds = 0) {
+                if (timerHandle) clearInterval(timerHandle);
+                startTime = Date.now() - elapsedSeconds * 1000;
+                const tick = () => {
+                    const seconds = Math.floor((Date.now() - startTime) / 1000);
+                    statTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+                };
+                tick();
+                if (!gameOver) timerHandle = setInterval(tick, 1000);
+            }
+
+            function clearGameTimers() {
+                gameEpoch++;
+                if (timerHandle) clearInterval(timerHandle);
+                if (resolutionTimer) clearTimeout(resolutionTimer);
+                if (aiTimer) clearTimeout(aiTimer);
+                if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
+                timerHandle = resolutionTimer = aiTimer = pendingClaimTimer = null;
+            }
+
+            function startAuthoritativeGame() {
+                clearGameTimers();
                 deck = shuffle(buildDeck());
                 board = [];
-                for (let i = 0; i < 12; i++) {
-                    board.push(deck.shift() || null);
-                }
+                for (let i = 0; i < 12; i++) board.push(deck.shift());
                 selected = [];
                 foundCount = 0;
+                scores = { a: 0, b: 0 };
                 gameOver = false;
                 resolving = false;
-                foundTypeCounts = {};
-                statFound.textContent = '0';
+                revision = 0;
+                gameId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                foundTypeCounts = { a: {}, b: {} };
                 summaryBox.style.display = 'none';
                 summaryListEl.innerHTML = '';
                 clearHintPanel();
                 closeAlert();
-
+                ensureBattleHasSet();
                 renderBoard();
-
-                if (timerHandle) clearInterval(timerHandle);
-                startTime = Date.now();
-                timerHandle = setInterval(() => {
-                    const s = Math.floor((Date.now() - startTime) / 1000);
-                    statTime.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-                }, 1000);
+                startTimer();
+                if (mode === 'online') sendSnapshot();
+                scheduleAi();
             }
 
-            document.getElementById('btn-hint').addEventListener('click', showHints);
-            document.getElementById('btn-restart').addEventListener('click', newGame);
+            function resetWaitingBoard() {
+                clearGameTimers();
+                deck = [];
+                board = new Array(12).fill(null);
+                selected = [];
+                scores = { a: 0, b: 0 };
+                foundCount = 0;
+                gameOver = false;
+                resolving = false;
+                revision = 0;
+                gameId = '';
+                foundTypeCounts = { a: {}, b: {} };
+                summaryBox.style.display = 'none';
+                statTime.textContent = '00:00';
+                renderBoard();
+            }
 
-            newGame();
+            function newGame() {
+                if (mode === 'online') {
+                    if (!onlineConnected) {
+                        showAlert('請先建立或加入房間。');
+                        return;
+                    }
+                    if (onlineRole === 'guest') {
+                        sendToPeer({ type: 'restart-request' });
+                        setModeMessage('已向房主要求重新開始…');
+                        return;
+                    }
+                }
+                startAuthoritativeGame();
+            }
+
+            /* ── Online：PeerJS / WebRTC，房主權威 ─────────────────── */
+            const PEER_PREFIX = 'jellyfish-set-room-';
+
+            function sendToPeer(message) {
+                if (!connection || !connection.open) return false;
+                try {
+                    connection.send(message);
+                    return true;
+                } catch (error) {
+                    setConnectionStatus('資料傳送失敗，請重新連線。', 'error');
+                    return false;
+                }
+            }
+
+            function snapshotData() {
+                return {
+                    type: 'snapshot', gameId, revision,
+                    board: board.map(card => card ? { ...card } : null),
+                    deckCount: deck.length,
+                    scores: { ...scores }, foundCount, gameOver,
+                    foundTypeCounts: JSON.parse(JSON.stringify(foundTypeCounts)),
+                    elapsedSeconds: startTime ? Math.floor((Date.now() - startTime) / 1000) : 0
+                };
+            }
+
+            function sendSnapshot() {
+                if (mode === 'online' && onlineRole === 'host') sendToPeer(snapshotData());
+            }
+
+            function applySnapshot(message) {
+                if (!message || !Array.isArray(message.board) || !message.scores) return;
+                if (gameId === message.gameId && Number(message.revision) < revision) return;
+                clearGameTimers();
+                gameId = String(message.gameId || '');
+                revision = Number(message.revision) || 0;
+                board = message.board.map(card => card ? { ...card, uid: Number(card.uid) } : null);
+                deck = new Array(Math.max(0, Number(message.deckCount) || 0)).fill(null);
+                scores = { a: Number(message.scores.a) || 0, b: Number(message.scores.b) || 0 };
+                foundCount = Number(message.foundCount) || 0;
+                foundTypeCounts = message.foundTypeCounts || { a: {}, b: {} };
+                gameOver = !!message.gameOver;
+                resolving = false;
+                selected = [];
+                renderBoard();
+                clearHintPanel();
+                startTimer(Number(message.elapsedSeconds) || 0);
+                if (gameOver) showGameSummary();
+                setModeMessage(gameOver ? '牌局已結束。' : '連線中：和對手搶同一副牌！');
+            }
+
+            function handleClaimResult(message) {
+                if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
+                pendingClaimTimer = null;
+                const uids = Array.isArray(message.uids) ? message.uids.map(Number) : selected.slice();
+                if (!message.accepted) {
+                    resolving = false;
+                    animateRejectedClaim(uids, message.reason || '搶答未通過');
+                    return;
+                }
+                resolving = true;
+                claimElements(uids).forEach(el => {
+                    el.classList.add('correct');
+                    if (message.actor !== localActor()) el.classList.add('remote-result');
+                });
+                setModeMessage(message.actor === localActor() ? '搶答成功！等待房主更新牌面…' : '對手先搶到了這組 SET。');
+                const epoch = gameEpoch;
+                pendingClaimTimer = setTimeout(() => {
+                    if (epoch !== gameEpoch || !resolving) return;
+                    resolving = false;
+                    selected = [];
+                    renderBoard();
+                    sendToPeer({ type: 'snapshot-request' });
+                }, 5000);
+            }
+
+            function handlePeerData(message) {
+                if (!message || typeof message !== 'object' || typeof message.type !== 'string') return;
+                if (onlineRole === 'host') {
+                    if (message.type === 'claim') {
+                        processClaim('b', Array.isArray(message.uids) ? message.uids.map(Number) : [], {
+                            remote: true, claimId: String(message.claimId || ''),
+                            gameId: String(message.gameId || ''), revision: Number(message.revision)
+                        });
+                    } else if (message.type === 'restart-request') {
+                        startAuthoritativeGame();
+                    } else if (message.type === 'snapshot-request' || message.type === 'hello') {
+                        sendSnapshot();
+                    }
+                } else if (onlineRole === 'guest') {
+                    if (message.type === 'snapshot') applySnapshot(message);
+                    else if (message.type === 'claim-result') handleClaimResult(message);
+                }
+            }
+
+            function attachConnection(conn) {
+                connection = conn;
+                conn.on('open', () => {
+                    onlineConnected = true;
+                    btnLeaveRoom.hidden = false;
+                    btnCreateRoom.disabled = true;
+                    btnJoinRoom.disabled = true;
+                    roomInput.disabled = true;
+                    setConnectionStatus(onlineRole === 'host' ? '朋友已加入，牌局開始！' : '已連上房主，牌局同步中…', 'connected');
+                    syncModeUI();
+                    if (onlineRole === 'host') startAuthoritativeGame();
+                    else sendToPeer({ type: 'hello' });
+                });
+                conn.on('data', handlePeerData);
+                conn.on('close', () => {
+                    onlineConnected = false;
+                    connection = null;
+                    selected = [];
+                    resolving = false;
+                    renderBoard();
+                    if (onlineRole === 'host' && peer && !peer.destroyed) {
+                        setConnectionStatus('對手已離線；房間仍開放，可等待重新加入。', 'error');
+                    } else {
+                        setConnectionStatus('連線已中斷，請離開後重新加入。', 'error');
+                    }
+                    syncModeUI();
+                });
+                conn.on('error', () => setConnectionStatus('資料連線發生錯誤。', 'error'));
+            }
+
+            function resetOnlineControls() {
+                btnCreateRoom.disabled = false;
+                btnJoinRoom.disabled = false;
+                roomInput.disabled = false;
+                btnLeaveRoom.hidden = true;
+                roomCodeBox.hidden = true;
+                roomCode = '';
+                roomCodeEl.textContent = '----';
+            }
+
+            function disconnectOnline(showStatus = true) {
+                clearGameTimers();
+                onlineConnected = false;
+                if (connection) {
+                    try { connection.close(); } catch (_) { }
+                }
+                if (peer) {
+                    try { peer.destroy(); } catch (_) { }
+                }
+                connection = null;
+                peer = null;
+                onlineRole = null;
+                resetOnlineControls();
+                if (showStatus) setConnectionStatus('已離開連線。');
+            }
+
+            function peerUnavailable() {
+                return typeof window.Peer !== 'function';
+            }
+
+            function createRoom(attempt = 0) {
+                if (peerUnavailable()) {
+                    setConnectionStatus('PeerJS 載入失敗；單人與電腦模式仍可使用。', 'error');
+                    return;
+                }
+                disconnectOnline(false);
+                onlineRole = 'host';
+                roomCode = String(Math.floor(1000 + Math.random() * 9000));
+                setConnectionStatus('正在向配對服務登記房間…');
+                btnCreateRoom.disabled = btnJoinRoom.disabled = true;
+                roomInput.disabled = true;
+                btnLeaveRoom.hidden = false;
+                peer = new window.Peer(`${PEER_PREFIX}${roomCode}`);
+
+                peer.on('open', () => {
+                    roomCodeEl.textContent = roomCode;
+                    roomCodeBox.hidden = false;
+                    setConnectionStatus(`房間 ${roomCode} 已建立，請朋友輸入代碼。`, 'connected');
+                    setModeMessage('等待第二位玩家加入；連線後選滿三張會立即搶答，先送達者得分。');
+                });
+                peer.on('connection', conn => {
+                    if (connection && connection.open) {
+                        conn.close();
+                        return;
+                    }
+                    attachConnection(conn);
+                });
+                peer.on('error', error => {
+                    if (error && error.type === 'unavailable-id' && attempt < 8) {
+                        try { peer.destroy(); } catch (_) { }
+                        peer = null;
+                        createRoom(attempt + 1);
+                        return;
+                    }
+                    setConnectionStatus(`無法建立房間：${error && error.type ? error.type : '連線錯誤'}`, 'error');
+                    resetOnlineControls();
+                });
+            }
+
+            function joinRoom() {
+                const code = roomInput.value.replace(/\D/g, '').slice(0, 4);
+                roomInput.value = code;
+                if (!/^\d{4}$/.test(code)) {
+                    setConnectionStatus('請輸入完整的四位數房間碼。', 'error');
+                    return;
+                }
+                if (peerUnavailable()) {
+                    setConnectionStatus('PeerJS 載入失敗；單人與電腦模式仍可使用。', 'error');
+                    return;
+                }
+                disconnectOnline(false);
+                onlineRole = 'guest';
+                roomCode = code;
+                btnCreateRoom.disabled = btnJoinRoom.disabled = true;
+                roomInput.disabled = true;
+                btnLeaveRoom.hidden = false;
+                setConnectionStatus(`正在尋找房間 ${code}…`);
+                peer = new window.Peer();
+                peer.on('open', () => attachConnection(peer.connect(`${PEER_PREFIX}${code}`, { reliable: true })));
+                peer.on('error', error => {
+                    const type = error && error.type ? error.type : '連線錯誤';
+                    setConnectionStatus(type === 'peer-unavailable' ? '找不到這個房間，請確認代碼與房主頁面。' : `無法加入：${type}`, 'error');
+                    resetOnlineControls();
+                });
+            }
+
+            btnHint.addEventListener('click', showHints);
+            btnRestart.addEventListener('click', newGame);
+            gameModeEl.addEventListener('change', () => {
+                if (mode === 'online') disconnectOnline(false);
+                mode = gameModeEl.value;
+                syncModeUI();
+                if (mode === 'online') {
+                    resetWaitingBoard();
+                    setConnectionStatus('尚未連線：建立房間，或輸入朋友的四位數代碼。');
+                } else {
+                    startAuthoritativeGame();
+                }
+            });
+            aiLevelEl.addEventListener('change', () => {
+                if (mode === 'ai') startAuthoritativeGame();
+            });
+            btnCreateRoom.addEventListener('click', () => createRoom());
+            btnJoinRoom.addEventListener('click', joinRoom);
+            btnLeaveRoom.addEventListener('click', () => {
+                disconnectOnline();
+                resetWaitingBoard();
+                syncModeUI();
+            });
+            btnCopyCode.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(roomCode);
+                    showAlert(`房間碼 ${roomCode} 已複製。`);
+                } catch (_) {
+                    roomInput.value = roomCode;
+                    roomInput.select();
+                    showAlert(`房間碼是 ${roomCode}，請手動複製。`);
+                }
+            });
+            roomInput.addEventListener('input', () => {
+                roomInput.value = roomInput.value.replace(/\D/g, '').slice(0, 4);
+            });
+            window.addEventListener('beforeunload', () => disconnectOnline(false));
+
+            mode = gameModeEl.value;
+            syncModeUI();
+            startAuthoritativeGame();
         })();
     </script>
 </body>
