@@ -229,8 +229,8 @@
       if (!Number.isFinite(previous) || !Number.isFinite(current) || current < previous) continue;
 
       var period = periodLength === "month"
-        ? ascending[i].date.slice(0, 7)
-        : ascending[i].date;
+        ? ascending[i - 1].date.slice(0, 7)
+        : ascending[i - 1].date;
       usage[period] = (usage[period] || 0) + current - previous;
     }
 
