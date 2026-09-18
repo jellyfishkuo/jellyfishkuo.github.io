@@ -254,11 +254,15 @@
 
   function drawUsageChart(canvas, data, periodLength, emptyMessage) {
     var context = canvas.getContext("2d");
-    var width = canvas.clientWidth || 300;
-    var height = 190;
+    var scrollBox = canvas.parentElement;
+    var height = 210;
+    var padding = { top: 28, right: 18, bottom: 44, left: 34 };
+    var minBarWidth = 44;
+    var width = Math.max(scrollBox.clientWidth || 300, padding.left + padding.right + data.length * minBarWidth);
     var ratio = window.devicePixelRatio || 1;
     canvas.width = width * ratio;
     canvas.height = height * ratio;
+    canvas.style.width = width + "px";
     canvas.style.height = height + "px";
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, width, height);
@@ -272,26 +276,45 @@
     canvas.classList.remove("hidden");
     emptyMessage.classList.add("hidden");
     var maxValue = Math.max.apply(null, data.map(function (item) { return item.value; })) || 1;
-    var padding = { top: 18, right: 8, bottom: 34, left: 34 };
     var plotWidth = width - padding.left - padding.right;
     var plotHeight = height - padding.top - padding.bottom;
-    var barGap = Math.max(4, plotWidth / data.length * 0.16);
+    var barGap = 10;
     var barWidth = (plotWidth - barGap * (data.length - 1)) / data.length;
     var textColor = getComputedStyle(document.documentElement).getPropertyValue("--text-secondary");
     var primaryColor = getComputedStyle(document.documentElement).getPropertyValue("--primary");
+    var borderColor = getComputedStyle(document.documentElement).getPropertyValue("--border");
 
-    context.font = "11px sans-serif";
+    context.font = "12px sans-serif";
     context.textAlign = "center";
-    context.fillStyle = textColor;
+    context.strokeStyle = borderColor;
+    context.lineWidth = 1;
+    [0, 0.5, 1].forEach(function (step) {
+      var gridY = padding.top + plotHeight - plotHeight * step;
+      context.beginPath();
+      context.moveTo(padding.left, gridY + 0.5);
+      context.lineTo(width - padding.right, gridY + 0.5);
+      context.stroke();
+    });
+
     data.forEach(function (item, index) {
       var barHeight = item.value / maxValue * plotHeight;
       var x = padding.left + index * (barWidth + barGap);
       var y = padding.top + plotHeight - barHeight;
       context.fillStyle = primaryColor;
-      context.fillRect(x, y, barWidth, barHeight);
+      var radius = Math.min(7, barWidth / 2, barHeight / 2);
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.arcTo(x + barWidth, y, x + barWidth, y + barHeight, radius);
+      context.arcTo(x + barWidth, y + barHeight, x, y + barHeight, radius);
+      context.arcTo(x, y + barHeight, x, y, radius);
+      context.arcTo(x, y, x + barWidth, y, radius);
+      context.fill();
       context.fillStyle = textColor;
-      context.fillText(formatChartLabel(item.label, periodLength), x + barWidth / 2, height - 12);
-      if (item.value > 0) context.fillText(String(item.value), x + barWidth / 2, Math.max(12, y - 5));
+      context.fillText(formatChartLabel(item.label, periodLength), x + barWidth / 2, height - 16);
+      context.fillStyle = primaryColor;
+      context.font = "bold 11px sans-serif";
+      if (item.value > 0) context.fillText(String(item.value), x + barWidth / 2, Math.max(14, y - 7));
+      context.font = "12px sans-serif";
     });
   }
 
