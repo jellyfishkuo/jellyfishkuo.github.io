@@ -42,7 +42,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
@@ -268,7 +269,7 @@ label {
   font-size: 0.82rem;
 }
 
-.chart-block + .chart-block {
+.chart-block+.chart-block {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
@@ -416,6 +417,7 @@ label {
   .modal-overlay {
     align-items: center;
   }
+
   .modal {
     border-radius: 20px;
   }

@@ -949,7 +949,8 @@
             <div class="project-card reveal" style="transition-delay:0.3s">
                 <div class="project-tag">Web Game / JS</div>
                 <div class="project-title">SET 練功房</div>
-                <div class="project-desc">經典邏輯桌遊 SET 的練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合；除了單人練習，也可以挑戰三段難度的電腦對手，或用四位數房間碼開房間跟朋友
+                <div class="project-desc">經典邏輯桌遊 SET
+                    的練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合；除了單人練習，也可以挑戰三段難度的電腦對手，或用四位數房間碼開房間跟朋友
                     WebRTC 連線對戰，先選滿三張合法牌就自動得分。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="games/game-set-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
@@ -965,8 +966,7 @@
                     對手（三種強度）。我另外用逆向歸納把這個遊戲<strong style="color:var(--accent2)">完整求解</strong>了 ——
                     116,074 個局面、先手必勝，而且只有下「邊」才贏。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/infinite-tictactoe-detail.html" class="project-link"
-                        style="margin-top:0;">技術介紹 →</a>
+                    <a href="games/infinite-tictactoe-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/infinite-tictactoe.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
@@ -978,8 +978,7 @@
                 <div class="project-desc">9×8 重力棋盤上的五連線對戰。棋子只能落在欄位最低空格，內建 iterative deepening、Negamax、
                     Alpha-Beta 剪枝與局面快取的三段難度 AI，並處理 AI 思考期間重新開始的非同步競態。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/vertical-gomoku-detail.html" class="project-link"
-                        style="margin-top:0;">技術介紹 →</a>
+                    <a href="games/vertical-gomoku-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/vertical-gomoku.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
                 </div>
@@ -1156,7 +1155,7 @@
             const canvas = document.getElementById('canvas');
             const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
             if (!ctx) return;
-            let W, H, particles = [], mouse = {x: -9999, y: -9999};
+            let W, H, particles = [], mouse = { x: -9999, y: -9999 };
 
             function resize() {
                 W = canvas.width = window.innerWidth;
@@ -1164,10 +1163,10 @@
             }
             resize();
             window.addEventListener('resize', resize);
-            window.addEventListener('mousemove', e => {mouse.x = e.clientX; mouse.y = e.clientY;});
+            window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 
             class Particle {
-                constructor() {this.reset();}
+                constructor() { this.reset(); }
                 reset() {
                     this.x = Math.random() * W;
                     this.y = Math.random() * H;
@@ -1220,7 +1219,7 @@
 
             function animate() {
                 ctx.clearRect(0, 0, W, H);
-                particles.forEach(p => {p.update(); p.draw();});
+                particles.forEach(p => { p.update(); p.draw(); });
                 drawLines();
                 ctx.globalAlpha = 1;
                 requestAnimationFrame(animate);
@@ -1243,12 +1242,12 @@
             if (!deleting) {
                 tw.textContent = phrase.slice(0, ci + 1);
                 ci++;
-                if (ci === phrase.length) {deleting = true; setTimeout(type, 1800); return;}
+                if (ci === phrase.length) { deleting = true; setTimeout(type, 1800); return; }
                 setTimeout(type, 80);
             } else {
                 tw.textContent = phrase.slice(0, ci - 1);
                 ci--;
-                if (ci === 0) {deleting = false; pi = (pi + 1) % phrases.length; setTimeout(type, 400); return;}
+                if (ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; setTimeout(type, 400); return; }
                 setTimeout(type, 45);
             }
         }
@@ -1265,7 +1264,7 @@
                     });
                 }
             });
-        }, {threshold: 0.15});
+        }, { threshold: 0.15 });
         reveals.forEach(r => observer.observe(r));
 
         // ── Mobile menu ──
