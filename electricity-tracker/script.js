@@ -36,6 +36,10 @@
   var historyList = document.getElementById("history-list");
   var recordCountEl = document.getElementById("record-count");
   var emptyMsg = document.getElementById("empty-msg");
+  var dailyChart = document.getElementById("daily-chart");
+  var monthlyChart = document.getElementById("monthly-chart");
+  var dailyChartEmpty = document.getElementById("daily-chart-empty");
+  var monthlyChartEmpty = document.getElementById("monthly-chart-empty");
 
   var editModal = document.getElementById("edit-modal");
   var editReading = document.getElementById("edit-reading");
@@ -194,6 +198,7 @@
     var sorted = sortRecordsDesc(records);
 
     historyList.innerHTML = "";
+    renderCharts();
 
     if (sorted.length === 0) {
       emptyMsg.classList.remove("hidden");
@@ -207,6 +212,90 @@
       historyList.appendChild(buildHistoryItem(r));
     });
   }
+
+  function getUsageByPeriod(periodLength) {
+    var ascending = records.slice().sort(function (a, b) {
+      var ka = sortKey(a);
+      var kb = sortKey(b);
+      return ka === kb
+        ? (a.createdAt || "").localeCompare(b.createdAt || "")
+        : ka < kb ? -1 : 1;
+    });
+    var usage = {};
+
+    for (var i = 1; i < ascending.length; i++) {
+      var previous = Number(ascending[i - 1].reading);
+      var current = Number(ascending[i].reading);
+      if (!Number.isFinite(previous) || !Number.isFinite(current) || current < previous) continue;
+
+      var period = periodLength === "month"
+        ? ascending[i].date.slice(0, 7)
+        : ascending[i].date;
+      usage[period] = (usage[period] || 0) + current - previous;
+    }
+
+    return Object.keys(usage).sort().map(function (label) {
+      return { label: label, value: usage[label] };
+    }).slice(-12);
+  }
+
+  function formatChartLabel(label, periodLength) {
+    return periodLength === "month"
+      ? label.slice(5) + "月"
+      : label.slice(5).replace("-", "/");
+  }
+
+  function renderCharts() {
+    var daily = getUsageByPeriod("day");
+    var monthly = getUsageByPeriod("month");
+    drawUsageChart(dailyChart, daily, "day", dailyChartEmpty);
+    drawUsageChart(monthlyChart, monthly, "month", monthlyChartEmpty);
+  }
+
+  function drawUsageChart(canvas, data, periodLength, emptyMessage) {
+    var context = canvas.getContext("2d");
+    var width = canvas.clientWidth || 300;
+    var height = 190;
+    var ratio = window.devicePixelRatio || 1;
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.style.height = height + "px";
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width, height);
+
+    if (data.length === 0) {
+      canvas.classList.add("hidden");
+      emptyMessage.classList.remove("hidden");
+      return;
+    }
+
+    canvas.classList.remove("hidden");
+    emptyMessage.classList.add("hidden");
+    var maxValue = Math.max.apply(null, data.map(function (item) { return item.value; })) || 1;
+    var padding = { top: 18, right: 8, bottom: 34, left: 34 };
+    var plotWidth = width - padding.left - padding.right;
+    var plotHeight = height - padding.top - padding.bottom;
+    var barGap = Math.max(4, plotWidth / data.length * 0.16);
+    var barWidth = (plotWidth - barGap * (data.length - 1)) / data.length;
+    var textColor = getComputedStyle(document.documentElement).getPropertyValue("--text-secondary");
+    var primaryColor = getComputedStyle(document.documentElement).getPropertyValue("--primary");
+
+    context.font = "11px sans-serif";
+    context.textAlign = "center";
+    context.fillStyle = textColor;
+    data.forEach(function (item, index) {
+      var barHeight = item.value / maxValue * plotHeight;
+      var x = padding.left + index * (barWidth + barGap);
+      var y = padding.top + plotHeight - barHeight;
+      context.fillStyle = primaryColor;
+      context.fillRect(x, y, barWidth, barHeight);
+      context.fillStyle = textColor;
+      context.fillText(formatChartLabel(item.label, periodLength), x + barWidth / 2, height - 12);
+      if (item.value > 0) context.fillText(String(item.value), x + barWidth / 2, Math.max(12, y - 5));
+    });
+  }
+
+  window.addEventListener("resize", renderCharts);
 
   /** 使用 DOM API 建立節點，避免 innerHTML 字串拼接造成 XSS 風險 */
   function buildHistoryItem(r) {

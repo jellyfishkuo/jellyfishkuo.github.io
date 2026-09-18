@@ -73,6 +73,22 @@
       <p class="status-msg" id="import-status"></p>
     </section>
 
+    <!-- ===== 用電圖表 ===== -->
+    <section class="card charts-section">
+      <h2>用電統計</h2>
+      <p class="chart-note">依相鄰電表讀數差估算，單位：度（kWh）</p>
+      <div class="chart-block">
+        <h3>每日用電</h3>
+        <canvas id="daily-chart" class="usage-chart" aria-label="每日用電長條圖"></canvas>
+        <p id="daily-chart-empty" class="chart-empty hidden">至少需要兩筆電表紀錄才能計算。</p>
+      </div>
+      <div class="chart-block">
+        <h3>每月用電</h3>
+        <canvas id="monthly-chart" class="usage-chart" aria-label="每月用電長條圖"></canvas>
+        <p id="monthly-chart-empty" class="chart-empty hidden">至少需要兩筆電表紀錄才能計算。</p>
+      </div>
+    </section>
+
     <!-- ===== 歷史紀錄列表 ===== -->
     <section class="card history-section">
       <h2>歷史紀錄 <span id="record-count" class="record-count"></span></h2>

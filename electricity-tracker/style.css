@@ -261,6 +261,37 @@ label {
   text-align: center;
 }
 
+/* ---------- 用電圖表 ---------- */
+.chart-note {
+  margin: -4px 0 14px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.chart-block + .chart-block {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.chart-block h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.usage-chart {
+  display: block;
+  width: 100%;
+  height: 190px;
+}
+
+.chart-empty {
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 /* ---------- 歷史紀錄 ---------- */
 .record-count {
   font-size: 0.9rem;
