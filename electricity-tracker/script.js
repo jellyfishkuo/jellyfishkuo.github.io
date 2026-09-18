@@ -753,13 +753,24 @@
   // ---------------------------------------------------------
   render();
 
-  // 讓輸入框在頁面載入後盡快取得焦點，方便手機使用者立刻輸入
-  // （部分行動瀏覽器基於安全性限制，仍需使用者先點擊一下才會跳出鍵盤）
-  window.addEventListener("load", function () {
+  function focusQuickInput() {
+    if (document.activeElement === quickInput) return;
     try {
       quickInput.focus({ preventScroll: true });
     } catch (e) {
       quickInput.focus();
     }
+  }
+
+  // 讓輸入框在頁面載入後盡快取得焦點，方便手機使用者立刻輸入
+  // （部分行動瀏覽器基於安全性限制，仍需使用者先點擊一下才會跳出鍵盤）
+  window.addEventListener("load", function () {
+    focusQuickInput();
   });
+
+  // 行動瀏覽器只允許在使用者手勢期間開啟軟體鍵盤。
+  document.addEventListener("pointerdown", function (e) {
+    if (e.target.closest("button, a, input, select, textarea, label")) return;
+    focusQuickInput();
+  }, { passive: true });
 })();
