@@ -1,0 +1,391 @@
+/* =========================================================
+   電費紀錄 - 樣式表
+   採用 Mobile First 設計，支援淺色 / 深色模式
+   ========================================================= */
+
+:root {
+  --bg: #f2f4f8;
+  --card-bg: #ffffff;
+  --text: #1a1a2e;
+  --text-secondary: #666e7d;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --primary-contrast: #ffffff;
+  --danger: #dc2626;
+  --danger-dark: #b91c1c;
+  --border: #e3e6ec;
+  --input-bg: #f7f8fb;
+  --success: #16a34a;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101018;
+    --card-bg: #1b1b28;
+    --text: #f0f0f5;
+    --text-secondary: #9aa0ac;
+    --primary: #4d8dff;
+    --primary-dark: #3b7ae0;
+    --primary-contrast: #ffffff;
+    --danger: #ff5c5c;
+    --danger-dark: #e04848;
+    --border: #2c2c3c;
+    --input-bg: #24243468;
+    --input-bg: #242434;
+    --success: #34d399;
+    --shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+    "Noto Sans TC", "Microsoft JhengHei", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+  min-height: 100vh;
+}
+
+/* ---------- 標題 ---------- */
+.app-header {
+  padding: 20px 0 8px;
+  text-align: center;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---------- 快速新增區 ---------- */
+.quick-add {
+  text-align: center;
+}
+
+.quick-label {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.reading-input {
+  width: 100%;
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  padding: 18px 10px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-family: "SF Mono", "Roboto Mono", monospace;
+  margin-bottom: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.reading-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ---------- 按鈕 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 12px 18px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.06s ease, opacity 0.15s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-contrast);
+}
+
+.btn-primary:active {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.btn-danger:active {
+  background: var(--danger-dark);
+}
+
+.btn-large {
+  width: 100%;
+  font-size: 1.2rem;
+  min-height: 56px;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btn-row .btn {
+  flex: 1;
+}
+
+/* ---------- 表單通用 ---------- */
+label {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 12px 0 6px;
+}
+
+.text-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  font-size: 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.manual-form {
+  margin-top: 16px;
+}
+
+.error-msg {
+  color: var(--danger);
+  font-size: 0.9rem;
+  min-height: 1.3em;
+  margin: 8px 0 0;
+}
+
+.status-msg {
+  color: var(--success);
+  font-size: 0.9rem;
+  margin: 10px 0 0;
+  min-height: 1.2em;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- 資料管理 ---------- */
+.tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tools-grid .btn-danger {
+  grid-column: 1 / -1;
+}
+
+.file-label {
+  text-align: center;
+}
+
+/* ---------- 歷史紀錄 ---------- */
+.record-count {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.record-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.record-reading {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: "SF Mono", "Roboto Mono", monospace;
+  letter-spacing: 0.05em;
+}
+
+.record-datetime {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.record-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.icon-btn:active {
+  transform: scale(0.94);
+}
+
+.icon-btn.danger {
+  color: var(--danger);
+}
+
+.empty-msg {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 24px 0;
+}
+
+/* ---------- Footer ---------- */
+.app-footer {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding-top: 8px;
+}
+
+/* ---------- Modal ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  padding: 0;
+}
+
+.modal {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 480px;
+  border-radius: 20px 20px 0 0;
+  padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.modal h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+}
+
+.modal p#confirm-message {
+  font-size: 1.05rem;
+  margin: 6px 0 4px;
+}
+
+@media (min-width: 520px) {
+  .modal-overlay {
+    align-items: center;
+  }
+  .modal {
+    border-radius: 20px;
+  }
+}

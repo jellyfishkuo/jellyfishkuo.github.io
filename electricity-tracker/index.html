@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>電費紀錄</title>
+<meta name="description" content="簡單好用的電表讀數紀錄工具，資料只儲存在本機瀏覽器，離線也能使用。">
+<meta name="theme-color" content="#12121c">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="app-header">
+    <h1>⚡ 電費紀錄</h1>
+  </header>
+
+  <main>
+
+    <!-- ===== 快速新增（首頁最重要區塊） ===== -->
+    <section class="card quick-add">
+      <label for="quick-reading" class="quick-label">電表目前讀數</label>
+      <input
+        type="tel"
+        id="quick-reading"
+        class="reading-input"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        maxlength="4"
+        placeholder="0000"
+        autocomplete="off"
+        autofocus
+      >
+      <p class="error-msg" id="quick-error" role="alert"></p>
+      <button type="button" id="quick-save-btn" class="btn btn-primary btn-large">儲存</button>
+    </section>
+
+    <!-- ===== 手動新增歷史紀錄 ===== -->
+    <section class="card">
+      <button type="button" id="toggle-manual-btn" class="btn btn-secondary btn-full">
+        ➕ 手動新增歷史紀錄
+      </button>
+      <div id="manual-form" class="manual-form hidden">
+        <label for="manual-reading">電表讀數（4 位數）</label>
+        <input type="tel" id="manual-reading" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" class="text-input">
+
+        <label for="manual-date">日期</label>
+        <input type="date" id="manual-date" class="text-input">
+
+        <label for="manual-time">時間</label>
+        <input type="time" id="manual-time" class="text-input">
+
+        <p class="error-msg" id="manual-error" role="alert"></p>
+
+        <div class="btn-row">
+          <button type="button" id="manual-cancel-btn" class="btn btn-secondary">取消</button>
+          <button type="button" id="manual-save-btn" class="btn btn-primary">新增紀錄</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 資料管理：匯出 / 匯入 / 清除 ===== -->
+    <section class="card data-tools">
+      <h2>資料管理</h2>
+      <div class="tools-grid">
+        <button type="button" id="export-json-btn" class="btn btn-secondary">匯出 JSON</button>
+        <button type="button" id="export-csv-btn" class="btn btn-secondary">匯出 CSV</button>
+        <label class="btn btn-secondary file-label" for="import-file">匯入檔案</label>
+        <input type="file" id="import-file" accept=".json,.csv,application/json,text/csv" class="hidden">
+        <button type="button" id="clear-all-btn" class="btn btn-danger">清除全部紀錄</button>
+      </div>
+      <p class="status-msg" id="import-status"></p>
+    </section>
+
+    <!-- ===== 歷史紀錄列表 ===== -->
+    <section class="card history-section">
+      <h2>歷史紀錄 <span id="record-count" class="record-count"></span></h2>
+      <ul id="history-list" class="history-list"></ul>
+      <p id="empty-msg" class="empty-msg hidden">尚無紀錄，開始輸入第一筆電表讀數吧！</p>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>資料僅儲存在此裝置的瀏覽器中，不會上傳到任何伺服器。</p>
+  </footer>
+</div>
+
+<!-- ===== 編輯紀錄 Modal ===== -->
+<div id="edit-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>編輯紀錄</h2>
+    <label for="edit-reading">電表讀數（4 位數）</label>
+    <input type="tel" id="edit-reading" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="text-input">
+
+    <label for="edit-date">日期</label>
+    <input type="date" id="edit-date" class="text-input">
+
+    <label for="edit-time">時間</label>
+    <input type="time" id="edit-time" class="text-input">
+
+    <p class="error-msg" id="edit-error" role="alert"></p>
+
+    <div class="btn-row">
+      <button type="button" id="edit-cancel-btn" class="btn btn-secondary">取消</button>
+      <button type="button" id="edit-save-btn" class="btn btn-primary">儲存修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 通用確認 Modal（刪除單筆 / 清除全部） ===== -->
+<div id="confirm-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <p id="confirm-message"></p>
+    <div class="btn-row">
+      <button type="button" id="confirm-cancel-btn" class="btn btn-secondary">取消</button>
+      <button type="button" id="confirm-ok-btn" class="btn btn-danger">確定</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
