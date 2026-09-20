@@ -376,6 +376,7 @@
   quickInput.addEventListener("input", function () {
     quickInput.value = quickInput.value.replace(/\D/g, "").slice(0, 4);
     quickError.textContent = "";
+    if (quickInput.value.length === 4) handleQuickSave();
   });
 
   quickInput.addEventListener("keydown", function (e) {
@@ -409,10 +410,7 @@
       render();
       quickInput.value = "";
       quickError.textContent = "";
-      // 稍微延遲再 focus，避免部分手機瀏覽器鍵盤收合動畫卡頓
-      setTimeout(function () {
-        quickInput.focus();
-      }, 50);
+      quickInput.blur();
     }
   }
 
