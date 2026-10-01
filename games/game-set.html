@@ -1004,7 +1004,8 @@
             let timerHandle = null;
             let startTime = null;
             let gameOver = false;
-            let resolving = false;
+            let resolving = false;           // 有一組 SET 正在結算（房主權威 / 加入者等待回覆）
+            let rejecting = false;           // 只是本機「選錯」的動畫，不應擋住對手搶答
             let resolutionTimer = null;
             let aiTimer = null;
             let pendingClaimTimer = null;
@@ -1121,7 +1122,7 @@
             }
 
             function canInteract() {
-                if (gameOver || resolving) return false;
+                if (gameOver || resolving || rejecting) return false;
                 if (mode === 'online') return onlineConnected;
                 return true;
             }
@@ -1220,7 +1221,7 @@
             }
 
             function checkSelected() {
-                if (resolving || selected.length !== 3) return;
+                if (resolving || rejecting || selected.length !== 3) return;
                 const uids = selected.slice();
 
                 if (mode === 'online' && onlineRole === 'guest') {
@@ -1312,16 +1313,24 @@
             }
 
             function animateRejectedClaim(uids, reason = '') {
-                resolving = true;
+                rejecting = true;
                 claimElements(uids).forEach(el => el.classList.add('wrong'));
+                if (reason) setModeMessage(reason);
                 const epoch = gameEpoch;
-                resolutionTimer = setTimeout(() => {
+                setTimeout(() => {
                     if (epoch !== gameEpoch) return;
-                    selected = [];
-                    resolving = false;
-                    renderBoard();
-                    if (reason) setModeMessage(reason);
+                    rejecting = false;
+                    const wrong = new Set(uids.map(Number));
+                    selected = selected.filter(uid => !wrong.has(uid));
+                    boardEl.querySelectorAll('.card.wrong').forEach(el => el.classList.remove('wrong'));
+                    syncSelection();
                 }, 500);
+            }
+
+            /** 牌面更新後，保留仍在檯面上的選取，不必整個重選 */
+            function keepValidSelection() {
+                const onBoard = new Set(board.filter(Boolean).map(card => card.uid));
+                selected = selected.filter(uid => onBoard.has(uid));
             }
 
             function compactAndRefill(indices) {
@@ -1357,7 +1366,7 @@
                 scores[actor]++;
                 foundCount++;
                 recordFoundType(actor, breakdown);
-                selected = [];
+                keepValidSelection();
                 revision++;
                 const entering = originalIndices.concat(ensureBattleHasSet());
                 resolving = false;
@@ -1579,6 +1588,7 @@
 
             function clearGameTimers() {
                 gameEpoch++;
+                rejecting = false;
                 if (timerHandle) clearInterval(timerHandle);
                 if (resolutionTimer) clearTimeout(resolutionTimer);
                 if (aiTimer) clearTimeout(aiTimer);
@@ -1649,13 +1659,26 @@
                 port: 443,
                 path: '/',
                 secure: true,
+                // 注意：自訂 iceServers 會「整個取代」PeerJS 的預設值。
+                // 只放 STUN 時，手機網路 / 對稱型 NAT 無法直連又沒有中繼可走，
+                // 就會一直卡在連線中；所以要把 PeerJS 官方的 TURN 中繼一起帶上。
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun.cloudflare.com:3478' }
-                    ]
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                        {
+                            urls: [
+                                'turn:eu-0.turn.peerjs.com:3478',
+                                'turn:us-0.turn.peerjs.com:3478'
+                            ],
+                            username: 'peerjs',
+                            credential: 'peerjsp'
+                        }
+                    ],
+                    sdpSemantics: 'unified-plan'
                 }
             };
+            const CONNECT_TIMEOUT_MS = 30000;
 
             function sendToPeer(message) {
                 if (!connection || !connection.open) return false;
@@ -1686,6 +1709,8 @@
             function applySnapshot(message) {
                 if (!message || !Array.isArray(message.board) || !message.scores) return;
                 if (gameId === message.gameId && Number(message.revision) < revision) return;
+                const sameGame = gameId === message.gameId;
+                const wasOver = gameOver;
                 clearGameTimers();
                 gameId = String(message.gameId || '');
                 revision = Number(message.revision) || 0;
@@ -1696,12 +1721,26 @@
                 foundTypeCounts = message.foundTypeCounts || { a: {}, b: {} };
                 gameOver = !!message.gameOver;
                 resolving = false;
-                selected = [];
+                if (sameGame) keepValidSelection();
+                else selected = [];
+                if (!gameOver) {
+                    summaryBox.style.display = 'none';
+                    if (!sameGame) closeAlert();
+                }
                 renderBoard();
                 clearHintPanel();
                 startTimer(Number(message.elapsedSeconds) || 0);
-                if (gameOver) showGameSummary();
-                setModeMessage(gameOver ? '牌局已結束。' : '連線中：和對手搶同一副牌！');
+                if (gameOver) {
+                    showGameSummary();
+                    if (!(sameGame && wasOver)) {
+                        const mine = scores.b;
+                        const theirs = scores.a;
+                        showAlert(mine === theirs
+                            ? `遊戲結束，${mine}：${theirs} 平手！`
+                            : `遊戲結束，${mine}：${theirs}，${mine > theirs ? '你贏了！' : '房主獲勝。'}`, 0);
+                    }
+                }
+                setModeMessage(gameOver ? '牌局已結束，按「重新開始」可再來一局。' : '連線中：和對手搶同一副牌！');
             }
 
             function handleClaimResult(message) {
@@ -1723,7 +1762,6 @@
                 pendingClaimTimer = setTimeout(() => {
                     if (epoch !== gameEpoch || !resolving) return;
                     resolving = false;
-                    selected = [];
                     renderBoard();
                     sendToPeer({ type: 'snapshot-request' });
                 }, 5000);
@@ -1745,6 +1783,10 @@
                 } else if (onlineRole === 'guest') {
                     if (message.type === 'snapshot') applySnapshot(message);
                     else if (message.type === 'claim-result') handleClaimResult(message);
+                    else if (message.type === 'room-full') {
+                        disconnectOnline(false);
+                        setConnectionStatus('這個房間已經有兩位玩家了。', 'error');
+                    }
                 }
             }
 
@@ -1755,9 +1797,13 @@
                     if (onlineConnected || connection !== conn) return;
                     try { conn.close(); } catch (_) { }
                     connection = null;
-                    setConnectionStatus('P2P 連線逾時；可能是其中一方的 NAT 或防火牆阻擋直連，請換網路後再試。', 'error');
-                    resetOnlineControls();
-                }, 25000);
+                    if (onlineRole === 'guest') {
+                        disconnectOnline(false);
+                        setConnectionStatus('連線逾時：已找到房間，但雙方網路打不通（可能被公司／校園防火牆擋住）。請換個網路，例如改用手機熱點再試。', 'error');
+                    } else {
+                        setConnectionStatus(`朋友連線逾時；房間 ${roomCode} 仍開放，可請對方再按一次加入。`, 'error');
+                    }
+                }, CONNECT_TIMEOUT_MS);
                 const handleOpen = () => {
                     if (connectionTimeout) clearTimeout(connectionTimeout);
                     connectionTimeout = null;
@@ -1774,30 +1820,45 @@
                 };
                 conn.on('open', handleOpen);
                 conn.on('data', handlePeerData);
+                // 舊的連線（例如被新連線取代、或自己按了離開）事後才觸發 close/error 時，
+                // 不能把目前這條連線的狀態蓋掉。
+                const isCurrent = () => connection === conn;
+
                 conn.on('close', () => {
+                    if (!isCurrent()) return;
                     if (connectionTimeout) clearTimeout(connectionTimeout);
                     connectionTimeout = null;
+                    const wasConnected = onlineConnected;
                     onlineConnected = false;
                     connection = null;
+                    clearGameTimers();
                     selected = [];
                     resolving = false;
                     renderBoard();
                     if (onlineRole === 'host' && peer && !peer.destroyed) {
-                        setConnectionStatus('對手已離線；房間仍開放，可等待重新加入。', 'error');
+                        setConnectionStatus(`對手已離線；房間 ${roomCode} 仍開放，可等待重新加入。`, 'error');
                     } else {
-                        setConnectionStatus('連線已中斷，請離開後重新加入。', 'error');
+                        disconnectOnline(false);
+                        setConnectionStatus(wasConnected ? '房主已離開或連線中斷，可以重新加入。' : '無法連上房主，請再試一次。', 'error');
                     }
                     syncModeUI();
                 });
-                conn.on('error', () => {
+                conn.on('error', error => {
+                    if (!isCurrent()) return;
+                    console.warn('DataConnection error:', error);
+                    if (onlineConnected) {
+                        setConnectionStatus('資料傳送不穩定，若一直沒反應請重新連線。', 'error');
+                        return;
+                    }
                     if (connectionTimeout) clearTimeout(connectionTimeout);
                     connectionTimeout = null;
-                    onlineConnected = false;
-                    setConnectionStatus('資料連線發生錯誤，請確認房間碼後再試。', 'error');
+                    try { conn.close(); } catch (_) { }
+                    connection = null;
                     if (onlineRole === 'guest') {
-                        try { conn.close(); } catch (_) { }
-                        connection = null;
-                        resetOnlineControls();
+                        disconnectOnline(false);
+                        setConnectionStatus('已找到房間，但雙方網路無法建立連線。請換個網路（例如手機熱點）再試。', 'error');
+                    } else {
+                        setConnectionStatus(`朋友的連線建立失敗；房間 ${roomCode} 仍開放，可請對方再試一次。`, 'error');
                     }
                 });
                 if (conn.open) handleOpen();
@@ -1818,15 +1879,19 @@
                 if (connectionTimeout) clearTimeout(connectionTimeout);
                 connectionTimeout = null;
                 onlineConnected = false;
-                if (connection) {
-                    try { connection.close(); } catch (_) { }
-                }
-                if (peer) {
-                    try { peer.destroy(); } catch (_) { }
-                }
+                // 先把參照清掉再關閉：PeerJS 可能同步觸發 close 事件，
+                // 這樣事件處理器就會把它當成「舊連線」而忽略。
+                const oldConnection = connection;
+                const oldPeer = peer;
                 connection = null;
                 peer = null;
                 onlineRole = null;
+                if (oldConnection) {
+                    try { oldConnection.close(); } catch (_) { }
+                }
+                if (oldPeer) {
+                    try { oldPeer.destroy(); } catch (_) { }
+                }
                 resetOnlineControls();
                 if (showStatus) setConnectionStatus('已離開連線。');
             }
@@ -1855,22 +1920,51 @@
                     setConnectionStatus(`房間 ${roomCode} 已建立，請朋友輸入代碼。`, 'connected');
                     setModeMessage('等待第二位玩家加入；連線後選滿三張會立即搶答，先送達者得分。');
                 });
+                const thisPeer = peer;
                 peer.on('connection', conn => {
                     if (connection && connection.open) {
-                        conn.close();
+                        // 已經有人在玩了，拒絕第三個人
+                        conn.on('open', () => {
+                            try { conn.send({ type: 'room-full' }); } catch (_) { }
+                            setTimeout(() => { try { conn.close(); } catch (_) { } }, 300);
+                        });
                         return;
+                    }
+                    // 先前卡住、還沒打通的連線直接換成新的
+                    if (connection && connection !== conn) {
+                        const stale = connection;
+                        connection = null;
+                        try { stale.close(); } catch (_) { }
                     }
                     attachConnection(conn);
                 });
+                // 和配對伺服器的連線斷掉時（手機切到背景、網路切換），房間碼會失效，
+                // 新朋友就找不到這個房間；自動重新登記。已經連上的對局不受影響。
+                peer.on('disconnected', () => {
+                    if (peer !== thisPeer || thisPeer.destroyed) return;
+                    setTimeout(() => {
+                        if (peer === thisPeer && !thisPeer.destroyed && thisPeer.disconnected) {
+                            try { thisPeer.reconnect(); } catch (_) { }
+                        }
+                    }, 1000);
+                });
                 peer.on('error', error => {
-                    if (error && error.type === 'unavailable-id' && attempt < 8) {
-                        try { peer.destroy(); } catch (_) { }
+                    if (peer !== thisPeer) return;
+                    const type = error && error.type ? error.type : '';
+                    if (type === 'unavailable-id' && attempt < 8) {
+                        try { thisPeer.destroy(); } catch (_) { }
                         peer = null;
                         createRoom(attempt + 1);
                         return;
                     }
-                    setConnectionStatus(`無法建立房間：${error && error.type ? error.type : '連線錯誤'}`, 'error');
-                    resetOnlineControls();
+                    // 房間已登記且還活著（例如只是配對伺服器暫時斷線），不要把整個房間收掉
+                    if (thisPeer.open && !thisPeer.destroyed) {
+                        console.warn('Peer error:', error);
+                        if (!onlineConnected) setConnectionStatus('配對伺服器連線不穩，正在重試…', 'error');
+                        return;
+                    }
+                    disconnectOnline(false);
+                    setConnectionStatus(`無法建立房間（${type || '連線錯誤'}）。請確認網路後再試。`, 'error');
                 });
             }
 
@@ -1893,11 +1987,28 @@
                 btnLeaveRoom.hidden = false;
                 setConnectionStatus(`正在尋找房間 ${code}…`);
                 peer = new window.Peer(undefined, PEER_OPTIONS);
-                peer.on('open', () => attachConnection(peer.connect(`${PEER_PREFIX}${code}`, { reliable: true })));
+                const thisPeer = peer;
+                peer.on('open', () => {
+                    if (peer !== thisPeer) return;
+                    setConnectionStatus(`找到配對伺服器，正在連線到房間 ${code}…`);
+                    attachConnection(thisPeer.connect(`${PEER_PREFIX}${code}`, { reliable: true }));
+                });
                 peer.on('error', error => {
-                    const type = error && error.type ? error.type : '連線錯誤';
-                    setConnectionStatus(type === 'peer-unavailable' ? '找不到這個房間，請確認代碼與房主頁面。' : `無法加入：${type}`, 'error');
-                    resetOnlineControls();
+                    if (peer !== thisPeer) return;
+                    const type = error && error.type ? error.type : '';
+                    // 已經在對局中時，配對伺服器斷線不影響點對點連線
+                    if (onlineConnected) {
+                        console.warn('Peer error:', error);
+                        return;
+                    }
+                    disconnectOnline(false);
+                    if (type === 'peer-unavailable') {
+                        setConnectionStatus(`找不到房間 ${code}：請確認代碼，並確定房主的頁面還開著、沒有切到背景。`, 'error');
+                    } else if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
+                        setConnectionStatus('連不到配對伺服器，請確認網路後再試。', 'error');
+                    } else {
+                        setConnectionStatus(`無法加入（${type || '連線錯誤'}），請再試一次。`, 'error');
+                    }
                 });
             }
 
@@ -1936,6 +2047,12 @@
             });
             roomInput.addEventListener('input', () => {
                 roomInput.value = roomInput.value.replace(/\D/g, '').slice(0, 4);
+            });
+            roomInput.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    joinRoom();
+                }
             });
             window.addEventListener('beforeunload', () => disconnectOnline(false));
 
