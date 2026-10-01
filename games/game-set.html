@@ -693,6 +693,65 @@
             font-weight: 500;
         }
 
+        .btn-deal {
+            border-color: var(--accent-gold);
+            color: #8a5a12;
+        }
+
+        .btn-deal:hover:not(:disabled) {
+            background: #fdf6e7;
+        }
+
+        .btn-deal:disabled {
+            opacity: 0.55;
+            cursor: default;
+        }
+
+        .card.taken {
+            outline-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        /* --- 對戰小提示（不擋畫面） --- */
+        .game-toast {
+            position: fixed;
+            left: 50%;
+            top: 18px;
+            z-index: 9000;
+            max-width: min(520px, calc(100% - 28px));
+            width: max-content;
+            padding: 12px 20px;
+            border-radius: 10px;
+            background: #ffffff;
+            color: var(--text-main);
+            border-left: 5px solid #3b82f6;
+            box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18);
+            font-weight: 600;
+            font-size: 1rem;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -14px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .game-toast.show {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+
+        .game-toast.good {
+            border-left-color: var(--set-green);
+        }
+
+        .game-toast.bad {
+            border-left-color: var(--set-red);
+        }
+
+        .game-toast.warn {
+            border-left-color: var(--accent-gold);
+        }
+
         /* --- 遊戲結束總結 --- */
         .summary-box {
             margin-top: 18px;
@@ -853,15 +912,18 @@
 
             <div class="controls">
                 <button class="btn-primary" id="btn-hint">提示（顯示所有解 / 無解時補牌）</button>
+                <button class="btn-deal" id="btn-deal" title="檯面真的沒有 SET 才會補牌；還有解的話會告訴你剩幾組">沒有 SET？補牌</button>
                 <button id="btn-restart">重新開始</button>
             </div>
         </div>
 
         <aside class="solution-panel" id="solution-panel">
-            <h3>檯面所有解答</h3>
-            <div class="panel-sub" id="solution-count-text">點擊「提示」將在此列出所有解法與屬性判定。</div>
-            <div class="solution-list" id="solution-list">
-                <p style="color: #9ca3af; font-size: 0.85rem;">尚未取得提示</p>
+            <div id="solution-section">
+                <h3>檯面所有解答</h3>
+                <div class="panel-sub" id="solution-count-text">點擊「提示」將在此列出所有解法與屬性判定。</div>
+                <div class="solution-list" id="solution-list">
+                    <p style="color: #9ca3af; font-size: 0.85rem;">尚未取得提示</p>
+                </div>
             </div>
 
             <div class="summary-box" id="summary-box" style="display:none;">
@@ -876,6 +938,9 @@
         </aside>
     </div>
 
+    <!-- 對戰時不擋畫面的小提示 -->
+    <div class="game-toast" id="game-toast" role="status" aria-live="polite"></div>
+
     <!-- 底部摺疊規則區塊 -->
     <div class="bottom-container">
         <details class="rules-box">
@@ -888,7 +953,7 @@
                     <li><strong>配對條件：</strong>選出的三張牌，在每一種屬性上必須「全部相同」或「全部不同」。不能只有兩張相同。</li>
                     <li><strong>遊玩方式：</strong>點擊三張卡牌進行配對。配對成功後，被選走的卡牌位置會自動在原位補上牌堆中的新卡。</li>
                     <li><strong>智慧縮編：</strong>若畫面上超過 12 張牌且您配對成功，系統將不再補新牌，而是將多餘的卡牌填入空缺中，保持版面整齊。</li>
-                    <li><strong>卡關協助：</strong>若找不到組合，請點擊「提示」按鈕看解答；若檯面確實無解，系統會自動在末端新增 3 張牌。</li>
+                    <li><strong>卡關協助：</strong>單人模式可按「提示」看解答。所有模式都能按「沒有 SET？補牌」：檯面真的無解就補 3 張；還有解的話，系統只會告訴你剩幾組，要自己再找找。</li>
                 </ul>
             </div>
         </details>
@@ -936,6 +1001,17 @@
             }
 
             customAlertBtn.addEventListener('click', closeAlert);
+
+            // --- 對戰小提示：不擋畫面，自己消失 ---
+            let gameToastTimer = null;
+            function showToast(message, kind = 'info', ms = 2200) {
+                gameToast.textContent = message;
+                gameToast.className = `game-toast ${kind}`;
+                void gameToast.offsetWidth;
+                gameToast.classList.add('show');
+                if (gameToastTimer) clearTimeout(gameToastTimer);
+                gameToastTimer = setTimeout(() => gameToast.classList.remove('show'), ms);
+            }
             // --------------------
 
             function buildDeck() {
@@ -1024,6 +1100,10 @@
             let onlineConnected = false;
             let roomCode = '';
             let claimCounter = 0;
+            let pendingClaimUids = [];       // 加入者：送出但還沒收到結果的那三張
+            let lostRaceAt = 0;              // 剛剛已經提示過「被對手搶先」的時間
+            const DEAL_COOLDOWN_MS = 2000;
+            let lastDealAt = { a: 0, b: 0 };
 
             // 每位玩家各自的 SET 類型統計
             let foundTypeCounts = { a: {}, b: {} };
@@ -1051,6 +1131,10 @@
             const btnCopyCode = document.getElementById('btn-copy-code');
             const btnHint = document.getElementById('btn-hint');
             const btnRestart = document.getElementById('btn-restart');
+            const btnDeal = document.getElementById('btn-deal');
+            const solutionPanel = document.getElementById('solution-panel');
+            const solutionSection = document.getElementById('solution-section');
+            const gameToast = document.getElementById('game-toast');
             const solutionListEl = document.getElementById('solution-list');
             const solutionCountText = document.getElementById('solution-count-text');
             const summaryBox = document.getElementById('summary-box');
@@ -1111,6 +1195,44 @@
     `;
             }
 
+            function opponentName() {
+                return mode === 'ai' ? '電腦' : '對手';
+            }
+
+            /** 說明三張牌為什麼不是 SET（哪些屬性「兩同一異」） */
+            function explainNotSet(cards) {
+                if (!cards || cards.length !== 3 || cards.some(card => !card)) return '這三張不是 SET';
+                const failed = ['count', 'color', 'shape', 'shading']
+                    .filter(attr => new Set(cards.map(card => card[attr])).size === 2)
+                    .map(attr => ATTR_LABELS[attr]);
+                return failed.length
+                    ? `不是 SET：${failed.join('、')}是「兩張一樣、一張不同」`
+                    : '這三張不是 SET';
+            }
+
+            function cardsByUid(uids) {
+                return uids.map(uid => board.find(card => card && card.uid === Number(uid)) || null);
+            }
+
+            /**
+             * 對手拿走了 claimedUids，依照我目前選的牌給出對應提示。
+             * mine 是我正在選（或已送出）的牌。
+             */
+            function announceOpponentClaim(claimedUids, mine) {
+                const taken = new Set(claimedUids.map(Number));
+                const overlap = mine.filter(uid => taken.has(Number(uid))).length;
+                const who = opponentName();
+                if (overlap === 3) {
+                    showToast(`${who}搶先拿走了同一組 SET！`, 'bad', 2600);
+                    lostRaceAt = Date.now();
+                } else if (overlap > 0) {
+                    showToast(`${who}先用掉了你選的 ${overlap} 張牌`, 'warn', 2600);
+                    lostRaceAt = Date.now();
+                } else {
+                    showToast(`${who}找到一組 SET`, 'info', 1800);
+                }
+            }
+
             function localActor() {
                 return mode === 'online' && onlineRole === 'guest' ? 'b' : 'a';
             }
@@ -1150,11 +1272,19 @@
                 connectionStatusEl.className = `connection-status${kind ? ` ${kind}` : ''}`;
             }
 
+            /** 「檯面所有解答」只在單人模式出現；對戰結束時面板改成顯示總結 */
+            function updatePanelVisibility() {
+                const summaryShown = summaryBox.style.display !== 'none';
+                solutionSection.hidden = mode !== 'solo';
+                solutionPanel.hidden = mode !== 'solo' && !summaryShown;
+            }
+
             function syncModeUI() {
                 mode = gameModeEl.value;
                 aiLevelField.hidden = mode !== 'ai';
                 onlinePanel.hidden = mode !== 'online';
                 btnHint.hidden = mode !== 'solo';
+                updatePanelVisibility();
                 if (mode === 'solo') setModeMessage('單人練習：可以使用提示查看所有解答。');
                 else if (mode === 'ai') setModeMessage('和電腦比誰先找到 SET。電腦速度只影響思考時間，不會偷看你的選取。');
                 else setModeMessage(onlineConnected ? '雙方正在搶同一副牌，選滿三張立即送出，先送達者得分。' : '先建立或加入四位數房間，連線後才會開始。');
@@ -1204,6 +1334,13 @@
             }
 
             function onCardClick(uid) {
+                // 點到剛被對手拿走（正在閃藍色）的牌：明確告訴玩家，而不是沒反應
+                const el = boardEl.querySelector(`.card[data-uid="${Number(uid)}"]`);
+                if (el && el.classList.contains('taken') && !gameOver) {
+                    showToast(`${opponentName()}已經拿走這張牌了`, 'warn', 1600);
+                    lostRaceAt = Date.now();
+                    return;
+                }
                 if (!canInteract()) return;
 
                 if (selected.includes(uid)) {
@@ -1234,6 +1371,7 @@
                         return;
                     }
                     resolving = true;
+                    pendingClaimUids = uids.slice();
                     const claimId = `g-${Date.now()}-${++claimCounter}`;
                     connection.send({ type: 'claim', claimId, gameId, revision, uids });
                     setModeMessage('已送出搶答，等待房主驗證…');
@@ -1242,6 +1380,7 @@
                     pendingClaimTimer = setTimeout(() => {
                         if (epoch !== gameEpoch || !resolving) return;
                         resolving = false;
+                        pendingClaimUids = [];
                         selected = [];
                         syncSelection();
                         setConnectionStatus('房主沒有回應，請確認連線狀態。', 'error');
@@ -1270,35 +1409,46 @@
             function processClaim(actor, uids, meta = {}) {
                 if (!hasAuthority() || gameOver) return;
 
-                // Online 房主用 gameId + revision 拒絕舊畫面的搶答；client 傳來的分數與牌面一律不採信。
-                if (mode === 'online' && meta.remote &&
-                    (meta.gameId !== gameId || meta.revision !== revision)) {
-                    sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, reason: '牌面已更新' });
+                // Online 房主拒絕上一局的搶答；client 傳來的分數與牌面一律不採信。
+                // 不再比對 revision：補牌後原本的牌都還在，只要三張都在檯面上就是有效搶答。
+                if (mode === 'online' && meta.remote && meta.gameId !== gameId) {
+                    sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'stale' });
                     sendSnapshot();
                     return;
                 }
                 if (resolving) {
-                    if (meta.remote) sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, reason: '另一位玩家更快' });
+                    if (meta.remote) sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'busy' });
                     return;
                 }
 
                 const checked = validateClaim(uids);
-                if (!checked || !checked.result.isSet) {
+                if (!checked) {
+                    // 有牌已經不在檯面上（剛被對方拿走）
                     if (meta.remote) {
-                        sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, reason: '這三張不是 SET' });
+                        sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'stale' });
+                        sendSnapshot();
+                    } else {
+                        selected = [];
+                        syncSelection();
+                    }
+                    return;
+                }
+                if (!checked.result.isSet) {
+                    if (meta.remote) {
+                        sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'notset', uids });
                         return;
                     }
-                    animateRejectedClaim(uids);
+                    animateRejectedClaim(uids, explainNotSet(checked.cards));
                     return;
                 }
 
                 resolving = true;
                 if (aiTimer) clearTimeout(aiTimer);
+                const byOpponent = actor !== localActor();
                 const els = claimElements(uids);
-                els.forEach(el => {
-                    el.classList.add('correct');
-                    if (actor !== localActor()) el.classList.add('remote-result');
-                });
+                els.forEach(el => el.classList.add(byOpponent ? 'taken' : 'correct'));
+                if (byOpponent) announceOpponentClaim(uids, selected);
+                else if (mode !== 'solo') showToast('+1 搶到了！', 'good', 1400);
 
                 if (mode === 'online') {
                     sendToPeer({
@@ -1317,7 +1467,7 @@
             function animateRejectedClaim(uids, reason = '') {
                 rejecting = true;
                 claimElements(uids).forEach(el => el.classList.add('wrong'));
-                if (reason) setModeMessage(reason);
+                if (reason) showToast(reason, 'bad', 2600);
                 const epoch = gameEpoch;
                 setTimeout(() => {
                     if (epoch !== gameEpoch) return;
@@ -1350,17 +1500,80 @@
                 while (extraCards.length > 0) board.push(extraCards.shift());
             }
 
-            function ensureBattleHasSet() {
-                const entering = [];
-                if (mode === 'solo') return entering;
-                while (findAllSetsIn(board.filter(Boolean)).length === 0 && deck.length > 0) {
-                    const count = Math.min(3, deck.length);
-                    for (let i = 0; i < count; i++) {
-                        entering.push(board.length);
-                        board.push(deck.shift());
-                    }
+            /**
+             * 有人按了「沒有 SET？補牌」（只在權威端執行）。
+             * 檯面還有解：只告訴大家剩幾組，不補牌；真的無解：補 3 張。
+             */
+            function handleDealRequest(actor) {
+                if (!hasAuthority() || gameOver) return;
+                const isMine = actor === localActor();
+                // 對加入者的提示由房主組好文字送過去（加入者眼中的「對手」就是房主）
+                const tellGuest = (text, kind) => {
+                    if (mode === 'online') sendToPeer({ type: 'notice', text, kind });
+                };
+                if (resolving) {
+                    if (isMine) showToast('牌面正在更新，稍等一下再按。', 'warn');
+                    else tellGuest('牌面正在更新，稍等一下再按。', 'warn');
+                    return;
                 }
-                return entering;
+                const now = Date.now();
+                if (now - (lastDealAt[actor] || 0) < DEAL_COOLDOWN_MS) return;
+                lastDealAt[actor] = now;
+
+                const count = findAllSetsIn(board.filter(Boolean)).length;
+                if (count > 0) {
+                    const mineText = `檯面上還有 ${count} 組 SET，再找找！`;
+                    const theirsText = who => `${who}按了補牌，但檯面上還有 ${count} 組 SET`;
+                    if (isMine) {
+                        showToast(mineText, 'warn', 2400);
+                        tellGuest(theirsText('對手'), 'info');
+                    } else {
+                        if (mode !== 'online') showToast(theirsText(opponentName()), 'info', 2400);
+                        else { showToast(theirsText('對手'), 'info', 2400); tellGuest(mineText, 'warn'); }
+                    }
+                    return;
+                }
+
+                if (deck.length === 0) {
+                    checkGameOver();
+                    if (mode === 'online') sendSnapshot();
+                    return;
+                }
+
+                const add = Math.min(3, deck.length);
+                const entering = [];
+                for (let i = 0; i < add; i++) {
+                    entering.push(board.length);
+                    board.push(deck.shift());
+                }
+                revision++;
+                renderBoard(entering);
+                clearHintPanel();
+                const mineText = `確實沒有 SET，補了 ${add} 張牌`;
+                const theirsText = who => `${who}確認沒有 SET，補了 ${add} 張牌`;
+                if (isMine) {
+                    showToast(mineText, 'good');
+                    tellGuest(theirsText('對手'), 'info');
+                } else if (mode === 'online') {
+                    showToast(theirsText('對手'), 'info');
+                    tellGuest(mineText, 'good');
+                } else {
+                    showToast(theirsText(opponentName()), 'info');
+                }
+                checkGameOver();
+                if (mode === 'online') sendSnapshot();
+                if (mode === 'ai' && !gameOver) scheduleAi();
+            }
+
+            function onDealClick() {
+                if (!canInteract()) return;
+                btnDeal.disabled = true;
+                setTimeout(() => { btnDeal.disabled = false; }, DEAL_COOLDOWN_MS);
+                if (mode === 'online' && onlineRole === 'guest') {
+                    sendToPeer({ type: 'deal-request' });
+                    return;
+                }
+                handleDealRequest(localActor());
             }
 
             function applyAcceptedClaim(actor, uids, breakdown, originalIndices) {
@@ -1370,7 +1583,7 @@
                 recordFoundType(actor, breakdown);
                 keepValidSelection();
                 revision++;
-                const entering = originalIndices.concat(ensureBattleHasSet());
+                const entering = originalIndices;
                 resolving = false;
                 renderBoard(entering);
                 clearHintPanel();
@@ -1450,6 +1663,7 @@
 
                 summaryTotalCount.textContent = `${scores[me] || 0} 組`;
                 summaryBox.style.display = 'block';
+                updatePanelVisibility();
 
                 // 收合解答清單以突顯總結
                 solutionCountText.textContent = '遊戲已結束，請看下方總結。';
@@ -1479,10 +1693,8 @@
                     }
                     const sets = findAllSetsIn(board.filter(Boolean));
                     if (!sets.length) {
-                        ensureBattleHasSet();
-                        revision++;
-                        renderBoard();
-                        checkGameOver();
+                        // 電腦也跟玩家一樣按「補牌」
+                        handleDealRequest('b');
                         if (!gameOver) scheduleAi();
                         return;
                     }
@@ -1612,10 +1824,11 @@
                 gameId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                 foundTypeCounts = { a: {}, b: {} };
                 summaryBox.style.display = 'none';
+                updatePanelVisibility();
                 summaryListEl.innerHTML = '';
                 clearHintPanel();
                 closeAlert();
-                ensureBattleHasSet();
+                lastDealAt = { a: 0, b: 0 };
                 renderBoard();
                 startTimer();
                 if (mode === 'online') sendSnapshot();
@@ -1635,6 +1848,7 @@
                 gameId = '';
                 foundTypeCounts = { a: {}, b: {} };
                 summaryBox.style.display = 'none';
+                updatePanelVisibility();
                 statTime.textContent = '00:00';
                 renderBoard();
             }
@@ -1727,6 +1941,7 @@
                 else selected = [];
                 if (!gameOver) {
                     summaryBox.style.display = 'none';
+                updatePanelVisibility();
                     if (!sameGame) closeAlert();
                 }
                 renderBoard();
@@ -1748,18 +1963,30 @@
             function handleClaimResult(message) {
                 if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
                 pendingClaimTimer = null;
-                const uids = Array.isArray(message.uids) ? message.uids.map(Number) : selected.slice();
+                const mine = pendingClaimUids.length ? pendingClaimUids.slice() : selected.slice();
                 if (!message.accepted) {
                     resolving = false;
-                    animateRejectedClaim(uids, message.reason || '搶答未通過');
+                    const sent = pendingClaimUids.slice();
+                    pendingClaimUids = [];
+                    if (message.code === 'notset') {
+                        animateRejectedClaim(sent, explainNotSet(cardsByUid(sent)));
+                        return;
+                    }
+                    // 被搶先（或牌面已變）：剛剛已經提示過就安靜清掉選取
+                    if (Date.now() - lostRaceAt > 3000) showToast('對手比你快一步，牌面已更新', 'warn');
+                    const lost = new Set(sent);
+                    selected = selected.filter(uid => !lost.has(uid));
+                    syncSelection();
                     return;
                 }
+                const uids = Array.isArray(message.uids) ? message.uids.map(Number) : [];
+                const byOpponent = message.actor !== localActor();
+                if (!byOpponent) pendingClaimUids = [];
                 resolving = true;
-                claimElements(uids).forEach(el => {
-                    el.classList.add('correct');
-                    if (message.actor !== localActor()) el.classList.add('remote-result');
-                });
-                setModeMessage(message.actor === localActor() ? '搶答成功！等待房主更新牌面…' : '對手先搶到了這組 SET。');
+                claimElements(uids).forEach(el => el.classList.add(byOpponent ? 'taken' : 'correct'));
+                if (byOpponent) announceOpponentClaim(uids, mine);
+                else showToast('+1 搶到了！', 'good', 1400);
+                setModeMessage(byOpponent ? '對手得分，牌面更新中…' : '搶答成功！牌面更新中…');
                 const epoch = gameEpoch;
                 pendingClaimTimer = setTimeout(() => {
                     if (epoch !== gameEpoch || !resolving) return;
@@ -1777,6 +2004,8 @@
                             remote: true, claimId: String(message.claimId || ''),
                             gameId: String(message.gameId || ''), revision: Number(message.revision)
                         });
+                    } else if (message.type === 'deal-request') {
+                        handleDealRequest('b');
                     } else if (message.type === 'restart-request') {
                         startAuthoritativeGame();
                     } else if (message.type === 'snapshot-request' || message.type === 'hello') {
@@ -1785,6 +2014,10 @@
                 } else if (onlineRole === 'guest') {
                     if (message.type === 'snapshot') applySnapshot(message);
                     else if (message.type === 'claim-result') handleClaimResult(message);
+                    else if (message.type === 'notice' && typeof message.text === 'string') {
+                        const kind = ['info', 'good', 'bad', 'warn'].includes(message.kind) ? message.kind : 'info';
+                        showToast(message.text.slice(0, 80), kind, 2400);
+                    }
                     else if (message.type === 'room-full') {
                         disconnectOnline(false);
                         setConnectionStatus('這個房間已經有兩位玩家了。', 'error');
@@ -2272,6 +2505,7 @@
             }
 
             btnHint.addEventListener('click', showHints);
+            btnDeal.addEventListener('click', onDealClick);
             btnRestart.addEventListener('click', newGame);
             gameModeEl.addEventListener('change', () => {
                 if (mode === 'online') disconnectOnline(false);
