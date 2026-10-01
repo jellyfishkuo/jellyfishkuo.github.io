@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#120e1c"/>
+  <!-- 兩張交換中的卡牌 -->
+  <rect x="9" y="14" width="26" height="36" rx="5" fill="#7c3aed" transform="rotate(-12 22 32)"/>
+  <rect x="29" y="12" width="26" height="36" rx="5" fill="#e8b34c" stroke="#120e1c" stroke-width="2.5" transform="rotate(10 42 30)"/>
+  <polygon points="42,21 44.6,27 51,27.4 46,31.4 47.6,37.6 42,34.2 36.4,37.6 38,31.4 33,27.4 39.4,27" fill="#7a4b00" transform="rotate(10 42 30)"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#f6f5f0" stroke="#c9c3b6" stroke-width="2"/>
+  <!-- SET 的三種形狀、三種顏色 -->
+  <polygon points="13,10 21,32 13,54 5,32" fill="#ed1c24"/>
+  <rect x="25" y="10" width="14" height="44" rx="7" fill="#3ba74c"/>
+  <path d="M51 10c-7 0-9 7-6 12s3 8-1 13-2 19 7 19 9-8 6-13-3-8 1-13 1-18-7-18z" fill="#662d91"/>
+</svg>

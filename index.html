@@ -473,6 +473,16 @@
             font-size: 1.3rem;
             font-weight: 700;
             margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .project-icon {
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+            border-radius: 7px;
         }
 
         .project-desc {
@@ -913,7 +923,7 @@
         <div class="projects-grid">
             <div class="project-card reveal">
                 <div class="project-tag">Algorithm / JS</div>
-                <div class="project-title">Pentomino 8x8 Solver</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/pentomino.svg" alt="" width="28" height="28">Pentomino 8x8 Solver</div>
                 <div class="project-desc">基於 Backtracking 演算法實作的高效能五格骨牌求解器。加入孤島偵測剪枝，並用 Generator
                     的時間切片讓搜尋可中斷、可顯示進度，支援逐一瀏覽多重解。經典的中央 2×2 缺口共有 520 個解。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
@@ -936,7 +946,7 @@
 
             <div class="project-card reveal" style="transition-delay:0.2s">
                 <div class="project-tag">Web Game / JS</div>
-                <div class="project-title">1A2B 猜數字</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/1a2b.svg" alt="" width="28" height="28">1A2B 猜數字</div>
                 <div class="project-desc">基於純前端技術實作的經典猜數字遊戲。具備動態粒子背景、猜測歷史紀錄面板，支援實體鍵盤操作，並結合 Canvas Confetti
                     特效提供過關回饋體驗。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
@@ -948,10 +958,10 @@
 
             <div class="project-card reveal" style="transition-delay:0.3s">
                 <div class="project-tag">Web Game / JS</div>
-                <div class="project-title">SET 練功房</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/set.svg" alt="" width="28" height="28">SET 練功房</div>
                 <div class="project-desc">經典邏輯桌遊 SET
-                    的練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合；除了單人練習，也可以挑戰三段難度的電腦對手，或用四位數房間碼開房間跟朋友
-                    WebRTC 連線對戰，先選滿三張合法牌就自動得分。</div>
+                    的練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合；除了單人練習，也可以挑戰三段難度的電腦對手，或用四位數房間碼開房間跟朋友連線對戰：優先 WebRTC 直連，打不通時自動改走 MQTT 備援通道，
+                    手機版一個畫面就能看到整個牌面。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="games/game-set-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/game-set.html" target="_blank" class="project-link"
@@ -961,7 +971,7 @@
 
             <div class="project-card reveal" style="transition-delay:0.4s">
                 <div class="project-tag">Web Game / JS</div>
-                <div class="project-title">無限井字棋</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/infinite-tictactoe.svg" alt="" width="28" height="28">無限井字棋</div>
                 <div class="project-desc">井字棋的無限變體：每人場上最多 3 子，落下第 4 子時最舊的會消失。內建 negamax + Alpha-Beta 的 AI
                     對手（三種強度）。我另外用逆向歸納把這個遊戲<strong style="color:var(--accent2)">完整求解</strong>了 ——
                     116,074 個局面、先手必勝，而且只有下「邊」才贏。</div>
@@ -974,7 +984,7 @@
 
             <div class="project-card reveal" style="transition-delay:0.5s">
                 <div class="project-tag">Web Game / AI</div>
-                <div class="project-title">立式五子棋</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/vertical-gomoku.svg" alt="" width="28" height="28">立式五子棋</div>
                 <div class="project-desc">9×8 重力棋盤上的五連線對戰。棋子只能落在欄位最低空格，內建 iterative deepening、Negamax、
                     Alpha-Beta 剪枝與局面快取的三段難度 AI，並處理 AI 思考期間重新開始的非同步競態。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
@@ -986,7 +996,7 @@
 
             <div class="project-card reveal" style="transition-delay:0.6s">
                 <div class="project-tag">Web App / JS</div>
-                <div class="project-title">部落衝突卡牌交易站</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/coc-card.svg" alt="" width="28" height="28">部落衝突卡牌交易站</div>
                 <div class="project-desc">為《部落衝突》玩家打造的多帳號卡牌收藏與交換管理器。支援跨帳號卡牌總表、交易配對推薦與資料設定，透過純前端與
                     localStorage 保存資料，方便管理多個帳號間的卡牌調度。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
