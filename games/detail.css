@@ -916,3 +916,172 @@ kbd {
     padding: 1px 6px;
     color: #fff;
 }
+
+/* ===== 問題案例：症狀 → 原因 → 修法 → 驗證 ===== */
+.case {
+    margin: 2.2rem 0;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+}
+
+.case-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(124, 58, 237, 0.07);
+}
+
+.case-no {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+}
+
+.case-head h3 {
+    margin: 0;
+    font-size: 1.12rem;
+    line-height: 1.5;
+}
+
+.case-body {
+    padding: 1.2rem 1.5rem 1.4rem;
+}
+
+.case-row {
+    display: grid;
+    grid-template-columns: 5.2rem 1fr;
+    gap: 1rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.case-row:last-child {
+    border-bottom: none;
+}
+
+.case-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding-top: 0.25rem;
+}
+
+.case-label.symptom { color: #f87171; }
+.case-label.cause { color: #fbbf24; }
+.case-label.fix { color: #34d399; }
+.case-label.check { color: var(--accent2); }
+.case-label.lesson { color: #c4b5fd; }
+
+.case-row p,
+.case-row ul {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.97rem;
+}
+
+.case-row p + p {
+    margin-top: 0.6rem;
+}
+
+.case-row ul {
+    padding-left: 1.2rem;
+}
+
+.case-row li + li {
+    margin-top: 0.3rem;
+}
+
+@media (max-width: 560px) {
+    .case-head,
+    .case-body {
+        padding-left: 1.1rem;
+        padding-right: 1.1rem;
+    }
+
+    .case-row {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+    }
+}
+
+/* 數字對照列（修正前 → 修正後） */
+.delta {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.delta .before { color: #f87171; text-decoration: line-through; opacity: 0.8; }
+.delta .after { color: #34d399; font-weight: 700; }
+
+/* 流程步驟 */
+.steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 1.4rem 0;
+    padding: 0;
+}
+
+.steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 0.2rem 0 0.9rem 2.6rem;
+    color: #cbd5e1;
+}
+
+.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0.15rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--accent);
+}
+
+.steps li strong {
+    color: var(--text);
+}
+
+/* 側欄：其他技術剖析（帶遊戲圖示） */
+.other-list li {
+    justify-content: flex-start;
+}
+
+.other-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--accent2);
+    text-decoration: none;
+}
+
+.other-link img {
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+.other-link:hover {
+    color: var(--text);
+}
+
+.case-head h3 {
+    color: var(--text);
+}

@@ -2,22 +2,15 @@
 <html lang="zh-TW">
 
 <head>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="../assets/icons/set.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/set-32.png">
     <link rel="apple-touch-icon" href="../assets/icons/set-180.png">
-    <title>技術剖析 | SET Combinatorics Engine</title>
-
+    <title>技術剖析 | SET 牌局</title>
+    <meta name="description" content="SET 牌局的技術剖析：牌組的數學結構、全解搜尋、雙人連線從 WebRTC 直連到 MQTT 備援的演進，以及每一個遇到的問題如何被找出與修正。">
     <script>
-        MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            }
-        };
+        MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] } };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="detail.css">
@@ -29,851 +22,93 @@
 
     <header>
         <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
-        <h1>Combinatorics Engine</h1>
-        <div class="subtitle">SET 練功房：有限體上的三元組、SVG 程序化繪圖與檯面縮編演算法</div>
-        <div class="meta-row">
-            <span class="meta-chip">單檔 <b>HTML</b>・IIFE 封裝</span>
-            <span class="meta-chip">單人 / 電腦 / <b>WebRTC</b> 雙人</span>
-            <span class="meta-chip">牌組 <b>3⁴ = 81</b> 張</span>
-            <span class="meta-chip">全牌組 SET <b>1,080</b> 組</span>
-            <span class="meta-chip">SET 類型 <b>15</b> 種</span>
-        </div>
+        <h1>SET 牌局</h1>
+        <div class="subtitle">從一個單人練習工具，長成可以用手機跟朋友即時對戰的遊戲：數學、連線與一路踩過的坑</div>
+        <div class="meta-row"><span class="meta-chip">單檔 <b>HTML</b>・無建置</span><span class="meta-chip">單人 / 電腦 / <b>雙人連線</b></span><span class="meta-chip">牌組 <b>3⁴ = 81</b> 張</span><span class="meta-chip">12 張無解率 <b>≈ 3.2%</b></span><span class="meta-chip">連線：WebRTC ＋ <b>MQTT 備援</b></span></div>
     </header>
 
     <div class="tab-wrapper">
-        <div class="tabs-container">
-            <button class="tab-btn active" onclick="switchTab(0)">🃏 牌組與判定</button>
-            <button class="tab-btn" onclick="switchTab(1)">🎨 渲染與檯面</button>
-            <button class="tab-btn" onclick="switchTab(2)">🔧 工程反省</button>
-        </div>
+        <div class="tabs-container" role="tablist"><button class="tab-btn active" aria-controls="core">🃏 遊戲核心</button><button class="tab-btn" aria-controls="online">🌐 連線對戰</button><button class="tab-btn" aria-controls="cases">🔧 問題與修正</button><button class="tab-btn" aria-controls="limits">⚖️ 取捨與限制</button></div>
     </div>
 
     <main>
         <div class="content">
-
-            <!-- ══════════ TAB 1 ══════════ -->
-            <div class="tab-content active">
-
-                <div class="toc">
-                    <div class="toc-title">本頁重點</div>
-                    <ol>
-                        <li><a href="#deck">牌組模型：四維屬性的笛卡兒積</a></li>
-                        <li><a href="#judge">用 Set.size 一次回答兩個問題</a></li>
-                        <li><a href="#gf3">有限體視角：任兩張牌唯一決定第三張</a></li>
-                        <li><a href="#search">全解搜尋的複雜度與可行的優化</a></li>
-                        <li><a href="#stats">實測統計：無解機率與類型分布</a></li>
-                    </ol>
-                </div>
-
-                <section class="section-block" id="deck">
-                    <h2>I. 牌組模型：四維屬性的笛卡兒積</h2>
-                    <p>SET 這副牌的美感來自它的數學結構：每張牌是<strong>四個屬性各取三個值</strong>的一種組合，不多也不少：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th>屬性</th>
-                                    <th>值域</th>
-                                    <th>程式碼中的表示</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>數量</td>
-                                    <td>1 / 2 / 3</td>
-                                    <td><span class="mono">count: number</span></td>
-                                </tr>
-                                <tr>
-                                    <td>顏色</td>
-                                    <td>紅 / 綠 / 紫</td>
-                                    <td><span class="mono">'red' | 'green' | 'purple'</span></td>
-                                </tr>
-                                <tr>
-                                    <td>形狀</td>
-                                    <td>橢圓 / 菱形 / 波浪</td>
-                                    <td><span class="mono">'oval' | 'diamond' | 'squiggle'</span></td>
-                                </tr>
-                                <tr>
-                                    <td>紋路</td>
-                                    <td>實心 / 條紋 / 空心</td>
-                                    <td><span class="mono">'solid' | 'striped' | 'empty'</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="math-block">
-                        $$ |D| = 3 \times 3 \times 3 \times 3 = 3^4 = 81 $$
-                    </div>
-
-                    <p>所以建牌組就是一個四層巢狀迴圈，沒有任何硬編碼的牌表：</p>
-
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">buildDeck.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="kw">function</span> <span class="fn">buildDeck</span>() {
-    <span class="kw">const</span> <span class="var">deck</span> <span class="op">=</span> [];
-    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">count</span> <span class="op">=</span> <span class="num">1</span>; <span class="var">count</span> <span class="op">&lt;=</span> <span class="num">3</span>; <span class="var">count</span><span class="op">++</span>)
-        <span class="kw">for</span> (<span class="kw">const</span> <span class="var">color</span> <span class="kw">of</span> <span class="var">COLORS</span>)
-            <span class="kw">for</span> (<span class="kw">const</span> <span class="var">shape</span> <span class="kw">of</span> <span class="var">SHAPES</span>)
-                <span class="kw">for</span> (<span class="kw">const</span> <span class="var">shading</span> <span class="kw">of</span> <span class="var">SHADINGS</span>)
-                    <span class="var">deck</span>.<span class="fn">push</span>({ <span class="var">count</span>, <span class="var">color</span>, <span class="var">shape</span>, <span class="var">shading</span>, <span class="var">uid</span>: <span class="var">uidCounter</span><span class="op">++</span> });
-    <span class="kw">return</span> <span class="var">deck</span>;
-}</pre>
-                        </div>
-                    </div>
-
-                    <h3>uid 一個欄位，三種用途</h3>
-                    <p>牌物件裡那個看似平凡的遞增整數 <span class="inline-code">uid</span>，其實同時承擔了三個角色：</p>
-                    <ul class="detail-list">
-                        <li><strong>DOM 與資料的橋樑：</strong>卡片元素上寫 <span class="inline-code">data-uid</span>，之後所有查詢都靠 <span
-                                class="inline-code">[data-uid="..."]</span> 選擇器。</li>
-                        <li><strong>選取集合的身分憑證：</strong><span class="inline-code">selected</span> 陣列存的是 uid
-                            而不是索引。這一點很關鍵 —— 檯面會因為補牌與縮編而重排，如果存索引，重排後選取就會指向錯誤的牌。</li>
-                        <li><strong>SVG pattern 的命名空間：</strong>條紋紋路需要一個 <span class="inline-code">&lt;pattern
-                                id&gt;</span>，這裡用 <span class="inline-code">pat-{uid}-{index}</span> 保證唯一。（這件事後來出了問題，詳見「工程反省」。）</li>
-                    </ul>
-
-                    <div class="callout">
-                        <span class="callout-title">一個容易誤判的細節</span>
-                        <p><span class="inline-code">uidCounter</span> 定義在 IIFE 頂層，而且 <span
-                                class="inline-code">newGame()</span> <strong>不會重置它</strong>。所以第二局的 uid 是 81–161、第三局 162–242。唯一性依然成立，但任何「uid
-                            應該落在 0–80」的假設在重開一局後就不成立了。</p>
-                    </div>
-                </section>
-
-                <section class="section-block" id="judge">
-                    <h2>II. 用 Set.size 一次回答兩個問題</h2>
-                    <p>SET 的規則是：三張牌在<strong>每一個屬性</strong>上都必須「三者全同」或「三者全不同」。單屬性的判定只有五行：</p>
-
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">checkAttrMatch.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="kw">function</span> <span class="fn">checkAttrMatch</span>(<span class="var">v1</span>, <span class="var">v2</span>, <span class="var">v3</span>) {
-    <span class="kw">const</span> <span class="var">s</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>([<span class="var">v1</span>, <span class="var">v2</span>, <span class="var">v3</span>]);
-    <span class="kw">if</span> (<span class="var">s</span>.<span class="var">size</span> <span class="op">===</span> <span class="num">1</span>) <span class="kw">return</span> { <span class="var">valid</span>: <span class="kw">true</span>,  <span class="var">type</span>: <span class="str">'全同'</span> };
-    <span class="kw">if</span> (<span class="var">s</span>.<span class="var">size</span> <span class="op">===</span> <span class="num">3</span>) <span class="kw">return</span> { <span class="var">valid</span>: <span class="kw">true</span>,  <span class="var">type</span>: <span class="str">'全不同'</span> };
-    <span class="kw">return</span>                     { <span class="var">valid</span>: <span class="kw">false</span>, <span class="var">type</span>: <span class="str">'不合'</span> };
-}</pre>
-                        </div>
-                    </div>
-
-                    <p>這段程式碼之所以成立，關鍵在於<strong>值域大小恰好等於取樣數（都是 3）</strong>。在這個前提下，去重後的集合大小只有三種可能，而且各自對應唯一的語意：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th><span class="mono">Set.size</span></th>
-                                    <th>意義</th>
-                                    <th>合法？</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><span class="mono">1</span></td>
-                                    <td>三者相同</td>
-                                    <td>✅ 全同</td>
-                                </tr>
-                                <tr>
-                                    <td><span class="mono">2</span></td>
-                                    <td>恰好兩張相同、一張不同</td>
-                                    <td>❌ 唯一的非法型態</td>
-                                </tr>
-                                <tr>
-                                    <td><span class="mono">3</span></td>
-                                    <td>三者互異（必然覆蓋整個值域）</td>
-                                    <td>✅ 全不同</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <p>注意 <span class="mono">size === 3</span> 那行的推論：因為值域<strong>只有三個值</strong>，三個互不相同的值必然剛好用掉全部三種
-                        —— 所以「互異」自動等於「全不同」，不需要額外檢查。一次 <span class="inline-code">Set</span>
-                        建構就同時回答了「合法嗎」與「是全同還是全不同」兩個問題，而後者正好是 UI 要顯示的判定說明。</p>
-
-                    <div class="callout good">
-                        <span class="callout-title">判定與解釋一次算完</span>
-                        <p><span class="inline-code">evaluateTrio()</span> 回傳的不只是布林值，還帶一個 <span
-                                class="inline-code">breakdown</span> 物件記錄四個屬性各自是「全同」還是「全不同」。這個物件後來被<strong>三個地方共用</strong>：解答面板的屬性標籤、SET
-                            類型統計、遊戲結束總結。UI 完全不需要重算「哪個屬性全同」—— 這是把衍生資訊在來源處一次算好、往下傳遞的典型好處。</p>
-                    </div>
-                </section>
-
-                <section class="section-block" id="gf3">
-                    <h2>III. 有限體視角：任兩張牌唯一決定第三張</h2>
-                    <p>把每個屬性值映射到 $\{0, 1, 2\}$，一張牌就是有限體 $\mathbb{F}_3$ 上的四維向量。此時「全同或全不同」有一個極漂亮的等價敘述：</p>
-
-                    <div class="math-block">
-                        $$ \{a, b, c\} \text{ 是 SET} \iff a + b + c \equiv \mathbf{0} \pmod 3 $$
-                    </div>
-
-                    <p>（這裡的加法是<strong>逐分量</strong>進行的，四個屬性各自獨立取模。）驗證很簡單：若三者相同，$3a \equiv 0$；若三者互異則是 $0+1+2 = 3 \equiv 0$；而「兩同一異」會得到 $2a + b$，在 $a \ne b$ 時必不為 0。</p>
-
-                    <div class="diagram">
-                        <pre>屬性值編碼：紅=0  綠=1  紫=2
-
-  全同   0 + 0 + 0 = 0  ≡ 0  ✅
-  全同   2 + 2 + 2 = 6  ≡ 0  ✅
-  全不同 0 + 1 + 2 = 3  ≡ 0  ✅
-  兩同一異 1 + 1 + 0 = 2 ≢ 0  ❌
-  兩同一異 2 + 2 + 1 = 5 ≡ 2  ❌</pre>
-                        <div class="diagram-caption">$\mathbb{F}_3$ 上的加法就是 SET 規則本身</div>
-                    </div>
-
-                    <p>這個觀點帶來一個直接的推論：<strong>任意兩張不同的牌，唯一決定第三張</strong>。因為 $c \equiv -(a+b)$ 只有一個解。於是全牌組的 SET 總數可以直接算出來：</p>
-
-                    <div class="math-block">
-                        $$ \frac{\binom{81}{2}}{\binom{3}{2}} = \frac{81 \times 80 / 2}{3} = \frac{3240}{3} = 1080 $$
-                    </div>
-
-                    <p>（每組 SET 含三個「兩張牌的配對」，所以要除以 3。）我把遊戲裡的 <span class="inline-code">findAllSetsIn()</span> 直接餵進完整的 81
-                        張牌驗證，得到的答案正是 <strong>1,080</strong> —— 實作與理論吻合。</p>
-
-                    <div class="callout">
-                        <span class="callout-title">為什麼專案沒有採用這個寫法</span>
-                        <p>$(a+b+c) \bmod 3$ 的版本更短更快，但它需要先把字串屬性編碼成數字，而且<strong>算不出「哪個屬性是全同」</strong>
-                            —— 那正是解答面板要顯示的資訊。現行的 <span class="inline-code">Set.size</span>
-                            版本雖然理論上笨一點，卻同時產出了可讀性與 UI 需要的中文標籤。在這個規模下（每局最多 1,330 次判定），可讀性勝過微優化。</p>
-                    </div>
-                </section>
-
-                <section class="section-block" id="search">
-                    <h2>IV. 全解搜尋的複雜度與可行的優化</h2>
-                    <p>「提示」功能要列出檯面上<strong>所有</strong>可能的 SET，實作是最直接的三重迴圈：</p>
-
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">findAllSetsIn.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>;     <span class="var">i</span> <span class="op">&lt;</span> <span class="var">cards</span>.<span class="var">length</span>; <span class="var">i</span><span class="op">++</span>)
-<span class="kw">for</span> (<span class="kw">let</span> <span class="var">j</span> <span class="op">=</span> <span class="var">i</span> <span class="op">+</span> <span class="num">1</span>; <span class="var">j</span> <span class="op">&lt;</span> <span class="var">cards</span>.<span class="var">length</span>; <span class="var">j</span><span class="op">++</span>)
-<span class="kw">for</span> (<span class="kw">let</span> <span class="var">k</span> <span class="op">=</span> <span class="var">j</span> <span class="op">+</span> <span class="num">1</span>; <span class="var">k</span> <span class="op">&lt;</span> <span class="var">cards</span>.<span class="var">length</span>; <span class="var">k</span><span class="op">++</span>) {
-    <span class="kw">const</span> <span class="var">res</span> <span class="op">=</span> <span class="fn">evaluateTrio</span>(<span class="var">cards</span>[<span class="var">i</span>], <span class="var">cards</span>[<span class="var">j</span>], <span class="var">cards</span>[<span class="var">k</span>]);
-    <span class="kw">if</span> (<span class="var">res</span>.<span class="var">isSet</span>) <span class="var">solutions</span>.<span class="fn">push</span>({ <span class="var">cards</span>: [...], <span class="var">breakdown</span>: <span class="var">res</span>.<span class="var">breakdown</span> });
-}</pre>
-                        </div>
-                    </div>
-
-                    <p>複雜度是 $\Theta\!\left(\binom{n}{3}\right)$：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th>檯面張數 n</th>
-                                    <th>三元組數 C(n,3)</th>
-                                    <th>Set 物件配置數（每組 4 個）</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>12（標準）</td>
-                                    <td><span class="mono">220</span></td>
-                                    <td><span class="mono">880</span></td>
-                                </tr>
-                                <tr>
-                                    <td>15（補一次牌）</td>
-                                    <td><span class="mono">455</span></td>
-                                    <td><span class="mono">1,820</span></td>
-                                </tr>
-                                <tr>
-                                    <td>18</td>
-                                    <td><span class="mono">816</span></td>
-                                    <td><span class="mono">3,264</span></td>
-                                </tr>
-                                <tr>
-                                    <td>21</td>
-                                    <td><span class="mono">1,330</span></td>
-                                    <td><span class="mono">5,320</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <p>這在 JS 引擎裡是微秒級的工作，完全不需要優化。但如果真要優化，前一節的「兩張決定第三張」性質給了一個 $O(n^2)$ 的做法：</p>
-
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">optimized_search.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="cm">// 把每張牌編碼成 0..80 的整數（四位三進位）</span>
-<span class="kw">const</span> <span class="fn">encode</span> <span class="op">=</span> <span class="var">c</span> <span class="op">=></span> <span class="var">c</span>.<span class="var">count</span> <span class="op">-</span> <span class="num">1</span> <span class="op">+</span> <span class="num">3</span> <span class="op">*</span> (<span class="var">CI</span>[<span class="var">c</span>.<span class="var">color</span>] <span class="op">+</span> <span class="num">3</span> <span class="op">*</span> (<span class="var">SI</span>[<span class="var">c</span>.<span class="var">shape</span>] <span class="op">+</span> <span class="num">3</span> <span class="op">*</span> <span class="var">DI</span>[<span class="var">c</span>.<span class="var">shading</span>]));
-
-<span class="kw">const</span> <span class="var">present</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Map</span>();  <span class="cm">// code → card</span>
-<span class="var">cards</span>.<span class="fn">forEach</span>(<span class="var">c</span> <span class="op">=></span> <span class="var">present</span>.<span class="fn">set</span>(<span class="fn">encode</span>(<span class="var">c</span>), <span class="var">c</span>));
-
-<span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="var">n</span>; <span class="var">i</span><span class="op">++</span>) <span class="kw">for</span> (<span class="kw">let</span> <span class="var">j</span> <span class="op">=</span> <span class="var">i</span> <span class="op">+</span> <span class="num">1</span>; <span class="var">j</span> <span class="op">&lt;</span> <span class="var">n</span>; <span class="var">j</span><span class="op">++</span>) {
-    <span class="cm">// 逐位計算 -(a+b) mod 3，直接得到唯一的第三張牌</span>
-    <span class="kw">const</span> <span class="var">third</span> <span class="op">=</span> <span class="fn">thirdCode</span>(<span class="var">code</span>[<span class="var">i</span>], <span class="var">code</span>[<span class="var">j</span>]);
-    <span class="kw">const</span> <span class="var">c3</span> <span class="op">=</span> <span class="var">present</span>.<span class="fn">get</span>(<span class="var">third</span>);
-    <span class="cm">// 加上索引條件避免同一組被找到三次</span>
-    <span class="kw">if</span> (<span class="var">c3</span> <span class="op">&&</span> <span class="var">indexOf</span>(<span class="var">c3</span>) <span class="op">></span> <span class="var">j</span>) <span class="var">solutions</span>.<span class="fn">push</span>([<span class="var">cards</span>[<span class="var">i</span>], <span class="var">cards</span>[<span class="var">j</span>], <span class="var">c3</span>]);
-}</pre>
-                        </div>
-                    </div>
-
-                    <p>n = 21 時從 1,330 次三元組判定降到 210 次配對查表。<strong>我沒有採用它</strong>，因為現行版本在最壞情況也遠低於一幀的預算，而三重迴圈的意圖對讀者一目了然。記錄下來是為了說明「知道有更好的做法，但這裡不需要」。</p>
-                </section>
-
-                <section class="section-block" id="stats">
-                    <h2>V. 實測統計：無解機率與類型分布</h2>
-                    <p>我把遊戲的 <span class="inline-code">buildDeck</span> / <span class="inline-code">shuffle</span> / <span
-                            class="inline-code">findAllSetsIn</span> 原封不動抽出來，做了 20 萬次隨機取樣。這些數字直接解釋了玩家的體感：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th>檯面</th>
-                                    <th>平均 SET 組數</th>
-                                    <th>完全無解機率</th>
-                                    <th>大約多久遇到一次</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>12 張</td>
-                                    <td><span class="mono">2.782</span></td>
-                                    <td><span class="mono">3.222 %</span></td>
-                                    <td>每 31 副檯面 1 次</td>
-                                </tr>
-                                <tr>
-                                    <td>15 張</td>
-                                    <td><span class="mono">5.756</span></td>
-                                    <td><span class="mono">0.041 %</span></td>
-                                    <td>每 2,439 副檯面 1 次</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="diagram">
-                        <pre>12 張檯面的 SET 組數分布（200,000 次取樣）
-
- 0 組  ███▏                       3.2%   ← 需要補牌
- 1 組  ██████████████▌           14.5%
- 2 組  ██████████████████████████ 26.2%
- 3 組  ███████████████████████████ 27.2%
- 4 組  ██████████████████        18.1%
- 5 組  ████████                   8.0%
- 6 組  ██▎                        2.3%
- 7 組  ▌                          0.5%
- 8+組  ▏                          0.1%</pre>
-                        <div class="diagram-caption">平均 2.78 組 —— 檯面上通常有兩三組解，但有 3.2% 的機率一組都沒有</div>
-                    </div>
-
-                    <div class="callout good">
-                        <span class="callout-title">這組數字解釋了一個設計決策</span>
-                        <p>3.2% 不是可以忽略的機率 —— 玩十局大概就會碰到一次死局。這正是為什麼「提示」按鈕必須兼任<strong>無解自動補牌</strong>的角色：它不只是給卡關的玩家看答案，而是遊戲能繼續進行的必要機制。補到
-                            15 張之後無解機率驟降到 0.04%，補牌一次幾乎就能解決問題。對戰模式沒有提示，所以改成一顆「沒有 SET？補牌」按鈕交給玩家判斷：真的無解才補 3 張，還有解就只公布剩幾組——判斷「到底有沒有解」本身也成了搶快的一部分。</p>
-                    </div>
-
-                    <h3>15 種 SET 類型，數量呈完美的 2 的次方</h3>
-                    <p>依「四個屬性各自是全同還是全不同」分類，理論上有 $2^4 = 16$ 種組合，但<strong>四個屬性全同是不可能的</strong>（那代表三張完全一樣的牌，而 81
-                        張牌裡沒有重複），所以恰好 15 種。實測 1,080 組 SET 的分布是：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th>「全同」的屬性個數 k</th>
-                                    <th>類型數</th>
-                                    <th>每種類型的組數</th>
-                                    <th>小計</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>0（四屬性全不同）</td>
-                                    <td>1</td>
-                                    <td><span class="mono">216</span></td>
-                                    <td><span class="mono">216</span></td>
-                                </tr>
-                                <tr>
-                                    <td>1</td>
-                                    <td>4</td>
-                                    <td><span class="mono">108</span></td>
-                                    <td><span class="mono">432</span></td>
-                                </tr>
-                                <tr>
-                                    <td>2</td>
-                                    <td>6</td>
-                                    <td><span class="mono">54</span></td>
-                                    <td><span class="mono">324</span></td>
-                                </tr>
-                                <tr>
-                                    <td>3</td>
-                                    <td>4</td>
-                                    <td><span class="mono">27</span></td>
-                                    <td><span class="mono">108</span></td>
-                                </tr>
-                                <tr>
-                                    <td>4</td>
-                                    <td>0（不可能）</td>
-                                    <td>—</td>
-                                    <td><span class="mono">0</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <p>組數服從一個乾淨的公式：</p>
-                    <div class="math-block">
-                        $$ N(k) = 27 \cdot 2^{\,4-k}, \qquad \sum_{k=0}^{3} \binom{4}{k} N(k) = 1080 $$
-                    </div>
-
-                    <p>這也是遊戲結束總結面板的統計基礎：它會列出你這局找到了哪幾種類型、各幾組。<strong>四屬性全不同（216 組，佔 20%）是最常見也最難看出來的類型</strong>
-                        —— 沒有任何一個屬性可以當作「錨點」來輔助辨識。</p>
-                </section>
-            </div>
-
-            <!-- ══════════ TAB 2 ══════════ -->
-            <div class="tab-content">
-                <section class="section-block">
-                    <h2>VI. SVG 程序化繪圖：三種形狀與條紋紋路</h2>
-                    <p>81 張牌沒有用任何圖片素材，全部由字串模板即時生成 SVG。三種形狀各有巧思：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th>形狀</th>
-                                    <th>SVG 元素</th>
-                                    <th>為什麼這樣畫</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>橢圓</td>
-                                    <td><span class="mono">&lt;rect rx="36"&gt;</span></td>
-                                    <td>用圓角矩形而非 <span class="mono">&lt;ellipse&gt;</span>：rx 幾乎等於半寬，形成膠囊形，更接近實體牌的外觀</td>
-                                </tr>
-                                <tr>
-                                    <td>菱形</td>
-                                    <td><span class="mono">&lt;polygon&gt;</span></td>
-                                    <td>四個頂點，加 <span class="mono">stroke-linejoin="round"</span> 避免尖角爆刺</td>
-                                </tr>
-                                <tr>
-                                    <td>波浪</td>
-                                    <td><span class="mono">&lt;path&gt;</span></td>
-                                    <td>四段三次貝茲曲線（C 指令）組成 S 形後 Z 閉合</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <h3>條紋的關鍵在 patternUnits</h3>
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">striped_pattern.svg</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="op">&lt;</span><span class="fn">pattern</span> <span class="var">id</span>=<span class="str">"pat-42-0"</span> <span class="var">width</span>=<span class="str">"100"</span> <span class="var">height</span>=<span class="str">"9"</span>
-         <span class="var">patternUnits</span>=<span class="str">"userSpaceOnUse"</span><span class="op">&gt;</span>
-    <span class="op">&lt;</span><span class="fn">line</span> <span class="var">x1</span>=<span class="str">"0"</span> <span class="var">y1</span>=<span class="str">"4.5"</span> <span class="var">x2</span>=<span class="str">"100"</span> <span class="var">y2</span>=<span class="str">"4.5"</span>
-          <span class="var">stroke</span>=<span class="str">"var(--set-red)"</span> <span class="var">stroke-width</span>=<span class="str">"2.5"</span><span class="op">/&gt;</span>
-<span class="op">&lt;/</span><span class="fn">pattern</span><span class="op">&gt;</span></pre>
-                        </div>
-                    </div>
-
-                    <p>一格 pattern tile 高 9 單位、正中間一條寬 2.5 的水平線，平鋪後就是等距橫條紋。真正重要的是 <span
-                            class="inline-code">patternUnits="userSpaceOnUse"</span>：</p>
-
-                    <div class="compare">
-                        <div>
-                            <h4 class="bad-h">預設值 objectBoundingBox</h4>
-                            <p>pattern 會依照套用形狀的外框比例被拉伸。菱形、膠囊、波浪的長寬比不同，於是<strong>三種形狀的條紋密度會不一致</strong>，看起來很廉價。</p>
-                        </div>
-                        <div>
-                            <h4 class="good-h">userSpaceOnUse</h4>
-                            <p>pattern 用 viewBox 的使用者座標系，不隨形狀縮放。三種形狀的條紋間距完全相同。</p>
-                        </div>
-                    </div>
-
-                    <p>另外，SVG 的 <span class="inline-code">fill</span> 與 <span class="inline-code">stroke</span> 直接吃 CSS 自訂屬性（<span
-                            class="inline-code">fill="var(--set-red)"</span>），所以整套配色的唯一真相來源就是 <span class="inline-code">:root</span>
-                        —— 想調整紅綠紫的色相，改三行 CSS 就好，不必碰 JavaScript。</p>
-                </section>
-
-                <section class="section-block">
-                    <h2>VII. 檯面縮編：不用 splice 的四步演算法</h2>
-                    <p>這是整個專案裡最有趣的一段邏輯。需求看起來很簡單，但暗藏衝突：</p>
-                    <ul class="detail-list">
-                        <li>配對成功後，被選走的三張牌要<strong>在原位</strong>補上新牌（不能讓整個版面位移）</li>
-                        <li>但若之前因為無解而補過牌（檯面 &gt; 12 張），成功配對後應該<strong>縮回 12 張</strong>，而不是無限膨脹</li>
-                    </ul>
-
-                    <p>解法的第一步就決定了一切：<strong>挖洞時用 <span class="inline-code">null</span> 佔位，絕不用 <span
-                                class="inline-code">splice</span></strong>。這樣陣列長度與其他牌的索引都不變，CSS 上再用一個 <span
-                            class="inline-code">.card.empty</span>（透明、<span class="inline-code">pointer-events: none</span>）撐住 grid
-                        格位。之後的四個步驟：</p>
-
-                    <div class="diagram">
-                        <pre>初始：15 張檯面，玩家選走 index 0, 1, 2
-
- [ 0][ 1][ 2][ 3][ 4]        c0  c1  c2  c3  c4
- [ 5][ 6][ 7][ 8][ 9]   →    c5  c6  c7  c8  c9
- [10][11][12][13][14]        c10 c11 c12 c13 c14
-
-① 挖洞（null 佔位，長度不變）
- [ ✕][ ✕][ ✕][c3][c4]  c5 ... c14
-
-② 從尾端 pop 到剩 12 格，收進 extraCards
- extraCards = [c14, c13, c12]
- board.length = 12
-
-③ 由左往右填洞，優先用 extraCards，用完才抽牌堆
- [c14][c13][c12][c3][c4]  c5 ... c11        ← 淨效果：15 → 12
-
-④ 若 pop 出來的牌比洞還多（檯面 ≥ 18 張），推回尾端
- board.push(...) 剩餘的 extraCards</pre>
-                        <div class="diagram-caption">同一段程式碼同時實現「原位補牌」與「智慧縮編」兩種行為</div>
-                    </div>
-
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">board_shrink.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="cm">// ① 把被選中的位置挖空（保留長度）</span>
-<span class="var">indices</span>.<span class="fn">forEach</span>(<span class="var">idx</span> <span class="op">=></span> { <span class="var">board</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="kw">null</span>; });
-
-<span class="cm">// ② 超過 12 張就從尾端收回來</span>
-<span class="kw">let</span> <span class="var">extraCards</span> <span class="op">=</span> [];
-<span class="kw">while</span> (<span class="var">board</span>.<span class="var">length</span> <span class="op">></span> <span class="num">12</span>) {
-    <span class="kw">let</span> <span class="var">c</span> <span class="op">=</span> <span class="var">board</span>.<span class="fn">pop</span>();
-    <span class="kw">if</span> (<span class="var">c</span> <span class="op">!==</span> <span class="kw">null</span>) <span class="var">extraCards</span>.<span class="fn">push</span>(<span class="var">c</span>);
-}
-
-<span class="cm">// ③ 填洞：先用尾端搬來的，沒有才抽牌堆</span>
-<span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;</span> <span class="var">board</span>.<span class="var">length</span>; <span class="var">i</span><span class="op">++</span>) {
-    <span class="kw">if</span> (<span class="var">board</span>[<span class="var">i</span>] <span class="op">===</span> <span class="kw">null</span>) {
-        <span class="kw">if</span> (<span class="var">extraCards</span>.<span class="var">length</span> <span class="op">></span> <span class="num">0</span>) <span class="var">board</span>[<span class="var">i</span>] <span class="op">=</span> <span class="var">extraCards</span>.<span class="fn">shift</span>();
-        <span class="kw">else if</span> (<span class="var">deck</span>.<span class="var">length</span> <span class="op">></span> <span class="num">0</span>) <span class="var">board</span>[<span class="var">i</span>] <span class="op">=</span> <span class="var">deck</span>.<span class="fn">shift</span>();
-    }
-}
-
-<span class="cm">// ④ 檯面 ≥18 張時 pop 出的會比洞多，推回尾端</span>
-<span class="kw">while</span> (<span class="var">extraCards</span>.<span class="var">length</span> <span class="op">></span> <span class="num">0</span>) <span class="var">board</span>.<span class="fn">push</span>(<span class="var">extraCards</span>.<span class="fn">shift</span>());</pre>
-                        </div>
-                    </div>
-
-                    <div class="callout warn">
-                        <span class="callout-title">一個已知的小瑕疵：牌序被鏡射</span>
-                        <p>步驟 ② 用 <span class="inline-code">pop()</span>（從尾端取）而步驟 ③ 用 <span class="inline-code">shift()</span>（從頭取），兩者方向相反，所以尾端三張牌會<strong>以反序</strong>落到前面的洞裡。功能完全正確，但視覺上牌的位置跳動不太直覺。加一個
-                            <span class="inline-code">extraCards.reverse()</span> 或改用 <span class="inline-code">board.splice(12)</span>
-                            取尾段即可保序 —— 這是留著沒改的小債。</p>
-                    </div>
-                </section>
-
-                <section class="section-block">
-                    <h2>VIII. 兩個小而有效的 UI 決策</h2>
-                    <div class="tech-card">
-                        <h3>1. 用 outline 而不是 border 畫選取框</h3>
-                        <p>卡片有四種狀態框：選取（金）、提示高亮（藍）、正確（綠）、錯誤（紅）。全部用 <span class="inline-code">outline</span> 實作，而 <span
-                                class="inline-code">.card</span> 的基礎樣式預先寫好 <span class="inline-code">outline: 3px solid
-                                transparent</span>。</p>
-                        <p>原因是 <strong>outline 不佔盒模型空間</strong>。如果用 border，切換狀態時卡片尺寸會變化，觸發 reflow 讓整個 grid
-                            抖一下；用 outline 則只是重繪，而且因為透明框一開始就存在，連 outline 寬度都不會變。</p>
-
-                        <h3>2. 非阻塞的自製彈窗</h3>
-                        <p>原生 <span class="inline-code">alert()</span> 會凍結 JS 執行緒 —— 對這個遊戲是致命的，因為配對的視覺回饋依賴 <span
-                                class="inline-code">setTimeout</span>（成功 400ms 綠框、失敗 500ms 紅框）。彈窗一凍結，動畫節奏就亂掉。</p>
-                        <p>自製彈窗用 <span class="inline-code">visibility</span> + <span class="inline-code">opacity</span> 的 transition
-                            實作（用 <span class="inline-code">display</span> 就吃不到過場動畫），並支援 <span
-                                class="inline-code">autoCloseMs = 0</span> 表示常駐。更重要的是：改成非阻塞之後，作者乾脆讓「配對成功／失敗」<strong>完全不彈窗</strong>，只留下綠框紅框，把彈窗保留給「無解補牌」與「遊戲結束」這兩個真正需要告知的時機。</p>
-                    </div>
-                </section>
-            </div>
-
-            <!-- ══════════ TAB 3 ══════════ -->
-            <div class="tab-content">
-                <section class="section-block">
-                    <h2>IX. 一個真正的競態 bug：判定重入</h2>
-                    <p>這是全站自我審查中找到最嚴重的問題，而且它<strong>會實際影響分數與牌面</strong>。</p>
-
-                    <h3>觸發條件</h3>
-                    <p>配對成功後，程式會先亮綠框，然後 <span class="inline-code">setTimeout(..., 400)</span> 才真正動資料。問題出在點擊處理器<strong>在這 400ms
-                            內沒有任何鎖</strong>：</p>
-
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">the_bug.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="kw">function</span> <span class="fn">onCardClick</span>(<span class="var">uid</span>) {
-    <span class="kw">if</span> (<span class="var">gameOver</span>) <span class="kw">return</span>;
-
-    <span class="kw">if</span> (<span class="var">selected</span>.<span class="fn">includes</span>(<span class="var">uid</span>)) { <span class="cm">/* 取消選取 */</span> <span class="kw">return</span>; }
-    <span class="kw">if</span> (<span class="var">selected</span>.<span class="var">length</span> <span class="op">&lt;</span> <span class="num">3</span>) { <span class="var">selected</span>.<span class="fn">push</span>(<span class="var">uid</span>); <span class="fn">syncSelection</span>(); }
-
-    <span class="cm">// 🐛 selected 已經是 3 張、但 400ms 的結算還沒跑</span>
-    <span class="cm">//    此時點第 4 張牌：上面兩個 if 都不成立，卻會掉進這裡</span>
-    <span class="kw">if</span> (<span class="var">selected</span>.<span class="var">length</span> <span class="op">===</span> <span class="num">3</span>) {
-        <span class="fn">checkSelected</span>();          <span class="cm">// ← 同一組 SET 被判定第二次</span>
-    }
-}</pre>
-                        </div>
-                    </div>
-
-                    <h3>後果</h3>
-                    <ol class="step-list">
-                        <li><span class="inline-code">recordFoundType()</span> 被呼叫兩次 → 結束總結的類型組數<strong>多算</strong>。</li>
-                        <li>排入<strong>第二個</strong> 400ms timeout，而它捕捉的是<em>舊的</em> <span class="inline-code">indices</span>。</li>
-                        <li>第一個 timeout 正常完成挖洞、補牌；第二個 timeout 接著用舊索引把<strong>剛補進來的三張新牌再挖掉一次</strong>，並且 <span
-                                class="inline-code">foundCount++</span>。</li>
-                        <li>淨結果：分數多加一分、白白吃掉三張牌、牌堆莫名少了三張。</li>
-                    </ol>
-
-                    <div class="callout bad">
-                        <span class="callout-title">為什麼這種 bug 很難在手動測試中發現</span>
-                        <p>它需要在 400ms 的視窗內完成「第四次點擊」。正常玩的時候，人看到綠框會自然停下來 ——
-                            但<strong>手速快的玩家、或連點的玩家一定會踩到</strong>。而且症狀是「分數怎麼多了一分」這種模糊的異常，不會拋錯、不會當掉，很容易被當成自己記錯。</p>
-                    </div>
-
-                    <h3>修法：一個結算鎖</h3>
-                    <div class="code-window">
-                        <div class="code-header">
-                            <div class="code-dot dot-r"></div>
-                            <div class="code-dot dot-y"></div>
-                            <div class="code-dot dot-g"></div>
-                            <div class="code-title">the_fix.js</div>
-                        </div>
-                        <div class="code-body">
-                            <pre><span class="kw">let</span> <span class="var">resolving</span> <span class="op">=</span> <span class="kw">false</span>;   <span class="cm">// 結算動畫進行中</span>
-
-<span class="kw">function</span> <span class="fn">onCardClick</span>(<span class="var">uid</span>) {
-    <span class="kw">if</span> (<span class="var">gameOver</span> <span class="op">||</span> <span class="var">resolving</span>) <span class="kw">return</span>;   <span class="cm">// ← 入口就擋掉</span>
-    <span class="cm">// ...</span>
-}
-
-<span class="kw">function</span> <span class="fn">checkSelected</span>() {
-    <span class="kw">if</span> (<span class="var">resolving</span>) <span class="kw">return</span>;                  <span class="cm">// ← 雙重保險</span>
-    <span class="var">resolving</span> <span class="op">=</span> <span class="kw">true</span>;
-
-    <span class="kw">if</span> (<span class="var">result</span>.<span class="var">isSet</span>) {
-        <span class="fn">setTimeout</span>(() <span class="op">=></span> {
-            <span class="cm">/* 挖洞、縮編、補牌、計分 */</span>
-            <span class="var">resolving</span> <span class="op">=</span> <span class="kw">false</span>;            <span class="cm">// ← 動畫結束才解鎖</span>
-            <span class="fn">checkGameOver</span>();
-        }, <span class="num">400</span>);
-    } <span class="kw">else</span> {
-        <span class="fn">setTimeout</span>(() <span class="op">=></span> { <span class="cm">/* 清紅框 */</span> <span class="var">resolving</span> <span class="op">=</span> <span class="kw">false</span>; }, <span class="num">500</span>);
-    }
-}</pre>
-                        </div>
-                    </div>
-
-                    <p>鎖必須加在<strong>兩個地方</strong>：<span class="inline-code">onCardClick</span> 的入口（讓第四次點擊完全無效，連選取狀態都不改）以及
-                        <span class="inline-code">checkSelected</span> 的開頭（防止任何其他呼叫路徑繞過）。<span class="inline-code">newGame()</span>
-                        也要重置它，否則在結算動畫中按「重新開始」會讓遊戲永久鎖死。</p>
-
-                    <div class="callout good">
-                        <span class="callout-title">驗證方式</span>
-                        <p>用 jsdom 載入實際頁面，連點三張牌觸發判定，接著<strong>在動畫期間</strong>再點第四張，斷言（1）選取數不變（2）分數不變（3）動畫結束後鎖已釋放、可以繼續操作。這種「時序相關」的
-                            bug 靠人工測試極不可靠，但用程式模擬點擊就非常確定。</p>
-                    </div>
-                </section>
-
-                <section class="section-block">
-                    <h2>X. 另外兩個修掉的問題</h2>
-
-                    <div class="tech-card">
-                        <h3>1. 重複的 SVG pattern id</h3>
-                        <p>條紋 pattern 的 id 是 <span class="inline-code">pat-{uid}-{index}</span>，在檯面內確實唯一。但「提示」面板的解答縮圖會對<strong>同一張牌物件</strong>再呼叫一次
-                            <span class="inline-code">cardMarkup()</span>，於是產生<strong>完全相同的 id</strong> —— 文件裡出現重複 id，是無效 HTML。</p>
-                        <p>目前之所以看起來正常，是因為瀏覽器解析 <span class="inline-code">url(#id)</span> 時取文件順序的第一個，而 <span
-                                class="inline-code">.board</span> 剛好在 <span class="inline-code">aside</span> 之前，所以縮圖引用到的是檯面卡片的
-                            pattern，顏色與幾何又完全一樣。<strong>但這是巧合，不是設計</strong>：一旦檯面重繪（<span class="inline-code">boardEl.innerHTML =
-                                ''</span>）而面板還在，被引用的 pattern 就消失了，條紋會變透明。</p>
-                        <p>修法是給 <span class="inline-code">shapeSVG()</span> 與 <span class="inline-code">cardMarkup()</span> 加一個 <span
-                                class="inline-code">scope</span> 參數，解答面板傳入 <span class="inline-code">`s${index}-`</span>，讓兩邊的
-                            id 命名空間徹底分離。</p>
-
-                        <h3>2. 牌堆剩 1～2 張時補牌會塞進 null</h3>
-                        <p>無解自動補牌的原本寫法是連續三次 <span class="inline-code">board.push(deck.length > 0 ? deck.shift() : null)</span>。因為外層只檢查過一次
-                            <span class="inline-code">deck.length === 0</span>，牌堆只剩 1～2 張時，第二、三次 push 會塞進 <span
-                                class="inline-code">null</span>，檯面尾端出現不必要的空格。</p>
-                        <p>改成 <span class="inline-code">Math.min(3, deck.length)</span> —— 有幾張就補幾張，並在補完後補呼叫一次 <span
-                                class="inline-code">checkGameOver()</span>（因為補完可能仍然無解，而牌堆已經抽乾，那就是遊戲該結束的時刻）。</p>
-                    </div>
-                </section>
-
-                <section class="section-block">
-                    <h2>XI. 電腦對戰與四位數房間碼連線</h2>
-                    <p>這是後來加上去的兩個模式，設計時盡量沿用現有的「一份權威狀態＋一個結算鎖」骨架，而不是另起一套架構。</p>
-
-                    <h3>電腦對戰：搶時間，不搶棋力</h3>
-                    <p>SET 的判定本身很簡單，AI 真正的挑戰不是「找不找得到解」，而是「模擬真人反應速度」。所以電腦對手的邏輯是：每隔一段時間檢查檯面上有沒有
-                        SET，找到就送出<strong>任意一組</strong>合法解，完全不比較哪組「更好」。難度只調整思考延遲：</p>
-
-                    <div class="table-wrap">
-                        <table class="kv">
-                            <thead>
-                                <tr>
-                                    <th>難度</th>
-                                    <th>延遲區間</th>
-                                    <th>體感</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>簡單</td>
-                                    <td><span class="mono">7,000 – 10,000 ms</span></td>
-                                    <td>玩家幾乎每次都能搶先</td>
-                                </tr>
-                                <tr>
-                                    <td>普通</td>
-                                    <td><span class="mono">4,000 – 6,000 ms</span></td>
-                                    <td>偶爾被電腦搶走明顯的解</td>
-                                </tr>
-                                <tr>
-                                    <td>困難</td>
-                                    <td><span class="mono">2,000 – 3,000 ms</span></td>
-                                    <td>盤面上顯眼的 SET 幾乎搶不到</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <p>電腦「送出」的結果不是直接改資料，而是走跟真人一模一樣的 <span class="inline-code">processClaim()</span>
-                        路徑，這麼做是為了讓單人、電腦、連線三種模式共用同一套判定與計分邏輯，不必為 AI 開後門。</p>
-
-                    <h3>雙人連線：四位碼、WebRTC、房主權威</h3>
-                    <p>需求很直白：兩人各自打開頁面，其中一人建立房間拿到一個四位數字碼，另一人輸入這個碼就能連線對戰，<strong>誰先送出合法的三張牌，分數就算誰的</strong>，不需要任何一方按確認或等審核。</p>
-
-                    <p>靜態的 GitHub Pages 網站沒有後端，所以無法自建 signaling server。這裡採用
-                        <a href="https://peerjs.com/" target="_blank" rel="noopener">PeerJS</a>（精確釘選 1.5.5 版）搭配它預設提供的免費 Cloud
-                        signaling 服務完成 WebRTC 握手，資料本身仍是瀏覽器之間直接的 P2P 傳輸。房主建立房間時，把「固定前綴 + 四位數字」設成自己的
-                        <span class="inline-code">Peer</span> ID；加入者輸入四位碼後直接用同一個組合字串呼叫
-                        <span class="inline-code">peer.connect()</span>，兩邊就能配對成功而不需要另外的房間資料庫。根據
-                        <a href="https://peerjs.com/client/getting-started" target="_blank" rel="noopener">PeerJS 官方文件</a>，自訂 ID
-                        本身就支援任意字母數字組合，這讓四位碼可以直接當成可讀、好口頭傳達的房間識別碼（內容經改寫整理，非逐字引用）。</p>
-
-                    <div class="callout warn">
-                        <span class="callout-title">這個做法的代價</span>
-                        <p>四位碼只有一萬種組合，且共用公開的 Cloud signaling，理論上可能撞到別人正在用的房號；對稱型 NAT、手機網路或開了 AP 隔離的租屋 Wi-Fi 下，WebRTC
-                            常常無法直連；這時會在 10 秒後自動改走公開的 MQTT 伺服器（EMQX / HiveMQ）轉送訊息，連得上但多了約 0.1～0.3 秒延遲，且訊息經過的是公開伺服器，只適合傳牌局這種不敏感的資料；房主分頁一關閉，這個房間就整個消失，因為權威狀態只存在房主的記憶體裡。這些都是「零後端」換來的取捨，已在
-                            UI 文案與此頁一併記錄，不是隱藏的地雷。</p>
-                    </div>
-
-                    <p>連線建立後，房主是唯一的權威來源：檯面、分數、剩餘牌堆都以房主端為準。任何一方選滿三張牌就立刻透過 <span
-                            class="inline-code">sendToPeer()</span> 送出 claim，<strong>房主收到後直接用
-                            <span class="inline-code">processClaim()</span> 驗證並套用，不等待、不彈窗、不需要人工確認</strong>——這是使用者明確要的行為：先送達的一方自動得分，比的是網路延遲與手速，不是誰先按下「同意」。房主驗證的內容包括：</p>
-
-                    <ul class="detail-list">
-                        <li>三個 uid 是否仍然都在目前的檯面上（防止對方送出已經被消耗掉的牌）。</li>
-                        <li>這三張牌是否真的構成合法 SET（不信任對方端的判定結果，一律用房主自己的 <span class="inline-code">evaluateTrio()</span> 重新算一次）。</li>
-                        <li>claim 附帶的 <span class="inline-code">gameId</span> / <span class="inline-code">revision</span> 是否與房主目前的局次一致（避免網路延遲造成的「過期 claim」在補牌之後才送達，卻被誤判成合法）。</li>
-                    </ul>
-
-                    <p>驗證通過就立刻執行跟單人模式相同的挖洞、縮編、補牌、加分流程，再把新的權威檯面快照廣播給加入者；驗證失敗就靜默忽略（例如對方送出的是已經被消耗掉的牌），不會顯示任何「審核中」之類的中間狀態。</p>
-
-                    <div class="callout good">
-                        <span class="callout-title">驗證方式</span>
-                        <p>用 headless Chrome 開兩個分頁模擬房主與加入者：建立房間、輸入四位碼、確認雙方牌面完全同步；讓加入者先送出一組合法
-                            SET、房主稍後才送出同一組，斷言只有加入者得分、房主不會重複得分；確認頁面上不存在任何「驗證」「確認搶答」之類的按鈕；重開連線後雙方牌面仍保持一致；全程沒有未攔截的
-                            JS 例外。</p>
-                    </div>
-                </section>
-
-                <section class="section-block">
-                    <h2>XII. 誠實的已知限制</h2>
-                    <ul class="detail-list">
-                        <li><strong>靜默死局。</strong><span class="inline-code">checkGameOver()</span>
-                            只在「配對成功後」與「按提示發現無解」時被呼叫。如果牌堆已空、檯面無解，而玩家就是不按提示也不操作，遊戲不會自己宣告結束，計時器會繼續跑。標準 SET
-                            是發牌時就檢查，這裡採用懶惰偵測，換來的是實作簡單。</li>
-                        <li><strong>初始 12 張沒有檢查是否有解。</strong>約 3.2% 的機率一開局就無解，玩家必須先按一次提示才會拿到補牌。這是上一點的同源問題。</li>
-                        <li><strong>提示高亮只支援滑鼠。</strong>解答項目用 <span class="inline-code">mouseenter</span> / <span
-                                class="inline-code">mouseleave</span> 高亮對應卡片，觸控裝置完全觸發不到 —— 而 CSS 又給了 <span
-                                class="inline-code">cursor: pointer</span>，形成「看起來可點、實際不可點」的落差。應該補上 <span
-                                class="inline-code">click</span> 與 <span class="inline-code">focus</span> 事件。</li>
-                        <li><strong>卡片完全無法用鍵盤操作。</strong>卡片是純 <span class="inline-code">&lt;div&gt;</span>，沒有 <span
-                                class="inline-code">tabindex</span>、沒有 <span class="inline-code">role</span>、沒有 <span
-                                class="inline-code">aria-pressed</span>、也沒有 keydown 處理。SVG 也缺 <span class="inline-code">role="img"</span>
-                            與標題，螢幕閱讀器無法得知「兩個紅色空心菱形」這種資訊。</li>
-                        <li><strong>顏色是規則的一部分，但沒有色盲輔助。</strong>紅與綠是 SET
-                            四屬性之一，紅綠色盲玩家難以區分。正確做法是提供一個「顯示屬性文字」的輔助模式，或改用色盲友善的三色調色盤。<span class="inline-code">.correct</span> /
-                            <span class="inline-code">.wrong</span> 的回饋也只靠綠框紅框，沒有文字或圖示替代。</li>
-                        <li><strong><span class="inline-code">.solution-panel</span> 的 <span
-                                    class="inline-code">!important</span> 是順序造成的技術債。</strong>兩個 media query 寫在基礎規則<em>之前</em>，同特異度下後者勝出，所以只能靠
-                            <span class="inline-code">!important</span> 壓過去。把 media query 移到檔尾就能拿掉。</li>
-                    </ul>
-                </section>
-            </div>
+<div class="tab-content active" id="core" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#deck">I. 81 張牌其實是一個四維空間</a></li><li><a href="#gf3">II. 任兩張牌，決定唯一的第三張</a></li><li><a href="#search">III. 全解搜尋：知道有更快的寫法，但這裡不需要</a></li><li><a href="#stats">IV. 實測：無解有多常見？</a></li><li><a href="#render">V. 81 張牌沒有任何一張圖片</a></li><li><a href="#compact">VI. 拿走三張之後，牌怎麼補？</a></li></ol></div><section class="section-block" id="deck"><h2>I. 81 張牌其實是一個四維空間</h2>
+<p>SET 的每張牌有四個屬性：<strong>數量</strong>（1、2、3）、<strong>顏色</strong>（紅、綠、紫）、<strong>形狀</strong>（橢圓、菱形、波浪）、<strong>紋路</strong>（實心、條紋、空心）。每個屬性三選一，四個屬性互相獨立，所以整副牌就是所有組合，不多也不少：</p>
+<div class="math-block">$$ |D| = 3 \times 3 \times 3 \times 3 = 3^4 = 81 $$</div>
+<p>程式裡沒有任何寫死的「牌表」，牌組是四層迴圈直接產生的。每張牌另外帶一個遞增的 <span class="inline-code">uid</span>，它同時扮演三個角色：辨識玩家點了哪張牌、在連線時當作「這張牌還在不在檯面上」的依據，以及產生 SVG 條紋圖樣時的唯一名稱。</p>
+<p>「三張牌是不是 SET」的規則是：<strong>每一個屬性都必須三張全相同，或三張全不同</strong>，只要有一個屬性出現「兩張一樣、一張不同」就不算。程式用一個很省事的方法判斷：把三張牌在某個屬性上的值丟進 <span class="inline-code">Set</span>，看裡面剩幾種值——剩 1 種是全相同、剩 3 種是全不同，剩 2 種就不合格。一次就同時回答了「合不合法」和「是哪一種合法」。</p>
+<div class="callout good"><span class="callout-title">為什麼「兩同一異」會成為提示文字</span><p>對戰時選錯，畫面會直接告訴你是哪幾個屬性「兩張一樣、一張不同」。這不是另外寫的規則，而是同一個判斷順手留下的副產品：判定時本來就知道每個屬性各剩幾種值，把剩 2 種的屬性名稱列出來就是錯誤原因。</p></div></section><section class="section-block" id="gf3"><h2>II. 任兩張牌，決定唯一的第三張</h2>
+<p>如果把每個屬性的三個值當成 0、1、2，「全相同或全不同」剛好等於「三個值加起來是 3 的倍數」。所以每張牌可以看成一個四維向量，三張牌是 SET 的條件就是三個向量相加後每一維都是 0（mod 3）：</p>
+<div class="math-block">$$ a + b + c \equiv \mathbf{0} \pmod 3 \quad\Longleftrightarrow\quad c \equiv -(a+b) \pmod 3 $$</div>
+<p>這帶出一個很漂亮的性質：<strong>任意兩張牌，都剛好有一張牌能和它們湊成 SET</strong>。所以整副牌的 SET 數量可以直接算出來：從 81 張裡挑兩張，每一對對應一張第三張，但每組 SET 會被它的三對各數到一次：</p>
+<div class="math-block">$$ \frac{\binom{81}{2}}{3} = \frac{3240}{3} = 1080 $$</div>
+<p>這個性質目前用在統計與說明上；全解搜尋仍然用最直接的「三張三張逐一檢查」，理由放在下一節。</p></section><section class="section-block" id="search"><h2>III. 全解搜尋：知道有更快的寫法，但這裡不需要</h2>
+<p>單人模式的「提示」要列出檯面上所有的 SET，對戰模式的「沒有 SET？補牌」要知道檯面上有沒有解、有幾組。兩者都用同一個函式：把檯面上的牌三張三張全部試過一遍。</p>
+<div class="table-wrap"><table class="kv"><thead><tr><th>檯面張數</th><th>要檢查的三張組合</th><th>說明</th></tr></thead><tbody><tr><td>12（標準）</td><td>220</td><td>每次判定都在微秒等級</td></tr><tr><td>15（補一次）</td><td>455</td><td></td></tr><tr><td>18</td><td>816</td><td></td></tr><tr><td>21</td><td>1,330</td><td>實務上幾乎不會到這麼多</td></tr></tbody></table></div>
+<p>利用上一節「兩張決定第三張」的性質，可以改成：每兩張算出需要的第三張，再查它在不在檯面上，檢查次數從 $\binom{n}{3}$ 降到 $\binom{n}{2}$。我沒有採用，因為就算 21 張，現行寫法也遠遠用不到一個畫面更新的時間，而三重迴圈的意圖任何人一看就懂。記在這裡，是為了說明「這是取捨，不是不知道」。</p></section><section class="section-block" id="stats"><h2>IV. 實測：無解有多常見？</h2>
+<p>我寫了一個獨立的模擬程式，用跟遊戲一樣的判定規則隨機發牌十萬次，量出下面這些數字（之後每次改動規則都會重跑一次對照）：</p>
+<div class="table-wrap"><table class="kv"><thead><tr><th>情況</th><th>結果</th></tr></thead><tbody><tr><td>12 張完全沒有 SET</td><td>約 3.2%（大約每 30 局開局就會遇到一次）</td></tr><tr><td>15 張完全沒有 SET</td><td>約 0.04%</td></tr><tr><td>12 張平均有幾組 SET</td><td>約 2.8 組</td></tr></tbody></table></div>
+<p>3.2% 不是可以忽略的機率，這個數字直接決定了「無解時怎麼辦」必須是遊戲的一部分，而不是例外處理。單人模式交給「提示」：真的無解就自動補 3 張。對戰模式的做法改過一次，見「問題與修正」的 <a href="#c-deal">#8</a>：現在是一顆「沒有 SET？補牌」按鈕，誰都可以按。</p>
+<div class="callout "><span class="callout-title">15 種 SET 類型</span><p>四個屬性各自是「全同」或「全不同」，理論上有 2⁴ = 16 種組合，但「四個屬性全同」代表三張是同一張牌，不可能發生，所以實際上是 15 種。遊戲結束的總結會依照這 15 種類型統計你找到了哪些。</p></div></section><section class="section-block" id="render"><h2>V. 81 張牌沒有任何一張圖片</h2>
+<p>所有圖案都是即時產生的 SVG：橢圓用圓角很大的矩形畫成膠囊形，菱形是四個頂點的多邊形，波浪是幾段曲線組成的 S 形。條紋則用 SVG 的平鋪圖樣，一條橫線不斷重複。</p>
+<p>條紋有一個容易踩的設定：圖樣的座標系統要用 <span class="inline-code">userSpaceOnUse</span>。預設值會依每個形狀的外框比例拉伸圖樣，結果三種形狀的條紋粗細和間距都不一樣，看起來很廉價。改成使用畫布本身的座標後，三種形狀的條紋就完全一致了。</p>
+<p>顏色則直接引用 CSS 變數，所以整套紅綠紫的配色只定義在一個地方，網站圖示的三個形狀也是用同樣的顏色畫的。</p></section><section class="section-block" id="compact"><h2>VI. 拿走三張之後，牌怎麼補？</h2>
+<p>拿走一組 SET 之後有兩種情況要同時處理：</p>
+<ol class="steps">
+<li><strong>檯面是 12 張</strong>：被拿走的三個位置，直接從牌堆補三張新牌到原位，其他牌一張都不動，玩家不用重新掃視整個檯面。</li>
+<li><strong>檯面超過 12 張</strong>（之前因為無解補過牌）：這時不補新牌，而是把最後面多出來的牌搬到空位，讓檯面縮回 12 張，不會越玩越多。</li>
+</ol>
+<p>做法是挖洞時先用空位佔住，不把陣列縮短，這樣其他牌的位置都不會位移；接著依「多餘的牌優先、再從牌堆補」的順序把洞填滿。同一段邏輯同時處理了這兩種情況。</p>
+<div class="callout warn"><span class="callout-title">一個留著沒改的小瑕疵</span><p>多出來的牌是從尾端一張張取出，再依序填進前面的洞，所以這幾張搬過去時順序會反過來。功能完全正確，只是位置變化不太直覺；要改只需要先把取出的順序反轉一次。</p></div></section></div><div class="tab-content" id="online" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#arch">I. 房主說了算</a></li><li><a href="#transport">II. 兩條路：先試直連，打不通就走備援</a></li><li><a href="#rules">III. 對戰規則的三個設計</a></li></ol></div><section class="section-block" id="arch"><h2>I. 房主說了算</h2>
+<p>雙人連線的需求很單純：兩個人打開同一個網頁，一個人建立房間拿到四位數字，另一個人輸入數字加入，然後搶同一副牌，誰先送出合法的三張就算誰的。</p>
+<p>網站放在 GitHub Pages，沒有後端伺服器，所以整局牌的「真相」放在<strong>房主的瀏覽器</strong>裡：檯面、牌堆、分數都以房主為準。加入者每次選滿三張，只是送出一個「我要這三張」的請求，由房主驗證：</p>
+<ul>
+<li>這三張牌是不是<strong>都還在檯面上</strong>（可能剛被房主拿走）。</li>
+<li>這三張是不是真的構成 SET，房主會自己重算一次，不相信對方傳來的判斷。</li>
+<li>請求是不是屬於<strong>這一局</strong>，避免重新開始之後，上一局遲到的請求被算進新局。</li>
+</ul>
+<p>驗證通過，房主就用跟單人模式完全相同的流程挖洞、補牌、加分，再把最新的牌面傳給加入者。電腦對手也走同一條路，只是由程式在隨機的延遲後送出請求。三種模式共用一套判定與計分，沒有任何一種模式有自己的特例。</p>
+<div class="callout "><span class="callout-title">「先送達的人得分」代表什麼</span><p>比的是誰的請求先抵達房主。房主自己點牌不用經過網路，所以房主有一點天生的優勢，大約就是一趟網路傳輸的時間。直連時通常只有幾十毫秒；走備援通道時大約多 0.1～0.3 秒。對 SET 這種需要找好幾秒的遊戲，這個差距在可以接受的範圍內。</p></div></section><section class="section-block" id="transport"><h2>II. 兩條路：先試直連，打不通就走備援</h2>
+<p>連線分成兩層，對玩家來說是自動的，狀態列只會顯示「（直連）」或「（經由備援伺服器）」：</p>
+<ol class="steps">
+<li><strong>WebRTC 直連</strong>：透過 PeerJS 公開的配對服務交換連線資訊，之後兩台裝置直接傳資料，延遲最低。房間碼就是房主在配對服務上登記的名稱，所以同一個號碼不會被兩個人同時用掉。</li>
+<li><strong>MQTT 備援通道</strong>：如果 10 秒內直連打不通，就改用公開的 MQTT 訊息伺服器（EMQX，HiveMQ 當第二選擇）轉送。兩邊只要能連上網路就連得到，不需要兩台裝置之間互相打得通。</li>
+</ol>
+<p>為了讓對局邏輯不必分辨走的是哪一條路，備援通道被包成跟 PeerJS 連線物件一樣的介面：一樣有開啟、收資料、關閉這幾個事件，一樣用 <span class="inline-code">send()</span> 送資料。上層的搶答、補牌、重新開始完全沒有改。</p>
+<p>備援通道還額外處理了兩件直連本來就有的事：每 4 秒互傳一次心跳，15 秒沒收到對方任何訊息就視為斷線；另外，加入者連上伺服器時會先登記一則「遺囑訊息」，如果分頁被直接關掉，伺服器會代替它通知房主「對方離開了」。</p>
+<div class="callout warn"><span class="callout-title">公開伺服器的代價</span><p>公開 MQTT 伺服器上的訊息，理論上任何人只要訂閱同一個主題就看得到。這裡傳的只有牌局資料（牌面、分數、誰搶了哪三張），沒有任何個人資訊，所以可以接受；如果之後要傳聊天或帳號資料，就不能再用這條路。</p></div></section><section class="section-block" id="rules"><h2>III. 對戰規則的三個設計</h2>
+<p><strong>補牌由玩家決定。</strong>對戰時沒有提示，系統也不會偷偷補牌。下方有一顆「沒有 SET？補牌」按鈕，雙方都能按：檯面真的無解，就補 3 張，兩邊都會看到提示；如果其實還有解，就不補，只告訴大家「還有幾組」，不說是哪幾組。按錯的人對手也會看到，判斷「到底有沒有解」本身就成了搶快的一部分。同一個人按完要等 2 秒才能再按，避免狂按。</p>
+<p><strong>重新開始要雙方同意。</strong>一方按下去只是送出邀請，對方畫面下方會出現「同意／繼續這局」的提示列。邀請可以取消，20 秒沒回應自動作廢，兩邊同時按就直接開新局。遊戲結束後，文案會換成「再來一局」。</p>
+<p><strong>提示不擋畫面。</strong>對戰中的所有回饋都改成畫面上方幾秒後自己消失的小提示：「+1 搶到了！」「對手搶先拿走了同一組 SET！」「對手先用掉了你選的 2 張牌」「對手已經拿走這張牌了」，選錯時則會說明原因。只有遊戲結束的比分，才用需要按確認的視窗顯示。</p></section></div><div class="tab-content" id="cases" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#c-overview">這一頁怎麼讀</a></li><li><a href="#c-turn">連線：一直顯示連線逾時</a></li><li><a href="#c-stale">連線：狀態互相覆蓋</a></li><li><a href="#c-reject">對戰：選錯會擋住對手</a></li><li><a href="#c-revision">對戰：合法搶答被誤判</a></li><li><a href="#c-deal">對戰：自動補牌與重新開始</a></li><li><a href="#c-mobile">手機版：牌面塞不進一個畫面</a></li><li><a href="#c-early">早期修掉的問題</a></li></ol></div><section class="section-block" id="c-overview"><h2>這一頁怎麼讀</h2>
+<p>以下每個問題都是實際發生、或測試時抓到的，依照「症狀 → 原因 → 修法 → 驗證」記錄。連線相關的測試，都是在本機架一套配對伺服器和 MQTT 伺服器，開兩個瀏覽器實際對打完成的；手機版面則是用好幾種手機尺寸逐一量測。</p></section><section class="section-block" id="c-turn"><h2>連線：一直顯示連線逾時</h2><div class="case"><div class="case-head"><span class="case-no">#1</span><h3>電腦和手機怎麼試都連不上</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>建立房間正常，另一台輸入房間碼後一直顯示連線中，最後跳出「連線逾時」。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>程式為了多加一個 Cloudflare 的 STUN 伺服器，自己寫了一份 <span class="inline-code">iceServers</span> 設定。問題是這份設定會<strong>整個取代</strong> PeerJS 的預設值，順便把 PeerJS 內建的 TURN 中繼伺服器也拿掉了。STUN 只能幫兩台裝置嘗試直接連線；只要有一方在手機網路或比較嚴格的路由器後面，直連打不通，本來應該改走 TURN 中繼，但中繼已經不存在了。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>把 PeerJS 的 TURN 中繼加回設定裡，並在程式旁邊註明「自訂這個設定會覆蓋預設值」，避免之後又有人重蹈覆轍。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>在本機架一套 PeerJS 配對伺服器，用兩個瀏覽器實際對打完一整局，確認牌面、分數、結算兩邊一致。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#2</span><h3>同一個 Wi-Fi 也連不上</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>加回 TURN 之後，電腦和手機在<strong>同一個租屋處的 Wi-Fi</strong> 下，還是出現「已找到房間，但雙方網路打不通」。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>租屋處的路由器常會開「AP 隔離」，讓不同房客的裝置彼此看不到，所以就算在同一個 Wi-Fi，兩台裝置也不能直接互傳資料。這時只能靠中繼，但 PeerJS 那組免費 TURN 沒有任何可用性保證，實際上也沒有接住。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>新增 MQTT 備援通道（見「連線對戰」第 II 節）：直連 10 秒打不通，就自動改由公開的 MQTT 伺服器轉送。另外，如果 PeerJS 的配對服務本身連不上，房主也能只靠備援通道開房。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>模擬三種情況：直連被擋住、正常直連、配對服務整個掛掉，三種都能連上並完成對局、重新開始，也能偵測對方關掉分頁。上線後實際用電腦和手機，確認是經由備援伺服器連上的。</p></div></div><div class="case-row"><div class="case-label lesson">心得</div><div><p>免費的公共服務能當備援，但不能當唯一的路。這次的解法是讓兩條路互相補位，任一條掛掉，遊戲都還能玩。</p></div></div></div></div></section><section class="section-block" id="c-stale"><h2>連線：狀態互相覆蓋</h2><div class="case"><div class="case-head"><span class="case-no">#3</span><h3>按了「離開」卻顯示「連線中斷」，有時還把新的連線搞壞</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>按離開後，狀態列不是「已離開」，而是「連線已中斷，請離開後重新加入」。另外，前一次沒打通的連線晚一點才宣告失敗時，會把剛剛連上的新連線一起標成斷線。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>每條連線都有自己的「關閉」事件，但處理這個事件時，沒有先確認「這還是目前正在用的那條連線嗎」。PeerJS 關閉連線時又可能立刻觸發事件，所以離開時，程式自己關掉連線，接著又被自己的關閉事件覆蓋了狀態。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>事件處理一律先檢查「是不是目前的連線」，舊的連線一律忽略；離開時先把參照清空，再關閉連線。房主那邊，如果有一條還沒打通、卡在半路的連線，新的加入請求來了就直接取代它。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>用兩個瀏覽器測試：離開、對方離開、重新加入、加入不存在的房間，每種情況的狀態文字都正確。</p></div></div></div></div></section><section class="section-block" id="c-reject"><h2>對戰：選錯會擋住對手</h2><div class="case"><div class="case-head"><span class="case-no">#4</span><h3>我選錯的那半秒，對手明明選對了卻被拒絕</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>房主選錯三張，紅框閃爍的那 0.5 秒內，加入者送出的正確答案被回「另一位玩家更快」。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>「選錯的動畫」和「有一組 SET 正在結算」共用了同一個鎖。選錯只是本機的視覺效果，卻讓房主以為整個牌局正在結算，所以拒絕了所有搶答。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>拆成兩個狀態：「正在結算」才會擋住搶答；「選錯動畫」只擋住自己繼續點牌，不影響對手。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>讓房主刻意選錯，同時讓加入者送出正確答案，確認加入者正常得分。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#5</span><h3>對手一得分，我選到一半的牌全部被取消</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>正在選第二張牌時，對手剛好拿走一組 SET，自己的選取整個被清空，要重選。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>每次牌面更新，程式都直接把選取清空，不管選到的牌還在不在。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>只取消「已經不在檯面上」的牌，其他的保留，並透過提示告訴你對手用掉了你選的幾張。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>讓加入者先選 2 張，房主拿走包含其中 2 張的 SET，確認提示文字正確，且被拿走的牌已取消選取。</p></div></div></div></div></section><section class="section-block" id="c-revision"><h2>對戰：合法搶答被誤判</h2><div class="case"><div class="case-head"><span class="case-no">#6</span><h3>補完牌的瞬間送出的答案被拒絕，牌被拿走時還被說成「不是 SET」</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>有人剛補牌的一瞬間，另一方送出的三張牌明明都還在檯面上，卻被拒絕。另外，牌剛被對手拿走時送出的請求，會被回報成「這三張不是 SET」，玩家會以為自己看錯。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>房主原本用「牌面版本號」判斷請求是否過期，只要版本不同就一律拒絕。但補牌只會新增牌，不會動到原本的牌。另外，「牌已經不在檯面上」和「三張不構成 SET」原本走同一個錯誤分支。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>改成只檢查「是不是同一局」以及「三張牌是否都還在檯面上」。錯誤原因也分成三種代碼：舊局、正在結算、不是 SET，加入者依代碼顯示不同提示。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>補牌後立即送出原有的三張合法牌，確認能得分；搶輸時顯示「對手比你快一步」，而不是「不是 SET」。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#7</span><h3>只有房主看得到最後比分</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>遊戲結束時，房主跳出「遊戲結束，13：12，你贏了！」，加入者那邊什麼都沒有。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>結算視窗寫在「判斷遊戲結束」的函式裡，而這個函式只在房主那邊執行。加入者只收到一份「遊戲已結束」的牌面。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>加入者收到「遊戲已結束」的牌面時，用自己的角度顯示結果（你贏了／房主獲勝）；同一局只顯示一次。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>讓兩個瀏覽器自動打完一整局，確認兩邊的比分互為相反、結果都正確。</p></div></div></div></div></section><section class="section-block" id="c-deal"><h2>對戰：自動補牌與重新開始</h2><div class="case"><div class="case-head"><span class="case-no">#8</span><h3>開局就是 15 張，而且大家不知道系統會自己補牌</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>對戰一開局常常就是 15 張，玩家不確定檯面無解時系統會不會處理，只能乾等。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>對戰模式原本會在每次發牌後檢查，只要無解就偷偷一直補，直到有解為止，玩家完全看不到這個過程。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>取消自動補牌，改成「沒有 SET？補牌」按鈕（見「連線對戰」第 III 節）。開局固定 12 張，是否無解交給玩家判斷。電腦對手找不到解時，也會按同一顆按鈕。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>測試四種情況：有解時按（兩邊都看到剩幾組、不補牌）、無解時按（兩邊都補到 15 張）、2 秒內連按、電腦自己按。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#9</span><h3>一方按「重新開始」，整局就被洗掉</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>手機上手滑碰到「重新開始」，兩個人的牌局直接作廢。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>加入者按重新開始，會直接要求房主開新局；房主按的話更是立刻開始，對方沒有任何拒絕的機會。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>改成邀請制（見「連線對戰」第 III 節）。單人和電腦模式打到一半時按重新開始，也會先確認一次。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>測試邀請、拒絕、取消、逾時、同意、兩邊同時按，以及單人模式的確認與取消，每種情況牌面都符合預期。</p></div></div></div></div></section><section class="section-block" id="c-mobile"><h2>手機版：牌面塞不進一個畫面</h2><div class="case"><div class="case-head"><span class="case-no">#10</span><h3>連線後要往下捲很久才看得到第一張牌</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>手機上連線之後，建立房間、加入房間、離開這些按鈕都還在，牌面的第一列被推到 600px 以下；牌面只排 2 欄，12 張要排成 6 列；「加入房間」按鈕被擠成直排。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>連線區只有一種版面，不分「開房前」和「連線中」；牌面在窄螢幕直接降成 2 欄；按鈕允許換行。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><ul><li>連線後，設定區收成一行狀態加「離開」按鈕，牌面因此往上移了大約 460px。</li><li>牌面改成依照螢幕剩下的高度自動計算卡片大小，從 3、4、6 欄裡挑出卡片最大的排法：直拿手機是 3 欄 × 4 列，橫拿自動變成 6 欄 × 2 列。</li><li>所有按鈕不換行；還沒連線時，牌面位置改成顯示說明文字。</li></ul></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>用 iPhone 14、iPhone SE（扣掉 Safari 網址列後的高度）、一般 Android、手機橫拿四種尺寸量測，12 張牌與按鈕都在同一個畫面內，沒有左右捲動。補到 15 張的情況也另外驗證過。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#11</span><h3>房主和加入者的卡片大小不一樣</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在 iPhone SE 上，房主的卡片寬 92px，加入者卻是 112px。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>手機版外層的排版沒有把內容區撐滿寬度，所以內容區的寬度會跟著牌面縮放。偏偏計算卡片大小時，又是拿內容區的寬度來算，兩者互相牽動：牌一變小，內容區跟著變窄，下一次計算又更小。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>窄螢幕時，外層一律撐滿寬度，切斷這個循環；另外監聽上方區塊的高度變化（例如狀態文字換行），一有變化就重新計算。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>四種尺寸重新量測，房主和加入者的卡片尺寸完全相同。</p></div></div><div class="case-row"><div class="case-label lesson">心得</div><div><p>「拿 A 的尺寸去算 B，而 A 又受 B 影響」這種循環，在單一尺寸下很難察覺，要換好幾種尺寸量才會現形。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#12</span><h3>桌機對戰時，牌大到超出螢幕</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>解答面板只在單人模式出現之後，桌機對戰時牌面變成整個寬度，每張卡寬 321px，按鈕被擠到螢幕外。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>桌機的牌面原本固定 4 欄並撐滿寬度，以前旁邊有解答面板分掉寬度，所以沒出過問題。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>同一套自動計算也用在桌機上：從 4 或 6 欄裡挑，並限制每張卡最寬 280px。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>在 1366×800 和 1920×1000 下，牌和按鈕都在同一個畫面內。</p></div></div></div></div></section><section class="section-block" id="c-early"><h2>早期修掉的問題</h2><div class="case"><div class="case-head"><span class="case-no">#13</span><h3>分數莫名其妙多一分，還白白吃掉三張牌</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>偶爾分數多算一分，牌堆少了三張，結算時的 SET 類型也多記了一組。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>配對成功後，會先亮綠框 0.4 秒才真正處理資料。這 0.4 秒內沒有上鎖，手快多點一張牌，就會再觸發一次判定，用舊的位置把剛補上的三張新牌又挖掉一次。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>加上「結算中」的鎖：點牌和判定的入口都會檢查，重新開始時也會解鎖，避免在動畫中按重新開始，導致遊戲永久卡住。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>用程式模擬點擊：連點三張觸發判定後，在動畫期間點第四張，確認選取數與分數都沒變，動畫結束後也能繼續操作。</p></div></div><div class="case-row"><div class="case-label lesson">心得</div><div><p>這類跟時間差有關的 bug，人工測試幾乎抓不到，因為人看到綠框會自然停手。只能靠程式模擬精確的點擊時機。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#14</span><h3>提示面板的條紋圖案有時變透明</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>解答面板裡的縮圖，在檯面更新後，條紋紋路的牌會變成空心。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>條紋圖樣用「牌的編號」命名。面板縮圖和檯面上的牌是同一張，產生了重複的名稱；縮圖其實一直借用檯面上的那份圖樣，檯面一重畫，那份圖樣就不見了。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>面板縮圖的圖樣名稱加上獨立的前綴，和檯面完全分開。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#15</span><h3>牌堆剩 1～2 張時，補牌會多出空格</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>快結束時無解補牌，檯面尾端出現空白的格子。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>補牌固定補 3 次，但牌堆只剩 1～2 張時，後面幾次補進的是空值。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>有幾張補幾張，補完之後再檢查一次遊戲是否結束，因為牌堆可能剛好抽乾而且仍然無解。</p></div></div></div></div></section></div><div class="tab-content" id="limits" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#l-known">我知道、但還沒處理的事</a></li><li><a href="#l-why">為什麼把這些寫出來</a></li></ol></div><section class="section-block" id="l-known"><h2>我知道、但還沒處理的事</h2>
+<ul>
+<li><strong>房主關掉頁面，房間就消失。</strong>整局的狀態只存在房主的瀏覽器裡，沒有伺服器可以接手。這是不架後端換來的代價。</li>
+<li><strong>房主有一點天生的優勢。</strong>房主點牌不用經過網路，大約領先一趟傳輸時間；走備援通道時差距會再大一點。</li>
+<li><strong>備援伺服器是公開的。</strong>理論上別人看得到牌局訊息，也可能被惡意送入假的請求（房主仍會驗證每一個請求，所以最多是干擾，不會被亂加分）。</li>
+<li><strong>提示面板的「滑過高亮」只支援滑鼠。</strong>觸控裝置看不到對應的高亮，應該補上點擊與焦點事件。</li>
+<li><strong>顏色是規則的一部分，但沒有色盲輔助。</strong>紅綠色盲的玩家很難分辨紅色和綠色的牌，應該提供文字標示模式或改用色盲友善的配色。</li>
+<li><strong>補牌時牌序會反過來</strong>（見「遊戲核心」第 VI 節），功能正確，只是視覺上不夠直覺。</li>
+</ul></section><section class="section-block" id="l-why"><h2>為什麼把這些寫出來</h2>
+<p>把「我知道但還沒做」和「我不知道」分開，前者是待辦清單，後者才是真正的風險。這一頁的每一個修正，都是先有人回報「這裡怪怪的」或測試抓到異常，再回頭追原因；把限制寫清楚，下一個問題出現時就知道該從哪裡找起。</p></section></div>
         </div>
 
         <aside class="sidebar">
             <div class="play-card">
-                <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">🃏</div>
+                <img src="../assets/icons/set.svg" alt="" width="72" height="72" style="border-radius:18px; margin-bottom:1rem; box-shadow:0 0 30px var(--accent-glow);">
                 <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
-                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
-                    檯面平均藏著 <strong>2.78 組</strong> SET。內建全解偵測，卡關時可以看到所有解與四屬性判定拆解。
-                </p>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">檯面平均藏著約 <strong>2.8 組</strong> SET。單人可以看全部解答；對戰時誰先送出合法的三張就是誰的分。</p>
                 <a href="game-set.html" class="btn">Launch Interactive Demo</a>
-                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
-                    Procedural SVG · No Assets</p>
             </div>
 
             <div class="side-box">
                 <h4>Quick Facts</h4>
-                <ul class="spec-list">
-                    <li><span>牌組大小</span><span>3⁴ = 81</span></li>
-                    <li><span>全牌組 SET</span><span>1,080 組</span></li>
-                    <li><span>SET 類型</span><span>15 種</span></li>
-                    <li><span>12 張無解率</span><span>3.22 %</span></li>
-                    <li><span>15 張無解率</span><span>0.04 %</span></li>
-                    <li><span>搜尋複雜度</span><span>Θ(C(n,3))</span></li>
-                    <li><span>圖形素材</span><span>0（純 SVG）</span></li>
-                    <li><span>連線方式</span><span>PeerJS 1.5.5 / WebRTC</span></li>
-                    <li><span>房間碼</span><span>四位數字</span></li>
-                </ul>
+                <ul class="spec-list"><li><span>牌組大小</span><span>3⁴ = 81</span></li><li><span>全牌組 SET</span><span>1,080 組</span></li><li><span>SET 類型</span><span>15 種</span></li><li><span>12 張無解率</span><span>≈ 3.2 %</span></li><li><span>15 張無解率</span><span>≈ 0.04 %</span></li><li><span>檯面平均解數</span><span>≈ 2.8 組</span></li><li><span>直連等待上限</span><span>10 秒</span></li><li><span>備援延遲</span><span>約 +0.1～0.3 秒</span></li><li><span>房間碼</span><span>四位數字</span></li></ul>
             </div>
 
             <div class="side-box">
                 <h4>其他技術剖析</h4>
-                <ul class="spec-list">
-                    <li><a href="pentomino-detail.html" style="color:var(--accent2); text-decoration:none">Pentomino
-                            Solver →</a></li>
-                    <li><a href="1A2B-detail.html" style="color:var(--accent2); text-decoration:none">1A2B 猜數字 →</a>
-                    </li>
-                    <li><a href="infinite-tictactoe-detail.html"
-                            style="color:var(--accent2); text-decoration:none">無限井字棋 →</a></li>
-                    <li><a href="vertical-gomoku-detail.html"
-                            style="color:var(--accent2); text-decoration:none">立式五子棋 →</a></li>
-                    <li><a href="coc-card-detail.html" style="color:var(--accent2); text-decoration:none">卡牌交易站 →</a>
-                    </li>
-                </ul>
+                <ul class="spec-list other-list"><li><a href="pentomino-detail.html" class="other-link"><img src="../assets/icons/pentomino.svg" alt="" width="20" height="20">Pentomino 拼圖</a></li><li><a href="1A2B-detail.html" class="other-link"><img src="../assets/icons/1a2b.svg" alt="" width="20" height="20">1A2B 猜數字</a></li><li><a href="infinite-tictactoe-detail.html" class="other-link"><img src="../assets/icons/infinite-tictactoe.svg" alt="" width="20" height="20">無限井字棋</a></li><li><a href="vertical-gomoku-detail.html" class="other-link"><img src="../assets/icons/vertical-gomoku.svg" alt="" width="20" height="20">立式五子棋</a></li><li><a href="coc-card-detail.html" class="other-link"><img src="../assets/icons/coc-card.svg" alt="" width="20" height="20">卡牌交易站</a></li></ul>
             </div>
         </aside>
     </main>
@@ -883,15 +118,7 @@
         © 2026 果汁龍 · Engineered with Passion.
     </footer>
 
-    <script>
-        function switchTab(index) {
-            const btns = document.querySelectorAll('.tab-btn');
-            const contents = document.querySelectorAll('.tab-content');
-            btns.forEach((b, i) => b.classList.toggle('active', i === index));
-            contents.forEach((c, i) => c.classList.toggle('active', i === index));
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    </script>
+    <script src="detail.js"></script>
 </body>
 
 </html>

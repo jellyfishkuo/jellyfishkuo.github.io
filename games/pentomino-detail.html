@@ -2,25 +2,17 @@
 <html lang="zh-TW">
 
 <head>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="../assets/icons/pentomino.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/pentomino-32.png">
     <link rel="apple-touch-icon" href="../assets/icons/pentomino-180.png">
-    <title>技術剖析 | Pentomino Architecture</title>
-
+    <title>技術剖析 | Pentomino 拼圖</title>
+    <meta name="description" content="Pentomino 日曆拼圖的技術剖析：回溯求解器與孤島剪枝、可中斷的搜尋、拖曳與旋轉的實作，以及每個操作問題怎麼被找出與修正。">
     <script>
-        MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            }
-        };
+        MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] } };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
     <link rel="stylesheet" href="detail.css">
 </head>
 
@@ -30,233 +22,78 @@
 
     <header>
         <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
-        <h1>System Architecture</h1>
-        <div class="subtitle">Pentomino: Algorithm Optimization & Frontend Mechanics</div>
+        <h1>Pentomino 拼圖</h1>
+        <div class="subtitle">用 12 塊五格骨牌填滿日曆盤，只留下今天的日期：一個求解器，和一套反覆打磨過的拖曳操作</div>
+        <div class="meta-row"><span class="meta-chip">盤面 <b>8 × 8</b> 日曆</span><span class="meta-chip">骨牌 <b>12</b> 塊・擺法 <b>63</b> 種</span><span class="meta-chip">中央 2×2：<b>520</b> 個解</span><span class="meta-chip">每幀運算 <b>16 ms</b> 上限</span><span class="meta-chip">切換分頁位移 <b>0 px</b></span></div>
     </header>
 
     <div class="tab-wrapper">
-        <div class="tabs-container">
-            <button class="tab-btn active" onclick="switchTab('solver')">🧠 演算法工程 (Solver)</button>
-            <button class="tab-btn" onclick="switchTab('game')">🎮 前端架構 (Frontend)</button>
-        </div>
+        <div class="tabs-container" role="tablist"><button class="tab-btn active" aria-controls="solver">🧠 求解器</button><button class="tab-btn" aria-controls="play">🎮 每日挑戰</button><button class="tab-btn" aria-controls="cases">🔧 問題與修正</button><button class="tab-btn" aria-controls="limits">⚖️ 取捨與限制</button></div>
     </div>
 
     <main>
         <div class="content">
-
-            <div id="tab-solver" class="tab-content active">
-                <section class="section-block">
-                    <h2>I. 搜尋空間複雜度極限</h2>
-                    <p>將 12 種五格骨牌填入 8x8 網格（扣除 4 障礙物）是經典的「精確覆蓋問題」。若使用暴力的 DFS，面對 12 種骨牌各自的 8 種變體（旋轉/翻轉），理論狀態空間高達：</p>
-
-                    <div class="math-block">
-                        $$ O(12! \times 8^{12}) $$
-                    </div>
-
-                    <p>為了在不依賴 DLX (Dancing Links) 的前提下實現極速求解，並保留給前端動畫渲染的彈性，我設計了 <strong>優化版的回溯法 (Optimized
-                            Backtracking)</strong>，並導入嚴苛的空間幾何剪枝機制。</p>
-
-                    <div class="tech-card">
-                        <h3>1. 記憶體降維：1D Array 狀態管理</h3>
-                        <p>傳統的演算法教學多使用二維陣列（2D Array）來表示網格，但在 JavaScript 引擎（如
-                            V8）中，陣列中的陣列在記憶體分配上是不連續的。這會導致每一層遞迴複製陣列時，產生巨大的 GC (Garbage Collection) 負擔與尋址延遲。</p>
-                        <p>我的解法是：<strong>將 8x8 網格完全扁平化為長度 64 的一維陣列。</strong><br>
-                            任何 2D 座標 <span class="inline-code">[row, col]</span> 皆可透過公式 <span class="inline-code">index
-                                = row * 8 + col</span> 進行 $O(1)$ 映射，極大地提升了底層的存取效能。</p>
-
-                        <h3>2. 孤島偵測與餘數剪枝 (Flood Fill Pruning)</h3>
-                        <p>骨牌在擺放過程中，極容易將剩餘的空格切分成零碎的「死胡同」。如果不提早發現，演算法就會在這些註定失敗的分支上浪費數百萬次運算。為此，我導入了即時的連通區塊檢查。</p>
-
-                        <div class="code-window">
-                            <div class="code-header">
-                                <div class="code-dot dot-r"></div>
-                                <div class="code-dot dot-y"></div>
-                                <div class="code-dot dot-g"></div>
-                                <div class="code-title">pruning_logic.js</div>
-                            </div>
-                            <div class="code-body">
-                                <pre><span class="kw">function</span> <span class="fn">getIslands</span>(<span class="var">currentGrid</span>) {
-    <span class="kw">const</span> <span class="var">visited</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>(); 
-    
-    <span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op"><</span> <span class="num">64</span>; <span class="var">i</span><span class="op">++</span>) {
-        <span class="kw">if</span> (<span class="var">currentGrid</span>[<span class="var">i</span>] <span class="op">===</span> <span class="kw">null</span> <span class="op">&&</span> <span class="op">!</span><span class="var">visited</span>.<span class="fn">has</span>(<span class="var">i</span>)) {
-            <span class="kw">let</span> <span class="var">size</span> <span class="op">=</span> <span class="num">0</span>;
-            <span class="kw">const</span> <span class="var">q</span> <span class="op">=</span> [<span class="var">i</span>];
-            <span class="var">visited</span>.<span class="fn">add</span>(<span class="var">i</span>);
-            
-            <span class="cm">// 非遞迴 BFS，避免極端碎塊導致 Call Stack Overflow</span>
-            <span class="kw">while</span> (<span class="var">q</span>.<span class="fn">length</span>) {
-                <span class="kw">const</span> <span class="var">curr</span> <span class="op">=</span> <span class="var">q</span>.<span class="fn">shift</span>();
-                <span class="var">size</span><span class="op">++</span>;
-                <span class="cm">// 將 4 個相鄰且合法的空格推入 Queue ...</span>
-            }
-            
-            <span class="cm">// 🎯 核心剪枝 (Pruning Condition)</span>
-            <span class="kw">if</span> (<span class="var">size</span> <span class="op">%</span> <span class="num">5</span> <span class="op">!==</span> <span class="num">0</span>) <span class="kw">return false</span>; 
-        }
-    }
-    <span class="kw">return true</span>; 
-}</pre>
-                            </div>
-                        </div>
-                        <p><strong>為何使用 BFS 而非遞迴 DFS？</strong><br>
-                            在極端的碎片化盤面中，遞迴尋找連通區塊極易引發 Call Stack Overflow。透過陣列模擬佇列 (Queue) 來實作 BFS，不僅安全，還能更精準地控制記憶體。</p>
-
-                        <h3>3. Event Loop 釋放：Generator 協程運算</h3>
-                        <p>一般的 DFS 是一個同步的貪婪函式，它會死咬 JS Main Thread 不放導致瀏覽器卡死。為實現「解題過程視覺化」，我使用了 ES6 的 Generator 來實作協程
-                            (Coroutine)。</p>
-
-                        <div class="code-window">
-                            <div class="code-header">
-                                <div class="code-dot dot-r"></div>
-                                <div class="code-dot dot-y"></div>
-                                <div class="code-dot dot-g"></div>
-                                <div class="code-title">async_solver.js</div>
-                            </div>
-                            <div class="code-body">
-                                <pre><span class="kw">function*</span> <span class="fn">backtrack</span>(<span class="var">currentGrid</span>, <span class="var">pieces</span>) {
-    <span class="kw">if</span> (<span class="var">pieces</span>.<span class="fn">length</span> <span class="op">===</span> <span class="num">0</span>) {
-        <span class="kw">yield</span> <span class="var">currentGrid</span>; <span class="cm">// 拋出最終勝利盤面</span>
-        <span class="kw">return</span>;
-    }
-    
-    <span class="kw">for</span> (<span class="kw">const</span> <span class="var">variant</span> <span class="kw">of</span> <span class="var">allVariants</span>) {
-        <span class="kw">if</span> (<span class="fn">canPlace</span>(<span class="var">variant</span>, <span class="var">emptyIdx</span>)) {
-            <span class="fn">placePiece</span>(<span class="var">variant</span>);
-            
-            <span class="kw">if</span> (<span class="fn">getIslands</span>(<span class="var">currentGrid</span>)) {
-                <span class="cm">// 🎯 暫停執行，交還控制權讓 UI 渲染</span>
-                <span class="kw">yield</span> <span class="var">currentGrid</span>; 
-                <span class="kw">yield*</span> <span class="fn">backtrack</span>(<span class="var">currentGrid</span>, <span class="var">remainingPieces</span>);
-            }
-            <span class="fn">removePiece</span>(<span class="var">variant</span>); <span class="cm">// Backtracking</span>
-        }
-    }
-}</pre>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <div id="tab-game" class="tab-content">
-                <section class="section-block">
-                    <h2>II. 前端渲染架構與互動防護</h2>
-                    <p>將底層抽象的數學陣列轉化為玩家可絲滑拖放的 DOM 元素，考驗的是前端工程師對 <strong>渲染機制 (Rendering Pipeline)</strong> 的掌握，以及對狀態管理
-                        (State Management) 邊界情況的掌控。</p>
-
-                    <div class="tech-card">
-                        <h3>1. 狀態脫鉤與「幽靈印記」消除 (State Decoupling)</h3>
-                        <p>在開發拖曳旋轉功能時，我遭遇了棘手的 <span class="tech-badge">Ghost Footprint (幽靈方塊)</span>
-                            Bug：當方塊被拿在半空中並旋轉時，陣列形狀已改變。若此時才執行
-                            `removeFromGrid()`，會因為找不到舊形狀而無法徹底清除佔用，導致底層陣列殘留永久無法覆蓋的「幽靈空間」。</p>
-
-                        <div class="code-window">
-                            <div class="code-header">
-                                <div class="code-dot dot-r"></div>
-                                <div class="code-dot dot-y"></div>
-                                <div class="code-dot dot-g"></div>
-                                <div class="code-title">state_decoupling.js</div>
-                            </div>
-                            <div class="code-body">
-                                <pre><span class="cm">// 🎯 終極修復：嚴格的狀態脫鉤機制</span>
-<span class="kw">this</span>.<span class="var">el</span>.<span class="fn">addEventListener</span>(<span class="str">'pointerdown'</span>, (<span class="kw">e</span>) <span class="op">=></span> {
-    <span class="kw">this</span>.<span class="var">isDragging</span> <span class="op">=</span> <span class="kw">true</span>;
-    
-    <span class="cm">// 一接觸方塊，在變形前立即從底層 Grid 中拔除佔用</span>
-    <span class="cm">// 保證拖曳中的物體只存在於 View (DOM)，絕不汙染 State (Array)</span>
-    <span class="kw">if</span> (<span class="kw">this</span>.<span class="var">isSnapped</span>) {
-        <span class="kw">this</span>.<span class="fn">removeFromGrid</span>(); 
-        <span class="kw">this</span>.<span class="var">isSnapped</span> <span class="op">=</span> <span class="kw">false</span>;
-    }
-    
-    <span class="cm">// 強制游標鎖定：防止 DOM 節點更新時遺失事件目標 (Zombie State)</span>
-    <span class="kw">try</span> { <span class="kw">this</span>.<span class="var">el</span>.<span class="fn">setPointerCapture</span>(<span class="kw">e</span>.<span class="var">pointerId</span>); } <span class="kw">catch</span>(<span class="var">err</span>) {}
-});</pre>
-                            </div>
-                        </div>
-
-                        <h3>2. 真・物理重心自轉演算法 (Center of Mass Rotation)</h3>
-                        <p>處理滑鼠滾輪旋轉時，若以「外框幾何中心」為軸心，不對稱的骨牌（如 P 或 U 形）會產生極大的迴轉半徑（<span class="tech-badge">Pivot
-                                Illusion</span>），且尺寸進位誤差會導致方塊「越轉越往右下角飄」。</p>
-                        <p>我的解法是：<strong>計算真實的物理重心，達成 100% 零誤差的對稱旋轉。</strong></p>
-
-                        <div class="code-window">
-                            <div class="code-header">
-                                <div class="code-dot dot-r"></div>
-                                <div class="code-dot dot-y"></div>
-                                <div class="code-dot dot-g"></div>
-                                <div class="code-title">center_of_mass.js</div>
-                            </div>
-                            <div class="code-body">
-                                <pre><span class="cm">// 每一塊骨牌固定 5 格，重心座標 = [總和R / 5, 總和C / 5]</span>
-<span class="kw">const</span> <span class="fn">getCoM</span> <span class="op">=</span> (<span class="var">blocks</span>) <span class="op">=></span> {
-    <span class="kw">let</span> <span class="var">sr</span> <span class="op">=</span> <span class="num">0</span>, <span class="var">sc</span> <span class="op">=</span> <span class="num">0</span>;
-    <span class="var">blocks</span>.<span class="fn">forEach</span>(([<span class="var">r</span>, <span class="var">c</span>]) <span class="op">=></span> { <span class="var">sr</span> <span class="op">+=</span> <span class="var">r</span>; <span class="var">sc</span> <span class="op">+=</span> <span class="var">c</span>; });
-    <span class="kw">return</span> [<span class="var">sr</span> <span class="op">/</span> <span class="num">5</span>, <span class="var">sc</span> <span class="op">/</span> <span class="num">5</span>];
-};
-
-<span class="kw">const</span> [<span class="var">oldComR</span>, <span class="var">oldComC</span>] <span class="op">=</span> <span class="fn">getCoM</span>(<span class="var">oldBlocks</span>);
-<span class="kw">const</span> [<span class="var">newComR</span>, <span class="var">newComC</span>] <span class="op">=</span> <span class="fn">getCoM</span>(<span class="var">newBlocks</span>);
-
-<span class="cm">// 🌟 數學奇蹟：因為 N=5 是奇數，除法尾數只會是 .0, .2, .4, .6, .8</span>
-<span class="cm">// Math.round 絕對不會遇到 .5 的模糊地帶，實現零誤差對稱進位！</span>
-<span class="kw">const</span> <span class="var">targetGridR</span> <span class="op">=</span> <span class="var">oldGridR</span> <span class="op">+</span> Math.<span class="fn">round</span>(<span class="var">oldComR</span> <span class="op">-</span> <span class="var">newComR</span>);
-<span class="kw">const</span> <span class="var">targetGridC</span> <span class="op">=</span> <span class="var">oldGridC</span> <span class="op">+</span> Math.<span class="fn">round</span>(<span class="var">oldComC</span> <span class="op">-</span> <span class="var">newComC</span>);</pre>
-                            </div>
-                        </div>
-
-                        <h3>3. 貪婪圖形著色演算法 (Greedy Graph Coloring)</h3>
-                        <p>通關生成戰績卡時，為確保「相鄰骨牌絕對不同色」，我將 8x8 網格抽象為 <strong>無向平面圖 (Planar Graph)</strong>，實作圖論中的貪婪著色 (Greedy
-                            Coloring)。從 7 種主題色中，選出「全域使用最少」且「鄰居未使用」的顏色，解決相鄰同色的視覺混淆。</p>
-
-                        <div class="code-window">
-                            <div class="code-header">
-                                <div class="code-dot dot-r"></div>
-                                <div class="code-dot dot-y"></div>
-                                <div class="code-dot dot-g"></div>
-                                <div class="code-title">greedy_graph_coloring.js</div>
-                            </div>
-                            <div class="code-body">
-                                <pre><span class="cm">// 建立相鄰的邊 (Edge) 形成 Graph</span>
-Object.<span class="fn">keys</span>(<span class="var">pieces</span>).<span class="fn">forEach</span>(<span class="var">p</span> <span class="op">=></span> {
-    <span class="kw">const</span> <span class="var">usedColors</span> <span class="op">=</span> <span class="kw">new</span> <span class="fn">Set</span>();
-    <span class="var">adj</span>[<span class="var">p</span>].<span class="fn">forEach</span>(<span class="var">neighbor</span> <span class="op">=></span> {
-        <span class="kw">if</span> (<span class="var">colorMap</span>[<span class="var">neighbor</span>]) <span class="var">usedColors</span>.<span class="fn">add</span>(<span class="var">colorMap</span>[<span class="var">neighbor</span>]);
-    });
-
-    <span class="kw">const</span> <span class="var">available</span> <span class="op">=</span> <span class="var">ALL_COLORS</span>.<span class="fn">filter</span>(<span class="var">c</span> <span class="op">=></span> <span class="op">!</span><span class="var">usedColors</span>.<span class="fn">has</span>(<span class="var">c</span>));
-
-    <span class="cm">// 🎯 貪婪選擇：從合法池中，優先挑選「全域使用次數最少」的顏色</span>
-    <span class="var">available</span>.<span class="fn">sort</span>((<span class="var">a</span>, <span class="var">b</span>) <span class="op">=></span> <span class="var">colorUsage</span>[<span class="var">a</span>] <span class="op">-</span> <span class="var">colorUsage</span>[<span class="var">b</span>]);
-    
-    <span class="kw">const</span> <span class="var">chosen</span> <span class="op">=</span> <span class="var">available</span>[<span class="num">0</span>];
-    <span class="var">colorMap</span>[<span class="var">p</span>] <span class="op">=</span> <span class="var">chosen</span>;
-    <span class="var">colorUsage</span>[<span class="var">chosen</span>]<span class="op">++</span>;
-});</pre>
-                            </div>
-                        </div>
-
-                        <h3>4. GPU 硬體加速與動態佈局同步</h3>
-                        <p>為防止拖曳時頻繁修改 `top/left` 引發 Layout Thrashing (重排瓶頸)，系統套用 <span class="inline-code">transform:
-                                translateZ(0)</span> 強制將 DOM 提升至獨立的 <strong>Composite Layer</strong> 交由 GPU 渲染。</p>
-                        <p>同時配合 <span class="tech-badge">ResizeObserver</span>，當視窗縮放時，直接讀取陣列狀態重新推算 Absolute Pixels，實現無縫的
-                            RWD 防護。</p>
-                    </div>
-                </section>
-            </div>
+<div class="tab-content active" id="solver" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#board">I. 一張會變的日曆盤</a></li><li><a href="#variants">II. 63 種擺法，以及「錨點」的規則</a></li><li><a href="#prune">III. 孤島剪枝：先看出「這條路註定失敗」</a></li><li><a href="#slice">IV. 算到一半也能停：把搜尋切成小段</a></li><li><a href="#today">V. 今天有幾個解？</a></li></ol></div><section class="section-block" id="board"><h2>I. 一張會變的日曆盤</h2>
+<p>盤面是 8 × 8 的日曆：前三列是年份（2022–2033）和月份，接著是 1 到 31 號，最後一列是星期，另外有兩格裝飾用的 PCSH 和 Math。每天要留下四格不填：<strong>今年、這個月、今天幾號、星期幾</strong>，剩下的 60 格剛好用 12 塊五格骨牌（每塊 5 格）填滿：</p>
+<div class="math-block">$$ 64 - 4 = 60 = 12 \times 5 $$</div>
+<p>年份只有 12 格，所以超出範圍時會以 12 年為週期換算回盤面上的年份。「每日挑戰」和「自由解答」兩個模式，用的是同一份計算今天日期的函式，保證兩邊標出的四格永遠一致。</p></section><section class="section-block" id="variants"><h2>II. 63 種擺法，以及「錨點」的規則</h2>
+<p>12 塊骨牌都可以旋轉和翻面，但很多方向轉完是同一個形狀，例如十字形的 X 不管怎麼轉都一樣。程式在啟動時，把每塊骨牌的 8 種方向（4 種旋轉 × 是否翻面）都算一遍，去掉重複的，總共剩下 63 種：</p>
+<div class="table-wrap"><table class="kv"><thead><tr><th>擺法數</th><th>骨牌</th></tr></thead><tbody><tr><td>8 種</td><td>F、L、P、N、Y（不對稱的形狀）</td></tr><tr><td>4 種</td><td>T、U、V、W、Z</td></tr><tr><td>2 種</td><td>I（直的或橫的）</td></tr><tr><td>1 種</td><td>X（十字形）</td></tr></tbody></table></div>
+<p>求解時一律從「最上面、最左邊的空格」開始填。因為比它更前面的格子都已經填滿了，所以要放進去的骨牌，它自己最前面的那一格一定要剛好落在這個空格上。為了讓這件事成立，每種擺法的格子都會先依「由上到下、由左到右」排好順序，第一格就是錨點。</p>
+<div class="callout warn"><span class="callout-title">少一個排序，就會靜悄悄地漏解</span><p>如果少了「先排序」這一步，錨點就會變成「隨便某一格」，有些合法的擺法永遠試不到，求解器就會漏掉部分的解。這種錯誤不會讓程式當掉，只會讓「解的數量」變少，所以特別難發現。我用中央 2×2 這個已知有 520 個解的盤面當基準，以另一份獨立的程式重算，確認數量完全一致。</p></div></section><section class="section-block" id="prune"><h2>III. 孤島剪枝：先看出「這條路註定失敗」</h2>
+<p>骨牌放下去之後，常常會把剩下的空格切成好幾塊不相連的區域。每塊骨牌是 5 格，所以只要有任何一塊空白區域的格數<strong>不是 5 的倍數</strong>，這條路就不可能填滿，可以馬上放棄，不必繼續往下試。</p>
+<p>每放一塊骨牌，程式就把所有空白區域找出來、算格數，用的是「往四個方向擴散」的方法。下表是中央 2×2 這個盤面實際量到的數字：</p>
+<div class="table-wrap"><table class="kv"><thead><tr><th></th><th>找到的解</th><th>嘗試過的位置（節點）</th><th>耗時</th></tr></thead><tbody><tr><td>有孤島剪枝</td><td>520 個</td><td>約 190 萬</td><td>約 7 秒</td></tr><tr><td>沒有剪枝</td><td>520 個</td><td>約 900 萬</td><td>約 12 秒</td></tr></tbody></table></div>
+<p>嘗試的位置少了將近 80%，時間卻只少了大約 40%，因為每一步多做的孤島檢查本身也要時間。這是一個典型的取捨：剪枝讓搜尋樹變小很多，但每個節點變貴了。如果要再加速，下一步會是讓孤島檢查只看「剛放下那塊骨牌附近」的區域，而不是每次都掃整張盤面。</p>
+<p>（數字是用跟頁面相同的演算法，在電腦上單獨執行量到的；瀏覽器裡因為要邊算邊更新畫面，會再慢一些。）</p></section><section class="section-block" id="slice"><h2>IV. 算到一半也能停：把搜尋切成小段</h2>
+<p>找出全部解要試上百萬個位置。如果一口氣算完，瀏覽器在這段時間會完全卡住：按鈕按不下去、畫面不會更新，手機甚至可能跳出「網頁沒有回應」。</p>
+<p>做法是把搜尋寫成可以暫停的形式（JavaScript 的 generator）：每試 3,000 個位置就主動停一下，讓出控制權。外層每一個畫面更新時，最多只讓它算 16 毫秒，然後把進度顯示出來，再交給瀏覽器處理畫面與點擊。好處有三個：</p>
+<ul>
+<li>計算時畫面不會卡住，還能即時顯示「已探索多少個節點」。</li>
+<li>可以隨時按「停止計算」。</li>
+<li>找到一個解就先停下來給玩家看，按「下一個」才繼續往後找，不必等全部算完。</li>
+</ul>
+<div class="callout "><span class="callout-title">每個解都要先複製一份</span><p>回溯法會在同一張盤面上反覆放上、拿掉骨牌。找到解的那一刻，如果直接把這張盤面交出去，接下來的回溯會把它清空，存起來的「解」全部變成空盤。所以每個解在交出去之前都會先複製一份。</p></div></section><section class="section-block" id="today"><h2>V. 今天有幾個解？</h2>
+<p>自由解答的「📅 今天日期」會直接把今天的四格設成障礙物。以 2026 年 10 月 2 日（星期五）為例，這個盤面一共有 <strong>602 個解</strong>，比中央 2×2 的 520 個還多。不同日期的差異其實很大，我挑了幾天實際算過：</p>
+<div class="table-wrap"><table class="kv"><thead><tr><th>日期</th><th>留下的四格</th><th>解的數量</th></tr></thead><tbody><tr><td>2027/03/09</td><td>2027・MAR・09・Tue</td><td>428</td></tr><tr><td>2026/10/02</td><td>2026・OCT・02・Fri</td><td>602</td></tr><tr><td>2026/12/25</td><td>2026・DEC・25・Fri</td><td>632</td></tr><tr><td>2026/02/14</td><td>2026・FEB・14・Sat</td><td>680</td></tr><tr><td>2028/08/08</td><td>2028・AUG・08・Tue</td><td>729</td></tr><tr><td>2026/01/01</td><td>2026・JAN・01・Thu</td><td>779</td></tr><tr><td>2026/05/20</td><td>2026・MAY・20・Wed</td><td>823</td></tr><tr><td>2026/07/31</td><td>2026・JUL・31・Fri</td><td>4,225</td></tr></tbody></table></div>
+<p>最多和最少差了將近 10 倍。7 月 31 日特別多，因為「31」和「Fri」都在盤面右下角附近，四個障礙物剛好把盤面切得比較規整。解越少的日子，自己動手拼就越難，這也是每日挑戰難度每天不一樣的原因。</p>
+<p>自由解答的格子上也印著淡淡的日曆文字，所以除了一鍵標出今天，也可以自己點任何四格，看看某個特定日期有幾種解法。</p></section></div><div class="tab-content" id="play" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#drag">I. 骨牌是浮在頁面上的</a></li><li><a href="#rotate">II. 以重心為軸旋轉</a></li><li><a href="#share">III. 過關之後：戰績卡與彩色文字</a></li></ol></div><section class="section-block" id="drag"><h2>I. 骨牌是浮在頁面上的</h2>
+<p>每日挑戰的 12 塊骨牌，不是放在盤面或托盤的格子裡，而是直接浮在整個頁面上，用絕對座標定位。這樣拖曳時可以在盤面和托盤之間自由移動，不會被任何容器裁切。</p>
+<p>放開滑鼠或手指時，程式取骨牌的第一格中心點，換算成盤面上的第幾列、第幾欄，檢查這塊骨牌的每一格是否都落在盤內、而且沒有被佔用。合法就吸附上去；不合法就飛回托盤。盤面的佔用情況，記在一個 64 格的陣列裡。</p>
+<p>托盤本身也有設計過：桌機是 6 × 10、手機是 10 × 6 的長方形，12 塊骨牌一開始剛好拼滿這個長方形。這本身就是一組合法的五格骨牌拼法，所以托盤看起來整齊，不會東一塊西一塊。</p></section><section class="section-block" id="rotate"><h2>II. 以重心為軸旋轉</h2>
+<p>旋轉骨牌時，如果以它的外框中心為軸，不對稱的形狀（例如 P、L）轉一圈之後會整個飄走，因為外框的中心不是骨牌真正的中心。程式改用 5 格的<strong>平均位置（重心）</strong>當作旋轉軸：先記下旋轉前重心在畫面上的位置，旋轉後再把骨牌平移，讓新的重心回到同一個點。</p>
+<p>如果骨牌已經放在盤面上，旋轉後的位置會四捨五入到最近的格子；轉完會撞到別塊或超出盤面時，就維持原狀，留在原地抖一下提示（這是後來改的，見「問題與修正」<a href="#c-rotate">#5</a>）。</p>
+<p>操作方式：按鈕、滑鼠滾輪（游標要在骨牌上），或鍵盤的 R（順時針）、Shift+R（逆時針）、F（翻面）。</p></section><section class="section-block" id="share"><h2>III. 過關之後：戰績卡與彩色文字</h2>
+<p>拼完會放煙火，並出現「產生戰績小卡」按鈕。小卡是用 canvas 即時畫出來的圖片，可以長按儲存；也可以複製一份用 emoji 方塊組成的文字版，貼到 LINE 或 IG。</p>
+<p>文字版只有 7 種顏色的方塊，卻要畫 12 塊骨牌，所以必須確保「相鄰的骨牌顏色不同」，不然兩塊會黏在一起看不出邊界。程式先找出每塊骨牌跟哪些骨牌相鄰，再依序幫每塊挑一個「鄰居都沒用過」的顏色；可選的顏色中，優先挑目前用得最少的，讓整張圖的顏色分布平均一點。</p>
+<p>今天的最佳完成時間會存在瀏覽器裡，重新整理頁面後，計時器下方會顯示「最佳 mm:ss」。</p></section></div><div class="tab-content" id="cases" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#c-overview">這一頁怎麼讀</a></li><li><a href="#c-jump">切換分頁時畫面跳動</a></li><li><a href="#c-tap">操作被吃掉</a></li><li><a href="#c-rotate">擺好的骨牌被丟回托盤</a></li><li><a href="#c-solver">自由解答</a></li><li><a href="#c-early">早期修掉的問題</a></li></ol></div><section class="section-block" id="c-overview"><h2>這一頁怎麼讀</h2>
+<p>以下每個問題，都依「症狀 → 原因 → 修法 → 驗證」記錄。驗證大多是寫程式實際操作頁面：模擬手機觸控連點、滑鼠拖曳、在不同捲動位置切換分頁，並量測畫面上的實際座標。</p></section><section class="section-block" id="c-jump"><h2>切換分頁時畫面跳動</h2><div class="case"><div class="case-head"><span class="case-no">#1</span><h3>從每日挑戰點進自由解答，畫面跳回最上面</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在每日挑戰捲到下方，再點「自由解答」，整個畫面會跳回頁首，要重新捲回去。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>舊版每次切換都會強制捲到頁首。原意是讓兩個模式的盤面停在同一個位置，方便對照，因為自由解答那頁比較短，保留捲動位置的話會被瀏覽器夾住、反而對不齊。但代價是，只要不是在頁首切換，就一定會跳。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>改成讓盤面「停在畫面上的同一個位置」：</p><ol class="steps"><li>切換前，先記下目前盤面在畫面上的高度。</li><li>切到自由解答時，先把頁面撐到和每日挑戰一樣高，瀏覽器就不必夾住捲動位置。</li><li>切換後只補上差值。兩個模式的盤面本來就對齊，所以通常差值是 0。</li></ol></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>在 4 種螢幕尺寸（一般手機、iPhone SE、平板、桌機），各從 3 個不同的捲動位置來回切換，盤面在畫面上的位移全部是 0px。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#2</span><h3>修好跳動之後，差點又製造了一個新的跳動</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在 iPhone SE 寬度下測試，兩個分頁的盤面差了 15px。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>同一輪改動加入了「今日最佳時間」的標籤，預設是隱藏的。但這個標籤的樣式設定成 <span class="inline-code">display: inline-block</span>，把隱藏屬性蓋掉了，所以即使沒有內容也佔了一行，每日挑戰的標頭就比自由解答高。就算有內容，文字換行也會讓標頭變高。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>不新增任何元素，改成把最佳時間寫在計時徽章下方原本的「計時」小字位置。標頭高度在任何情況下都不會改變。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>重跑 #1 的整組測試，4 種尺寸全部回到 0px。</p></div></div><div class="case-row"><div class="case-label lesson">心得</div><div><p>這個頁面的版面，是靠「兩個模式的標頭一樣高」才能對齊。之後任何人在標頭加東西，都要記得兩邊一起改。程式碼裡已經有註解提醒這件事。</p></div></div></div></div></section><section class="section-block" id="c-tap"><h2>操作被吃掉</h2><div class="case"><div class="case-head"><span class="case-no">#3</span><h3>快速點兩下「旋轉」，只轉了一次</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在手機上快速連點兩次旋轉，骨牌只轉 90 度。在自由解答裡快速點兩個格子，第二格沒有反應。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>為了防止 iOS 雙擊放大，頁面會擋掉 0.3 秒內的第二次點擊，而且連按鈕和格子也一起擋了。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>按鈕、格子、骨牌本來就已經用 <span class="inline-code">touch-action</span> 關掉雙擊縮放，所以那個「擋第二下」的處理只留給空白處，不再套用在這些元素上。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>模擬手機觸控，在 0.12 秒內連點兩次旋轉，確認骨牌剛好轉了 180 度。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#4</span><h3>選了一塊骨牌之後，頁面捲不動</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>點選一塊骨牌之後，用滑鼠滾輪想捲動頁面，卻變成一直旋轉那塊骨牌。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>只要有骨牌被選取，整個頁面的滾輪事件都會被拿來旋轉。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>只有游標停在那塊骨牌上、或正在拖曳時，滾輪才會旋轉；其他時候照常捲動頁面。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>選取骨牌後在別處滾動滾輪，確認骨牌的形狀完全沒有改變。</p></div></div></div></div></section><section class="section-block" id="c-rotate"><h2>擺好的骨牌被丟回托盤</h2><div class="case"><div class="case-head"><span class="case-no">#5</span><h3>在盤面上旋轉，轉不過去就整塊被丟回托盤</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>盤面邊緣的骨牌按一下旋轉，如果轉完會超出盤面或撞到別塊，整塊直接飛回托盤，等於白擺了。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>旋轉失敗時，程式直接呼叫「回到托盤」，沒有考慮「維持原狀」這個選項。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>轉不過去時，恢復成旋轉前的形狀和位置，重新佔回原本的格子，並讓骨牌左右抖一下，提示「這裡轉不過去」。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>把直的 I 放在第 4 列第 1 欄，再按旋轉（轉成橫的一定會超出左邊），確認它仍然在原位、形狀不變。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#6</span><h3>拿起一塊骨牌後，「產生戰績小卡」按鈕還在</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>過關之後，只要拿起任何一塊骨牌，盤面就已經不完整了，戰績按鈕卻還留著。按「重排積木」之後也一樣。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>按鈕只在「剛好放滿」的那一刻被打開，之後沒有任何地方會把它關掉。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>改成每次盤面有變化（放下、拿起、重排）都重新檢查：放滿才顯示按鈕，同時讓計時徽章變成金色。煙火和紀錄只在第一次過關時觸發。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>模擬過關後拿起一塊，確認按鈕消失；重新整理後，最佳時間仍在。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#7</span><h3>平板轉螢幕，擺好的骨牌全部回到托盤</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在 iPad 上從直拿轉成橫拿，盤面上的骨牌全部被重置。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>螢幕寬度跨過 1190px 時，托盤要從 10 × 6 換成 6 × 10 的排法，程式直接把所有骨牌重建一次，沒有保留已經擺好的位置。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>重建前，先記下所有已放在盤面上的骨牌（形狀與位置），重建後再放回去。</p></div></div></div></div></section><section class="section-block" id="c-solver"><h2>自由解答</h2><div class="case"><div class="case-head"><span class="case-no">#8</span><h3>在自由解答裡找不到「今天」是哪四格</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>自由解答的格子是空白的，想看今天的解法，得自己數出今年、這個月、今天、星期幾分別在哪一格。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>自由解答的盤面只有顏色、沒有文字，和每日挑戰對照不起來。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>新增「📅 今天日期」按鈕，一鍵把今天的四格設成障礙物；每一格也印上淡淡的日曆文字，可以直接點選任何日期。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>在 3 種尺寸下按「今天日期」，確認被標出的四格就是今天的年、月、日、星期，並且能算出解。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#9</span><h3>算完解之後，要先按「重設網格」才能改盤面</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>找到解之後想換一格障礙物，點下去只會跳出「要換盤面請先按重設網格」，多一個步驟。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>舊版為了避免「解」和「盤面」對不上，乾脆禁止修改。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>點格子時，自動清掉舊的解，但保留障礙物，直接進行修改。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>測試時發現一個遺漏：舊解被清掉了，按鈕卻還顯示「尋找下一個解」，因為那條路徑沒有更新畫面。補上之後，按鈕正確變回「開始計算」。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#10</span><h3>複製文字戰績，有時候什麼都沒發生</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在某些 App 內建的瀏覽器裡，按「複製文字戰績」沒有任何反應。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>剪貼簿功能被瀏覽器拒絕時，程式沒有處理失敗的情況。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>失敗時改用舊的複製方式再試一次，並直接在按鈕上顯示結果：「已複製」或「無法自動複製，請長按圖片儲存」。戰績視窗也改成點背景或按 Esc 就能關閉。</p></div></div></div></div></section><section class="section-block" id="c-early"><h2>早期修掉的問題</h2><div class="case"><div class="case-head"><span class="case-no">#11</span><h3>盤面上殘留著看不見的「幽靈方塊」</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>某些格子明明是空的，骨牌卻放不進去。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>骨牌原本是在「放下」時，才從盤面紀錄中清掉自己舊的位置。但如果拿在手上時旋轉過，形狀已經變了，清除時是用新形狀去找舊的格子，有些格子就沒被清掉，變成永遠被佔用的空格。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>一拿起骨牌，就立刻把它從盤面紀錄中清掉，之後不管怎麼轉，都和盤面無關，放下時再重新登記。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#12</span><h3>拖曳中旋轉，骨牌突然不跟著手指走</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>拖著骨牌時按旋轉，有時骨牌就留在原地，不再跟著滑鼠或手指移動。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>旋轉時，舊版把骨牌的方塊全部刪掉重畫。被手指按住的那個方塊被刪掉之後，瀏覽器就找不到這次拖曳的目標了。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>重畫時重複使用原本的方塊，只改位置和邊框；拖曳開始時，把指標鎖定在骨牌的外框上，就算裡面的方塊改變，拖曳也不會中斷。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#13</span><h3>按下「開始計算」，整個畫面卡住</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>某些盤面要算好幾秒，這段時間按鈕按不了、畫面不會動，手機甚至會跳出「網頁沒有回應」。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>搜尋是一次跑完的，在算完之前，瀏覽器沒有機會處理任何其他事情。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>把搜尋切成小段（見「求解器」第 IV 節）。</p></div></div></div></div></section></div><div class="tab-content" id="limits" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#l-known">我知道、但還沒處理的事</a></li><li><a href="#l-why">為什麼要寫「舊文件說錯了」</a></li></ol></div><section class="section-block" id="l-known"><h2>我知道、但還沒處理的事</h2>
+<ul>
+<li><strong>拖曳時仍然在改骨牌的 left / top。</strong>骨牌已經脫離排版流，所以成本不高，但改用 transform 移動會更順。舊版文件說「用 GPU 加速避免重排」，其實並不正確：那個設定只是建立獨立的繪圖圖層，並沒有避免重排。</li>
+<li><strong>每日挑戰的進度不會保存。</strong>重新整理後骨牌會回到托盤，只有最佳時間會留下。</li>
+<li><strong>計時從第一次碰到骨牌才開始</strong>，過關後就停止；按「重排積木」不會重置時間，這是刻意的，但頁面上沒有說明。</li>
+<li><strong>求解器只在主執行緒上跑。</strong>切成小段後不會卡住畫面，但計算速度受限於每幀 16 毫秒；改用 Web Worker 可以全速計算。</li>
+<li><strong>螢幕閱讀器無法玩每日挑戰。</strong>自由解答的格子可以用鍵盤操作，也有語音標籤；但拖曳骨牌目前只支援滑鼠和觸控。</li>
+</ul></section><section class="section-block" id="l-why"><h2>為什麼要寫「舊文件說錯了」</h2>
+<p>技術文件跟程式碼一樣會過時，也一樣可能從一開始就寫錯。把錯誤的說法明確更正，比悄悄刪掉更有價值：下一個讀到舊版本的人，才知道哪一句不該相信。</p></section></div>
         </div>
 
         <aside class="sidebar">
             <div class="play-card">
-                <div style="font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 30px var(--accent-glow);">🧩</div>
+                <img src="../assets/icons/pentomino.svg" alt="" width="72" height="72" style="border-radius:18px; margin-bottom:1rem; box-shadow:0 0 30px var(--accent-glow);">
                 <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
-                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">
-                    親手挑戰幾何謎題體驗滾輪流暢操作，或是切換至 <strong>「自由解答」</strong> 模式，見證 Generator 協程與剪枝演算法的極速運算魅力。
-                </p>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">每天的盤面都不一樣。卡關時切到「自由解答」，按「📅 今天日期」就能看今天的所有解法。</p>
                 <a href="pentomino.html" class="btn">Launch Interactive Demo</a>
-                <p style="margin-top: 1.5rem; font-size: 0.75rem; font-family: 'Space Mono'; color: var(--accent2);">
-                    Designed for Performance</p>
+            </div>
+
+            <div class="side-box">
+                <h4>Quick Facts</h4>
+                <ul class="spec-list"><li><span>盤面</span><span>8 × 8 = 64 格</span></li><li><span>每天留下</span><span>年・月・日・星期</span></li><li><span>要填的格數</span><span>60 = 12 × 5</span></li><li><span>骨牌擺法</span><span>63 種</span></li><li><span>中央 2×2 解數</span><span>520</span></li><li><span>2026/10/02 解數</span><span>602</span></li><li><span>每幀計算上限</span><span>16 ms</span></li><li><span>鍵盤</span><span>R 旋轉・F 翻面</span></li></ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list other-list"><li><a href="1A2B-detail.html" class="other-link"><img src="../assets/icons/1a2b.svg" alt="" width="20" height="20">1A2B 猜數字</a></li><li><a href="game-set-detail.html" class="other-link"><img src="../assets/icons/set.svg" alt="" width="20" height="20">SET 牌局</a></li><li><a href="infinite-tictactoe-detail.html" class="other-link"><img src="../assets/icons/infinite-tictactoe.svg" alt="" width="20" height="20">無限井字棋</a></li><li><a href="vertical-gomoku-detail.html" class="other-link"><img src="../assets/icons/vertical-gomoku.svg" alt="" width="20" height="20">立式五子棋</a></li><li><a href="coc-card-detail.html" class="other-link"><img src="../assets/icons/coc-card.svg" alt="" width="20" height="20">卡牌交易站</a></li></ul>
             </div>
         </aside>
     </main>
@@ -266,20 +103,7 @@ Object.<span class="fn">keys</span>(<span class="var">pieces</span>).<span class
         © 2026 果汁龍 · Engineered with Passion.
     </footer>
 
-    <script>
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-            if (tabId === 'solver') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
-                document.getElementById('tab-solver').classList.add('active');
-            } else if (tabId === 'game') {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('tab-game').classList.add('active');
-            }
-        }
-    </script>
+    <script src="detail.js"></script>
 </body>
 
 </html>
