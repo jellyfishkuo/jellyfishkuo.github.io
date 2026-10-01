@@ -280,6 +280,7 @@
         }
 
         .cell {
+            touch-action: manipulation;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -376,6 +377,16 @@
             transform: translateZ(0);
             touch-action: none;
             /* 🌟 觸控防護：強制禁止瀏覽器把拖曳誤判為滑動網頁 */
+        }
+
+        .piece-container.nudge {
+            animation: nudge 0.3s ease;
+        }
+
+        @keyframes nudge {
+            0%, 100% { translate: 0 0; }
+            25% { translate: -4px 0; }
+            75% { translate: 4px 0; }
         }
 
         .piece-container.selected {
@@ -488,6 +499,12 @@
             color: var(--accent-yellow);
             font-weight: 700;
             letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+
+        /* 今天完成過：計時徽章下方的小字改成最佳時間（不新增元素，表頭高度不變） */
+        #timer-label.has-record {
+            color: #86efac;
             white-space: nowrap;
         }
 
@@ -692,6 +709,33 @@
 
         .s-metrics span b {
             color: #94a3b8;
+        }
+
+        /* 自由解答的格子也印上日曆文字（淡一點），方便對照每日挑戰、挑出想要的日期 */
+        .s-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .s-cal {
+            font-size: calc(var(--cell-size) * 0.26);
+            font-weight: 800;
+            color: #64748b;
+            opacity: 0.75;
+            pointer-events: none;
+        }
+
+        .s-cell.s-blocked .s-cal {
+            color: var(--accent-yellow);
+            opacity: 1;
+        }
+
+        .s-chip-today {
+            border-color: rgba(251, 191, 36, 0.55);
+            color: var(--accent-yellow);
         }
 
         /* 骨牌代號（色盲輔助：不只用顏色區分骨牌） */
@@ -915,7 +959,7 @@
                     </div>
                     <div class="s-badge" id="timer-badge">
                         <b id="timer">00:00</b>
-                        <span>計時</span>
+                        <span id="timer-label">計時</span>
                     </div>
                 </div>
 
@@ -962,6 +1006,7 @@
                  這樣兩個模式的棋盤才會落在完全相同的位置，方便對照 -->
             <div class="s-presets">
                 <span class="s-presets-label">快速擺法</span>
+                <button class="s-chip s-chip-today" id="s-preset-today">📅 今天日期</button>
                 <button class="s-chip" id="s-preset-center">中央 2×2</button>
                 <button class="s-chip" id="s-preset-corners">四個角</button>
                 <button class="s-chip" id="s-preset-diag">對角線</button>
@@ -1001,10 +1046,14 @@
         // ==========================================
         //  🚨 防護：徹底禁止 iOS Safari 雙擊放大
         // ==========================================
+        // 只擋「空白處」的連點放大。按鈕、格子、積木本身已經用
+        // touch-action: manipulation / none 關掉雙擊縮放；舊版連這些也擋，
+        // 結果快速連點「旋轉」兩次只會轉一次、求解器連點兩格第二格點不到。
         let lastTouchEnd = 0;
         document.addEventListener('touchend', function (event) {
-            const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
+            const now = Date.now();
+            const interactive = event.target.closest && event.target.closest('button, .s-cell, .s-chip, .piece-container, a, input');
+            if (!interactive && now - lastTouchEnd <= 300) {
                 event.preventDefault();
             }
             lastTouchEnd = now;
@@ -1020,30 +1069,42 @@
 
         let globalSyncPositions = null;
 
-        // 兩個模式的棋盤在文件中的座標完全相同（表頭高度、棋盤尺寸與置中方式都對齊了），
-        // 所以每次切換都回到同一個基準捲動位置，棋盤就一定停在畫面上完全相同的地方，
-        // 方便玩家把求解器算出的擺法對照回每日挑戰的盤面。
-        //
-        // 為什麼不「保留原本的捲動位置」？因為自由解答那頁比較短，
-        // 可捲動範圍不一樣，瀏覽器會把捲動位置夾住，反而造成棋盤在兩邊對不齊。
-        function switchView(apply) {
-            apply();
-            window.scrollTo(0, 0);
-            requestAnimationFrame(() => window.scrollTo(0, 0));
+        // 切換分頁時讓棋盤「停在畫面上同一個位置」，畫面完全不跳動：
+        // ① 切換前記下目前棋盤在視窗中的 top
+        // ② 自由解答那頁比較短（沒有托盤），捲動位置會被瀏覽器夾住而跳一下，
+        //    所以先把頁面撐到和每日挑戰一樣高
+        // ③ 切換後只補差值，兩個模式的棋盤本來就對齊，通常差值是 0
+        // （舊版每次都 scrollTo(0, 0)，捲到下方再切換就會整頁跳回頂端。）
+        function currentBoardEl() {
+            return viewPlay.classList.contains('hidden-view')
+                ? document.getElementById('s-board')
+                : document.getElementById('board-wrapper');
         }
 
-        tabPlay.onclick = () => switchView(() => {
+        function switchView(apply, toSolver) {
+            const before = currentBoardEl().getBoundingClientRect().top;
+            const playHeight = document.documentElement.scrollHeight;
+            apply();
+            document.body.style.minHeight = toSolver ? `${playHeight}px` : '';
+            const after = currentBoardEl().getBoundingClientRect().top;
+            if (Math.abs(after - before) > 0.5) window.scrollBy(0, after - before);
+        }
+
+        tabPlay.onclick = () => tabPlay.classList.contains('active') || switchView(() => {
             tabPlay.classList.add('active'); tabSolver.classList.remove('active');
             viewPlay.classList.remove('hidden-view'); viewSolver.classList.add('hidden-view');
             document.body.classList.add('play-mode-locked'); document.body.classList.remove('solver-mode-active');
-            if (globalSyncPositions) setTimeout(() => { window.dispatchEvent(new Event('resize')); globalSyncPositions(false); }, 50);
-        });
+            if (globalSyncPositions) {
+                window.dispatchEvent(new Event('resize'));
+                globalSyncPositions(false);
+            }
+        }, false);
 
-        tabSolver.onclick = () => switchView(() => {
+        tabSolver.onclick = () => tabSolver.classList.contains('active') || switchView(() => {
             tabSolver.classList.add('active'); tabPlay.classList.remove('active');
             viewPlay.classList.add('hidden-view'); viewSolver.classList.remove('hidden-view');
             document.body.classList.remove('play-mode-locked'); document.body.classList.add('solver-mode-active');
-        });
+        }, true);
 
         // ==========================================
         //  🎮 模組 1：親手操作 (Play Mode)
@@ -1058,6 +1119,29 @@
             ['PCSH', '25', '26', '27', '28', '29', '30', 'Math'],
             ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', '31']
         ];
+
+        /** 今天在日曆盤上要留下的四格：年、月、日、星期 */
+        function getTodayTargets(today = new Date()) {
+            let year = today.getFullYear();
+            while (year > 2033) year -= 12;
+            while (year < 2022) year += 12;
+            return [
+                year.toString(),
+                ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][today.getMonth()],
+                today.getDate().toString().padStart(2, '0'),
+                ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][today.getDay()]
+            ];
+        }
+
+        /** 今天四格在 8×8 盤上的 index */
+        function getTodayIndices() {
+            const targets = getTodayTargets();
+            const out = [];
+            for (let i = 0; i < 64; i++) {
+                if (targets.includes(calendarLayout[Math.floor(i / 8)][i % 8])) out.push(i);
+            }
+            return out;
+        }
 
         const solutionDesktop = ["UUXPPP", "UXXXPP", "UUXTTT", "YYYYTN", "IYWWTN", "IWWFNN", "IWFFNV", "IZZFFV", "IZLVVV", "ZZLLLL"];
         const solutionMobile = ["UUUYIIIIIZ", "UXUYYWWZZZ", "XXXYWWFZLL", "PXTYWFFFVL", "PPTTTNNFVL", "PPTNNNVVVL"];
@@ -1083,14 +1167,7 @@
 
         function initPlay() {
             const board = document.getElementById('board'); board.innerHTML = '';
-            const today = new Date();
-            let year = today.getFullYear(); while (year > 2033) year -= 12; while (year < 2022) year += 12;
-            const dateTargets = [
-                year.toString(),
-                ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][today.getMonth()],
-                today.getDate().toString().padStart(2, '0'),
-                ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][today.getDay()]
-            ];
+            const dateTargets = getTodayTargets();
             document.getElementById('target-date').innerText = dateTargets.join(' ');
 
             for (let i = 0; i < 64; i++) {
@@ -1227,6 +1304,7 @@
                 const centerY = this.y + oldComR * currentCellSize + currentCellSize / 2;
                 const oldX = this.x;
                 const oldY = this.y;
+                const oldBlocks = this.blocks.map(b => b.slice());
 
                 // 2. 陣列旋轉與正規化
                 this.blocks = this.blocks.map(([r, c]) => transformFn(r, c));
@@ -1258,7 +1336,16 @@
                         checkWin();
                         return;
                     } else {
-                        this.resetToTray();
+                        // 轉了會撞到別的積木或超出盤面：維持原狀留在原地，抖一下提示
+                        // （舊版會直接把整塊丟回托盤，等於白擺了）
+                        this.blocks = oldBlocks;
+                        this.isSnapped = true;
+                        this.gridPos = { r: oldGridR, c: oldGridC };
+                        this.blocks.forEach(([dr, dc]) => gridState[(oldGridR + dr) * 8 + (oldGridC + dc)] = this.id);
+                        this.draw();
+                        this.el.classList.remove('nudge');
+                        void this.el.offsetWidth;
+                        this.el.classList.add('nudge');
                         return;
                     }
                 } else {
@@ -1338,6 +1425,7 @@
                     if (this.isSnapped) {
                         this.removeFromGrid();
                         this.isSnapped = false;
+                        checkWin();
                     }
 
                     const rect = this.el.getBoundingClientRect();
@@ -1384,7 +1472,23 @@
         window.addEventListener('resize', () => {
             if (document.getElementById('play-view').classList.contains('hidden-view')) return;
             const currentlyMobile = window.innerWidth < SIDE_BY_SIDE_MIN;
-            if (currentlyMobile !== isMobileView) { isMobileView = currentlyMobile; setupTrayAndPieces(); }
+            if (currentlyMobile !== isMobileView) {
+                // 平板轉向跨過斷點時托盤要換排法；先記下已擺在盤面上的積木，重建後放回去
+                // （舊版直接重建，擺好的積木全部被打回托盤）
+                const placed = pieces.filter(p => p.isSnapped).map(p => ({ id: p.id, blocks: p.blocks.map(b => b.slice()), pos: { ...p.gridPos } }));
+                isMobileView = currentlyMobile;
+                gridState = gridState.map(v => v === 'BLOCK' ? 'BLOCK' : null);
+                setupTrayAndPieces();
+                placed.forEach(({ id, blocks, pos }) => {
+                    const piece = pieces.find(p => p.id === id);
+                    if (!piece) return;
+                    piece.blocks = blocks;
+                    piece.isSnapped = true;
+                    piece.gridPos = pos;
+                    blocks.forEach(([dr, dc]) => { gridState[(pos.r + dr) * 8 + (pos.c + dc)] = id; });
+                });
+                select(null);
+            }
             syncAllPositions(false);
         });
 
@@ -1421,6 +1525,10 @@
             const targetPiece = activeDragPiece || selectedPiece;
             if (document.getElementById('play-view').classList.contains('hidden-view') || !targetPiece) return;
             if (e.deltaY === 0) return;
+            // 只有游標在積木上（或正在拖曳）才轉；否則照常捲動頁面。
+            // 舊版只要有積木被選取，整頁滾輪都被拿去旋轉，頁面捲不動。
+            const overPiece = e.target.closest && e.target.closest('.piece-container') === targetPiece.el;
+            if (!activeDragPiece && !overPiece) return;
 
             e.preventDefault();
 
@@ -1446,13 +1554,39 @@
             }, 1000);
         }
 
-        function checkWin() {
-            if (pieces.every(p => p.isSnapped)) {
-                clearInterval(timerInt);
-                document.getElementById('shareBtn').style.visibility = 'visible';
+        const TODAY_KEY = `pentomino-done-${getTodayTargets().join('-')}`;
+        let hasWon = false;
 
-                // 觸發過關煙火特效
-                fireConfetti();
+        function checkWin() {
+            const solved = pieces.length > 0 && pieces.every(p => p.isSnapped);
+            // 拿起任何一塊就不再算過關：戰績按鈕跟著藏起來（舊版會一直留著）
+            document.getElementById('shareBtn').style.visibility = solved ? 'visible' : 'hidden';
+            document.getElementById('timer-badge').classList.toggle('ready', solved);
+            if (!solved || hasWon) return;
+            hasWon = true;
+            clearInterval(timerInt);
+            try {
+                const best = Number(localStorage.getItem(TODAY_KEY)) || Infinity;
+                if (seconds < best) localStorage.setItem(TODAY_KEY, String(seconds));
+            } catch (_) { }
+            showTodayRecord();
+            // 觸發過關煙火特效
+            fireConfetti();
+        }
+
+        function fmtTime(sec) {
+            return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+        }
+
+        /** 今天已經完成過：在日期旁顯示最佳時間（重新整理也看得到） */
+        function showTodayRecord() {
+            let best = null;
+            try { best = localStorage.getItem(TODAY_KEY); } catch (_) { }
+            const el = document.getElementById('timer-label');
+            if (best !== null) {
+                el.textContent = `最佳 ${fmtTime(Number(best))}`;
+                el.classList.add('has-record');
+                el.title = '今天的最佳完成時間';
             }
         }
 
@@ -1475,7 +1609,7 @@
 
         document.getElementById('rotateBtn').onclick = () => selectedPiece?.rotate();
         document.getElementById('flipBtn').onclick = () => selectedPiece?.flip();
-        document.getElementById('resetBtn').onclick = () => { pieces.forEach(p => p.fullReset()); select(null); };
+        document.getElementById('resetBtn').onclick = () => { pieces.forEach(p => p.fullReset()); select(null); checkWin(); };
 
         let isTextHidden = false;
         document.getElementById('toggleTextBtn').onclick = () => {
@@ -1526,7 +1660,19 @@
         }
 
         document.getElementById('shareBtn').onclick = () => { document.getElementById('score-img').src = generateScoreCard(); document.getElementById('share-modal').classList.remove('hidden-view'); };
-        document.getElementById('close-modal').onclick = () => document.getElementById('share-modal').classList.add('hidden-view');
+        const closeShare = () => document.getElementById('share-modal').classList.add('hidden-view');
+        document.getElementById('close-modal').onclick = closeShare;
+        document.getElementById('share-modal').addEventListener('click', e => { if (e.target.id === 'share-modal') closeShare(); });
+
+        // g. 鍵盤：R 旋轉、Shift+R 反轉、F 翻面、Esc 取消選取／關閉視窗
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { closeShare(); select(null); return; }
+            if (viewPlay.classList.contains('hidden-view') || e.target.closest('input, textarea')) return;
+            const target = activeDragPiece || selectedPiece;
+            if (!target) return;
+            if (e.key === 'r' || e.key === 'R') { e.preventDefault(); e.shiftKey ? target.rotateReverse() : target.rotate(); }
+            else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); target.flip(); }
+        });
 
         // 📋 複製彩色文字戰績
         document.getElementById('copyTextBtn').onclick = () => {
@@ -1551,12 +1697,28 @@
                 if (i > 0 && i % 8 === 0) emoji += '\n';
                 const val = gridState[i]; emoji += (val && val !== 'BLOCK') ? pieceColorMap[val] : (blockedIndices.has(i) ? '⬛' : '⬜');
             }
-            navigator.clipboard.writeText(emoji).then(() => alert("📋 文字戰績已複製！"));
+            const btn = document.getElementById('copyTextBtn');
+            const done = ok => {
+                btn.innerText = ok ? '✅ 已複製，可以貼到 LINE / IG 了' : '⚠️ 無法自動複製，請長按圖片儲存';
+                setTimeout(() => { btn.innerText = '📋 複製文字戰績'; }, 2200);
+            };
+            const fallback = () => {
+                // 部分瀏覽器（或內嵌在 App 裡的瀏覽器）不允許 clipboard API，改用舊方法
+                const ta = document.createElement('textarea');
+                ta.value = emoji; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (_) { }
+                ta.remove(); done(ok);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(emoji).then(() => done(true), fallback);
+            } else fallback();
         };
 
         document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.piece-container') && !e.target.closest('.controls')) select(null); });
 
-        setTimeout(() => { initPlay(); syncAllPositions(false); }, 50);
+        setTimeout(() => { initPlay(); syncAllPositions(false); showTodayRecord(); }, 50);
 
         // ==========================================
         //  💡 模組 2：自由解答 (Solver Mode)
@@ -1598,9 +1760,26 @@
                 cells.push(cell);
             }
 
+            const isToday = () => {
+                const t = getTodayIndices();
+                return blocked.size === 4 && t.every(i => blocked.has(i));
+            };
+
+            /** 保留障礙物、清掉已算出的解（改盤面時用） */
+            function clearSolutions() {
+                solverGenerator = null;
+                solutions = []; viewIndex = -1;
+                exhausted = false; nodes = 0; elapsed = 0;
+            }
+
             function toggleBlocked(i) {
                 if (searching) { setStatus('計算中無法修改盤面，請先按「停止計算」', 'warn'); return; }
-                if (solverGenerator !== null) { setStatus('要換盤面請先按「重設網格」', 'warn'); return; }
+                // 已經算過解：直接改盤面並清掉舊解，不必再多按一次「重設網格」
+                if (solverGenerator !== null) {
+                    clearSolutions();
+                    paintBoard(null);
+                    updateControls();
+                }
 
                 if (blocked.has(i)) {
                     blocked.delete(i);
@@ -1612,7 +1791,7 @@
                 }
                 paintBoard(null);
                 updateControls();
-                if (blocked.size === 4) setStatus('4 個障礙物就位，可以開始計算了');
+                if (blocked.size === 4) setStatus(isToday() ? '這是今天的日期！可以開始計算了' : '4 個障礙物就位，可以開始計算了');
                 else setStatus('');
             }
 
@@ -1653,7 +1832,7 @@
                     solveBtn.disabled = blocked.size !== 4;
                 }
 
-                [$('s-resetBtn'), $('s-preset-center'), $('s-preset-corners'), $('s-preset-diag'), $('s-preset-random')]
+                [$('s-resetBtn'), $('s-preset-today'), $('s-preset-center'), $('s-preset-corners'), $('s-preset-diag'), $('s-preset-random')]
                     .forEach(b => { b.disabled = searching; });
 
                 nav.classList.toggle('hidden-view', solutions.length === 0);
@@ -1676,9 +1855,11 @@
                     c.style.cssText = '';
                     c.textContent = '';
 
+                    const calLabel = calendarLayout[Math.floor(i / 8)][i % 8];
                     if (blocked.has(i)) {
                         c.classList.add('s-blocked');
-                        c.setAttribute('aria-label', `${desc(i)}：障礙物`);
+                        c.innerHTML = `<span class="s-cal">${calLabel}</span>`;
+                        c.setAttribute('aria-label', `${desc(i)}（${calLabel}）：障礙物`);
                         continue;
                     }
 
@@ -1703,7 +1884,8 @@
                         c.style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
                         c.style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
                     } else {
-                        c.setAttribute('aria-label', `${desc(i)}：空格`);
+                        c.innerHTML = `<span class="s-cal">${calLabel}</span>`;
+                        c.setAttribute('aria-label', `${desc(i)}（${calLabel}）：空格`);
                     }
                 }
             }
@@ -1900,6 +2082,10 @@
                 paintBoard(viewIndex >= 0 ? solutions[viewIndex] : null);
             };
 
+            $('s-preset-today').onclick = () => {
+                applyPreset(getTodayIndices());
+                setStatus(`已標出今天：${getTodayTargets().join(' ')}`);
+            };
             $('s-preset-center').onclick = () => applyPreset([27, 28, 35, 36]);
             $('s-preset-corners').onclick = () => applyPreset([0, 7, 56, 63]);
             $('s-preset-diag').onclick = () => applyPreset([0, 21, 42, 63]);
