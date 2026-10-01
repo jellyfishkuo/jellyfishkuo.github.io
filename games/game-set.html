@@ -13,6 +13,8 @@
         rel="stylesheet">
     <!-- PeerJS 只在「雙人連線」模式使用；CDN 失敗不影響單人與 AI 模式。 -->
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <!-- MQTT.js：直連打不通時的備援通道（經由公開 MQTT 伺服器轉送牌局訊息）。 -->
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js" defer></script>
     <style>
         :root {
             --card-bg: #ffffff;
@@ -843,7 +845,7 @@
                         <button type="button" id="btn-copy-code">複製</button>
                     </div>
                     <div class="connection-status" id="connection-status">尚未連線：建立房間，或輸入朋友的四位數代碼。</div>
-                    <p class="online-note">選滿三張會立即送出，系統以搶答抵達順序判定，先送達者得分。牌局透過 WebRTC 點對點同步；部分公司／校園網路可能因 NAT 或防火牆無法連線。</p>
+                    <p class="online-note">選滿三張會立即送出，系統以搶答抵達順序判定，先送達者得分。牌局優先透過 WebRTC 直連同步；直連打不通時會自動改用公開的備援伺服器轉送（約慢 0.1～0.3 秒）。</p>
                 </div>
             </section>
 
@@ -1790,30 +1792,267 @@
                 }
             }
 
-            function attachConnection(conn) {
+            /* ── 備援通道：公開 MQTT 伺服器轉送 ───────────────────────
+               WebRTC 直連需要兩台裝置的網路「互相打得通」。租屋處的 Wi-Fi 常開
+               「AP 隔離」、手機網路是電信商 NAT，免費 TURN 中繼又不保證可用，
+               所以直連失敗時改用公開的 MQTT 伺服器轉送訊息：只要兩邊都能上網
+               就能連。房主仍然是唯一權威，傳的內容和直連完全一樣。
+               ※ 公開伺服器上的訊息別人理論上看得到，這裡只傳牌局資料。 */
+            const RELAY_BROKERS = [
+                'wss://broker.emqx.io:8084/mqtt',
+                'wss://broker.hivemq.com:8884/mqtt'
+            ];
+            const RELAY_TOPIC_PREFIX = 'jellyfishkuo/set-game/v1/';
+            const P2P_TRY_MS = 10000;        // 直連最多試這麼久，打不通就切備援
+            const RELAY_JOIN_MS = 12000;     // 備援通道等房主回應的時間
+            const RELAY_IDLE_MS = 15000;     // 這麼久沒收到對方任何訊息就視為斷線
+            let transport = null;            // 'p2p' | 'relay'
+            let relayHost = null;            // 房主端的備援狀態
+            let relayGuest = null;           // 加入者端的備援狀態
+
+            function relayAvailable() {
+                return !!(window.mqtt && typeof window.mqtt.connect === 'function');
+            }
+            function hostTopic(code) { return `${RELAY_TOPIC_PREFIX}${code}/host`; }
+            function guestTopic(code, id) { return `${RELAY_TOPIC_PREFIX}${code}/guest/${id}`; }
+
+            /** 建立一個長得跟 PeerJS DataConnection 一樣的物件，讓其餘程式不用分辨走哪條路 */
+            function createRelayLink(publish) {
+                const handlers = {};
+                const link = {
+                    open: false, closed: false, lastSeen: Date.now(), heartbeat: null,
+                    on(event, fn) { (handlers[event] || (handlers[event] = [])).push(fn); return link; },
+                    emit(event, arg) {
+                        (handlers[event] || []).slice().forEach(fn => {
+                            try { fn(arg); } catch (error) { console.error(error); }
+                        });
+                    },
+                    send(message) {
+                        if (!link.open) throw new Error('relay link is closed');
+                        publish({ kind: 'data', payload: message });
+                    },
+                    markOpen() {
+                        if (link.open || link.closed) return;
+                        link.open = true;
+                        link.lastSeen = Date.now();
+                        link.heartbeat = setInterval(() => {
+                            if (Date.now() - link.lastSeen > RELAY_IDLE_MS) {
+                                link.finish(false);
+                                return;
+                            }
+                            try { publish({ kind: 'ping' }); } catch (_) { }
+                        }, 4000);
+                        link.emit('open');
+                    },
+                    receive(envelope) {
+                        link.lastSeen = Date.now();
+                        if (envelope.kind === 'data' && link.open) link.emit('data', envelope.payload);
+                        else if (envelope.kind === 'bye') link.finish(false);
+                    },
+                    finish(sayBye) {
+                        if (link.closed) return;
+                        link.closed = true;
+                        link.open = false;
+                        clearInterval(link.heartbeat);
+                        if (sayBye) { try { publish({ kind: 'bye' }); } catch (_) { } }
+                        link.emit('close');
+                    },
+                    close() { link.finish(true); }
+                };
+                return link;
+            }
+
+            /** 同時連上所有備援伺服器（哪一台能用就用哪一台） */
+            function openRelayClients({ subscribe, will, onReady, onMessage }) {
+                const entries = [];
+                RELAY_BROKERS.forEach(url => {
+                    let client;
+                    try {
+                        client = window.mqtt.connect(url, {
+                            clientId: `jfset_${Math.random().toString(16).slice(2, 14)}`,
+                            clean: true, keepalive: 30, connectTimeout: 8000, reconnectPeriod: 3000,
+                            will
+                        });
+                    } catch (error) {
+                        console.warn('relay connect failed', url, error);
+                        return;
+                    }
+                    const entry = { url, client };
+                    client.on('connect', () => {
+                        client.subscribe(subscribe, { qos: 0 }, error => {
+                            if (!error) onReady(entry);
+                        });
+                    });
+                    client.on('message', (_topic, payload) => {
+                        let envelope;
+                        try { envelope = JSON.parse(payload.toString()); } catch (_) { return; }
+                        if (envelope && typeof envelope === 'object' && typeof envelope.kind === 'string') {
+                            onMessage(envelope, entry);
+                        }
+                    });
+                    client.on('error', error => console.warn('relay error', url, error && error.message));
+                    entries.push(entry);
+                });
+                return entries;
+            }
+
+            function publishOn(entry, topic, envelope) {
+                if (!entry || !entry.client || !entry.client.connected) return;
+                entry.client.publish(topic, JSON.stringify(envelope), { qos: 0 });
+            }
+
+            function closeRelayClients(state) {
+                if (!state) return;
+                if (state.timer) clearTimeout(state.timer);
+                (state.clients || []).forEach(entry => {
+                    try { entry.client.end(false); } catch (_) { }
+                });
+            }
+
+            function startRelayHost(code) {
+                if (!relayAvailable() || relayHost) return false;
+                const state = { code, links: {} };
+                relayHost = state;
+                state.clients = openRelayClients({
+                    subscribe: hostTopic(code),
+                    onReady: () => { },
+                    onMessage: (envelope, entry) => {
+                        if (relayHost !== state || onlineRole !== 'host') return;
+                        const from = typeof envelope.from === 'string' ? envelope.from.slice(0, 40) : '';
+                        if (!from) return;
+                        const existing = state.links[from];
+                        if (envelope.kind === 'join') {
+                            if (existing && !existing.closed) return; // 同一位玩家從另一台伺服器送來的重複請求
+                            if (connection && connection.open) {
+                                publishOn(entry, guestTopic(code, from), { kind: 'full' });
+                                return;
+                            }
+                            const link = createRelayLink(message => publishOn(entry, guestTopic(code, from), message));
+                            state.links[from] = link;
+                            link.on('close', () => {
+                                if (state.links[from] === link) delete state.links[from];
+                            });
+                            acceptIncoming(link, 'relay');
+                            publishOn(entry, guestTopic(code, from), { kind: 'accept' });
+                            link.markOpen();
+                            return;
+                        }
+                        if (existing) existing.receive(envelope);
+                    }
+                });
+                return state.clients.length > 0;
+            }
+
+            function startRelayGuest(code) {
+                if (!relayAvailable()) return false;
+                const guestId = `g${Math.random().toString(36).slice(2, 12)}`;
+                const state = { code, accepted: false, entry: null };
+                relayGuest = state;
+                const link = createRelayLink(message => {
+                    publishOn(state.entry, hostTopic(code), { ...message, from: guestId });
+                });
+                state.clients = openRelayClients({
+                    subscribe: guestTopic(code, guestId),
+                    // 分頁被直接關掉時，由伺服器代為通知房主
+                    will: { topic: hostTopic(code), payload: JSON.stringify({ kind: 'bye', from: guestId }), qos: 0, retain: false },
+                    onReady: entry => {
+                        if (relayGuest === state && !state.accepted) {
+                            publishOn(entry, hostTopic(code), { kind: 'join', from: guestId });
+                        }
+                    },
+                    onMessage: (envelope, entry) => {
+                        if (relayGuest !== state) return;
+                        if (envelope.kind === 'accept') {
+                            if (state.accepted) return;
+                            state.accepted = true;
+                            state.entry = entry;
+                            clearTimeout(state.timer);
+                            attachConnection(link, 'relay');
+                            link.markOpen();
+                        } else if (envelope.kind === 'full') {
+                            if (state.accepted) return;
+                            disconnectOnline(false);
+                            setConnectionStatus('這個房間已經有兩位玩家了。', 'error');
+                        } else if (state.accepted && entry === state.entry) {
+                            link.receive(envelope);
+                        }
+                    }
+                });
+                state.timer = setTimeout(() => {
+                    if (relayGuest !== state || state.accepted) return;
+                    disconnectOnline(false);
+                    setConnectionStatus(`找不到房間 ${code}：請確認代碼，並確定房主的頁面還開著、螢幕沒有關掉。`, 'error');
+                }, RELAY_JOIN_MS);
+                return state.clients.length > 0;
+            }
+
+            /** 加入者：直連失敗時改走備援 */
+            function fallbackToRelay(code) {
+                if (onlineRole !== 'guest' || relayGuest) return;
+                const oldConnection = connection;
+                const oldPeer = peer;
+                connection = null;
+                peer = null;
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                try { if (oldConnection) oldConnection.close(); } catch (_) { }
+                try { if (oldPeer) oldPeer.destroy(); } catch (_) { }
+                if (!startRelayGuest(code)) {
+                    disconnectOnline(false);
+                    setConnectionStatus('雙方網路無法直連，備援通道也載入失敗。請重新整理頁面後再試。', 'error');
+                    return;
+                }
+                setConnectionStatus(`直連打不通，改用備援伺服器連線到房間 ${code}…`);
+            }
+
+            /** 房主：接受新的對手（直連或備援皆可） */
+            function acceptIncoming(conn, kind) {
+                if (connection && connection.open) {
+                    // 已經有人在玩了，拒絕第三個人
+                    conn.on('open', () => {
+                        try { conn.send({ type: 'room-full' }); } catch (_) { }
+                        setTimeout(() => { try { conn.close(); } catch (_) { } }, 300);
+                    });
+                    return;
+                }
+                // 先前卡住、還沒打通的連線直接換成新的
+                if (connection && connection !== conn) {
+                    const stale = connection;
+                    connection = null;
+                    try { stale.close(); } catch (_) { }
+                }
+                attachConnection(conn, kind);
+            }
+
+            function attachConnection(conn, kind = 'p2p') {
                 connection = conn;
                 if (connectionTimeout) clearTimeout(connectionTimeout);
-                connectionTimeout = setTimeout(() => {
-                    if (onlineConnected || connection !== conn) return;
-                    try { conn.close(); } catch (_) { }
-                    connection = null;
-                    if (onlineRole === 'guest') {
-                        disconnectOnline(false);
-                        setConnectionStatus('連線逾時：已找到房間，但雙方網路打不通（可能被公司／校園防火牆擋住）。請換個網路，例如改用手機熱點再試。', 'error');
-                    } else {
-                        setConnectionStatus(`朋友連線逾時；房間 ${roomCode} 仍開放，可請對方再按一次加入。`, 'error');
-                    }
-                }, CONNECT_TIMEOUT_MS);
+                connectionTimeout = null;
+                if (kind === 'p2p') {
+                    connectionTimeout = setTimeout(() => {
+                        if (onlineConnected || connection !== conn) return;
+                        if (onlineRole === 'guest') {
+                            fallbackToRelay(roomCode);
+                        } else {
+                            connection = null;
+                            try { conn.close(); } catch (_) { }
+                            setConnectionStatus(`朋友的直連逾時；房間 ${roomCode} 仍開放，對方會自動改用備援連線。`, 'error');
+                        }
+                    }, onlineRole === 'guest' ? P2P_TRY_MS : CONNECT_TIMEOUT_MS);
+                }
                 const handleOpen = () => {
+                    if (connection !== conn) return;
                     if (connectionTimeout) clearTimeout(connectionTimeout);
                     connectionTimeout = null;
                     if (onlineConnected) return;
                     onlineConnected = true;
+                    transport = kind;
                     btnLeaveRoom.hidden = false;
                     btnCreateRoom.disabled = true;
                     btnJoinRoom.disabled = true;
                     roomInput.disabled = true;
-                    setConnectionStatus(onlineRole === 'host' ? '朋友已加入，牌局開始！' : '已連上房主，牌局同步中…', 'connected');
+                    const via = kind === 'relay' ? '（經由備援伺服器）' : '（直連）';
+                    setConnectionStatus(onlineRole === 'host' ? `朋友已加入，牌局開始！${via}` : `已連上房主，牌局同步中…${via}`, 'connected');
                     syncModeUI();
                     if (onlineRole === 'host') startAuthoritativeGame();
                     else sendToPeer({ type: 'hello' });
@@ -1831,12 +2070,16 @@
                     const wasConnected = onlineConnected;
                     onlineConnected = false;
                     connection = null;
+                    transport = null;
                     clearGameTimers();
                     selected = [];
                     resolving = false;
                     renderBoard();
-                    if (onlineRole === 'host' && peer && !peer.destroyed) {
-                        setConnectionStatus(`對手已離線；房間 ${roomCode} 仍開放，可等待重新加入。`, 'error');
+                    if (onlineRole === 'host') {
+                        if (wasConnected) setConnectionStatus(`對手已離線；房間 ${roomCode} 仍開放，可等待重新加入。`, 'error');
+                        else setConnectionStatus(`房間 ${roomCode} 等待朋友連線中…`, 'connected');
+                    } else if (!wasConnected && kind === 'p2p') {
+                        fallbackToRelay(roomCode);
                     } else {
                         disconnectOnline(false);
                         setConnectionStatus(wasConnected ? '房主已離開或連線中斷，可以重新加入。' : '無法連上房主，請再試一次。', 'error');
@@ -1850,16 +2093,15 @@
                         setConnectionStatus('資料傳送不穩定，若一直沒反應請重新連線。', 'error');
                         return;
                     }
+                    if (onlineRole === 'guest') {
+                        fallbackToRelay(roomCode);
+                        return;
+                    }
                     if (connectionTimeout) clearTimeout(connectionTimeout);
                     connectionTimeout = null;
-                    try { conn.close(); } catch (_) { }
                     connection = null;
-                    if (onlineRole === 'guest') {
-                        disconnectOnline(false);
-                        setConnectionStatus('已找到房間，但雙方網路無法建立連線。請換個網路（例如手機熱點）再試。', 'error');
-                    } else {
-                        setConnectionStatus(`朋友的連線建立失敗；房間 ${roomCode} 仍開放，可請對方再試一次。`, 'error');
-                    }
+                    try { conn.close(); } catch (_) { }
+                    setConnectionStatus(`朋友的直連失敗；房間 ${roomCode} 仍開放，對方會自動改用備援連線。`, 'error');
                 });
                 if (conn.open) handleOpen();
             }
@@ -1879,12 +2121,17 @@
                 if (connectionTimeout) clearTimeout(connectionTimeout);
                 connectionTimeout = null;
                 onlineConnected = false;
-                // 先把參照清掉再關閉：PeerJS 可能同步觸發 close 事件，
+                transport = null;
+                // 先把參照清掉再關閉：關閉時可能同步觸發 close 事件，
                 // 這樣事件處理器就會把它當成「舊連線」而忽略。
                 const oldConnection = connection;
                 const oldPeer = peer;
+                const oldRelayHost = relayHost;
+                const oldRelayGuest = relayGuest;
                 connection = null;
                 peer = null;
+                relayHost = null;
+                relayGuest = null;
                 onlineRole = null;
                 if (oldConnection) {
                     try { oldConnection.close(); } catch (_) { }
@@ -1892,6 +2139,8 @@
                 if (oldPeer) {
                     try { oldPeer.destroy(); } catch (_) { }
                 }
+                closeRelayClients(oldRelayHost);
+                closeRelayClients(oldRelayGuest);
                 resetOnlineControls();
                 if (showStatus) setConnectionStatus('已離開連線。');
             }
@@ -1900,9 +2149,27 @@
                 return typeof window.Peer !== 'function';
             }
 
+            function showRoomReady(note = '') {
+                roomCodeEl.textContent = roomCode;
+                roomCodeBox.hidden = false;
+                setConnectionStatus(`房間 ${roomCode} 已建立，請朋友輸入代碼。${note}`, 'connected');
+                setModeMessage('等待第二位玩家加入；連線後選滿三張會立即搶答，先送達者得分。');
+            }
+
+            /** PeerJS 不能用時，只靠備援通道開房 */
+            function openRelayOnlyRoom() {
+                if (onlineRole !== 'host') return;
+                if (!startRelayHost(roomCode)) {
+                    disconnectOnline(false);
+                    setConnectionStatus('無法建立房間：配對服務和備援伺服器都連不上，請確認網路後再試。', 'error');
+                    return;
+                }
+                showRoomReady('（使用備援伺服器）');
+            }
+
             function createRoom(attempt = 0) {
-                if (peerUnavailable()) {
-                    setConnectionStatus('PeerJS 載入失敗；單人與電腦模式仍可使用。', 'error');
+                if (peerUnavailable() && !relayAvailable()) {
+                    setConnectionStatus('連線元件載入失敗；單人與電腦模式仍可使用。請重新整理頁面再試。', 'error');
                     return;
                 }
                 disconnectOnline(false);
@@ -1912,31 +2179,22 @@
                 btnCreateRoom.disabled = btnJoinRoom.disabled = true;
                 roomInput.disabled = true;
                 btnLeaveRoom.hidden = false;
+                if (peerUnavailable()) {
+                    openRelayOnlyRoom();
+                    return;
+                }
                 peer = new window.Peer(`${PEER_PREFIX}${roomCode}`, PEER_OPTIONS);
+                const thisPeer = peer;
 
                 peer.on('open', () => {
-                    roomCodeEl.textContent = roomCode;
-                    roomCodeBox.hidden = false;
-                    setConnectionStatus(`房間 ${roomCode} 已建立，請朋友輸入代碼。`, 'connected');
-                    setModeMessage('等待第二位玩家加入；連線後選滿三張會立即搶答，先送達者得分。');
+                    if (peer !== thisPeer) return;
+                    // 房間碼登記成功（確定沒和別人撞號）後，同時開好備援通道
+                    startRelayHost(roomCode);
+                    showRoomReady();
                 });
-                const thisPeer = peer;
                 peer.on('connection', conn => {
-                    if (connection && connection.open) {
-                        // 已經有人在玩了，拒絕第三個人
-                        conn.on('open', () => {
-                            try { conn.send({ type: 'room-full' }); } catch (_) { }
-                            setTimeout(() => { try { conn.close(); } catch (_) { } }, 300);
-                        });
-                        return;
-                    }
-                    // 先前卡住、還沒打通的連線直接換成新的
-                    if (connection && connection !== conn) {
-                        const stale = connection;
-                        connection = null;
-                        try { stale.close(); } catch (_) { }
-                    }
-                    attachConnection(conn);
+                    if (peer !== thisPeer) return;
+                    acceptIncoming(conn, 'p2p');
                 });
                 // 和配對伺服器的連線斷掉時（手機切到背景、網路切換），房間碼會失效，
                 // 新朋友就找不到這個房間；自動重新登記。已經連上的對局不受影響。
@@ -1952,19 +2210,21 @@
                     if (peer !== thisPeer) return;
                     const type = error && error.type ? error.type : '';
                     if (type === 'unavailable-id' && attempt < 8) {
-                        try { thisPeer.destroy(); } catch (_) { }
                         peer = null;
+                        try { thisPeer.destroy(); } catch (_) { }
                         createRoom(attempt + 1);
                         return;
                     }
                     // 房間已登記且還活著（例如只是配對伺服器暫時斷線），不要把整個房間收掉
-                    if (thisPeer.open && !thisPeer.destroyed) {
+                    if (relayHost || (thisPeer.open && !thisPeer.destroyed)) {
                         console.warn('Peer error:', error);
-                        if (!onlineConnected) setConnectionStatus('配對伺服器連線不穩，正在重試…', 'error');
                         return;
                     }
-                    disconnectOnline(false);
-                    setConnectionStatus(`無法建立房間（${type || '連線錯誤'}）。請確認網路後再試。`, 'error');
+                    // 配對服務整個連不上：改成只用備援通道開房
+                    console.warn('PeerJS unavailable, relay only:', error);
+                    peer = null;
+                    try { thisPeer.destroy(); } catch (_) { }
+                    openRelayOnlyRoom();
                 });
             }
 
@@ -1975,8 +2235,8 @@
                     setConnectionStatus('請輸入完整的四位數房間碼。', 'error');
                     return;
                 }
-                if (peerUnavailable()) {
-                    setConnectionStatus('PeerJS 載入失敗；單人與電腦模式仍可使用。', 'error');
+                if (peerUnavailable() && !relayAvailable()) {
+                    setConnectionStatus('連線元件載入失敗；單人與電腦模式仍可使用。請重新整理頁面再試。', 'error');
                     return;
                 }
                 disconnectOnline(false);
@@ -1986,29 +2246,28 @@
                 roomInput.disabled = true;
                 btnLeaveRoom.hidden = false;
                 setConnectionStatus(`正在尋找房間 ${code}…`);
+                if (peerUnavailable()) {
+                    fallbackToRelay(code);
+                    return;
+                }
                 peer = new window.Peer(undefined, PEER_OPTIONS);
                 const thisPeer = peer;
                 peer.on('open', () => {
                     if (peer !== thisPeer) return;
-                    setConnectionStatus(`找到配對伺服器，正在連線到房間 ${code}…`);
-                    attachConnection(thisPeer.connect(`${PEER_PREFIX}${code}`, { reliable: true }));
+                    setConnectionStatus(`找到配對伺服器，正在直連房間 ${code}…`);
+                    attachConnection(thisPeer.connect(`${PEER_PREFIX}${code}`, { reliable: true }), 'p2p');
                 });
                 peer.on('error', error => {
                     if (peer !== thisPeer) return;
-                    const type = error && error.type ? error.type : '';
                     // 已經在對局中時，配對伺服器斷線不影響點對點連線
                     if (onlineConnected) {
                         console.warn('Peer error:', error);
                         return;
                     }
-                    disconnectOnline(false);
-                    if (type === 'peer-unavailable') {
-                        setConnectionStatus(`找不到房間 ${code}：請確認代碼，並確定房主的頁面還開著、沒有切到背景。`, 'error');
-                    } else if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
-                        setConnectionStatus('連不到配對伺服器，請確認網路後再試。', 'error');
-                    } else {
-                        setConnectionStatus(`無法加入（${type || '連線錯誤'}），請再試一次。`, 'error');
-                    }
+                    // 找不到房間、配對伺服器連不上…都再用備援通道試一次；
+                    // 真的不存在的房間會在備援逾時後告知。
+                    console.warn('PeerJS join failed, trying relay:', error);
+                    fallbackToRelay(code);
                 });
             }
 
