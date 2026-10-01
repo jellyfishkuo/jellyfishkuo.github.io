@@ -31,7 +31,9 @@
   var exportCsvBtn = document.getElementById("export-csv-btn");
   var importFileInput = document.getElementById("import-file");
   var clearAllBtn = document.getElementById("clear-all-btn");
-  var importStatus = document.getElementById("import-status");
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  var toastHideTimer = null;
 
   var historyList = document.getElementById("history-list");
   var recordCountEl = document.getElementById("record-count");
@@ -120,7 +122,7 @@
       return true;
     } catch (e) {
       console.error("儲存到 localStorage 失敗：", e);
-      alert("儲存失敗，裝置儲存空間可能已滿或瀏覽器不支援本機儲存。");
+      showToast("儲存失敗，裝置儲存空間可能已滿或瀏覽器不支援本機儲存。", { type: "error", duration: 4000 });
       return false;
     }
   }
@@ -190,12 +192,102 @@
     });
   }
 
+  function sortRecordsAsc(list) {
+    return list.slice().sort(function (a, b) {
+      var ka = sortKey(a);
+      var kb = sortKey(b);
+      return ka === kb
+        ? (a.createdAt || "").localeCompare(b.createdAt || "")
+        : ka < kb ? -1 : 1;
+    });
+  }
+
+  /**
+   * 每筆紀錄與「前一筆（依時間）」的差值，回傳 { id: 差值 }。
+   * 第一筆沒有前一筆，不會出現在結果裡。
+   */
+  function getDiffMap() {
+    var ascending = sortRecordsAsc(records);
+    var map = {};
+    for (var i = 1; i < ascending.length; i++) {
+      map[ascending[i].id] = Number(ascending[i].reading) - Number(ascending[i - 1].reading);
+    }
+    return map;
+  }
+
+  /** 新增一筆後，用來顯示在提示裡的說明文字 */
+  function describeDiff(id) {
+    var diff = getDiffMap()[id];
+    if (diff === undefined) return { text: "（第一筆紀錄）", warn: false };
+    if (diff < 0) return { text: "，比前一筆還少，請確認讀數", warn: true };
+    return { text: "，比前一筆多用了 " + diff + " 度", warn: false };
+  }
+
+  // ---------------------------------------------------------
+  // 提示（Toast）：顯示一段時間後自動消失
+  // ---------------------------------------------------------
+
+  /**
+   * @param {string} message 要顯示的文字
+   * @param {{type?: "success"|"warn"|"error", duration?: number, onHide?: Function}} opts
+   */
+  function showToast(message, opts) {
+    opts = opts || {};
+    clearTimeout(toastTimer);
+    clearTimeout(toastHideTimer);
+
+    toastEl.textContent = message;
+    toastEl.className = "toast toast-" + (opts.type || "success");
+    // 強制 reflow，讓連續觸發時動畫也能重新播放
+    void toastEl.offsetWidth;
+    toastEl.classList.add("show");
+
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove("show");
+      // 等淡出動畫結束再執行後續動作（例如捲動到紀錄）
+      toastHideTimer = setTimeout(function () {
+        if (typeof opts.onHide === "function") opts.onHide();
+      }, 250);
+    }, opts.duration || 2000);
+  }
+
+  /** 捲動到指定紀錄，並短暫高亮 */
+  function scrollToRecord(id) {
+    var items = historyList.querySelectorAll(".history-item");
+    var target = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].dataset.id === id) {
+        target = items[i];
+        break;
+      }
+    }
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.remove("highlight");
+    void target.offsetWidth;
+    target.classList.add("highlight");
+  }
+
+  /** 新增紀錄成功後的共同流程：提示 → 提示消失 → 捲到該筆紀錄 */
+  function announceNewRecord(record) {
+    var info = describeDiff(record.id);
+    showToast("已記錄 " + record.reading + info.text, {
+      type: info.warn ? "warn" : "success",
+      duration: info.warn ? 3000 : 2000,
+      onHide: function () {
+        scrollToRecord(record.id);
+      }
+    });
+  }
+
   // ---------------------------------------------------------
   // 畫面渲染
   // ---------------------------------------------------------
 
   function render() {
     var sorted = sortRecordsDesc(records);
+    var diffMap = getDiffMap();
 
     historyList.innerHTML = "";
     renderCharts();
@@ -209,18 +301,12 @@
     }
 
     sorted.forEach(function (r) {
-      historyList.appendChild(buildHistoryItem(r));
+      historyList.appendChild(buildHistoryItem(r, diffMap[r.id]));
     });
   }
 
   function getUsageByPeriod(periodLength) {
-    var ascending = records.slice().sort(function (a, b) {
-      var ka = sortKey(a);
-      var kb = sortKey(b);
-      return ka === kb
-        ? (a.createdAt || "").localeCompare(b.createdAt || "")
-        : ka < kb ? -1 : 1;
-    });
+    var ascending = sortRecordsAsc(records);
     var usage = {};
 
     for (var i = 1; i < ascending.length; i++) {
@@ -321,7 +407,7 @@
   window.addEventListener("resize", renderCharts);
 
   /** 使用 DOM API 建立節點，避免 innerHTML 字串拼接造成 XSS 風險 */
-  function buildHistoryItem(r) {
+  function buildHistoryItem(r, diff) {
     var li = document.createElement("li");
     li.className = "history-item";
     li.dataset.id = r.id;
@@ -336,6 +422,13 @@
     var datetimeEl = document.createElement("div");
     datetimeEl.className = "record-datetime";
     datetimeEl.textContent = formatDateDisplay(r.date) + " " + r.time;
+
+    if (diff !== undefined) {
+      var diffEl = document.createElement("span");
+      diffEl.className = "record-diff" + (diff < 0 ? " negative" : "");
+      diffEl.textContent = diff < 0 ? "讀數變少？" : "+" + diff + " 度";
+      readingEl.appendChild(diffEl);
+    }
 
     info.appendChild(readingEl);
     info.appendChild(datetimeEl);
@@ -411,6 +504,9 @@
       quickInput.value = "";
       quickError.textContent = "";
       quickInput.blur();
+      announceNewRecord(record);
+    } else {
+      records.pop();
     }
   }
 
@@ -475,6 +571,9 @@
       manualError.textContent = "";
       manualForm.classList.add("hidden");
       toggleManualBtn.textContent = "➕ 手動新增歷史紀錄";
+      announceNewRecord(record);
+    } else {
+      records.pop();
     }
   });
 
@@ -535,19 +634,37 @@
       return;
     }
 
+    var before = { reading: record.reading, date: record.date, time: record.time };
     record.reading = reading;
     record.date = date;
     record.time = time;
 
     if (saveRecords(records)) {
+      var editedId = record.id;
       render();
       closeEditModal();
+      showToast("已更新為 " + reading, {
+        onHide: function () {
+          scrollToRecord(editedId);
+        }
+      });
+    } else {
+      record.reading = before.reading;
+      record.date = before.date;
+      record.time = before.time;
     }
   });
 
   // 點擊 modal 外層背景可關閉編輯視窗
   editModal.addEventListener("click", function (e) {
     if (e.target === editModal) closeEditModal();
+  });
+
+  // 按 Esc 關閉任何開著的視窗
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!editModal.classList.contains("hidden")) closeEditModal();
+    if (!confirmModal.classList.contains("hidden")) closeConfirm();
   });
 
   // ---------------------------------------------------------
@@ -579,20 +696,29 @@
 
   function confirmDeleteRecord(id) {
     showConfirm("確定要刪除這筆紀錄嗎？此動作無法復原。", function () {
+      var previous = records;
       records = records.filter(function (r) {
         return r.id !== id;
       });
-      if (saveRecords(records)) render();
+      if (saveRecords(records)) {
+        render();
+        showToast("已刪除這筆紀錄");
+      } else {
+        records = previous;
+      }
     });
   }
 
   clearAllBtn.addEventListener("click", function () {
     if (records.length === 0) return;
     showConfirm("確定要清除「全部」紀錄嗎？此動作無法復原！", function () {
+      var previous = records;
       records = [];
       if (saveRecords(records)) {
         render();
-        importStatus.textContent = "已清除全部紀錄";
+        showToast("已清除全部紀錄");
+      } else {
+        records = previous;
       }
     });
   });
@@ -629,7 +755,7 @@
 
   exportJsonBtn.addEventListener("click", function () {
     if (records.length === 0) {
-      importStatus.textContent = "目前沒有紀錄可以匯出";
+      showToast("目前沒有紀錄可以匯出", { type: "warn" });
       return;
     }
     var sorted = sortRecordsDesc(records);
@@ -639,12 +765,12 @@
       "electricity-records-" + timestampForFilename() + ".json",
       "application/json"
     );
-    importStatus.textContent = "已匯出 " + sorted.length + " 筆紀錄（JSON）";
+    showToast("已匯出 " + sorted.length + " 筆紀錄（JSON）");
   });
 
   exportCsvBtn.addEventListener("click", function () {
     if (records.length === 0) {
-      importStatus.textContent = "目前沒有紀錄可以匯出";
+      showToast("目前沒有紀錄可以匯出", { type: "warn" });
       return;
     }
     var sorted = sortRecordsDesc(records);
@@ -670,7 +796,7 @@
       "electricity-records-" + timestampForFilename() + ".csv",
       "text/csv;charset=utf-8"
     );
-    importStatus.textContent = "已匯出 " + sorted.length + " 筆紀錄（CSV）";
+    showToast("已匯出 " + sorted.length + " 筆紀錄（CSV）");
   });
 
   function csvEscape(value) {
@@ -699,14 +825,14 @@
         mergeImportedRecords(incoming);
       } catch (err) {
         console.error("匯入失敗：", err);
-        importStatus.textContent = "匯入失敗，檔案格式無法辨識";
+        showToast("匯入失敗，檔案格式無法辨識", { type: "error", duration: 3500 });
       } finally {
         // 清空 value，讓使用者可以重複選同一個檔案
         importFileInput.value = "";
       }
     };
     reader.onerror = function () {
-      importStatus.textContent = "讀取檔案時發生錯誤";
+      showToast("讀取檔案時發生錯誤", { type: "error", duration: 3500 });
       importFileInput.value = "";
     };
     reader.readAsText(file, "utf-8");
@@ -855,7 +981,7 @@
     var msg = "匯入完成：新增 " + added + " 筆";
     if (skipped > 0) msg += "，略過重複 " + skipped + " 筆";
     if (invalid > 0) msg += "，忽略格式錯誤 " + invalid + " 筆";
-    importStatus.textContent = msg;
+    showToast(msg, { duration: 3500, type: added > 0 ? "success" : "warn" });
   }
 
   // ---------------------------------------------------------
