@@ -309,11 +309,6 @@
         }
 
         @media (max-width: 540px) {
-            .board {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-            }
-
             h1 {
                 font-size: 1.8rem;
             }
@@ -829,6 +824,269 @@
             display: flex;
             justify-content: space-between;
         }
+        /* --- 連線區：開房前 / 連線中 兩種狀態 --- */
+        .join-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .online-live {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .online-live .connection-status {
+            margin-top: 0;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .btn-leave {
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .online-panel.is-live .online-actions {
+            display: none;
+        }
+
+        .online-panel.is-connected .online-note,
+        .online-panel.is-connected .room-code-box {
+            display: none;
+        }
+
+        .online-panel.is-live .online-live {
+            margin-top: 0;
+        }
+
+        .online-panel.is-live .room-code-box {
+            margin: 0 0 10px;
+        }
+
+        .controls button,
+        .online-panel button {
+            white-space: nowrap;
+        }
+
+        .online-actions input::placeholder {
+            letter-spacing: 0.04em;
+            font-weight: 500;
+        }
+
+        .board-waiting {
+            grid-column: 1 / -1;
+            padding: 36px 16px;
+            border: 2px dashed #d4d0c5;
+            border-radius: 12px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* --- 需要回應的提示列 --- */
+        .action-banner {
+            position: fixed;
+            left: 50%;
+            bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+            transform: translateX(-50%);
+            z-index: 9500;
+            width: min(520px, calc(100% - 20px));
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #242220;
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-banner-text {
+            flex: 1;
+            min-width: 0;
+            font-weight: 600;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .action-banner-btns {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .action-banner-btns button {
+            padding: 8px 14px;
+            font-size: 0.88rem;
+            white-space: nowrap;
+        }
+
+        .action-banner-btns .btn-primary {
+            background: var(--set-green);
+            border-color: var(--set-green);
+            color: #fff;
+        }
+
+        /* --- 平板 / 手機：牌面 3 欄起跳，由 fitBoard() 依螢幕高度決定卡片大小 --- */
+        @media (max-width: 860px), (max-height: 500px) {
+            .layout {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .main-content,
+            .solution-panel {
+                width: 100%;
+            }
+
+            .board {
+                grid-template-columns: repeat(3, 1fr);
+                justify-content: center;
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+        }
+
+        @media (max-width: 600px), (max-height: 500px) {
+            .layout {
+                padding: 10px 12px 14px;
+                gap: 14px;
+            }
+
+            header {
+                flex-wrap: nowrap;
+                align-items: center;
+                gap: 8px;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+                white-space: nowrap;
+            }
+
+            .stats {
+                gap: 12px;
+                flex-wrap: nowrap;
+            }
+
+            .stat .num {
+                font-size: 1.1rem;
+            }
+
+            .stat .label {
+                font-size: 0.62rem;
+                white-space: nowrap;
+            }
+
+            .mode-panel {
+                padding: 8px 10px;
+                margin-bottom: 10px;
+            }
+
+            .mode-row {
+                grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .mode-field>span {
+                display: none;
+            }
+
+            .mode-field select {
+                padding-top: 7px;
+                padding-bottom: 7px;
+            }
+
+            /* 小螢幕的重要訊息都改用上方小提示，這行就不佔空間了 */
+            .mode-message {
+                display: none;
+            }
+
+            .online-panel {
+                margin-top: 8px;
+                padding-top: 8px;
+            }
+
+            .online-panel.is-live {
+                border-top: none;
+                margin-top: 6px;
+                padding-top: 0;
+            }
+
+            .online-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+
+            .online-or {
+                text-align: center;
+            }
+
+            .join-row input {
+                flex: 1;
+                width: auto;
+                min-width: 0;
+            }
+
+            .online-note {
+                display: none;
+            }
+
+            .room-code-box {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .connection-status {
+                font-size: 0.8rem;
+            }
+
+            .board {
+                gap: 6px;
+                margin-bottom: 10px;
+            }
+
+            .card {
+                border-radius: 7px;
+                outline-width: 2px;
+                outline-offset: 1px;
+            }
+
+            .card-id {
+                font-size: 0.55rem;
+            }
+
+            .controls {
+                display: grid;
+                grid-auto-flow: column;
+                grid-auto-columns: 1fr;
+                gap: 8px;
+            }
+
+            .controls button {
+                padding: 11px 6px;
+                font-size: 0.85rem;
+                min-width: 0;
+            }
+
+            .action-banner {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+
+            .action-banner-btns button {
+                flex: 1;
+            }
+        }
     </style>
 </head>
 
@@ -859,7 +1117,7 @@
                     </div>
                     <div class="stat">
                         <span class="num" id="stat-deck">81</span>
-                        <span class="label">牌堆剩餘</span>
+                        <span class="label">牌堆</span>
                     </div>
                     <div class="stat">
                         <span class="num" id="stat-time">00:00</span>
@@ -893,17 +1151,21 @@
                     <div class="online-actions">
                         <button type="button" class="btn-primary" id="btn-create-room">建立房間</button>
                         <span class="online-or">或</span>
-                        <input id="room-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
-                            autocomplete="one-time-code" aria-label="四位數房間碼" placeholder="輸入 4 位碼">
-                        <button type="button" id="btn-join-room">加入房間</button>
-                        <button type="button" id="btn-leave-room" hidden>離開連線</button>
+                        <div class="join-row">
+                            <input id="room-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+                                autocomplete="off" aria-label="四位數房間碼" placeholder="輸入 4 位碼">
+                            <button type="button" id="btn-join-room">加入房間</button>
+                        </div>
                     </div>
                     <div class="room-code-box" id="room-code-box" hidden>
                         <span>房間碼</span>
                         <strong id="room-code">----</strong>
                         <button type="button" id="btn-copy-code">複製</button>
                     </div>
-                    <div class="connection-status" id="connection-status">尚未連線：建立房間，或輸入朋友的四位數代碼。</div>
+                    <div class="online-live">
+                        <div class="connection-status" id="connection-status">尚未連線：建立房間，或輸入朋友的四位數代碼。</div>
+                        <button type="button" id="btn-leave-room" class="btn-leave" hidden>離開</button>
+                    </div>
                     <p class="online-note">選滿三張會立即送出，系統以搶答抵達順序判定，先送達者得分。牌局優先透過 WebRTC 直連同步；直連打不通時會自動改用公開的備援伺服器轉送（約慢 0.1～0.3 秒）。</p>
                 </div>
             </section>
@@ -911,7 +1173,7 @@
             <div class="board" id="board"></div>
 
             <div class="controls">
-                <button class="btn-primary" id="btn-hint">提示（顯示所有解 / 無解時補牌）</button>
+                <button class="btn-primary" id="btn-hint" title="列出檯面所有解；無解時自動補牌">提示：看所有解</button>
                 <button class="btn-deal" id="btn-deal" title="檯面真的沒有 SET 才會補牌；還有解的話會告訴你剩幾組">沒有 SET？補牌</button>
                 <button id="btn-restart">重新開始</button>
             </div>
@@ -936,6 +1198,15 @@
                 </div>
             </div>
         </aside>
+    </div>
+
+    <!-- 需要回應的提示列（重新開始邀請、確認） -->
+    <div class="action-banner" id="action-banner" role="dialog" aria-live="polite" hidden>
+        <span class="action-banner-text" id="action-banner-text"></span>
+        <div class="action-banner-btns">
+            <button type="button" class="btn-primary" id="action-banner-yes"></button>
+            <button type="button" id="action-banner-no"></button>
+        </div>
     </div>
 
     <!-- 對戰時不擋畫面的小提示 -->
@@ -1135,6 +1406,12 @@
             const solutionPanel = document.getElementById('solution-panel');
             const solutionSection = document.getElementById('solution-section');
             const gameToast = document.getElementById('game-toast');
+            const actionBanner = document.getElementById('action-banner');
+            const actionBannerText = document.getElementById('action-banner-text');
+            const actionBannerYes = document.getElementById('action-banner-yes');
+            const actionBannerNo = document.getElementById('action-banner-no');
+            const headerEl = document.querySelector('header');
+            const controlsEl = document.querySelector('.controls');
             const solutionListEl = document.getElementById('solution-list');
             const solutionCountText = document.getElementById('solution-count-text');
             const summaryBox = document.getElementById('summary-box');
@@ -1270,6 +1547,90 @@
             function setConnectionStatus(message, kind = '') {
                 connectionStatusEl.textContent = message;
                 connectionStatusEl.className = `connection-status${kind ? ` ${kind}` : ''}`;
+                syncOnlinePanel();
+            }
+
+            /* ── 需要回應的提示列 ───────────────────────── */
+            let bannerHandlers = null;
+            function showBanner(text, yesLabel, noLabel, onYes, onNo) {
+                actionBannerText.textContent = text;
+                actionBannerYes.hidden = !yesLabel;
+                actionBannerYes.textContent = yesLabel || '';
+                actionBannerNo.textContent = noLabel;
+                bannerHandlers = { onYes, onNo };
+                actionBanner.hidden = false;
+            }
+            function hideBanner() {
+                actionBanner.hidden = true;
+                bannerHandlers = null;
+            }
+            actionBannerYes.addEventListener('click', () => {
+                const handlers = bannerHandlers;
+                hideBanner();
+                if (handlers && handlers.onYes) handlers.onYes();
+            });
+            actionBannerNo.addEventListener('click', () => {
+                const handlers = bannerHandlers;
+                hideBanner();
+                if (handlers && handlers.onNo) handlers.onNo();
+            });
+
+            /* ── 牌面大小：讓所有牌（至少 12 張）同時塞進一個螢幕 ───────
+               手機／平板在 3／4／6 欄間挑；桌機在 4／6 欄間挑，且卡片不超過 280px 寬。
+               依照「螢幕高度 − 牌面上方的區塊 − 下方按鈕」算出可用高度，
+               在 3／4／6 欄之間挑出卡片最大的排法（橫拿手機就會變 6 欄 × 2 列）。 */
+            const CARD_RATIO = 1.55;
+            function fitBoard() {
+                const wide = window.innerWidth > 860 && window.innerHeight > 500;
+                if (!board.some(Boolean)) return;
+                const count = Math.max(12, board.length);
+                const style = getComputedStyle(boardEl);
+                const gap = parseFloat(style.columnGap) || 8;
+                const width = boardEl.parentElement.clientWidth;
+                const boardTop = boardEl.getBoundingClientRect().top + window.scrollY;
+                const below = controlsEl.offsetHeight + (parseFloat(style.marginBottom) || 0) + 12;
+                const height = window.innerHeight - boardTop - below;
+                let best = null;
+                (wide ? [4, 6] : [3, 4, 6]).forEach(cols => {
+                    const rows = Math.ceil(count / cols);
+                    const byWidth = (width - gap * (cols - 1)) / cols;
+                    const byHeight = ((height - gap * (rows - 1)) / rows) * CARD_RATIO;
+                    const cardW = Math.min(byWidth, byHeight);
+                    if (!best || cardW > best.cardW + 1) best = { cols, cardW };
+                });
+                // 太小就不硬塞（例如橫拿的小手機），讓頁面捲動
+                const cardW = Math.max(64, Math.min(wide ? 280 : 400, Math.floor(best.cardW)));
+                boardEl.style.gridTemplateColumns = `repeat(${best.cols}, ${cardW}px)`;
+            }
+            let fitQueued = false;
+            function queueFit() {
+                if (fitQueued) return;
+                fitQueued = true;
+                requestAnimationFrame(() => {
+                    fitQueued = false;
+                    fitBoard();
+                });
+            }
+            window.addEventListener('resize', queueFit);
+            // 上方區塊高度一變（狀態文字換行、房間碼出現…）就重新排
+            if (typeof ResizeObserver === 'function') {
+                const observer = new ResizeObserver(queueFit);
+                [headerEl, document.querySelector('.mode-panel'), controlsEl].forEach(el => el && observer.observe(el));
+            }
+            window.addEventListener('orientationchange', () => setTimeout(fitBoard, 300));
+
+            /** 連線區顯示「開房前」或「連線中」的版本 */
+            function syncOnlinePanel() {
+                onlinePanel.classList.toggle('is-live', onlineRole !== null);
+                onlinePanel.classList.toggle('is-connected', onlineConnected);
+                const offline = mode === 'online' && !onlineConnected;
+                btnDeal.hidden = offline;
+                btnRestart.hidden = offline;
+                const waiting = boardEl.querySelector('.board-waiting');
+                if (waiting) {
+                    waiting.textContent = onlineRole ? '等待連線，連上後牌局就會出現在這裡' : '建立房間，或輸入朋友的房間碼加入，連上後就開始搶牌！';
+                }
+                queueFit();
             }
 
             /** 「檯面所有解答」只在單人模式出現；對戰結束時面板改成顯示總結 */
@@ -1285,6 +1646,7 @@
                 onlinePanel.hidden = mode !== 'online';
                 btnHint.hidden = mode !== 'solo';
                 updatePanelVisibility();
+                syncOnlinePanel();
                 if (mode === 'solo') setModeMessage('單人練習：可以使用提示查看所有解答。');
                 else if (mode === 'ai') setModeMessage('和電腦比誰先找到 SET。電腦速度只影響思考時間，不會偷看你的選取。');
                 else setModeMessage(onlineConnected ? '雙方正在搶同一副牌，選滿三張立即送出，先送達者得分。' : '先建立或加入四位數房間，連線後才會開始。');
@@ -1293,6 +1655,15 @@
 
             function renderBoard(enteringIndices = []) {
                 boardEl.innerHTML = '';
+                if (mode === 'online' && !board.some(Boolean)) {
+                    const waiting = document.createElement('div');
+                    waiting.className = 'board-waiting';
+                    waiting.textContent = onlineRole ? '等待連線，連上後牌局就會出現在這裡' : '建立房間，或輸入朋友的房間碼加入，連上後就開始搶牌！';
+                    boardEl.appendChild(waiting);
+                    statDeck.textContent = deck.length;
+                    updateScoreboard();
+                    return;
+                }
                 board.forEach((card, idx) => {
                     const el = document.createElement('div');
                     if (!card) {
@@ -1324,6 +1695,7 @@
                 statDeck.textContent = deck.length;
                 updateScoreboard();
                 syncSelection();
+                queueFit();
             }
 
             function syncSelection() {
@@ -1828,6 +2200,7 @@
                 summaryListEl.innerHTML = '';
                 clearHintPanel();
                 closeAlert();
+                clearRestartOffer();
                 lastDealAt = { a: 0, b: 0 };
                 renderBoard();
                 startTimer();
@@ -1853,17 +2226,110 @@
                 renderBoard();
             }
 
+            /* ── 重新開始：連線時要雙方都同意；單人／電腦局進行中先確認 ── */
+            const RESTART_OFFER_MS = 20000;
+            let restartOffer = null;         // { by: 'me' | 'them', timer }
+
+            function clearRestartOffer() {
+                if (restartOffer && restartOffer.timer) clearTimeout(restartOffer.timer);
+                restartOffer = null;
+                hideBanner();
+            }
+
+            /** 雙方都同意了：房主開新局（加入者則通知房主） */
+            function restartAgreed() {
+                clearRestartOffer();
+                if (onlineRole === 'host') startAuthoritativeGame();
+                else sendToPeer({ type: 'restart-accept' });
+            }
+
+            function offerRestart() {
+                if (restartOffer && restartOffer.by === 'them') {
+                    restartAgreed();
+                    return;
+                }
+                if (restartOffer && restartOffer.by === 'me') {
+                    showToast('已經邀請對手了，等待回應…', 'info');
+                    return;
+                }
+                if (!sendToPeer({ type: 'restart-propose' })) return;
+                restartOffer = {
+                    by: 'me',
+                    timer: setTimeout(() => {
+                        if (!restartOffer || restartOffer.by !== 'me') return;
+                        clearRestartOffer();
+                        showToast('對手沒有回應，繼續這局', 'warn');
+                    }, RESTART_OFFER_MS)
+                };
+                showBanner('已邀請對手重新開始，等待對方同意…', null, '取消', null, () => {
+                    restartOffer = null;
+                    sendToPeer({ type: 'restart-cancel' });
+                });
+            }
+
+            function receiveRestartOffer() {
+                if (restartOffer && restartOffer.by === 'me') {
+                    // 兩邊同時按：直接當作都同意
+                    restartAgreed();
+                    return;
+                }
+                if (restartOffer) clearRestartOffer();
+                restartOffer = {
+                    by: 'them',
+                    timer: setTimeout(() => {
+                        if (!restartOffer || restartOffer.by !== 'them') return;
+                        clearRestartOffer();
+                        sendToPeer({ type: 'restart-decline' });
+                    }, RESTART_OFFER_MS)
+                };
+                const text = gameOver ? '對手想再來一局！' : '對手想重新開始（目前這局會作廢）';
+                showBanner(text, gameOver ? '再來一局' : '同意', gameOver ? '先不要' : '繼續這局',
+                    () => restartAgreed(),
+                    () => {
+                        restartOffer = null;
+                        sendToPeer({ type: 'restart-decline' });
+                    });
+            }
+
+            function handleRestartMessage(type) {
+                if (type === 'restart-propose' || type === 'restart-request') {
+                    receiveRestartOffer();
+                } else if (type === 'restart-accept') {
+                    if (onlineRole === 'host' && restartOffer && restartOffer.by === 'me') {
+                        clearRestartOffer();
+                        startAuthoritativeGame();
+                    }
+                } else if (type === 'restart-decline') {
+                    if (restartOffer && restartOffer.by === 'me') {
+                        clearRestartOffer();
+                        showToast('對手想繼續這局', 'info');
+                    }
+                } else if (type === 'restart-cancel') {
+                    if (restartOffer && restartOffer.by === 'them') {
+                        clearRestartOffer();
+                        showToast('對手取消了重新開始', 'info');
+                    }
+                }
+            }
+
+            function gameInProgress() {
+                if (gameOver) return false;
+                const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
+                return foundCount > 0 || elapsed > 20;
+            }
+
             function newGame() {
                 if (mode === 'online') {
                     if (!onlineConnected) {
                         showAlert('請先建立或加入房間。');
                         return;
                     }
-                    if (onlineRole === 'guest') {
-                        sendToPeer({ type: 'restart-request' });
-                        setModeMessage('已向房主要求重新開始…');
-                        return;
-                    }
+                    offerRestart();
+                    return;
+                }
+                if (gameInProgress()) {
+                    showBanner('確定要重新開始？這局的進度會消失。', '重新開始', '取消', () => startAuthoritativeGame(), null);
+                    return;
                 }
                 startAuthoritativeGame();
             }
@@ -1938,7 +2404,10 @@
                 gameOver = !!message.gameOver;
                 resolving = false;
                 if (sameGame) keepValidSelection();
-                else selected = [];
+                else {
+                    selected = [];
+                    clearRestartOffer();
+                }
                 if (!gameOver) {
                     summaryBox.style.display = 'none';
                 updatePanelVisibility();
@@ -2006,14 +2475,15 @@
                         });
                     } else if (message.type === 'deal-request') {
                         handleDealRequest('b');
-                    } else if (message.type === 'restart-request') {
-                        startAuthoritativeGame();
+                    } else if (message.type.startsWith('restart-')) {
+                        handleRestartMessage(message.type);
                     } else if (message.type === 'snapshot-request' || message.type === 'hello') {
                         sendSnapshot();
                     }
                 } else if (onlineRole === 'guest') {
                     if (message.type === 'snapshot') applySnapshot(message);
                     else if (message.type === 'claim-result') handleClaimResult(message);
+                    else if (message.type.startsWith('restart-')) handleRestartMessage(message.type);
                     else if (message.type === 'notice' && typeof message.text === 'string') {
                         const kind = ['info', 'good', 'bad', 'warn'].includes(message.kind) ? message.kind : 'info';
                         showToast(message.text.slice(0, 80), kind, 2400);
@@ -2304,6 +2774,7 @@
                     onlineConnected = false;
                     connection = null;
                     transport = null;
+                    clearRestartOffer();
                     clearGameTimers();
                     selected = [];
                     resolving = false;
@@ -2351,6 +2822,7 @@
 
             function disconnectOnline(showStatus = true) {
                 clearGameTimers();
+                clearRestartOffer();
                 if (connectionTimeout) clearTimeout(connectionTimeout);
                 connectionTimeout = null;
                 onlineConnected = false;
