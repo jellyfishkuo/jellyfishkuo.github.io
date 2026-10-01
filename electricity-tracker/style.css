@@ -16,6 +16,8 @@
   --border: #e3e6ec;
   --input-bg: #f7f8fb;
   --success: #16a34a;
+  --warn: #d97706;
+  --highlight: rgba(37, 99, 235, 0.14);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -31,9 +33,10 @@
     --danger: #ff5c5c;
     --danger-dark: #e04848;
     --border: #2c2c3c;
-    --input-bg: #24243468;
     --input-bg: #242434;
     --success: #34d399;
+    --warn: #fbbf24;
+    --highlight: rgba(77, 141, 255, 0.22);
     --shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 }
@@ -236,13 +239,6 @@ label {
   margin: 8px 0 0;
 }
 
-.status-msg {
-  color: var(--success);
-  font-size: 0.9rem;
-  margin: 10px 0 0;
-  min-height: 1.2em;
-}
-
 .hidden {
   display: none !important;
 }
@@ -259,6 +255,9 @@ label {
 }
 
 .file-label {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text);
   text-align: center;
 }
 
@@ -340,6 +339,41 @@ label {
   font-weight: 700;
   font-family: "SF Mono", "Roboto Mono", monospace;
   letter-spacing: 0.05em;
+}
+
+.record-diff {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+    "Noto Sans TC", "Microsoft JhengHei", Roboto, sans-serif;
+  letter-spacing: 0;
+  vertical-align: middle;
+  color: var(--primary);
+  background: var(--highlight);
+}
+
+.record-diff.negative {
+  color: var(--warn);
+  background: transparent;
+  border: 1px solid var(--warn);
+}
+
+.history-item.highlight {
+  animation: record-flash 1.8s ease-out;
+}
+
+@keyframes record-flash {
+  0%,
+  35% {
+    background: var(--highlight);
+  }
+
+  100% {
+    background: transparent;
+  }
 }
 
 .record-datetime {
@@ -429,5 +463,48 @@ label {
 
   .modal {
     border-radius: 20px;
+  }
+}
+/* ---------- Toast 提示 ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  z-index: 200;
+  max-width: min(440px, calc(100% - 32px));
+  width: max-content;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text);
+  border-left: 4px solid var(--success);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -12px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.toast-warn {
+  border-left-color: var(--warn);
+}
+
+.toast-error {
+  border-left-color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .history-item.highlight {
+    transition: none;
+    animation: none;
   }
 }

@@ -65,7 +65,6 @@
           <input type="file" id="import-file" accept=".json,.csv,application/json,text/csv" class="hidden">
           <button type="button" id="clear-all-btn" class="btn btn-danger">清除全部紀錄</button>
         </div>
-        <p class="status-msg" id="import-status"></p>
       </section>
 
       <!-- ===== 用電圖表 ===== -->
@@ -134,6 +133,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== 自動消失的提示（Toast） ===== -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="script.js"></script>
 </body>
