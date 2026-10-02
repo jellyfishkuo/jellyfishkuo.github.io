@@ -3082,6 +3082,38 @@
                 return !!gameId && board.some(Boolean);
             }
 
+            const NAME_PROBE_MS = 2500;  // 同名的舊連線被問話後，這麼久沒回應就當作已經斷了
+            function sameName(a, b) {
+                return cleanName(a).toLowerCase() === cleanName(b).toLowerCase();
+            }
+
+            /** 房主：把舊玩家代號的紀錄（分數、牌型統計、投票）整個搬到新代號 */
+            function mergePlayerId(oldId, newId) {
+                const old = roster.get(oldId);
+                if (!old || oldId === newId) return;
+                if (old.conn) {
+                    const c = old.conn;
+                    old.conn = null;
+                    try { c.close(); } catch (_) { }
+                }
+                roster.delete(oldId);
+                roster.set(newId, { ...old, id: newId, connected: false, conn: null });
+                const move = obj => {
+                    if (obj && oldId in obj) {
+                        if (!(newId in obj)) obj[newId] = obj[oldId];
+                        delete obj[oldId];
+                    }
+                };
+                move(scores);
+                move(foundTypeCounts);
+                move(lastDealAt);
+                claimQueue = claimQueue.filter(item => item.actor !== oldId);
+                if (vote) {
+                    if (vote.by === oldId) vote.by = newId;
+                    if (vote.accepted.delete(oldId)) vote.accepted.add(newId);
+                }
+            }
+
             /* 房主：有人報上名字（第一次加入或斷線回來） */
             function onHello(conn, message) {
                 const pid = typeof message.playerId === 'string' ? message.playerId.slice(0, 40) : '';
@@ -3090,6 +3122,38 @@
                     return;
                 }
                 const name = cleanName(message.name) || '玩家';
+                if (!roster.has(pid)) {
+                    if (sameName(name, myNickname || '房主')) {
+                        refuseConn(conn, `房主也叫「${name}」，換個暱稱再加入吧。`);
+                        return;
+                    }
+                    // 同名的人回來（換了分頁、清掉了瀏覽紀錄）：接回原本的紀錄，不要多出一個新名字
+                    const twin = [...roster.values()].find(p => sameName(p.name, name));
+                    if (twin) {
+                        if (!twin.connected || !twin.conn) {
+                            mergePlayerId(twin.id, pid);
+                        } else if (!conn.probed) {
+                            // 舊連線看起來還在：可能是同一個人換了分頁、舊的還沒被發現斷線，
+                            // 也可能真的是另一個同名的人。問舊連線一聲，2.5 秒沒回應就當作已經斷了。
+                            conn.probed = true;
+                            const oldConn = twin.conn;
+                            const asked = Date.now();
+                            try { oldConn.send({ type: 'probe' }); } catch (_) { }
+                            setTimeout(() => {
+                                if (onlineRole !== 'host' || conn.dead) return;
+                                const still = roster.get(twin.id);
+                                if (still && still.conn === oldConn && (oldConn.lastSeen || 0) > asked) {
+                                    refuseConn(conn, `房間裡已經有人叫「${name}」了，換個暱稱再加入吧。`);
+                                    return;
+                                }
+                                onHello(conn, message);
+                            }, NAME_PROBE_MS);
+                            return;
+                        } else {
+                            mergePlayerId(twin.id, pid);
+                        }
+                    }
+                }
                 const existing = roster.get(pid);
                 const othersOnline = [...roster.values()].filter(p => p.connected && p.id !== pid).length;
                 if (!(existing && existing.connected) && othersOnline >= MAX_PLAYERS - 1) {
@@ -3174,6 +3238,7 @@
             /* 加入者：處理房主送來的訊息 */
             function handleHostMessage(message) {
                 if (message.type === 'snapshot') applySnapshot(message);
+                else if (message.type === 'probe') sendToPeer({ type: 'probe-ack' });
                 else if (message.type === 'claim-result') handleClaimResult(message);
                 else if (message.type === 'vote') renderVote(sanitizeVote(message.state));
                 else if (message.type === 'vote-end') onVoteEnd(message);
@@ -3561,6 +3626,7 @@
                     if (ownEntry()) handleGuestMessage(conn.playerId, message);
                 });
                 conn.on('close', () => {
+                    conn.dead = true;
                     clearTimeout(giveUp);
                     clearInterval(heartbeat);
                     pendingConns.delete(conn);
