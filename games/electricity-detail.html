@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/electricity.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/electricity-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/electricity-180.png">
+    <title>技術剖析 | 電費紀錄</title>
+    <meta name="description" content="電費紀錄的技術剖析：手機上一秒抄表的輸入設計、只存在瀏覽器的資料、自己畫的用電圖表，以及電表歸零、跨天用電、Excel 改壞日期等問題的修正。">
+    <link rel="stylesheet" href="detail.css">
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <header>
+        <a href="../index.html" class="back-link"><span>←</span> RETURN TO PORTFOLIO</a>
+        <h1>電費紀錄</h1>
+        <div class="subtitle">為了知道租屋處每天用多少電而做的小工具：抄表要快、資料不離開手機，以及那些實際用了才發現的問題</div>
+        <div class="meta-row"><span class="meta-chip">純前端・<b>3</b> 個檔案</span><span class="meta-chip">手機優先・<b>深淺色</b></span><span class="meta-chip">資料存在 <b>瀏覽器</b></span><span class="meta-chip">圖表 <b>Canvas</b> 自繪</span><span class="meta-chip">匯出 <b>JSON / CSV</b></span></div>
+    </header>
+
+    <div class="tab-wrapper">
+        <div class="tabs-container" role="tablist"><button class="tab-btn active" aria-controls="design">⚡ 設計</button><button class="tab-btn" aria-controls="cases">🔧 問題與修正</button><button class="tab-btn" aria-controls="limits">⚖️ 取捨與限制</button></div>
+    </div>
+
+    <main>
+        <div class="content">
+<div class="tab-content active" id="design" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#why">I. 為什麼要做這個</a></li><li><a href="#input">II. 一個輸入框就夠了</a></li><li><a href="#storage">III. 資料只存在瀏覽器</a></li><li><a href="#charts">IV. 自己畫的長條圖</a></li></ol></div><section class="section-block" id="why"><h2>I. 為什麼要做這個</h2>
+<p>租屋處的電是用房間裡的獨立電表計費，每度一個單價。月底看到電費才知道用了多少，已經來不及調整習慣了。最簡單的方法是每天看一次電表、記下數字，相鄰兩次相減就是這段時間用的度數。</p>
+<p>用手機備忘錄記也行，但要自己相減、自己算每月總和，很快就懶得記了。所以需求很明確：</p>
+<ul>
+<li><strong>抄表要快</strong>：站在電表前，拿出手機打四個數字就結束。</li>
+<li><strong>自動算</strong>：每一筆跟上一筆差多少、每天和每月總共用多少，直接畫出來。</li>
+<li><strong>不要帳號、不要伺服器</strong>：就是一個網頁，放在 GitHub Pages 上，打開就能用。</li>
+</ul></section><section class="section-block" id="input"><h2>II. 一個輸入框就夠了</h2>
+<p>首頁最上面只有一個大大的輸入框。這是整個工具最常用的動作，所以盡量把步驟壓到最少：</p>
+<ol class="steps">
+<li><strong>跳出數字鍵盤</strong>：輸入框設定成電話號碼類型，手機會直接顯示數字鍵盤，不必切換。</li>
+<li><strong>只收數字、最多 4 位</strong>：打錯的字元當下就被濾掉，不會等到按儲存才報錯。</li>
+<li><strong>打滿 4 位就自動儲存</strong>：日期和時間自動帶入現在的時間，連「儲存」都不用按。</li>
+<li><strong>存好之後告訴你</strong>：畫面上方跳出「已記錄 0123，比前一筆多用了 5 度」，幾秒後自己消失，再捲到歷史紀錄裡那一筆並短暫亮一下。</li>
+</ol>
+<p>讀數一律用<strong>字串</strong>保存，而不是數字。電表上的 0123 如果存成數字就變成 123，顯示和匯出時前面的 0 都會不見；需要計算時再轉成數字即可。</p>
+<p>忘了抄的日子可以用「手動新增歷史紀錄」補上，自己選日期和時間；每一筆也都可以編輯或刪除。</p></section><section class="section-block" id="storage"><h2>III. 資料只存在瀏覽器</h2>
+<p>所有紀錄都存在瀏覽器的 localStorage 裡，不會上傳到任何地方。好處是零成本、零設定、隱私最好；代價是資料只在這台裝置、這個瀏覽器裡。所以工具同時提供了備份與還原：</p>
+<div class="table-wrap"><table class="kv"><thead><tr><th>功能</th><th>做法</th></tr></thead><tbody><tr><td>匯出 JSON</td><td>完整保留每一筆資料，適合拿來還原。</td></tr><tr><td>匯出 CSV</td><td>可以用 Excel 開來自己分析。檔案開頭加上 UTF-8 標記，Excel 打開中文才不會變亂碼。</td></tr><tr><td>匯入</td><td>JSON 或 CSV 都可以。重複的紀錄會被略過，格式錯誤的會被忽略，最後告訴你各有幾筆。</td></tr></tbody></table></div>
+<p>讀取時也做了防護：localStorage 被瀏覽器封鎖（例如部分無痕模式）、內容不是合法的 JSON、或某一筆欄位缺漏，都只會略過壞掉的部分，不會讓整個網頁打不開。</p>
+<div class="callout "><span class="callout-title">紀錄是怎麼畫到畫面上的</span><p>歷史紀錄的每一列都是用程式一個節點一個節點建立、以純文字放進畫面，而不是把字串拼成網頁語法。匯入的檔案內容可能來自任何地方，這樣即使檔案裡藏了奇怪的內容，也只會被當成文字顯示。</p></div></section><section class="section-block" id="charts"><h2>IV. 自己畫的長條圖</h2>
+<p>圖表沒有用任何圖表套件，而是直接在 Canvas 上畫。資料量很小（最多 12 根柱子），自己畫只需要幾十行，整個工具就能維持「三個檔案、零依賴」。</p>
+<ul>
+<li><strong>手機上要清楚</strong>：依螢幕的像素密度放大畫布，文字和柱子在高解析度手機上不會糊掉。</li>
+<li><strong>柱子太多就橫向捲動</strong>：每根柱子至少 44 px 寬，放不下時圖表區可以左右滑，而不是把柱子擠成細線。</li>
+<li><strong>跟著深淺色主題</strong>：顏色直接讀頁面的 CSS 變數，切換深色模式時圖表也會跟著換色。</li>
+<li><strong>只顯示最近 12 天、12 個月</strong>：更早的資料仍然保存著，只是不畫出來。</li>
+</ul>
+<p>每一筆和上一筆的差值也會顯示在歷史紀錄裡，例如「+5 度」；如果讀數比上一筆還少，會改成黃色的「讀數變少？」，提醒你可能打錯了。</p></section></div><div class="tab-content" id="cases" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#c-overview">這一頁怎麼讀</a></li><li><a href="#c-feedback">回饋：存了沒有感覺</a></li><li><a href="#c-storage">儲存：畫面和實際不一致</a></li><li><a href="#c-math">計算：電表與時間</a></li><li><a href="#c-import">匯入：被 Excel 改過的檔案</a></li></ol></div><section class="section-block" id="c-overview"><h2>這一頁怎麼讀</h2>
+<p>以下每個問題都是實際使用或測試時遇到的，依照「症狀 → 原因 → 修法 → 驗證」記錄。驗證都是用瀏覽器實際操作，或直接把設計好的測試資料放進 localStorage 再打開網頁確認。</p></section><section class="section-block" id="c-feedback"><h2>回饋：存了沒有感覺</h2><div class="case"><div class="case-head"><span class="case-no">#1</span><h3>打完四個數字，不確定到底有沒有存到</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>打滿 4 位數後輸入框清空了，但畫面沒有任何訊息。要往下捲到歷史紀錄，才能確認剛剛那筆有沒有進去、跟上一筆差多少。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>儲存成功後只重新畫了列表，沒有任何提示；新的那一筆在畫面外面，看不到。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>儲存後在畫面上方跳出提示，寫出這次的讀數和「比前一筆多用了幾度」，兩秒後自動消失；提示消失時再自動捲到歷史紀錄中那一筆，並短暫亮一下。匯出、匯入、刪除等其他動作的訊息，也統一改成同一種提示。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#2</span><h3>打錯一位數，系統照單全收</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>抄表時把 0158 打成 0058，紀錄照樣存進去，要等到月底看到負的用電量才發現。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>讀數只檢查「是不是 4 位數字」，沒有跟前一筆比較。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>儲存時就和前一筆比較：讀數變少時，提示改成黃色的「比前一筆還少，請確認讀數」，停留久一點；歷史紀錄中那一筆也會標示「讀數變少？」，點旁邊的編輯就能修正。</p></div></div></div></div></section><section class="section-block" id="c-storage"><h2>儲存：畫面和實際不一致</h2><div class="case"><div class="case-head"><span class="case-no">#3</span><h3>畫面上有，重新整理後卻不見了</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>在儲存空間不足（或瀏覽器禁止本機儲存）的情況下新增、編輯或匯入，畫面上看起來成功了，重新整理後那些變更卻消失。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>程式先改了記憶體裡的資料、重畫畫面，才去寫入 localStorage；寫入失敗時只跳出錯誤，記憶體裡的資料沒有還原。匯入時更是連寫入結果都沒有檢查。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>所有會改資料的動作（新增、編輯、刪除、清除、匯入）都改成：寫入成功才更新畫面；寫入失敗就把記憶體中的資料還原成修改前的樣子，畫面維持原狀並顯示錯誤。</p></div></div></div></div></section><section class="section-block" id="c-math"><h2>計算：電表與時間</h2><div class="case"><div class="case-head"><span class="case-no">#4</span><h3>電表從 9999 跳到 0000，被當成打錯</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>4 位數的電表轉到 9999 之後會回到 0000。這時新的讀數比上一筆小，工具就標成「讀數變少？」，那段時間的用電也從圖表上消失。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>用電量直接用「這一筆減上一筆」計算，沒有考慮電表會繞一圈。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>把「兩次讀數之間用了幾度」集中成一個計算：如果上一筆在 9000 以上、這一筆在 1000 以下，就當作電表繞了一圈，差值加上 10000。其他讀數變少的情況仍然視為可能打錯，照樣提醒。差值、提示、圖表都用同一個計算，不會出現各算各的。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>9990 → 0010 顯示為「+20 度」並計入圖表；0010 → 0005 仍然標示「讀數變少？」。</p></div></div><div class="case-row"><div class="case-label lesson">心得</div><div><p>門檻刻意設得保守：0158 打成 0058 這種打錯第一位數的情況，差距不到 9000，不會被誤認成繞圈。</p></div></div></div></div><div class="case"><div class="case-head"><span class="case-no">#5</span><h3>隔兩天才抄一次，用電全部算在第一天</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>週一晚上抄了一次，週三早上才抄下一次。「每日用電」圖上，週一有一根很高的柱子，週二完全沒有用電，看起來像週一特別耗電。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>每一段用電量都被算在「前一筆紀錄的日期」那一天，不管這段時間其實跨了幾天。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>把每一段用電量依照經過的時間，平均分到跨過的每一天：從週一 22:00 到週三 08:00 共 34 小時，週一分到 2 小時份、週二 24 小時份、週三 8 小時份。每月統計也用同樣的方式切，跨月的那一段會分到兩個月。因為是平均分配，圖上的數字可能帶一位小數，圖表說明也寫明了是估算。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>10/01 22:00 到 10/03 08:00 用了 20 度，圖表顯示 10/01 1.2 度、10/02 14.1 度、10/03 4.7 度，加起來仍是 20 度。</p></div></div></div></div></section><section class="section-block" id="c-import"><h2>匯入：被 Excel 改過的檔案</h2><div class="case"><div class="case-head"><span class="case-no">#6</span><h3>CSV 用 Excel 開過再匯入，紀錄順序全亂</h3></div><div class="case-body"><div class="case-row"><div class="case-label symptom">症狀</div><div><p>匯出 CSV、用 Excel 打開看一看、存檔，再匯入回來。新匯入的紀錄排在錯誤的位置，差值和圖表也跟著算錯。</p></div></div><div class="case-row"><div class="case-label cause">原因</div><div><p>Excel 會自作主張改格式：日期 2026-09-05 存回去變成 2026/9/5，時間 08:05 可能變成 8:05 或 08:05:00，讀數 0123 變成 123。讀數原本就會補回 4 位，但日期和時間是原封不動存進去的；排序時用的是文字比較，「2026/9/5」和「2026-09-06」根本無法正確比大小。</p></div></div><div class="case-row"><div class="case-label fix">修法</div><div><p>匯入時把常見的日期寫法（用 -、/、. 分隔，月日可以是一位數）統一轉成 2026-09-05；時間統一轉成 08:05，秒數去掉。不存在的日期（例如 13 月）或時間（例如 25 點）會被當成格式錯誤略過。已經存在裝置裡的舊資料，讀取時也會用同樣的方式整理一次。</p></div></div><div class="case-row"><div class="case-label check">驗證</div><div><p>匯入含「123, 2026/9/5, 8:05」「0130, 2026/9/6, 08:05:00」「2026/13/1」「25:00」四列的檔案：前兩筆變成 0123、2026-09-05 08:05 和 0130、2026-09-06 08:05，排序正確並算出 +7 度；後兩筆被列為格式錯誤。</p></div></div></div></div></section></div><div class="tab-content" id="limits" role="tabpanel"><div class="toc"><div class="toc-title">本頁重點</div><ol><li><a href="#l-known">我知道、但還沒處理的事</a></li></ol></div><section class="section-block" id="l-known"><h2>我知道、但還沒處理的事</h2>
+<ul>
+<li><strong>資料只在一台裝置上。</strong>換手機、清除瀏覽資料，紀錄就不見了；手機和電腦之間也不會同步。目前只能靠定期匯出備份。</li>
+<li><strong>只支援 4 位數的電表。</strong>如果電表有 5 位數或小數點，輸入框和繞圈的判斷都要改。</li>
+<li><strong>只算度數，不算錢。</strong>租屋處常見的是每度固定單價，加上一個「每度幾元」的設定就能換算成電費；台電的累進費率則複雜得多。</li>
+<li><strong>跨天的分配是平均估算。</strong>實際上白天和晚上用電差很多，平均分配只是比「全部算在第一天」更接近真實。</li>
+<li><strong>圖表只畫最近 12 天、12 個月。</strong>更早的紀錄還在，但要看只能匯出到 Excel。</li>
+</ul></section></div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="play-card">
+                <img src="../assets/icons/electricity.svg" alt="" width="72" height="72" style="border-radius:18px; margin-bottom:1rem; box-shadow:0 0 30px var(--accent-glow);">
+                <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
+                <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">打開網頁、輸入電表上的 4 位數字，打滿就自動存好。每日、每月用電會畫成長條圖；資料只存在你的手機裡，記得偶爾匯出備份。</p>
+                <a href="../electricity-tracker/" class="btn">Open the Tracker</a>
+            </div>
+
+            <div class="side-box">
+                <h4>Quick Facts</h4>
+                <ul class="spec-list"><li><span>讀數格式</span><span>4 位數字</span></li><li><span>輸入到儲存</span><span>打滿 4 位自動存</span></li><li><span>資料儲存</span><span>localStorage</span></li><li><span>後端</span><span>無</span></li><li><span>圖表</span><span>最近 12 天 / 12 個月</span></li><li><span>柱子最小寬度</span><span>44 px</span></li><li><span>匯出格式</span><span>JSON、CSV</span></li><li><span>外部套件</span><span>0 個</span></li></ul>
+            </div>
+
+            <div class="side-box">
+                <h4>其他技術剖析</h4>
+                <ul class="spec-list other-list"><li><a href="pentomino-detail.html" class="other-link"><img src="../assets/icons/pentomino.svg" alt="" width="20" height="20">Pentomino 拼圖</a></li><li><a href="1A2B-detail.html" class="other-link"><img src="../assets/icons/1a2b.svg" alt="" width="20" height="20">1A2B 猜數字</a></li><li><a href="game-set-detail.html" class="other-link"><img src="../assets/icons/set.svg" alt="" width="20" height="20">SET 牌局</a></li><li><a href="infinite-tictactoe-detail.html" class="other-link"><img src="../assets/icons/infinite-tictactoe.svg" alt="" width="20" height="20">無限井字棋</a></li><li><a href="vertical-gomoku-detail.html" class="other-link"><img src="../assets/icons/vertical-gomoku.svg" alt="" width="20" height="20">立式五子棋</a></li><li><a href="coc-card-detail.html" class="other-link"><img src="../assets/icons/coc-card.svg" alt="" width="20" height="20">卡牌交易站</a></li></ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer
+        style="padding: 4rem 10vw; color: var(--muted); font-size: 0.85rem; font-family: 'Space Mono'; border-top: 1px solid var(--border); text-align: center;">
+        © 2026 果汁龍 · Engineered with Passion.
+    </footer>
+
+    <script src="detail.js"></script>
+</body>
+
+</html>

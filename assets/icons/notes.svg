@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#1b1530" stroke="#4c3a85" stroke-width="2"/>
+  <!-- 筆記本＋程式括號 -->
+  <rect x="14" y="10" width="36" height="44" rx="5" fill="#f4f1ff"/>
+  <rect x="14" y="10" width="7" height="44" rx="3" fill="#7c3aed"/>
+  <path d="M33 25l-6 7 6 7" fill="none" stroke="#7c3aed" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M39 25l6 7-6 7" fill="none" stroke="#06b6d4" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

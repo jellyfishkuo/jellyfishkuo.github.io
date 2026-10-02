@@ -107,8 +107,8 @@
     return {
       id: typeof r.id === "string" && r.id ? r.id : generateId(),
       reading: normalizeReading(r.reading),
-      date: r.date,
-      time: r.time,
+      date: normalizeDate(r.date) || r.date,
+      time: normalizeTime(r.time) || r.time,
       createdAt:
         typeof r.createdAt === "string" && r.createdAt
           ? r.createdAt
@@ -203,6 +203,18 @@
   }
 
   /**
+   * 兩次讀數之間用了幾度。電表只有 4 位數，9999 之後會回到 0000，
+   * 所以「前一筆接近 9999、這一筆接近 0000」視為繞了一圈，而不是讀數變少。
+   * 其他讀數變少的情況回傳負數，交給畫面提醒使用者確認。
+   */
+  var METER_MAX = 10000;
+  function usageBetween(previous, current) {
+    var diff = Number(current) - Number(previous);
+    if (diff < 0 && Number(previous) >= 9000 && Number(current) < 1000) diff += METER_MAX;
+    return diff;
+  }
+
+  /**
    * 每筆紀錄與「前一筆（依時間）」的差值，回傳 { id: 差值 }。
    * 第一筆沒有前一筆，不會出現在結果裡。
    */
@@ -210,7 +222,7 @@
     var ascending = sortRecordsAsc(records);
     var map = {};
     for (var i = 1; i < ascending.length; i++) {
-      map[ascending[i].id] = Number(ascending[i].reading) - Number(ascending[i - 1].reading);
+      map[ascending[i].id] = usageBetween(ascending[i - 1].reading, ascending[i].reading);
     }
     return map;
   }
@@ -305,24 +317,60 @@
     });
   }
 
+  /** 'YYYY-MM-DD' + 'HH:MM' → 當地時間的 Date */
+  function toLocalDate(date, time) {
+    var d = date.split("-").map(Number);
+    var t = time.split(":").map(Number);
+    return new Date(d[0], d[1] - 1, d[2], t[0] || 0, t[1] || 0);
+  }
+
+  function dayKey(dt) {
+    return dt.getFullYear() + "-" + pad2(dt.getMonth() + 1) + "-" + pad2(dt.getDate());
+  }
+
+  /**
+   * 依日或月統計用電。兩次讀數之間的用電量，依經過的時間平均分到跨過的每一天，
+   * 例如週一晚上和週三早上各抄一次，中間的度數會分給週一、週二、週三，
+   * 而不是全部算在週一。
+   */
   function getUsageByPeriod(periodLength) {
     var ascending = sortRecordsAsc(records);
     var usage = {};
 
     for (var i = 1; i < ascending.length; i++) {
-      var previous = Number(ascending[i - 1].reading);
-      var current = Number(ascending[i].reading);
-      if (!Number.isFinite(previous) || !Number.isFinite(current) || current < previous) continue;
+      var used = usageBetween(ascending[i - 1].reading, ascending[i].reading);
+      if (!Number.isFinite(used) || used < 0) continue;
 
-      var period = periodLength === "month"
-        ? ascending[i - 1].date.slice(0, 7)
-        : ascending[i - 1].date;
-      usage[period] = (usage[period] || 0) + current - previous;
+      var start = toLocalDate(ascending[i - 1].date, ascending[i - 1].time);
+      var end = toLocalDate(ascending[i].date, ascending[i].time);
+      var span = end - start;
+      if (!(span > 0)) {
+        var key0 = dayKey(end);
+        if (periodLength === "month") key0 = key0.slice(0, 7);
+        usage[key0] = (usage[key0] || 0) + used;
+        continue;
+      }
+
+      var cursor = start;
+      while (cursor < end) {
+        var nextDay = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+        var sliceEnd = nextDay < end ? nextDay : end;
+        var key = dayKey(cursor);
+        if (periodLength === "month") key = key.slice(0, 7);
+        usage[key] = (usage[key] || 0) + used * (sliceEnd - cursor) / span;
+        cursor = sliceEnd;
+      }
     }
 
     return Object.keys(usage).sort().map(function (label) {
       return { label: label, value: usage[label] };
     }).slice(-12);
+  }
+
+  /** 圖表上的數字：整數就顯示整數，否則留一位小數 */
+  function formatUsage(value) {
+    var rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   }
 
   function formatChartLabel(label, periodLength) {
@@ -399,7 +447,7 @@
       context.fillText(formatChartLabel(item.label, periodLength), x + barWidth / 2, height - 16);
       context.fillStyle = primaryColor;
       context.font = "bold 11px sans-serif";
-      if (item.value > 0) context.fillText(String(item.value), x + barWidth / 2, Math.max(14, y - 7));
+      if (item.value >= 0.05) context.fillText(formatUsage(item.value), x + barWidth / 2, Math.max(14, y - 7));
       context.font = "12px sans-serif";
     });
   }
@@ -906,6 +954,25 @@
     return result;
   }
 
+  /**
+   * CSV 用 Excel 開過再存檔，日期常會變成 2026/9/5、時間變成 8:05 或 08:05:00。
+   * 這裡統一轉回 YYYY-MM-DD 與 HH:MM；不是合法日期時間就回傳空字串。
+   */
+  function normalizeDate(value) {
+    var m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(String(value == null ? "" : value).trim());
+    if (!m) return "";
+    var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    var check = new Date(y, mo - 1, d);
+    if (check.getFullYear() !== y || check.getMonth() !== mo - 1 || check.getDate() !== d) return "";
+    return y + "-" + pad2(mo) + "-" + pad2(d);
+  }
+
+  function normalizeTime(value) {
+    var m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(value == null ? "" : value).trim());
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return "";
+    return pad2(m[1]) + ":" + m[2];
+  }
+
   function mergeImportedRecords(incoming) {
     var existingIds = new Set(
       records.map(function (r) {
@@ -929,10 +996,10 @@
       }
 
       var readingRaw = raw.reading;
-      var date = typeof raw.date === "string" ? raw.date.trim() : "";
-      var time = typeof raw.time === "string" ? raw.time.trim() : "";
+      var date = normalizeDate(raw.date);
+      var time = normalizeTime(raw.time);
 
-      if (readingRaw == null || date === "" || time === "") {
+      if (readingRaw == null || !date || !time) {
         invalid++;
         return;
       }
@@ -974,7 +1041,10 @@
     });
 
     if (added > 0) {
-      saveRecords(records);
+      if (!saveRecords(records)) {
+        records = records.slice(0, records.length - added);
+        return;
+      }
       render();
     }
 
