@@ -896,7 +896,7 @@
             left: 50%;
             bottom: calc(14px + env(safe-area-inset-bottom, 0px));
             transform: translateX(-50%);
-            z-index: 9500;
+            z-index: 10000;
             width: min(520px, calc(100% - 20px));
             display: flex;
             align-items: center;
@@ -1374,6 +1374,10 @@
             let roomCode = '';
             let claimCounter = 0;
             let pendingClaimUids = [];       // 加入者：送出但還沒收到結果的那三張
+            let pendingClaimId = null;       // 加入者：那次搶答的編號，用來認出「這是我的結果」
+            let claimQueue = [];             // 權威端：結算中收到的搶答，結算完依序再判
+            let resolvingActor = null;       // 權威端：正在結算的是誰的 SET
+            let snapshotWaitTimer = null;    // 加入者：對手得分後等房主送新牌面
             let lostRaceAt = 0;              // 剛剛已經提示過「被對手搶先」的時間
             const DEAL_COOLDOWN_MS = 2000;
             let lastDealAt = { a: 0, b: 0 };
@@ -1524,8 +1528,18 @@
                 return mode !== 'online' || onlineRole === 'host';
             }
 
+            /**
+             * 只有「自己的 SET 正在結算／等待結果」時才鎖住操作。
+             * 對手的 SET 結算中（約 0.4 秒）仍然可以選牌，選滿就排隊判定；
+             * 舊版在這段時間把所有點擊吞掉，同時找到不同 SET 的人等於點了沒反應。
+             */
+            function selfBusy() {
+                if (mode === 'online' && onlineRole === 'guest') return resolving;
+                return resolving && resolvingActor === localActor();
+            }
+
             function canInteract() {
-                if (gameOver || resolving || rejecting) return false;
+                if (gameOver || rejecting || selfBusy()) return false;
                 if (mode === 'online') return onlineConnected;
                 return true;
             }
@@ -1621,13 +1635,20 @@
             }
             window.addEventListener('orientationchange', () => setTimeout(fitBoard, 300));
 
+            /** 下方按鈕跟著牌局狀態：沒連線時不顯示；結束後補牌沒有意義，重新開始改叫「再來一局」 */
+            function updateGameButtons() {
+                const offline = mode === 'online' && !onlineConnected;
+                btnDeal.hidden = offline || gameOver;
+                btnRestart.hidden = offline;
+                btnRestart.textContent = gameOver ? '再來一局' : '重新開始';
+                btnRestart.classList.toggle('btn-primary', gameOver);
+            }
+
             /** 連線區顯示「開房前」或「連線中」的版本 */
             function syncOnlinePanel() {
                 onlinePanel.classList.toggle('is-live', onlineRole !== null);
                 onlinePanel.classList.toggle('is-connected', onlineConnected);
-                const offline = mode === 'online' && !onlineConnected;
-                btnDeal.hidden = offline;
-                btnRestart.hidden = offline;
+                updateGameButtons();
                 const waiting = boardEl.querySelector('.board-waiting');
                 if (waiting) {
                     waiting.textContent = onlineRole ? '等待連線，連上後牌局就會出現在這裡' : '建立房間，或輸入朋友的房間碼加入，連上後就開始搶牌！';
@@ -1697,6 +1718,7 @@
                 statDeck.textContent = deck.length;
                 updateScoreboard();
                 syncSelection();
+                updateGameButtons();
                 queueFit();
             }
 
@@ -1734,7 +1756,7 @@
             }
 
             function checkSelected() {
-                if (resolving || rejecting || selected.length !== 3) return;
+                if (rejecting || selfBusy() || selected.length !== 3) return;
                 const uids = selected.slice();
 
                 if (mode === 'online' && onlineRole === 'guest') {
@@ -1746,23 +1768,30 @@
                     }
                     resolving = true;
                     pendingClaimUids = uids.slice();
-                    const claimId = `g-${Date.now()}-${++claimCounter}`;
-                    connection.send({ type: 'claim', claimId, gameId, revision, uids });
+                    pendingClaimId = `g-${Date.now()}-${++claimCounter}`;
+                    connection.send({ type: 'claim', claimId: pendingClaimId, gameId, revision, uids });
                     setModeMessage('已送出搶答，等待房主驗證…');
-                    if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
-                    const epoch = gameEpoch;
-                    pendingClaimTimer = setTimeout(() => {
-                        if (epoch !== gameEpoch || !resolving) return;
-                        resolving = false;
-                        pendingClaimUids = [];
-                        selected = [];
-                        syncSelection();
-                        setConnectionStatus('房主沒有回應，請確認連線狀態。', 'error');
-                    }, 5000);
+                    armClaimTimer();
                     return;
                 }
 
                 processClaim(localActor(), uids);
+            }
+
+            /** 加入者：自己的搶答 5 秒沒有結果就放棄（房主斷線或訊息遺失） */
+            function armClaimTimer() {
+                if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
+                const epoch = gameEpoch;
+                const claimId = pendingClaimId;
+                pendingClaimTimer = setTimeout(() => {
+                    if (epoch !== gameEpoch || pendingClaimId !== claimId || !claimId) return;
+                    resolving = false;
+                    pendingClaimUids = [];
+                    pendingClaimId = null;
+                    selected = [];
+                    syncSelection();
+                    setConnectionStatus('房主沒有回應，請確認連線狀態。', 'error');
+                }, 5000);
             }
 
             function validateClaim(uids) {
@@ -1781,17 +1810,29 @@
             }
 
             function processClaim(actor, uids, meta = {}) {
-                if (!hasAuthority() || gameOver) return;
+                if (!hasAuthority()) return;
+                const reject = code => {
+                    if (meta.remote) sendToPeer({ type: 'claim-result', claimId: meta.claimId, gameId, accepted: false, code, uids });
+                };
+                if (gameOver) {
+                    reject('over');
+                    return;
+                }
 
                 // Online 房主拒絕上一局的搶答；client 傳來的分數與牌面一律不採信。
                 // 不再比對 revision：補牌後原本的牌都還在，只要三張都在檯面上就是有效搶答。
                 if (mode === 'online' && meta.remote && meta.gameId !== gameId) {
-                    sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'stale' });
+                    reject('stale');
                     sendSnapshot();
                     return;
                 }
                 if (resolving) {
-                    if (meta.remote) sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'busy' });
+                    // 另一組 SET 正在結算（約 0.4 秒）。這次的搶答先排隊，結算完再判：
+                    // 兩人同時找到「不同」的 SET 時，兩組都應該算分，而不是後到的被拒絕。
+                    // 電腦的搶答不排隊（它會自己重新找）。
+                    if (actor === 'b' && mode === 'ai' && !meta.remote) return;
+                    claimQueue = claimQueue.filter(item => item.actor !== actor);
+                    claimQueue.push({ actor, uids: uids.slice(), meta });
                     return;
                 }
 
@@ -1799,7 +1840,7 @@
                 if (!checked) {
                     // 有牌已經不在檯面上（剛被對方拿走）
                     if (meta.remote) {
-                        sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'stale' });
+                        reject('stale');
                         sendSnapshot();
                     } else {
                         selected = [];
@@ -1809,7 +1850,7 @@
                 }
                 if (!checked.result.isSet) {
                     if (meta.remote) {
-                        sendToPeer({ type: 'claim-result', claimId: meta.claimId, accepted: false, code: 'notset', uids });
+                        reject('notset');
                         return;
                     }
                     animateRejectedClaim(uids, explainNotSet(checked.cards));
@@ -1817,17 +1858,24 @@
                 }
 
                 resolving = true;
+                resolvingActor = actor;
                 if (aiTimer) clearTimeout(aiTimer);
                 const byOpponent = actor !== localActor();
                 const els = claimElements(uids);
                 els.forEach(el => el.classList.add(byOpponent ? 'taken' : 'correct'));
-                if (byOpponent) announceOpponentClaim(uids, selected);
+                if (byOpponent) {
+                    announceOpponentClaim(uids, selected);
+                    // 被拿走的牌立刻從自己的選取移除，可以馬上改選別張
+                    const taken = new Set(uids.map(Number));
+                    selected = selected.filter(uid => !taken.has(uid));
+                    syncSelection();
+                }
                 else if (mode !== 'solo') showToast('+1 搶到了！', 'good', 1400);
 
                 if (mode === 'online') {
                     sendToPeer({
                         type: 'claim-result', claimId: meta.claimId || `h-${Date.now()}`,
-                        accepted: true, actor, uids, revision
+                        gameId, accepted: true, actor, uids, revision
                     });
                 }
 
@@ -1959,12 +2007,19 @@
                 revision++;
                 const entering = originalIndices;
                 resolving = false;
+                resolvingActor = null;
                 renderBoard(entering);
                 clearHintPanel();
                 checkGameOver();
 
                 if (mode === 'online') sendSnapshot();
                 if (!gameOver) scheduleAi();
+
+                // 結算期間排隊的搶答：用更新後的檯面依序重新判
+                while (claimQueue.length && !resolving) {
+                    const next = claimQueue.shift();
+                    processClaim(next.actor, next.uids, next.meta);
+                }
             }
 
             // 依四屬性的「全同/全不同」組合建立唯一鍵，作為 SET 的種類
@@ -1992,6 +2047,7 @@
                     gameOver = true;
                     if (timerHandle) clearInterval(timerHandle);
                     if (aiTimer) clearTimeout(aiTimer);
+                    updateGameButtons();
                     showGameSummary();
                     updateScoreboard();
                     const me = localActor();
@@ -2176,6 +2232,10 @@
 
             function clearGameTimers() {
                 gameEpoch++;
+                claimQueue = [];
+                resolvingActor = null;
+                if (snapshotWaitTimer) clearTimeout(snapshotWaitTimer);
+                snapshotWaitTimer = null;
                 rejecting = false;
                 if (timerHandle) clearInterval(timerHandle);
                 if (resolutionTimer) clearTimeout(resolutionTimer);
@@ -2230,6 +2290,8 @@
 
             /* ── 重新開始：連線時要雙方都同意；單人／電腦局進行中先確認 ── */
             const RESTART_OFFER_MS = 20000;
+            // 邀請方多等 3 秒：讓對方「逾時自動拒絕」的訊息先到，不會兩邊各說各話
+            const RESTART_WAIT_MS = RESTART_OFFER_MS + 3000;
             let restartOffer = null;         // { by: 'me' | 'them', timer }
 
             function clearRestartOffer() {
@@ -2260,10 +2322,12 @@
                     timer: setTimeout(() => {
                         if (!restartOffer || restartOffer.by !== 'me') return;
                         clearRestartOffer();
-                        showToast('對手沒有回應，繼續這局', 'warn');
-                    }, RESTART_OFFER_MS)
+                        showToast(gameOver ? '對手沒有回應' : '對手沒有回應，繼續這局', 'warn');
+                    }, RESTART_WAIT_MS)
                 };
-                showBanner('已邀請對手重新開始，等待對方同意…', null, '取消', null, () => {
+                // 遊戲結束的比分視窗不用再按「確認關閉」，直接換成等待提示
+                closeAlert();
+                showBanner(gameOver ? '已邀請對手再來一局，等待對方回應…' : '已邀請對手重新開始，等待對方同意…', null, '取消', null, () => {
                     restartOffer = null;
                     sendToPeer({ type: 'restart-cancel' });
                 });
@@ -2281,7 +2345,8 @@
                     timer: setTimeout(() => {
                         if (!restartOffer || restartOffer.by !== 'them') return;
                         clearRestartOffer();
-                        sendToPeer({ type: 'restart-decline' });
+                        sendToPeer({ type: 'restart-decline', reason: 'timeout' });
+                        showToast('邀請已過期', 'info');
                     }, RESTART_OFFER_MS)
                 };
                 const text = gameOver ? '對手想再來一局！' : '對手想重新開始（目前這局會作廢）';
@@ -2293,18 +2358,24 @@
                     });
             }
 
-            function handleRestartMessage(type) {
+            function handleRestartMessage(type, message = {}) {
                 if (type === 'restart-propose' || type === 'restart-request') {
                     receiveRestartOffer();
                 } else if (type === 'restart-accept') {
                     if (onlineRole === 'host' && restartOffer && restartOffer.by === 'me') {
                         clearRestartOffer();
                         startAuthoritativeGame();
+                    } else if (onlineRole === 'host') {
+                        // 對方按同意的時候，邀請剛好已經過期或被取消
+                        sendToPeer({ type: 'notice', text: '邀請已經失效，請重新邀請', kind: 'warn' });
                     }
                 } else if (type === 'restart-decline') {
                     if (restartOffer && restartOffer.by === 'me') {
                         clearRestartOffer();
-                        showToast('對手想繼續這局', 'info');
+                        if (message.reason === 'timeout') showToast(gameOver ? '對手沒有回應' : '對手沒有回應，繼續這局', 'warn');
+                        // 牌局已經結束時，對方拒絕的是「再來一局」，不是「繼續這局」
+                        else if (gameOver) showToast('對手不想跟你玩了', 'bad', 2800);
+                        else showToast('對手想繼續這局', 'info');
                     }
                 } else if (type === 'restart-cancel') {
                     if (restartOffer && restartOffer.by === 'them') {
@@ -2404,7 +2475,15 @@
                 foundCount = Number(message.foundCount) || 0;
                 foundTypeCounts = message.foundTypeCounts || { a: {}, b: {} };
                 gameOver = !!message.gameOver;
-                resolving = false;
+                if (sameGame && pendingClaimId && !gameOver) {
+                    // 自己的搶答還沒有結果（可能正在房主那邊排隊）：維持等待，不讓玩家重複送出
+                    resolving = true;
+                    armClaimTimer();
+                } else {
+                    resolving = false;
+                    pendingClaimId = null;
+                    pendingClaimUids = [];
+                }
                 if (sameGame) keepValidSelection();
                 else {
                     selected = [];
@@ -2432,13 +2511,23 @@
             }
 
             function handleClaimResult(message) {
-                if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
-                pendingClaimTimer = null;
+                // 上一局遲到的結果一律忽略（例如重新開始前送出的搶答）
+                if (message.gameId && message.gameId !== gameId) return;
+                const isMine = !!pendingClaimId && message.claimId === pendingClaimId;
                 const mine = pendingClaimUids.length ? pendingClaimUids.slice() : selected.slice();
                 if (!message.accepted) {
+                    if (!isMine) return;
+                    if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
+                    pendingClaimTimer = null;
                     resolving = false;
                     const sent = pendingClaimUids.slice();
                     pendingClaimUids = [];
+                    pendingClaimId = null;
+                    if (message.code === 'over') {
+                        selected = [];
+                        syncSelection();
+                        return;
+                    }
                     if (message.code === 'notset') {
                         animateRejectedClaim(sent, explainNotSet(cardsByUid(sent)));
                         return;
@@ -2452,16 +2541,29 @@
                 }
                 const uids = Array.isArray(message.uids) ? message.uids.map(Number) : [];
                 const byOpponent = message.actor !== localActor();
-                if (!byOpponent) pendingClaimUids = [];
-                resolving = true;
                 claimElements(uids).forEach(el => el.classList.add(byOpponent ? 'taken' : 'correct'));
-                if (byOpponent) announceOpponentClaim(uids, mine);
-                else showToast('+1 搶到了！', 'good', 1400);
-                setModeMessage(byOpponent ? '對手得分，牌面更新中…' : '搶答成功！牌面更新中…');
+                if (byOpponent) {
+                    // 對手得分：不鎖住操作，被拿走的牌從選取移除，可以馬上改選。
+                    // 自己若有送出中的搶答，它可能正在房主那邊排隊，繼續等它的結果。
+                    announceOpponentClaim(uids, mine);
+                    const taken = new Set(uids);
+                    selected = selected.filter(uid => !taken.has(uid));
+                    syncSelection();
+                    setModeMessage('對手得分，牌面更新中…');
+                } else {
+                    if (pendingClaimTimer) clearTimeout(pendingClaimTimer);
+                    pendingClaimTimer = null;
+                    pendingClaimUids = [];
+                    pendingClaimId = null;
+                    resolving = true;          // 自己的牌正在亮綠框，等新牌面
+                    showToast('+1 搶到了！', 'good', 1400);
+                    setModeMessage('搶答成功！牌面更新中…');
+                }
+                if (snapshotWaitTimer) clearTimeout(snapshotWaitTimer);
                 const epoch = gameEpoch;
-                pendingClaimTimer = setTimeout(() => {
-                    if (epoch !== gameEpoch || !resolving) return;
-                    resolving = false;
+                snapshotWaitTimer = setTimeout(() => {
+                    if (epoch !== gameEpoch) return;
+                    if (!pendingClaimId) resolving = false;
                     renderBoard();
                     sendToPeer({ type: 'snapshot-request' });
                 }, 5000);
@@ -2478,14 +2580,14 @@
                     } else if (message.type === 'deal-request') {
                         handleDealRequest('b');
                     } else if (message.type.startsWith('restart-')) {
-                        handleRestartMessage(message.type);
+                        handleRestartMessage(message.type, message);
                     } else if (message.type === 'snapshot-request' || message.type === 'hello') {
                         sendSnapshot();
                     }
                 } else if (onlineRole === 'guest') {
                     if (message.type === 'snapshot') applySnapshot(message);
                     else if (message.type === 'claim-result') handleClaimResult(message);
-                    else if (message.type.startsWith('restart-')) handleRestartMessage(message.type);
+                    else if (message.type.startsWith('restart-')) handleRestartMessage(message.type, message);
                     else if (message.type === 'notice' && typeof message.text === 'string') {
                         const kind = ['info', 'good', 'bad', 'warn'].includes(message.kind) ? message.kind : 'info';
                         showToast(message.text.slice(0, 80), kind, 2400);
