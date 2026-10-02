@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="assets/logo.ico">
     <title>果汁龍的網站</title>
-    <meta name="description" content="果汁龍（jellyfishkuo）：資料庫實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
+    <meta name="description" content="果汁龍（jellyfishkuo）：資料庫系統實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
     <meta property="og:title" content="果汁龍的網站">
-    <meta property="og:description" content="資料庫實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
+    <meta property="og:description" content="資料庫系統實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jellyfishkuo.github.io/">
     <style>
@@ -292,7 +292,23 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 6rem;
+            row-gap: 0;
             align-items: center;
+        }
+
+        /* 標題橫跨兩欄、維持一行；字級隨寬度縮放（整句約 18.3em 寬，內容區 80vw） */
+        .about-head {
+            grid-column: 1 / -1;
+        }
+
+        .about-title {
+            white-space: nowrap;
+            font-size: clamp(1.6rem, 3.8vw, 3.5rem);
+            margin-bottom: 2.5rem;
+        }
+
+        .about-title .m-break {
+            display: none;
         }
 
         .section-label {
@@ -703,6 +719,22 @@
             #about {
                 grid-template-columns: 1fr;
                 gap: 3rem;
+                row-gap: 0;
+            }
+
+            /* 手機寬度放不下一行：在逗號後換成整齊的兩行 */
+            .about-title {
+                white-space: normal;
+                font-size: clamp(1.6rem, 7vw, 2.4rem);
+                margin-bottom: 1.5rem;
+            }
+
+            .about-title .m-break {
+                display: inline;
+            }
+
+            #about > .reveal:last-child {
+                margin-top: 3rem;
             }
 
             nav {
@@ -790,9 +822,9 @@
     <section id="hero">
         <div class="hero-tag">// Hello, World</div>
         <h1>
-            I build<br>
-            <span class="gradient">data systems</span><br>
-            & algorithms.
+            Turning data<br>
+            <span class="gradient">into insight</span><br>
+            &amp; ideas into tools.
         </h1>
         <div class="typewriter-wrap">
             <span id="typewriter"></span>
@@ -808,10 +840,12 @@
     </section>
 
     <section id="about">
-        <div class="reveal">
+        <div class="about-head reveal">
             <div class="section-label">// 01 — About</div>
-            <h2>Mining patterns, building small things.</h2>
-            <p>Hi！我是果汁龍，目前是資料庫實驗室的碩一生。研究方向是<strong>資料探勘</strong>：從大量交易、時間序列與空間資料中，找出頻繁出現、高效益或具有週期性的樣式。</p>
+            <h2 class="about-title">Mining patterns,<br class="m-break"> building small things.</h2>
+        </div>
+        <div class="reveal">
+            <p>Hi！我是果汁龍，目前是資料庫系統實驗室的碩一生。研究方向是<strong>資料探勘</strong>：從大量交易、時間序列與空間資料中，找出頻繁出現、高效益或具有週期性的樣式。</p>
             <p style="margin-top:1rem;">真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
             <p style="margin-top:1rem;">課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。平常主要使用 C++、Java 與 Python，也熟悉用 Docker 建置 PostgreSQL、Oracle 等資料庫。</p>
             <div class="about-stats">
