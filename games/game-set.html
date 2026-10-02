@@ -861,6 +861,11 @@
             display: none;
         }
 
+        /* 對手斷線、房主等待重連時，把房間碼再秀出來 */
+        .online-panel.is-live:not(.is-connected) .room-code-box:not([hidden]) {
+            display: inline-flex;
+        }
+
         .online-panel.is-live .online-live {
             margin-top: 0;
         }
@@ -1248,6 +1253,37 @@
 
             let uidCounter = 0;
 
+            /* ── 斷線重連用的本機紀錄（存在這個分頁的 sessionStorage，重新整理也還在） ── */
+            const SESSION_TTL_MS = 30 * 60 * 1000;
+            const HOST_SESSION_KEY = 'set-online-host-v1';
+            const GUEST_SESSION_KEY = 'set-online-guest-v1';
+            function readSession(key) {
+                try {
+                    const data = JSON.parse(sessionStorage.getItem(key) || 'null');
+                    if (data && Date.now() - data.savedAt < SESSION_TTL_MS) return data;
+                } catch (_) { }
+                return null;
+            }
+            function writeSession(key, data) {
+                try { sessionStorage.setItem(key, JSON.stringify({ ...data, savedAt: Date.now() })); } catch (_) { }
+            }
+            function clearSession(key) {
+                try { sessionStorage.removeItem(key); } catch (_) { }
+            }
+            // 每個分頁一個玩家代號：房主靠它分辨「回來的是同一個人」還是新的人
+            const PLAYER_ID = (() => {
+                try {
+                    let id = sessionStorage.getItem('set-player-id');
+                    if (!id) {
+                        id = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+                        sessionStorage.setItem('set-player-id', id);
+                    }
+                    return id;
+                } catch (_) {
+                    return `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+                }
+            })();
+
             // --- 自訂視窗邏輯 ---
             const customAlert = document.getElementById('custom-alert');
             const customAlertText = document.getElementById('custom-alert-text');
@@ -1373,6 +1409,7 @@
             let onlineConnected = false;
             let roomCode = '';
             let claimCounter = 0;
+            let guestPlayerId = null;        // 房主：目前這局的對手是誰（重連時比對）
             let pendingClaimUids = [];       // 加入者：送出但還沒收到結果的那三張
             let pendingClaimId = null;       // 加入者：那次搶答的編號，用來認出「這是我的結果」
             let claimQueue = [];             // 權威端：結算中收到的搶答，結算完依序再判
@@ -1596,27 +1633,52 @@
                依照「螢幕高度 − 牌面上方的區塊 − 下方按鈕」算出可用高度，
                在 3／4／6 欄之間挑出卡片最大的排法（橫拿手機就會變 6 欄 × 2 列）。 */
             const CARD_RATIO = 1.55;
+            const BASE_CARDS = 12;
+
+            /*
+             * 排法分兩種：
+             *  - 'column'：固定幾「列」，牌由上往下、一欄一欄排（像實體 SET 擺成一排排的直行）。
+             *     補 3 張就是在右邊多一欄，原本 12 張的位置完全不動。電腦版、手機橫拿用這種。
+             *  - 'row'：固定幾「欄」，由左往右排。補 3 張就是在下面多一列。手機直拿用這種。
+             * 先用「12 張」決定哪一種排法的卡片最大，之後補牌、縮編都沿用同一種，
+             * 不會因為張數改變就整個重排（舊版會在 4 欄、6 欄之間跳來跳去）。
+             */
+            function layoutSize(layout, count, width, height, gap) {
+                const cols = layout.flow === 'column' ? Math.ceil(count / layout.lanes) : layout.lanes;
+                const rows = layout.flow === 'column' ? layout.lanes : Math.ceil(count / layout.lanes);
+                const byWidth = (width - gap * (cols - 1)) / cols;
+                const byHeight = ((height - gap * (rows - 1)) / rows) * CARD_RATIO;
+                return { cols, rows, cardW: Math.min(byWidth, byHeight) };
+            }
+
             function fitBoard() {
                 const wide = window.innerWidth > 860 && window.innerHeight > 500;
                 if (!board.some(Boolean)) return;
-                const count = Math.max(12, board.length);
+                const count = Math.max(BASE_CARDS, board.length);
                 const style = getComputedStyle(boardEl);
                 const gap = parseFloat(style.columnGap) || 8;
                 const width = boardEl.parentElement.clientWidth;
                 const boardTop = boardEl.getBoundingClientRect().top + window.scrollY;
                 const below = controlsEl.offsetHeight + (parseFloat(style.marginBottom) || 0) + 12;
                 const height = window.innerHeight - boardTop - below;
-                let best = null;
-                (wide ? [4, 6] : [3, 4, 6]).forEach(cols => {
-                    const rows = Math.ceil(count / cols);
-                    const byWidth = (width - gap * (cols - 1)) / cols;
-                    const byHeight = ((height - gap * (rows - 1)) / rows) * CARD_RATIO;
-                    const cardW = Math.min(byWidth, byHeight);
-                    if (!best || cardW > best.cardW + 1) best = { cols, cardW };
+
+                const candidates = wide
+                    ? [{ flow: 'column', lanes: 3 }, { flow: 'column', lanes: 2 }]
+                    : [{ flow: 'row', lanes: 3 }, { flow: 'row', lanes: 4 }, { flow: 'column', lanes: 2 }, { flow: 'column', lanes: 3 }];
+                let layout = null;
+                let bestW = -1;
+                candidates.forEach(c => {
+                    const w = layoutSize(c, BASE_CARDS, width, height, gap).cardW;
+                    if (w > bestW + 1) { bestW = w; layout = c; }
                 });
+
+                const size = layoutSize(layout, count, width, height, gap);
                 // 太小就不硬塞（例如橫拿的小手機），讓頁面捲動
-                const cardW = Math.max(64, Math.min(wide ? 280 : 400, Math.floor(best.cardW)));
-                boardEl.style.gridTemplateColumns = `repeat(${best.cols}, ${cardW}px)`;
+                const cardW = Math.max(64, Math.min(wide ? 280 : 400, Math.floor(size.cardW)));
+                boardEl.style.gridAutoFlow = layout.flow;
+                boardEl.style.gridTemplateColumns = `repeat(${size.cols}, ${cardW}px)`;
+                boardEl.style.gridTemplateRows = layout.flow === 'column' ? `repeat(${size.rows}, auto)` : '';
+                boardEl.dataset.flow = layout.flow;
             }
             let fitQueued = false;
             function queueFit() {
@@ -1681,6 +1743,9 @@
                 if (mode === 'online' && !board.some(Boolean)) {
                     const waiting = document.createElement('div');
                     waiting.className = 'board-waiting';
+                    boardEl.style.gridAutoFlow = '';
+                    boardEl.style.gridTemplateRows = '';
+                    boardEl.style.gridTemplateColumns = '';
                     waiting.textContent = onlineRole ? '等待連線，連上後牌局就會出現在這裡' : '建立房間，或輸入朋友的房間碼加入，連上後就開始搶牌！';
                     boardEl.appendChild(waiting);
                     statDeck.textContent = deck.length;
@@ -2045,7 +2110,7 @@
                 const remainingSets = findAllSetsIn(board.filter(Boolean));
                 if (deck.length === 0 && remainingSets.length === 0) {
                     gameOver = true;
-                    if (timerHandle) clearInterval(timerHandle);
+                    pauseTimer();
                     if (aiTimer) clearTimeout(aiTimer);
                     updateGameButtons();
                     showGameSummary();
@@ -2219,9 +2284,23 @@
                 });
             }
 
+            /** 目前經過的秒數。遊戲結束或對手斷線（暫停）時凍結在當下的值 */
+            let frozenElapsed = null;
+            function elapsedNow() {
+                if (frozenElapsed !== null) return frozenElapsed;
+                return startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+            }
+
+            function pauseTimer() {
+                frozenElapsed = elapsedNow();
+                if (timerHandle) clearInterval(timerHandle);
+                timerHandle = null;
+            }
+
             function startTimer(elapsedSeconds = 0) {
                 if (timerHandle) clearInterval(timerHandle);
                 startTime = Date.now() - elapsedSeconds * 1000;
+                frozenElapsed = gameOver ? elapsedSeconds : null;
                 const tick = () => {
                     const seconds = Math.floor((Date.now() - startTime) / 1000);
                     statTime.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -2434,6 +2513,9 @@
                 }
             };
             const CONNECT_TIMEOUT_MS = 30000;
+            const HEARTBEAT_MS = 5000;
+            const HEARTBEAT_DEAD_MS = 20000;
+            const STALE_FOR_NEWCOMER_MS = 8000;
 
             function sendToPeer(message) {
                 if (!connection || !connection.open) return false;
@@ -2453,12 +2535,57 @@
                     deckCount: deck.length,
                     scores: { ...scores }, foundCount, gameOver,
                     foundTypeCounts: JSON.parse(JSON.stringify(foundTypeCounts)),
-                    elapsedSeconds: startTime ? Math.floor((Date.now() - startTime) / 1000) : 0
+                    elapsedSeconds: elapsedNow()
                 };
             }
 
             function sendSnapshot() {
-                if (mode === 'online' && onlineRole === 'host') sendToPeer(snapshotData());
+                if (mode === 'online' && onlineRole === 'host') {
+                    sendToPeer(snapshotData());
+                    saveHostSession();
+                }
+            }
+
+            /** 房主把整局（含牌堆）存在分頁裡，重新整理後可以用同一個房號恢復 */
+            function saveHostSession() {
+                if (mode !== 'online' || onlineRole !== 'host' || !gameId || !roomCode) return;
+                writeSession(HOST_SESSION_KEY, {
+                    roomCode, guestPlayerId, gameId, revision, gameOver, foundCount,
+                    board, deck, scores, foundTypeCounts, elapsed: elapsedNow()
+                });
+            }
+
+            function restoreHostState(saved) {
+                clearGameTimers();
+                gameId = saved.gameId;
+                revision = Number(saved.revision) || 0;
+                board = saved.board.map(card => card ? { ...card, uid: Number(card.uid) } : null);
+                deck = saved.deck.map(card => ({ ...card, uid: Number(card.uid) }));
+                scores = { a: Number(saved.scores.a) || 0, b: Number(saved.scores.b) || 0 };
+                foundCount = Number(saved.foundCount) || 0;
+                foundTypeCounts = saved.foundTypeCounts || { a: {}, b: {} };
+                gameOver = !!saved.gameOver;
+                guestPlayerId = saved.guestPlayerId || null;
+                resolving = false;
+                selected = [];
+                const maxUid = Math.max(-1, ...board.filter(Boolean).map(c => c.uid), ...deck.map(c => c.uid));
+                uidCounter = Math.max(uidCounter, maxUid + 1);
+                startTimer(Number(saved.elapsed) || 0);
+                pauseTimer();
+                renderBoard();
+            }
+
+            function hasResumableGame() {
+                return !!gameId && board.some(Boolean);
+            }
+
+            /** 同一位對手回來了：不開新局，把目前的牌面送過去，繼續計時 */
+            function resumeGame(via) {
+                if (!gameOver) startTimer(elapsedNow());
+                sendSnapshot();
+                setConnectionStatus(`對手回來了，繼續剛才的牌局${via || ''}`, 'connected');
+                showToast('對手回來了，繼續剛才的牌局', 'good', 2400);
+                setModeMessage('連線中：和對手搶同一副牌！');
             }
 
             function applySnapshot(message) {
@@ -2507,7 +2634,11 @@
                             : `遊戲結束，${mine}：${theirs}，${mine > theirs ? '你贏了！' : '房主獲勝。'}`, 0);
                     }
                 }
-                setModeMessage(gameOver ? '牌局已結束，按「重新開始」可再來一局。' : '連線中：和對手搶同一副牌！');
+                setModeMessage(gameOver ? '牌局已結束，按「再來一局」可以邀請對手。' : '連線中：和對手搶同一副牌！');
+                if (connectionStatusEl.textContent.includes('同步中')) {
+                    const via = transport === 'relay' ? '（經由備援伺服器）' : '（直連）';
+                    setConnectionStatus(sameGame ? `已重新連上房主，繼續剛才的牌局${via}` : `已連上房主${via}`, 'connected');
+                }
             }
 
             function handleClaimResult(message) {
@@ -2581,7 +2712,17 @@
                         handleDealRequest('b');
                     } else if (message.type.startsWith('restart-')) {
                         handleRestartMessage(message.type, message);
-                    } else if (message.type === 'snapshot-request' || message.type === 'hello') {
+                    } else if (message.type === 'hello') {
+                        const pid = typeof message.playerId === 'string' ? message.playerId.slice(0, 40) : '';
+                        const via = connection && connection.viaLabel ? connection.viaLabel : '';
+                        if (hasResumableGame() && pid && pid === guestPlayerId) {
+                            resumeGame(via);
+                        } else {
+                            guestPlayerId = pid || null;
+                            setConnectionStatus(`朋友已加入，牌局開始！${via}`, 'connected');
+                            startAuthoritativeGame();
+                        }
+                    } else if (message.type === 'snapshot-request') {
                         sendSnapshot();
                     }
                 } else if (onlineRole === 'guest') {
@@ -2730,10 +2871,8 @@
                         const existing = state.links[from];
                         if (envelope.kind === 'join') {
                             if (existing && !existing.closed) return; // 同一位玩家從另一台伺服器送來的重複請求
-                            if (connection && connection.open) {
-                                publishOn(entry, guestTopic(code, from), { kind: 'full' });
-                                return;
-                            }
+                            // 已經有人在玩時，不在這裡直接拒絕：交給 acceptIncoming 比對玩家代號，
+                            // 斷線後回來的同一個人可以接手，第三個人才會收到「房間已滿」
                             const link = createRelayLink(message => publishOn(entry, guestTopic(code, from), message));
                             state.links[from] = link;
                             link.on('close', () => {
@@ -2814,12 +2953,40 @@
 
             /** 房主：接受新的對手（直連或備援皆可） */
             function acceptIncoming(conn, kind) {
+                if (connection && connection.open && Date.now() - (connection.lastSeen || 0) > STALE_FOR_NEWCOMER_MS) {
+                    // 舊連線已經 8 秒以上沒有任何訊息（心跳也沒有），視為已經斷了，讓新的連線進來
+                    const stale = connection;
+                    connection = null;
+                    onlineConnected = false;
+                    try { stale.close(); } catch (_) { }
+                }
                 if (connection && connection.open) {
-                    // 已經有人在玩了，拒絕第三個人
-                    conn.on('open', () => {
+                    // 舊連線看起來還在，但可能只是房主還沒發現它斷了（例如對方手機睡著後回來）。
+                    // 等新連線報上玩家代號：同一個人就換成新連線，否則才是第三個人。
+                    let decided = false;
+                    const refuse = () => {
+                        if (decided) return;
+                        decided = true;
                         try { conn.send({ type: 'room-full' }); } catch (_) { }
                         setTimeout(() => { try { conn.close(); } catch (_) { } }, 300);
+                    };
+                    conn.on('data', message => {
+                        if (decided || !message || message.type !== 'hello') return;
+                        if (message.playerId && message.playerId === guestPlayerId) {
+                            decided = true;
+                            const stale = connection;
+                            connection = null;
+                            onlineConnected = false;
+                            try { stale.close(); } catch (_) { }
+                            attachConnection(conn, kind);
+                            const via = conn.viaLabel || '';
+                            if (hasResumableGame()) resumeGame(via);
+                            else startAuthoritativeGame();
+                        } else {
+                            refuse();
+                        }
                     });
+                    setTimeout(refuse, 8000);
                     return;
                 }
                 // 先前卡住、還沒打通的連線直接換成新的
@@ -2859,16 +3026,38 @@
                     btnJoinRoom.disabled = true;
                     roomInput.disabled = true;
                     const via = kind === 'relay' ? '（經由備援伺服器）' : '（直連）';
-                    setConnectionStatus(onlineRole === 'host' ? `朋友已加入，牌局開始！${via}` : `已連上房主，牌局同步中…${via}`, 'connected');
                     syncModeUI();
-                    if (onlineRole === 'host') startAuthoritativeGame();
-                    else sendToPeer({ type: 'hello' });
+                    if (onlineRole === 'host') {
+                        // 等對方的 hello（帶玩家代號）再決定：同一個人回來就接續，新的人就開新局
+                        conn.viaLabel = via;
+                        setConnectionStatus(`朋友已連上，正在同步…${via}`, 'connected');
+                    } else {
+                        setConnectionStatus(`已連上房主，牌局同步中…${via}`, 'connected');
+                        sendToPeer({ type: 'hello', playerId: PLAYER_ID });
+                        writeSession(GUEST_SESSION_KEY, { roomCode });
+                    }
                 };
                 conn.on('open', handleOpen);
-                conn.on('data', handlePeerData);
+                conn.lastSeen = Date.now();
+                conn.on('data', message => {
+                    conn.lastSeen = Date.now();
+                    handlePeerData(message);
+                });
                 // 舊的連線（例如被新連線取代、或自己按了離開）事後才觸發 close/error 時，
                 // 不能把目前這條連線的狀態蓋掉。
                 const isCurrent = () => connection === conn;
+
+                // 心跳：對方的分頁被直接關掉、手機斷電時，直連要 30 秒以上才會發現。
+                // 每 5 秒互傳一次，20 秒都沒收到對方任何訊息，就當作斷線處理。
+                const heartbeat = setInterval(() => {
+                    if (!isCurrent()) { clearInterval(heartbeat); return; }
+                    if (!onlineConnected) return;
+                    try { conn.send({ type: 'ping' }); } catch (_) { }
+                    if (Date.now() - conn.lastSeen > HEARTBEAT_DEAD_MS) {
+                        clearInterval(heartbeat);
+                        try { conn.close(); } catch (_) { }
+                    }
+                }, HEARTBEAT_MS);
 
                 conn.on('close', () => {
                     if (!isCurrent()) return;
@@ -2879,18 +3068,31 @@
                     connection = null;
                     transport = null;
                     clearRestartOffer();
-                    clearGameTimers();
-                    selected = [];
-                    resolving = false;
-                    renderBoard();
                     if (onlineRole === 'host') {
-                        if (wasConnected) setConnectionStatus(`對手已離線；房間 ${roomCode} 仍開放，可等待重新加入。`, 'error');
+                        // 牌局保留：暫停計時、丟掉對方排隊中的搶答；正在結算的那組讓它跑完
+                        claimQueue = [];
+                        if (hasResumableGame() && !gameOver) pauseTimer();
+                        saveHostSession();
+                        renderBoard();
+                        if (wasConnected) setConnectionStatus(`對手離線了，牌局已保留。對方用房間碼 ${roomCode} 重新加入就能繼續。`, 'error');
                         else setConnectionStatus(`房間 ${roomCode} 等待朋友連線中…`, 'connected');
+                        if (wasConnected) roomCodeBox.hidden = false;
                     } else if (!wasConnected && kind === 'p2p') {
+                        clearGameTimers();
                         fallbackToRelay(roomCode);
                     } else {
+                        const code = roomCode;
+                        clearGameTimers();
+                        selected = [];
+                        resolving = false;
                         disconnectOnline(false);
-                        setConnectionStatus(wasConnected ? '房主已離開或連線中斷，可以重新加入。' : '無法連上房主，請再試一次。', 'error');
+                        renderBoard();
+                        if (wasConnected) {
+                            setConnectionStatus(`和房主的連線中斷了（房間 ${code}）。`, 'error');
+                            offerRejoin(code, '和房主的連線中斷了');
+                        } else {
+                            setConnectionStatus('無法連上房主，請再試一次。', 'error');
+                        }
                     }
                     syncModeUI();
                 });
@@ -2912,6 +3114,15 @@
                     setConnectionStatus(`朋友的直連失敗；房間 ${roomCode} 仍開放，對方會自動改用備援連線。`, 'error');
                 });
                 if (conn.open) handleOpen();
+            }
+
+            /** 加入者：一鍵用同一個房號重新加入 */
+            function offerRejoin(code, text) {
+                roomInput.value = code;
+                showBanner(`${text}，要重新加入房間 ${code} 嗎？`, '重新加入', '不用了', () => {
+                    roomInput.value = code;
+                    joinRoom();
+                }, () => clearSession(GUEST_SESSION_KEY));
             }
 
             function resetOnlineControls() {
@@ -2961,7 +3172,7 @@
             function showRoomReady(note = '') {
                 roomCodeEl.textContent = roomCode;
                 roomCodeBox.hidden = false;
-                setConnectionStatus(`房間 ${roomCode} 已建立，請朋友輸入代碼。${note}`, 'connected');
+                setConnectionStatus(note ? `房間 ${roomCode}：${note}` : `房間 ${roomCode} 已建立，請朋友輸入代碼。`, 'connected');
                 setModeMessage('等待第二位玩家加入；連線後選滿三張會立即搶答，先送達者得分。');
             }
 
@@ -2976,15 +3187,20 @@
                 showRoomReady('（使用備援伺服器）');
             }
 
-            function createRoom(attempt = 0) {
+            function createRoom(attempt = 0, fixedCode = null) {
                 if (peerUnavailable() && !relayAvailable()) {
                     setConnectionStatus('連線元件載入失敗；單人與電腦模式仍可使用。請重新整理頁面再試。', 'error');
                     return;
                 }
                 disconnectOnline(false);
                 onlineRole = 'host';
-                roomCode = String(Math.floor(1000 + Math.random() * 9000));
-                setConnectionStatus('正在向配對服務登記房間…');
+                if (!fixedCode) {
+                    // 全新的房間：清掉上一個房間的對手與紀錄
+                    guestPlayerId = null;
+                    clearSession(HOST_SESSION_KEY);
+                }
+                roomCode = fixedCode || String(Math.floor(1000 + Math.random() * 9000));
+                setConnectionStatus(fixedCode ? `正在恢復房間 ${fixedCode}…` : '正在向配對服務登記房間…');
                 btnCreateRoom.disabled = btnJoinRoom.disabled = true;
                 roomInput.disabled = true;
                 btnLeaveRoom.hidden = false;
@@ -2999,7 +3215,8 @@
                     if (peer !== thisPeer) return;
                     // 房間碼登記成功（確定沒和別人撞號）後，同時開好備援通道
                     startRelayHost(roomCode);
-                    showRoomReady();
+                    showRoomReady(fixedCode ? '牌局已恢復，請朋友用同一個房間碼重新加入。' : '');
+                    saveHostSession();
                 });
                 peer.on('connection', conn => {
                     if (peer !== thisPeer) return;
@@ -3021,7 +3238,15 @@
                     if (type === 'unavailable-id' && attempt < 8) {
                         peer = null;
                         try { thisPeer.destroy(); } catch (_) { }
-                        createRoom(attempt + 1);
+                        if (fixedCode) {
+                            // 恢復房間時，舊的登記可能還沒被配對服務清掉，等一下再用同一個號碼試
+                            setConnectionStatus(`正在恢復房間 ${fixedCode}…（等待舊連線釋放）`);
+                            setTimeout(() => {
+                                if (onlineRole === 'host' && roomCode === fixedCode && !peer) createRoom(attempt + 1, fixedCode);
+                            }, 1500);
+                        } else {
+                            createRoom(attempt + 1);
+                        }
                         return;
                     }
                     // 房間已登記且還活著（例如只是配對伺服器暫時斷線），不要把整個房間收掉
@@ -3084,7 +3309,11 @@
             btnDeal.addEventListener('click', onDealClick);
             btnRestart.addEventListener('click', newGame);
             gameModeEl.addEventListener('change', () => {
-                if (mode === 'online') disconnectOnline(false);
+                if (mode === 'online') {
+                    clearSession(HOST_SESSION_KEY);
+                    clearSession(GUEST_SESSION_KEY);
+                    disconnectOnline(false);
+                }
                 mode = gameModeEl.value;
                 syncModeUI();
                 if (mode === 'online') {
@@ -3100,6 +3329,9 @@
             btnCreateRoom.addEventListener('click', () => createRoom());
             btnJoinRoom.addEventListener('click', joinRoom);
             btnLeaveRoom.addEventListener('click', () => {
+                clearSession(HOST_SESSION_KEY);
+                clearSession(GUEST_SESSION_KEY);
+                guestPlayerId = null;
                 disconnectOnline();
                 resetWaitingBoard();
                 syncModeUI();
@@ -3124,10 +3356,44 @@
                 }
             });
             window.addEventListener('beforeunload', () => disconnectOnline(false));
+            // 從背景切回來時立刻送一次心跳，讓對方知道自己還在
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && connection && onlineConnected) {
+                    try { connection.send({ type: 'ping' }); } catch (_) { }
+                }
+            });
 
             mode = gameModeEl.value;
             syncModeUI();
             startAuthoritativeGame();
+
+            /** 重新整理後：房主可以恢復房間，加入者可以一鍵重新加入 */
+            function switchToOnline() {
+                gameModeEl.value = 'online';
+                mode = 'online';
+                syncModeUI();
+                resetWaitingBoard();
+            }
+            (function offerSessionRestore() {
+                const host = readSession(HOST_SESSION_KEY);
+                if (host && host.roomCode && Array.isArray(host.board) && Array.isArray(host.deck)) {
+                    const score = `${Number(host.scores && host.scores.a) || 0}：${Number(host.scores && host.scores.b) || 0}`;
+                    showBanner(`房間 ${host.roomCode} 的牌局還在（${score}），要回去繼續嗎？`, '回到房間', '不用了', () => {
+                        switchToOnline();
+                        restoreHostState(host);
+                        createRoom(0, host.roomCode);
+                    }, () => clearSession(HOST_SESSION_KEY));
+                    return;
+                }
+                const guest = readSession(GUEST_SESSION_KEY);
+                if (guest && /^\d{4}$/.test(guest.roomCode || '')) {
+                    showBanner(`要重新加入房間 ${guest.roomCode} 嗎？`, '重新加入', '不用了', () => {
+                        switchToOnline();
+                        roomInput.value = guest.roomCode;
+                        joinRoom();
+                    }, () => clearSession(GUEST_SESSION_KEY));
+                }
+            })();
         })();
     </script>
 </body>
