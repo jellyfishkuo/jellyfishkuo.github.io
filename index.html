@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="assets/logo.ico">
     <title>果汁龍的網站</title>
+    <meta name="description" content="果汁龍（jellyfishkuo）：資料庫實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
+    <meta property="og:title" content="果汁龍的網站">
+    <meta property="og:description" content="資料庫實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
 
@@ -805,14 +810,14 @@
     <section id="about">
         <div class="reveal">
             <div class="section-label">// 01 — About</div>
-            <h2>致力於後端與資料庫技術的開發者</h2>
-            <p>Hi! 我是一名準備踏入研究所的準研究生，目前在資料庫系統實驗室進行研究。我熱衷於探討底層邏輯、資料結構與演算法，並享受將複雜系統拆解、優化效能的過程。</p>
-            <p style="margin-top:1rem;">除了平時與學長共同協作開發專案，我也持續精進 C++、Java 與 Python，並熟悉使用 Docker 部署及建置各種關聯式資料庫（如
-                PostgreSQL、Oracle）。</p>
+            <h2>在資料裡找規律，也在生活裡做工具</h2>
+            <p>Hi！我是果汁龍，目前是資料庫實驗室的碩一生。研究方向是<strong>資料探勘</strong>：從大量交易、時間序列與空間資料中，找出頻繁出現、高效益或具有週期性的樣式。</p>
+            <p style="margin-top:1rem;">真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
+            <p style="margin-top:1rem;">課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。平常主要使用 C++、Java 與 Python，也熟悉用 Docker 建置 PostgreSQL、Oracle 等資料庫。</p>
             <div class="about-stats">
                 <div class="stat-box">
-                    <div class="stat-num">3+</div>
-                    <div class="stat-label">主力程式語言</div>
+                    <div class="stat-num">7</div>
+                    <div class="stat-label">自己做的小工具與遊戲</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-num">100+</div>
@@ -880,6 +885,13 @@
             <div class="skill-card">
                 <div class="skill-icon">🗄️</div>
                 <div class="skill-name">SQL</div>
+                <div class="skill-bar-bg">
+                    <div class="skill-bar" data-width="0.7"></div>
+                </div>
+            </div>
+            <div class="skill-card">
+                <div class="skill-icon">✨</div>
+                <div class="skill-name">JavaScript</div>
                 <div class="skill-bar-bg">
                     <div class="skill-bar" data-width="0.7"></div>
                 </div>
@@ -1002,6 +1014,17 @@
                     <a href="games/coc-card-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
                     <a href="games/coc-card.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+                </div>
+            </div>
+
+            <div class="project-card reveal" style="transition-delay:0.7s">
+                <div class="project-tag">Web Tool / JS</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/electricity.svg" alt="" width="28" height="28">電費紀錄</div>
+                <div class="project-desc">為了掌握租屋處用電而做的電表讀數紀錄工具。手機優先設計，輸入讀數後自動算出與上一筆的用電差，並以每日、每月長條圖呈現；
+                    支援編輯、刪除與 JSON / CSV 匯出匯入備份。資料只存在自己的瀏覽器裡，不需要登入、離線也能使用。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="electricity-tracker/" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">直接使用 →</a>
                 </div>
             </div>
 
@@ -1240,10 +1263,10 @@
 
         // ── Typewriter ──
         const phrases = [
-            'Backend Developer',
             'MS Student @ DB Lab',
+            'Data Mining & Indexing',
             'Algorithm Enthusiast',
-            'Problem Solver',
+            'Maker of Small Tools & Games',
         ];
         let pi = 0, ci = 0, deleting = false, tw = document.getElementById('typewriter');
         function type() {
