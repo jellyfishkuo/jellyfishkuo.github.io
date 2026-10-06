@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/dinner-wheel.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/dinner-wheel-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/dinner-wheel-180.png">
+    <title>晚餐吃什麼？</title>
+    <meta name="description" content="選擇困難救星：轉一下決定今天晚餐吃什麼。選項可以自己增減，不想吃的可以排除再轉一次。">
+    <meta name="theme-color" content="#05050a">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --warm: #fb923c;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.8rem, 6vw, 2.8rem); line-height: 1.15; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.35rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.7rem; }
+
+        .layout { display: grid; gap: 1.2rem; margin-top: 1.4rem; }
+        .layout > * { min-width: 0; }
+        @media (min-width: 860px) { .layout { grid-template-columns: 1.15fr 1fr; align-items: start; } }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.1rem;
+        }
+
+        /* ── 轉盤 ── */
+        .wheel-box { position: relative; width: min(100%, 440px); margin: 0 auto; aspect-ratio: 1; }
+        #wheel { width: 100%; height: 100%; display: block; }
+        .pointer {
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            width: 34px;
+            height: 42px;
+            transform: translateX(-50%);
+            transform-origin: 50% 20%;
+            filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
+            z-index: 2;
+        }
+        .pointer.tick { animation: tick 0.12s ease-out; }
+        @keyframes tick { 40% { transform: translateX(-50%) rotate(-14deg); } }
+
+        .spin-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 26%;
+            aspect-ratio: 1;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 4px solid #fff;
+            background: radial-gradient(circle at 35% 30%, #a78bfa, var(--accent) 60%, #4c1d95);
+            color: #fff;
+            font: 800 clamp(0.95rem, 4vw, 1.25rem) 'Syne', sans-serif;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+            z-index: 2;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.15s;
+        }
+        .spin-btn:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.94); }
+        .spin-btn:disabled { cursor: default; filter: saturate(0.6) brightness(0.85); }
+
+        /* ── 結果 ── */
+        .result {
+            margin-top: 1.1rem;
+            text-align: center;
+            min-height: 7.2rem;
+        }
+        .result .label { color: var(--muted); font-size: 0.9rem; }
+        .result .food {
+            font-size: clamp(1.7rem, 7vw, 2.4rem);
+            font-weight: 800;
+            line-height: 1.3;
+            margin: 0.15rem 0 0.6rem;
+            color: #fbbf24;          /* 不用漸層文字：漸層會把表情符號也塗成一團色塊 */
+        }
+        .result .food.pop { animation: pop 0.45s cubic-bezier(.2, 1.6, .4, 1); }
+        @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+        .result .idle { color: var(--muted); padding-top: 1.6rem; }
+        .result-actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.92rem;
+            cursor: pointer;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+
+        /* ── 選項清單 ── */
+        .add-row { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
+        .add-row input {
+            flex: 1;
+            min-width: 0;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 0.55rem 0.8rem;
+            font-size: 1rem;
+        }
+        .add-row input:focus { outline: none; border-color: var(--accent2); }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.25rem 0.35rem 0.25rem 0.75rem;
+            font-size: 0.92rem;
+        }
+        .chip .dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 0.3rem; flex: none; }
+        .chip button {
+            background: none;
+            border: none;
+            color: var(--muted);
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.95rem;
+            line-height: 1;
+        }
+        .chip button:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+        .chip.excluded { opacity: 0.45; text-decoration: line-through; }
+        .chip.excluded .dot { background: var(--muted) !important; }
+
+        .list-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 0.9rem; flex-wrap: wrap; }
+        .note { color: var(--muted); font-size: 0.85rem; }
+        .msg { color: var(--warm); font-size: 0.85rem; min-height: 1.3em; margin-top: 0.4rem; }
+
+        .history { margin-top: 1.2rem; }
+        .history ol { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .history li {
+            font-size: 0.85rem;
+            color: var(--muted);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 0.15rem 0.55rem;
+        }
+
+        /* 彩帶 */
+        .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>晚餐吃什麼？<small>選擇困難救星：轉一下，讓轉盤幫你決定</small></h1>
+
+        <div class="layout">
+            <div class="card">
+                <div class="wheel-box">
+                    <svg class="pointer" id="pointer" viewBox="0 0 34 42" aria-hidden="true">
+                        <path d="M17 41 L3 9 A14 14 0 1 1 31 9 Z" fill="#fff" />
+                        <circle cx="17" cy="14" r="5" fill="#7c3aed" />
+                    </svg>
+                    <canvas id="wheel" aria-label="晚餐轉盤"></canvas>
+                    <button class="spin-btn" id="spin">轉！</button>
+                </div>
+
+                <div class="result" id="result" aria-live="polite">
+                    <div class="idle">按中間的「轉！」開始</div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h2>轉盤上的選項</h2>
+                    <form class="add-row" id="add-form">
+                        <input id="new-item" maxlength="12" placeholder="想加什麼？例如：麻辣燙" autocomplete="off">
+                        <button class="btn primary" type="submit">加入</button>
+                    </form>
+                    <div class="chips" id="chips"></div>
+                    <div class="msg" id="msg"></div>
+                    <div class="list-foot">
+                        <span class="note" id="count"></span>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+                            <button class="btn" id="btn-include-all">取消所有排除</button>
+                            <button class="btn" id="btn-default">恢復預設選項</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card history">
+                    <h2>今天轉過的</h2>
+                    <ol id="history"><li>還沒轉過</li></ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas class="confetti" id="confetti"></canvas>
+
+    <script>
+        /* =========================================================
+           晚餐吃什麼轉盤
+           - 選項存在這台裝置的瀏覽器裡，下次打開還在
+           - 「不想吃這個」會把它暫時排除（劃掉），轉盤上就不會出現
+           ========================================================= */
+        const DEFAULT_ITEMS = ['🍚 滷肉飯', '🍜 牛肉麵', '🍱 便當', '🍥 拉麵', '🍲 火鍋', '🍔 速食',
+            '🥟 水餃', '🍝 義大利麵', '🍛 咖哩飯', '🍳 炒飯', '🍣 壽司', '🍗 鹽酥雞'];
+        const COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#2dd4bf', '#38bdf8', '#818cf8', '#c084fc', '#f472b6'];
+        const STORE_KEY = 'dinner-wheel-v1';
+        const MAX_ITEMS = 24;
+
+        const $ = id => document.getElementById(id);
+        const canvas = $('wheel');
+        const ctx = canvas.getContext('2d');
+
+        let items = [];             // [{ name, off }]，off = 暫時排除
+        let rotation = 0;           // 轉盤目前轉了幾度（順時針）
+        let spinning = false;
+        let history = [];
+
+        /* ---------- 存取（瀏覽器不讓存也照樣能玩） ---------- */
+        function load() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+                if (saved && Array.isArray(saved.items) && saved.items.length >= 2) {
+                    items = saved.items
+                        .filter(x => x && typeof x.name === 'string' && x.name.trim())
+                        .slice(0, MAX_ITEMS)
+                        .map(x => ({ name: x.name.trim().slice(0, 12), off: !!x.off }));
+                }
+            } catch (_) { /* 用預設值 */ }
+            if (items.length < 2) items = DEFAULT_ITEMS.map(name => ({ name, off: false }));
+        }
+        function save() {
+            try { localStorage.setItem(STORE_KEY, JSON.stringify({ items })); } catch (_) { }
+        }
+
+        const active = () => items.filter(x => !x.off);
+
+        /* 相鄰兩格、以及頭尾兩格不要同色 */
+        function colorFor(i, total) {
+            let c = i % COLORS.length;
+            if (i === total - 1 && total > 1 && c === 0) c = (c + 2) % COLORS.length;
+            return COLORS[c];
+        }
+
+        /* ---------- 畫轉盤 ---------- */
+        function resizeCanvas() {
+            const size = canvas.getBoundingClientRect().width;
+            const ratio = window.devicePixelRatio || 1;
+            canvas.width = Math.round(size * ratio);
+            canvas.height = Math.round(size * ratio);
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            draw();
+        }
+
+        function draw() {
+            const list = active();
+            const size = canvas.width / (window.devicePixelRatio || 1);
+            const c = size / 2;
+            const r = c - 6;
+            const seg = (Math.PI * 2) / list.length;
+            ctx.clearRect(0, 0, size, size);
+
+            // 外框
+            ctx.beginPath();
+            ctx.arc(c, c, r + 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e1e33';
+            ctx.fill();
+
+            ctx.save();
+            ctx.translate(c, c);
+            ctx.rotate(rotation * Math.PI / 180);
+            list.forEach((item, i) => {
+                // 第 0 格從正上方開始，順時針排
+                const start = -Math.PI / 2 + i * seg;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, r, start, start + seg);
+                ctx.closePath();
+                ctx.fillStyle = colorFor(i, list.length);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // 文字沿著半徑方向寫
+                ctx.save();
+                ctx.rotate(start + seg / 2);
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                const fontSize = Math.max(11, Math.min(18, size / 24, (seg * r) / 2.6));
+                ctx.font = `700 ${fontSize}px -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+                ctx.fillStyle = '#1a1a1a';
+                let text = item.name;
+                const maxW = r * 0.62;
+                while (ctx.measureText(text).width > maxW && text.length > 1) text = text.slice(0, -1);
+                if (text !== item.name) text = text.slice(0, -1) + '…';
+                ctx.fillText(text, r - 14, 0);
+                ctx.restore();
+            });
+            ctx.restore();
+        }
+
+        /* 正上方指針指到的是第幾格 */
+        function indexAtPointer(rot, count) {
+            const seg = 360 / count;
+            const a = ((-rot % 360) + 360) % 360;
+            return Math.floor(a / seg) % count;
+        }
+
+        /* ---------- 轉！ ---------- */
+        function randomInt(max) {
+            if (window.crypto && crypto.getRandomValues) {
+                const buf = new Uint32Array(1);
+                crypto.getRandomValues(buf);
+                return buf[0] % max;
+            }
+            return Math.floor(Math.random() * max);
+        }
+
+        function spin() {
+            const list = active();
+            if (spinning || list.length < 2) return;
+            spinning = true;
+            $('spin').disabled = true;
+            setMsg('');
+            $('result').innerHTML = '<div class="idle">轉轉轉……</div>';
+
+            // 先決定結果，再算出要停在哪個角度：停在那一格裡面隨機的位置，不會壓在線上
+            const winner = randomInt(list.length);
+            const seg = 360 / list.length;
+            const offset = 0.15 + Math.random() * 0.7;
+            let target = -(winner + offset) * seg;
+            const minEnd = rotation + 360 * 5;
+            target += 360 * Math.ceil((minEnd - target) / 360);
+            target += 360 * randomInt(2);
+
+            const from = rotation;
+            const duration = 4200 + Math.random() * 1200;
+            const startTime = performance.now();
+            let lastIndex = indexAtPointer(from, list.length);
+            const easeOut = t => 1 - Math.pow(1 - t, 4);
+
+            function frame(now) {
+                const t = Math.min(1, (now - startTime) / duration);
+                rotation = from + (target - from) * easeOut(t);
+                draw();
+                const idx = indexAtPointer(rotation, list.length);
+                if (idx !== lastIndex) { tick(); lastIndex = idx; }
+                if (t < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    rotation = target % 360;
+                    spinning = false;
+                    $('spin').disabled = false;
+                    showResult(list[indexAtPointer(rotation, list.length)]);
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
+        function tick() {
+            const p = $('pointer');
+            p.classList.remove('tick');
+            void p.offsetWidth;
+            p.classList.add('tick');
+        }
+
+        function showResult(item) {
+            history.unshift(item.name);
+            history = history.slice(0, 12);
+            renderHistory();
+            $('result').innerHTML = `
+                <div class="label">今天晚餐就吃</div>
+                <div class="food pop"></div>
+                <div class="result-actions">
+                    <button class="btn primary" id="btn-ok">就決定是你了！</button>
+                    <button class="btn" id="btn-nope">不想吃這個，排除再轉</button>
+                </div>`;
+            $('result').querySelector('.food').textContent = item.name;   // 用純文字放，避免選項名稱被當成網頁語法
+            $('btn-ok').addEventListener('click', () => { confetti(); $('btn-ok').disabled = true; });
+            $('btn-nope').addEventListener('click', () => {
+                if (active().length <= 2) { setMsg('至少要留兩個選項才能轉，先加一些新的吧。'); return; }
+                item.off = true;
+                save();
+                renderChips();
+                draw();
+                spin();
+            });
+        }
+
+        function renderHistory() {
+            const ol = $('history');
+            ol.innerHTML = '';
+            if (!history.length) { ol.innerHTML = '<li>還沒轉過</li>'; return; }
+            history.forEach(name => {
+                const li = document.createElement('li');
+                li.textContent = name;
+                ol.appendChild(li);
+            });
+        }
+
+        /* ---------- 選項清單 ---------- */
+        function setMsg(text) { $('msg').textContent = text; }
+
+        function renderChips() {
+            const box = $('chips');
+            box.innerHTML = '';
+            const list = active();
+            items.forEach(item => {
+                const chip = document.createElement('span');
+                chip.className = 'chip' + (item.off ? ' excluded' : '');
+                const dot = document.createElement('span');
+                dot.className = 'dot';
+                if (!item.off) dot.style.background = colorFor(list.indexOf(item), list.length);
+                const name = document.createElement('span');
+                name.textContent = item.name;
+
+                // 點名稱：排除／加回
+                name.style.cursor = 'pointer';
+                name.title = item.off ? '點一下加回轉盤' : '點一下暫時排除';
+                name.addEventListener('click', () => {
+                    if (spinning) return;
+                    if (!item.off && active().length <= 2) { setMsg('轉盤上至少要有兩個選項。'); return; }
+                    item.off = !item.off;
+                    afterChange();
+                });
+
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.textContent = '✕';
+                del.setAttribute('aria-label', `刪除 ${item.name}`);
+                del.addEventListener('click', () => {
+                    if (spinning) return;
+                    if (!item.off && active().length <= 2) { setMsg('轉盤上至少要有兩個選項。'); return; }
+                    items = items.filter(x => x !== item);
+                    afterChange();
+                });
+
+                chip.append(dot, name, del);
+                box.appendChild(chip);
+            });
+            const off = items.length - list.length;
+            $('count').textContent = `轉盤上 ${list.length} 個` + (off ? `，暫時排除 ${off} 個（點名稱可以加回）` : '・點名稱可以暫時排除');
+            $('btn-include-all').disabled = !off;
+        }
+
+        function afterChange() {
+            setMsg('');
+            save();
+            renderChips();
+            draw();
+        }
+
+        $('add-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const input = $('new-item');
+            const name = input.value.replace(/\s+/g, ' ').trim().slice(0, 12);
+            if (!name) return;
+            if (spinning) return;
+            if (items.some(x => x.name === name)) { setMsg(`「${name}」已經在轉盤上了。`); return; }
+            if (items.length >= MAX_ITEMS) { setMsg(`最多 ${MAX_ITEMS} 個選項，先刪掉一些吧。`); return; }
+            items.push({ name, off: false });
+            input.value = '';
+            afterChange();
+        });
+
+        $('btn-include-all').addEventListener('click', () => {
+            if (spinning) return;
+            items.forEach(x => { x.off = false; });
+            afterChange();
+        });
+
+        $('btn-default').addEventListener('click', () => {
+            if (spinning) return;
+            items = DEFAULT_ITEMS.map(name => ({ name, off: false }));
+            afterChange();
+        });
+
+        $('spin').addEventListener('click', spin);
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); spin(); }
+        });
+
+        /* ---------- 小彩帶 ---------- */
+        function confetti() {
+            const cv = $('confetti');
+            const cx = cv.getContext('2d');
+            cv.width = innerWidth;
+            cv.height = innerHeight;
+            const parts = Array.from({ length: 120 }, () => ({
+                x: innerWidth / 2, y: innerHeight * 0.45,
+                vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 14 - 4,
+                s: 5 + Math.random() * 5, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4,
+                c: COLORS[randomInt(COLORS.length)]
+            }));
+            const t0 = performance.now();
+            (function loop(now) {
+                cx.clearRect(0, 0, cv.width, cv.height);
+                parts.forEach(p => {
+                    p.vy += 0.4; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+                    cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r);
+                    cx.fillStyle = p.c; cx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+                    cx.restore();
+                });
+                if (now - t0 < 2200) requestAnimationFrame(loop);
+                else cx.clearRect(0, 0, cv.width, cv.height);
+            })(t0);
+        }
+
+        /* ---------- 開始 ---------- */
+        load();
+        renderChips();
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+
+</html>
