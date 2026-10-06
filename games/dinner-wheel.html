@@ -249,7 +249,11 @@
            - 「不想吃這個」會把它暫時排除（劃掉），轉盤上就不會出現
            ========================================================= */
         const DEFAULT_ITEMS = ['🍚 滷肉飯', '🍜 牛肉麵', '🍱 便當', '🍥 拉麵', '🍲 火鍋', '🍔 速食',
-            '🥟 水餃', '🍝 義大利麵', '🍛 咖哩飯', '🍳 炒飯', '🍣 壽司', '🍗 鹽酥雞'];
+            '🥟 水餃', '🍝 義大利麵', '🍛 咖哩飯', '🍳 炒飯', '🍣 壽司', '🍗 鹽酥雞',
+            '🌶️ 酸辣粉', '🐟 酸菜魚', '🍕 披薩', '🥘 麻辣燙', '🐔 鹹水雞', '🏪 超商', '🥪 三明治'];
+        // 預設選項有新增時加一版：已經用過、存了自己清單的人，打開時也會自動補上新的
+        const DEFAULTS_VERSION = 2;
+        const ADDED_IN = { 2: ['🌶️ 酸辣粉', '🐟 酸菜魚', '🍕 披薩', '🥘 麻辣燙', '🐔 鹹水雞', '🏪 超商', '🥪 三明治'] };
         const COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#2dd4bf', '#38bdf8', '#818cf8', '#c084fc', '#f472b6'];
         const STORE_KEY = 'dinner-wheel-v1';
         const MAX_ITEMS = 24;
@@ -272,12 +276,21 @@
                         .filter(x => x && typeof x.name === 'string' && x.name.trim())
                         .slice(0, MAX_ITEMS)
                         .map(x => ({ name: x.name.trim().slice(0, 12), off: !!x.off }));
+                    const from = Number(saved.v) || 1;
+                    for (let v = from + 1; v <= DEFAULTS_VERSION; v++) {
+                        (ADDED_IN[v] || []).forEach(name => {
+                            const plain = name.replace(/^\S+\s/, '');   // 自己手動加過「麻辣燙」就不重複加
+                            const exists = items.some(x => x.name === name || x.name === plain);
+                            if (!exists && items.length < MAX_ITEMS) items.push({ name, off: false });
+                        });
+                    }
                 }
             } catch (_) { /* 用預設值 */ }
             if (items.length < 2) items = DEFAULT_ITEMS.map(name => ({ name, off: false }));
+            save();
         }
         function save() {
-            try { localStorage.setItem(STORE_KEY, JSON.stringify({ items })); } catch (_) { }
+            try { localStorage.setItem(STORE_KEY, JSON.stringify({ v: DEFAULTS_VERSION, items })); } catch (_) { }
         }
 
         const active = () => items.filter(x => !x.off);
