@@ -724,8 +724,19 @@
                 row-gap: 0;
             }
 
+            /* 窄螢幕或手機把字放大時，h2 的最小字級 1.6rem 會讓「building small things.」超出畫面：
+               字級改成同時受螢幕寬度限制，真的還放不下才允許在詞之間換行 */
             .about-title {
                 margin-bottom: 1.5rem;
+                font-size: min(clamp(1.6rem, 4.5vw, 3.5rem), 7.4vw);
+            }
+
+            .about-title span {
+                white-space: normal;
+            }
+
+            .about-head {
+                min-width: 0;
             }
 
             #about > .reveal:last-child {
