@@ -720,7 +720,35 @@
             cursor = 0;
             updateCounter();
             showStep();
+            reserveExplainHeight();
         }
+
+        /**
+         * 說明文字有長有短，框框跟著變高變矮，下面的程式碼就會一直被推上推下。
+         * 先把這一局所有可能出現的說明都量一次，用最高的那個當固定高度。
+         */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;                // 還沒顯示時量不到
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;height:auto;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            const total = trace.length;
+            let tallest = 0;
+            new Set(trace.map(describe)).forEach(text => {
+                probe.innerHTML = `<span class="step-no">步驟 ${total} / ${total}・已搬動 ${minMoves()} 次</span>${text}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+        }
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (mode === 'solve') reserveExplainHeight(); }, 150);
+        });
 
         function stopAuto() {
             clearInterval(timer);
