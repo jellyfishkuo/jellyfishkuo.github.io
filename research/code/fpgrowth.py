@@ -1,0 +1,80 @@
+"""FP-Growth：把交易壓成一棵 FP-tree，再從樹裡遞迴挖出所有頻繁樣式"""
+
+
+class Node:
+    def __init__(self, item, parent):
+        self.item = item
+        self.count = 0
+        self.parent = parent
+        self.children = {}
+
+
+def fp_growth(db, min_sup):
+    result = {}
+    rows = [(t, 1) for t in db]       # (交易, 權重)；條件模式基底裡權重是路徑次數
+    mine(rows, min_sup, [], result)
+    return result
+
+
+def mine(db, min_sup, suffix, result):
+    # 1. 數次數，只留下頻繁的商品，次數多的排前面
+    count = {}
+    for items, n in db:
+        for item in items:
+            count[item] = count.get(item, 0) + n
+    order = [i for i in count if count[i] >= min_sup]
+    order.sort(key=lambda i: (-count[i], i))
+
+    # 2. 建 FP-tree：每筆照 order 排好，沿著共同的前綴往下插
+    root = Node(None, None)
+    header = {i: [] for i in order}
+    for items, n in db:
+        path = [i for i in order if i in items]
+        insert(root, path, n, header)
+
+    # 3. 從次數最少的商品開始挖
+    for item in reversed(order):
+        pattern = [item] + suffix
+        result[tuple(pattern)] = count[item]
+        base = []                                  # 條件模式基底
+        for node in header[item]:
+            path = prefix_path(node)
+            if path:
+                base.append((path, node.count))
+        mine(base, min_sup, pattern, result)       # 遞迴
+
+
+def insert(root, path, n, header):
+    node = root
+    for item in path:
+        if item not in node.children:              # 沒有共用的前綴，長出新節點
+            child = Node(item, node)
+            node.children[item] = child
+            header[item].append(child)             # 串進同商品的節點鏈
+        node = node.children[item]
+        node.count += n
+
+
+def prefix_path(node):
+    """從某個節點往上走到根，經過的商品就是它的前綴路徑"""
+    path = []
+    node = node.parent
+    while node.item is not None:
+        path.append(node.item)
+        node = node.parent
+    return path[::-1]
+
+
+if __name__ == "__main__":
+    db = [
+        {"咖啡", "麵包", "牛奶"},
+        {"咖啡", "麵包", "茶葉蛋"},
+        {"咖啡", "麵包", "牛奶", "飯糰"},
+        {"麵包", "牛奶", "洋芋片"},
+        {"咖啡", "牛奶", "茶葉蛋"},
+        {"咖啡", "麵包", "牛奶", "茶葉蛋"},
+        {"飯糰", "茶葉蛋", "洋芋片"},
+        {"咖啡", "麵包", "飯糰"},
+    ]
+    for pattern, sup in fp_growth(db, 3).items():
+        print(list(pattern), sup)
