@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/sliding-window.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/sliding-window-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/sliding-window-180.png">
+    <title>滑動視窗頻繁樣式探勘</title>
+    <meta name="description" content="一步一步看資料串流上的滑動視窗：每進來一筆交易、最舊的一筆就離開，用計數表即時更新頻繁樣式與最大頻繁樣式，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        h3 { font-size: 0.88rem; color: var(--muted); font-weight: 400; margin: 0.9rem 0 0.4rem; }
+        .intro { color: #c6c6d6; max-width: 780px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        .layout { display: grid; gap: 1rem; margin-top: 1rem; }
+        .layout > * { min-width: 0; display: grid; gap: 1rem; align-content: start; }
+        .layout > * > * { min-width: 0; }
+        @media (min-width: 960px) { .layout { grid-template-columns: 1fr 1.05fr; } }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+            min-width: 0;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .stream-card { margin-top: 1.3rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+
+        .params { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; align-items: center; font-size: 0.88rem; }
+        .param { display: flex; align-items: center; gap: 0.4rem; }
+        .param .val { font: 700 1rem 'Space Mono', monospace; min-width: 1.2em; text-align: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+
+        /* ── 輸送帶 ── */
+        .belt {
+            overflow-x: auto;
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 30px 10px 12px;
+        }
+        .belt-inner { position: relative; display: flex; gap: 6px; width: max-content; padding: 0 6px; }
+        .tx {
+            flex: none;
+            width: 46px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            text-align: center;
+            padding: 3px 0 4px;
+            position: relative;
+            transition: opacity 0.3s, border-color 0.3s, background 0.3s;
+        }
+        .tx .tid { font: 700 0.7rem 'Space Mono', monospace; display: block; line-height: 1.3; }
+        .tx .when { font: 0.58rem 'Space Mono', monospace; color: var(--muted); display: block; line-height: 1.2; margin-bottom: 2px; }
+        .tx .slot { height: 22px; display: flex; align-items: center; justify-content: center; font-size: 15px; border-radius: 5px; margin: 0 3px; }
+        .tx .slot.off::after { content: ''; width: 3px; height: 3px; border-radius: 50%; background: #34344e; }
+        .tx .slot.hit { background: rgba(245, 158, 11, 0.3); }
+        .tx.past { opacity: 0.28; }
+        .tx.future { opacity: 0.5; border-style: dashed; background: transparent; }
+        .tx.enter { border-color: var(--good); box-shadow: 0 0 0 1px var(--good); }
+        .tx.leaving { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); opacity: 0.85; }
+        .tx.leaving .tid { color: var(--bad); }
+        .tx.enter .tid { color: var(--good); }
+        .tx.mine .when { color: var(--accent2); }
+        .frame {
+            position: absolute;
+            top: -24px;
+            bottom: -6px;
+            border: 2px solid var(--accent2);
+            border-radius: 11px;
+            pointer-events: none;
+            transition: left 0.35s ease, width 0.35s ease, border-color 0.3s;
+        }
+        .frame .lbl {
+            position: absolute;
+            top: 2px;
+            left: 6px;
+            right: 6px;
+            font-size: 0.7rem;
+            color: var(--accent2);
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .frame.over { border-color: var(--warn); }
+        .frame.over .lbl { color: var(--warn); }
+        .frame.empty { opacity: 0; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.55rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+
+        .composer { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); font-size: 0.88rem; }
+        .composer .lbl { color: var(--muted); }
+        .picks { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+        .pick {
+            background: none;
+            border: 1px dashed #3a3a5a;
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 0.2rem 0.45rem;
+            font: inherit;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+        .pick.on { border: 1px solid var(--accent2); color: var(--text); background: rgba(6, 182, 212, 0.14); }
+        .add-hint { color: var(--muted); font-size: 0.8rem; min-height: 1.3em; margin-top: 0.35rem; }
+
+        /* ── 這一步 ── */
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .explain .up { color: #86efac; }
+        .explain .down { color: #fca5a5; }
+        .phases { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.7rem; }
+        .phase { flex: 1 1 auto; white-space: nowrap; text-align: center; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.2rem; }
+        .phase.cur { color: var(--text); border-color: var(--accent); background: rgba(124, 58, 237, 0.15); }
+        .phase b { font-weight: 600; }
+
+        /* ── 計數表 ── */
+        .seg { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+        .seg button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.15rem 0.5rem;
+            font: inherit;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+        .seg button.active { color: var(--text); border-color: var(--accent2); }
+        .tbl-sum { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.45rem; min-height: 1.4em; }
+        .tbl-sum .up { color: #86efac; }
+        .tbl-sum .down { color: #fca5a5; }
+        .tbl { max-height: 380px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: #0a0a14; }
+        .trow {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 1.7em 70px 2.6em;
+            gap: 0.45rem;
+            align-items: center;
+            padding: 0.28rem 0.6rem;
+            border-bottom: 1px solid #1a1a2e;
+            cursor: pointer;
+            font-size: 0.84rem;
+        }
+        .trow:last-child { border-bottom: none; }
+        .trow:hover { background: rgba(255, 255, 255, 0.03); }
+        .trow .set { min-width: 0; line-height: 1.35; }
+        .trow .emo { letter-spacing: 1px; }
+        .trow .nm { color: var(--muted); font-size: 0.76rem; margin-left: 0.3rem; }
+        .trow .c { font: 700 0.85rem 'Space Mono', monospace; text-align: right; }
+        .trow.freq .c { color: #86efac; }
+        .bar { position: relative; height: 8px; background: #1e1e36; border-radius: 4px; }
+        .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: #4a4a7a; border-radius: 4px; transition: width 0.3s; }
+        .trow.freq .bar .fill { background: var(--good); }
+        .bar .th { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--warn); border-radius: 1px; }
+        .trow .d { font: 700 0.74rem 'Space Mono', monospace; text-align: right; }
+        .trow.plus { background: rgba(34, 197, 94, 0.09); }
+        .trow.plus .d { color: #86efac; }
+        .trow.minus { background: rgba(248, 113, 113, 0.09); }
+        .trow.minus .d { color: #fca5a5; }
+        .trow.removed { opacity: 0.55; }
+        .trow.removed .set { text-decoration: line-through; }
+        .trow.cross-up { box-shadow: inset 3px 0 0 var(--good); background: rgba(34, 197, 94, 0.12); }
+        .trow.cross-down { box-shadow: inset 3px 0 0 var(--bad); background: rgba(248, 113, 113, 0.12); }
+        .trow.sel { outline: 2px solid var(--warn); outline-offset: -2px; }
+        .tbl-empty { color: var(--muted); font-size: 0.85rem; padding: 0.8rem; }
+        .tbl-foot { color: var(--muted); font-size: 0.78rem; margin-top: 0.4rem; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.2rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .compare { margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); }
+        .compare b { color: var(--text); }
+
+        /* ── 頻繁樣式 ── */
+        .tag-state { font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 0.05rem 0.45rem; }
+        .tag-state.fresh { color: var(--accent2); border-color: var(--accent2); }
+        .levels { display: grid; gap: 0.45rem; }
+        .level { display: grid; grid-template-columns: 2.8em 1fr; gap: 0.5rem; align-items: start; }
+        .level .tag { font: 700 0.8rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.2rem; }
+        .level .items { display: flex; flex-wrap: wrap; gap: 0.35rem; min-width: 0; }
+        .pat {
+            font: inherit;
+            font-size: 0.82rem;
+            color: var(--text);
+            background: none;
+            border: 1px solid rgba(34, 197, 94, 0.5);
+            border-radius: 7px;
+            padding: 0.12rem 0.5rem;
+            cursor: pointer;
+            text-align: left;
+        }
+        .pat:hover { border-color: var(--accent2); }
+        .pat .n { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.35rem; color: #86efac; }
+        .pat .flag { font-size: 0.7rem; margin-left: 0.35rem; }
+        .pat.max { border-color: var(--accent); background: rgba(124, 58, 237, 0.14); }
+        .pat.new { box-shadow: 0 0 0 2px var(--good); }
+        .pat.new .flag { color: #86efac; }
+        .pat.gone { border-style: dashed; border-color: rgba(248, 113, 113, 0.6); background: none; }
+        .pat.gone .nm { text-decoration: line-through; color: var(--muted); }
+        .pat.gone .n { color: #fca5a5; }
+        .pat.gone .flag { color: #fca5a5; }
+        .pat.sel { outline: 2px solid var(--warn); outline-offset: 1px; }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+
+        /* ── 折線圖 ── */
+        .pick-pattern { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.25rem 0.4rem; font: inherit; font-size: 0.82rem; max-width: 100%; }
+        .chart-wrap { position: relative; }
+        .chart-wrap svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+        .chart-tip {
+            position: absolute;
+            pointer-events: none;
+            background: #1e1e36;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.15rem 0.45rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            display: none;
+        }
+        .chart-cap { color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+        svg .grid { stroke: #1e1e36; stroke-width: 1; }
+        svg .axis-t { font: 10px 'Space Mono', monospace; fill: #6a6a85; }
+        svg .band-t { font-size: 10px; fill: #6a6a85; }
+        svg .band { fill: rgba(255, 255, 255, 0.025); }
+        svg .th-line { stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 5 4; }
+        svg .th-t { font-size: 10px; fill: var(--warn); }
+        svg .series { fill: none; stroke: var(--accent2); stroke-width: 2; stroke-linejoin: round; }
+        svg .pt { stroke: var(--accent2); stroke-width: 2; fill: #0f0f1a; }
+        svg .pt.ok { fill: var(--good); stroke: var(--good); }
+        svg .now-line { stroke: #4a4a6a; stroke-width: 1; stroke-dasharray: 2 3; }
+        svg .guide { stroke: var(--muted); stroke-width: 1; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+            position: relative;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+
+        @media (max-width: 600px) {
+            .tx { width: 40px; }
+            .tx .slot { font-size: 14px; height: 21px; }
+            .trow { grid-template-columns: minmax(0, 1fr) 1.6em 52px 2.4em; gap: 0.35rem; padding: 0.28rem 0.45rem; }
+            .phase .pn { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · DATA STREAM MINING</div>
+        <h1>滑動視窗頻繁樣式探勘<small>交易源源不絕地進來，只看最近 W 筆，每來一筆就即時更新</small></h1>
+        <p class="intro">
+            <a href="apriori.html">Apriori</a> 和 <a href="fp-growth.html">FP-Growth</a> 都假設資料庫是固定的一份，可以從頭掃好幾次。
+            但超商的收銀機一直在刷：資料<b>源源不絕地進來</b>，舊資料也越來越不重要。<b>滑動視窗</b>的做法是只關心最近 W 筆交易：
+            每進來一筆，最舊的一筆就離開。頻繁樣式要跟著即時更新，而且<b>不能每次都把整個視窗重算一遍</b>。
+            這頁用一張「計數表」記住視窗裡每個商品組合出現幾次，看它怎麼只改一點點就跟上變化。
+        </p>
+
+        <div class="card stream-card">
+            <div class="card-head">
+                <h2>交易串流</h2>
+                <div class="params">
+                    <div class="param">
+                        <span>視窗大小 W</span>
+                        <button class="btn stepper" id="w-minus" aria-label="視窗變小">−</button>
+                        <span class="val" id="w-val">5</span>
+                        <button class="btn stepper" id="w-plus" aria-label="視窗變大">+</button>
+                    </div>
+                    <div class="param">
+                        <span>最小支持度</span>
+                        <button class="btn stepper" id="sup-minus" aria-label="減少">−</button>
+                        <span class="val" id="sup-val">3</span>
+                        <button class="btn stepper" id="sup-plus" aria-label="增加">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="belt" id="belt">
+                <div class="belt-inner" id="belt-inner"></div>
+            </div>
+            <div class="legend">
+                <span><i style="border-color:var(--accent2)"></i>視窗（最近 W 筆）</span>
+                <span><i style="border-color:var(--good)"></i>剛進來</span>
+                <span><i style="border-color:var(--bad)"></i>最舊、要離開</span>
+                <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒進來</span>
+                <span><i style="border-color:var(--warn);background:rgba(245,158,11,0.3)"></i>包含下面選的樣式</span>
+            </div>
+            <div class="composer">
+                <span class="lbl">自己加一筆：</span>
+                <div class="picks" id="picks"></div>
+                <button class="btn" id="btn-append" disabled>加到串流尾端</button>
+                <button class="btn" id="btn-reset-stream">恢復範例串流</button>
+            </div>
+            <div class="add-hint" id="add-hint"></div>
+        </div>
+
+        <div class="layout">
+            <div>
+                <div class="card">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="explain" id="explain"></div>
+                    <div class="phases" id="phases"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h2>計數表</h2>
+                        <div class="seg" id="filter">
+                            <button data-f="freq">頻繁</button>
+                            <button data-f="near" class="active">差 1 次以內</button>
+                            <button data-f="all">全部</button>
+                        </div>
+                    </div>
+                    <div class="tbl-sum" id="tbl-sum"></div>
+                    <div class="tbl" id="tbl"></div>
+                    <div class="tbl-foot" id="tbl-foot"></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-size">0</div><div class="k">計數表記著的組合</div></div>
+                        <div class="stat"><div class="v" id="st-step">0</div><div class="k">這一步 ±1 的組合</div></div>
+                        <div class="stat"><div class="v" id="st-ops">0</div><div class="k">到目前累計 ±1 次數</div></div>
+                    </div>
+                    <div class="compare" id="compare"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="card-head">
+                        <h2>目前的頻繁樣式</h2>
+                        <span class="tag-state" id="pat-state"></span>
+                    </div>
+                    <div class="levels" id="levels"></div>
+                    <h3>最大頻繁樣式 <span id="max-n"></span></h3>
+                    <div class="levels" id="maxes"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--accent);background:rgba(124,58,237,0.14)"></i>最大頻繁</span>
+                        <span><i style="border-color:var(--good)"></i>新變成頻繁</span>
+                        <span><i style="border-color:var(--bad);border-style:dashed"></i>不再頻繁（後面是現在的次數）</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h2>支持度變化</h2>
+                        <select class="pick-pattern" id="pick-pattern" aria-label="選一個商品組合"></select>
+                    </div>
+                    <div class="chart-wrap" id="chart-wrap">
+                        <svg id="chart" role="img" aria-label="所選組合在視窗裡的次數隨時間變化"></svg>
+                        <div class="chart-tip" id="chart-tip"></div>
+                    </div>
+                    <div class="chart-cap" id="chart-cap"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼只改一點點，結果還是對的？</h2>
+                <p>一筆交易 T 會讓組合 X 的次數多 1，條件是 <b>X 是 T 的子集合</b>（T 裡面全都有）。視窗每一步只會「多一筆、少一筆」，
+                    所以只有<b>新交易的子集合要 +1、離開那筆的子集合要 −1</b>，其他組合的次數完全不變。每一步做完，計數表都會跟「直接把視窗重數一遍」一模一樣。</p>
+                <p style="margin-top:0.5rem">順著這個想下去：<b>新變成頻繁的組合，一定是剛進來那筆的子集合</b>；<b>不再頻繁的，一定是剛離開那筆的子集合</b>。
+                    所以更新頻繁樣式時，其實只要檢查這兩群就好（程式為了好讀，直接掃整張表）。
+                    <b>最大頻繁樣式</b>是更精簡的答案：一個組合頻繁，它的子集合一定也頻繁，所以只列出「最大的那些」，就能推回全部的頻繁樣式（但推不回各自的次數）。</p>
+            </div>
+            <div class="card">
+                <h2>這個做法的限制，和實驗室在研究什麼</h2>
+                <ul>
+                    <li><b>全部子集合都記，只適合商品很少的時候。</b>一筆有 k 樣商品就有 2<sup>k</sup> − 1 個子集合：這裡最多 6 樣、63 個還好，
+                        但一張 20 樣商品的發票就有一百多萬個，真實資料不可能這樣記。</li>
+                    <li><b>實際研究就是在想怎麼少記一點、少算一點。</b>例如把組合放在字典樹 / 集合晶格（lattice）上共用前綴，只保留「有機會變頻繁」的節點，
+                        或用位元向量記每個商品出現在視窗裡的哪幾筆。這頁是幫助理解「視窗怎麼更新」的觀念。</li>
+                    <li><b>最大 / 封閉頻繁集：</b>最大頻繁只留最大的組合；封閉頻繁則留下「沒有任何超集合跟它次數一樣」的組合，可以還原全部頻繁樣式和次數。
+                        在視窗裡，一筆交易進出可能讓這些答案大幅改變，怎麼只更新受影響的部分就是研究重點。</li>
+                    <li><b>高效益集：</b>改看數量 × 利潤時，效益沒有「子集合一定比較大」的性質，要另外設計上界，在視窗裡維護起來更麻煩。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           滑動視窗一步一步看
+           網頁裡用 JavaScript 照著同樣的方法跑一次整條串流，把每一步記下來，
+           上一步／下一步只是在這些紀錄之間移動；下面的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = {"java": [["final int w, minSup;                                      // 視窗大小、最小支持度", ["start"]], ["final Deque<List<String>> window = new ArrayDeque<>();    // 視窗裡的交易，最舊的在最前面", ["start"]], ["final Map<List<String>, Integer> count = new HashMap<>(); // 計數表：商品組合 -> 出現幾次", ["start"]], ["", []], ["SlidingWindow(int w, int minSup) { this.w = w; this.minSup = minSup; }", ["start"]], ["", []], ["/** 新交易進來：它的每個非空子集合次數 +1 */", []], ["List<String> add(Collection<String> t) {", ["add"]], ["    List<String> items = new ArrayList<>(new TreeSet<>(t));", ["add"]], ["    window.addLast(items);", ["add"]], ["    for (List<String> s : subsets(items))", ["add"]], ["        count.merge(s, 1, Integer::sum);", ["add"]], ["    if (window.size() > w) return expire();               // 視窗滿了，最舊的要離開", ["expire"]], ["    return null;", []], ["}", []], ["", []], ["/** 最舊的交易離開：它的每個非空子集合次數 -1，變成 0 就從表裡刪掉 */", []], ["List<String> expire() {", ["expire"]], ["    List<String> old = window.removeFirst();", ["expire"]], ["    for (List<String> s : subsets(old)) {", ["expire"]], ["        count.merge(s, -1, Integer::sum);", ["expire"]], ["        if (count.get(s) == 0) count.remove(s);", ["expire"]], ["    }", ["expire"]], ["    return old;", ["expire"]], ["}", ["expire"]], ["", []], ["/** 頻繁樣式：次數 >= minSup 的組合 */", []], ["Map<List<String>, Integer> frequent() {", ["update"]], ["    Map<List<String>, Integer> f = new TreeMap<>(ORDER);", ["update"]], ["    for (Map.Entry<List<String>, Integer> e : count.entrySet())", ["update"]], ["        if (e.getValue() >= minSup) f.put(e.getKey(), e.getValue());", ["update"]], ["    return f;", ["update"]], ["}", ["update"]], ["", ["update"]], ["/** 最大頻繁樣式：頻繁、而且沒有任何超集合也頻繁 */", ["update"]], ["Map<List<String>, Integer> maximal() {", ["update"]], ["    Map<List<String>, Integer> f = frequent(), m = new TreeMap<>(ORDER);", ["update"]], ["    for (List<String> s : f.keySet()) {", ["update"]], ["        boolean hasBigger = false;", ["update"]], ["        for (List<String> o : f.keySet())", ["update"]], ["            if (o.size() > s.size() && o.containsAll(s)) hasBigger = true;", ["update"]], ["        if (!hasBigger) m.put(s, f.get(s));", ["update"]], ["    }", ["update"]], ["    return m;", ["update"]], ["}", ["update"]], ["", []], ["/** 一筆交易的所有非空子集合（用位元列舉，6 個商品最多 63 個） */", []], ["static List<List<String>> subsets(List<String> t) {", ["add", "expire"]], ["    List<List<String>> out = new ArrayList<>();", ["add", "expire"]], ["    for (int mask = 1; mask < (1 << t.size()); mask++) {", ["add", "expire"]], ["        List<String> s = new ArrayList<>();", ["add", "expire"]], ["        for (int i = 0; i < t.size(); i++)", ["add", "expire"]], ["            if ((mask >> i & 1) == 1) s.add(t.get(i));", ["add", "expire"]], ["        out.add(s);", ["add", "expire"]], ["    }", ["add", "expire"]], ["    return out;", ["add", "expire"]], ["}", ["add", "expire"]], ["", []], ["/** 把串流一筆一筆餵進視窗，印出每一步頻繁樣式的變化 */", []], ["static void run(List<Set<String>> stream, int w, int minSup) {", []], ["    SlidingWindow sw = new SlidingWindow(w, minSup);", ["start"]], ["    Map<List<String>, Integer> before = new TreeMap<>(ORDER);", ["start"]], ["    for (int i = 1; i <= stream.size(); i++) {", ["loop"]], ["        List<String> old = sw.add(stream.get(i - 1));     // 進來一筆，必要時擠掉最舊的一筆", ["add", "expire"]], ["        System.out.println(\"T\" + i + \" 進入 \" + fmt(stream.get(i - 1))", ["add", "expire"]], ["            + (old != null ? \"，T\" + (i - w) + \" 離開 \" + fmt(old) : \"\"));", ["add", "expire"]], ["        Map<List<String>, Integer> now = sw.frequent();", ["update"]], ["        for (List<String> s : now.keySet())", ["update"]], ["            if (!before.containsKey(s)) System.out.println(\"  + 變成頻繁 \" + fmt(s) + \" \" + now.get(s));", ["update"]], ["        for (List<String> s : before.keySet())", ["update"]], ["            if (!now.containsKey(s)) System.out.println(\"  - 不再頻繁 \" + fmt(s));", ["update"]], ["        StringJoiner line = new StringJoiner(\" \", \"  最大頻繁：\", \"\");", ["update"]], ["        sw.maximal().forEach((s, c) -> line.add(fmt(s) + \"×\" + c));", ["update"]], ["        System.out.println(line);", ["update"]], ["        before = now;", ["update"]], ["    }", []], ["}", []], ["", []], ["static String fmt(Collection<String> s) {", []], ["    return \"{\" + String.join(\", \", new TreeSet<>(s)) + \"}\";", []], ["}", []], ["", []], ["/** 先比商品數、再逐個比商品名稱，讓輸出順序固定 */", []], ["static final Comparator<List<String>> ORDER = (a, b) -> {", []], ["    if (a.size() != b.size()) return a.size() - b.size();", []], ["    for (int i = 0; i < a.size(); i++) {", []], ["        int c = a.get(i).compareTo(b.get(i));", []], ["        if (c != 0) return c;", []], ["    }", []], ["    return 0;", []], ["};", []]], "py": [["class SlidingWindow:", []], ["    def __init__(self, w, min_sup):", ["start"]], ["        self.w = w                  # 視窗大小：只看最近 w 筆", ["start"]], ["        self.min_sup = min_sup      # 最小支持度", ["start"]], ["        self.window = deque()       # 視窗裡的交易，最舊的在最左邊", ["start"]], ["        self.count = {}             # 計數表：商品組合 -> 在視窗裡出現幾次", ["start"]], ["", []], ["    def add(self, t):", ["add"]], ["        \"\"\"新交易進來：它的每個非空子集合次數 +1\"\"\"", ["add"]], ["        t = tuple(sorted(t))", ["add"]], ["        self.window.append(t)", ["add"]], ["        for s in subsets(t):", ["add"]], ["            self.count[s] = self.count.get(s, 0) + 1", ["add"]], ["        if len(self.window) > self.w:   # 視窗滿了，最舊的要離開", ["expire"]], ["            return self._expire()", ["expire"]], ["        return None", []], ["", []], ["    def _expire(self):", ["expire"]], ["        \"\"\"最舊的交易離開：它的每個非空子集合次數 -1，變成 0 就從表裡刪掉\"\"\"", ["expire"]], ["        old = self.window.popleft()", ["expire"]], ["        for s in subsets(old):", ["expire"]], ["            self.count[s] -= 1", ["expire"]], ["            if self.count[s] == 0:", ["expire"]], ["                del self.count[s]", ["expire"]], ["        return old", ["expire"]], ["", []], ["    def frequent(self):", ["update"]], ["        \"\"\"頻繁樣式：次數 >= min_sup 的組合\"\"\"", ["update"]], ["        return {s: c for s, c in self.count.items() if c >= self.min_sup}", ["update"]], ["", ["update"]], ["    def maximal(self):", ["update"]], ["        \"\"\"最大頻繁樣式：頻繁、而且沒有任何超集合也頻繁\"\"\"", ["update"]], ["        f = self.frequent()", ["update"]], ["        return {s: c for s, c in f.items()", ["update"]], ["                if not any(set(s) < set(o) for o in f)}", ["update"]], ["", []], ["", []], ["def subsets(t):", ["add", "expire"]], ["    \"\"\"一筆交易的所有非空子集合（6 個商品最多 63 個）\"\"\"", ["add", "expire"]], ["    for k in range(1, len(t) + 1):", ["add", "expire"]], ["        yield from combinations(t, k)", ["add", "expire"]], ["", []], ["", []], ["def run(stream, w, min_sup):", []], ["    \"\"\"把串流一筆一筆餵進視窗，印出每一步頻繁樣式的變化\"\"\"", []], ["    sw = SlidingWindow(w, min_sup)", ["start"]], ["    before = {}", ["start"]], ["    for i, t in enumerate(stream, 1):", ["loop"]], ["        old = sw.add(t)                       # 進來一筆，必要時擠掉最舊的一筆", ["add", "expire"]], ["        print(f\"T{i} 進入 {fmt(t)}\" + (f\"，T{i - w} 離開 {fmt(old)}\" if old else \"\"))", ["add", "expire"]], ["        now = sw.frequent()", ["update"]], ["        for s in ordered(now.keys() - before.keys()):", ["update"]], ["            print(f\"  + 變成頻繁 {fmt(s)} {now[s]}\")", ["update"]], ["        for s in ordered(before.keys() - now.keys()):", ["update"]], ["            print(f\"  - 不再頻繁 {fmt(s)}\")", ["update"]], ["        m = sw.maximal()", ["update"]], ["        print(\"  最大頻繁：\" + \" \".join(f\"{fmt(s)}×{m[s]}\" for s in ordered(m)))", ["update"]], ["        before = now", ["update"]], ["", []], ["", []], ["def fmt(s):", []], ["    return \"{\" + \", \".join(sorted(s)) + \"}\"", []], ["", []], ["", []], ["def ordered(patterns):", []], ["    \"\"\"先比商品數、再比商品名稱，讓輸出順序固定\"\"\"", []], ["    return sorted(patterns, key=lambda s: (len(s), s))", []]]};
+
+        const ITEMS = ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'];
+        const EMOJI = { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' };
+        /* 前 8 筆是 Apriori 那一頁的同一份資料（早上），後面是中午和晚上 */
+        const SAMPLE = [
+            [['咖啡', '麵包', '牛奶'], '07:05'],
+            [['咖啡', '麵包', '茶葉蛋'], '07:18'],
+            [['咖啡', '麵包', '牛奶', '飯糰'], '07:31'],
+            [['麵包', '牛奶', '洋芋片'], '07:46'],
+            [['咖啡', '牛奶', '茶葉蛋'], '08:02'],
+            [['咖啡', '麵包', '牛奶', '茶葉蛋'], '08:15'],
+            [['飯糰', '茶葉蛋', '洋芋片'], '08:33'],
+            [['咖啡', '麵包', '飯糰'], '08:51'],
+            [['咖啡', '飯糰', '茶葉蛋'], '11:52'],
+            [['飯糰', '茶葉蛋'], '12:04'],
+            [['牛奶', '飯糰', '茶葉蛋'], '12:10'],
+            [['麵包', '飯糰', '茶葉蛋'], '12:21'],
+            [['飯糰', '茶葉蛋', '洋芋片'], '12:35'],
+            [['咖啡', '飯糰'], '12:48'],
+            [['牛奶', '洋芋片'], '21:07'],
+            [['麵包', '牛奶', '洋芋片'], '21:26'],
+            [['牛奶', '茶葉蛋', '洋芋片'], '21:40'],
+            [['麵包', '牛奶', '洋芋片'], '22:05'],
+            [['咖啡', '洋芋片'], '22:31'],
+            [['麵包', '牛奶', '洋芋片'], '23:12']
+        ];
+        const PHASES = [
+            { from: 1, to: 8, label: '早上', note: '咖啡配麵包' },
+            { from: 9, to: 14, label: '中午', note: '飯糰配茶葉蛋' },
+            { from: 15, to: 20, label: '晚上', note: '洋芋片配牛奶' }
+        ];
+        const MAX_STREAM = 40;
+
+        const $ = id => document.getElementById(id);
+        let stream = [];          // 每筆：{ items: [...], when: '07:05', mine: false }
+        let winSize = 5;
+        let minSup = 3;
+        let trace = [];
+        let cursor = 0;
+        let lang = 'java';
+        let timer = null;
+        let selKey = '茶葉蛋|飯糰'; // 折線圖要看的組合
+        let filterMode = 'near';
+        const picking = new Set();
+
+        /* 跟 Java 的 compareTo、Python 的字串比較同一個順序（依字碼） */
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+        const key = set => set.join('|');
+        const unkey = k => k.split('|');
+        const fmt = set => '{' + set.join(', ') + '}';
+        const emo = set => set.map(i => EMOJI[i] || '').join('');
+        const byOrder = (a, b) => a.length - b.length || cmp(key(a), key(b));
+        const orderKeys = keys => keys.map(unkey).sort((a, b) => a.length - b.length || a.reduce((r, x, i) => r || cmp(x, b[i]), 0)).map(key);
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const label = i => `T${i + 1}`;
+
+        function resetStream() {
+            stream = SAMPLE.map(([items, when]) => ({ items, when, mine: false }));
+        }
+
+        /* 一筆交易的所有非空子集合（用位元列舉，跟 Java 版一樣） */
+        function subsets(t) {
+            const out = [];
+            for (let mask = 1; mask < (1 << t.length); mask++) out.push(t.filter((_, i) => (mask >> i) & 1));
+            return out;
+        }
+
+        function frequentOf(count, ms) {
+            const f = new Map();
+            count.forEach((c, k) => { if (c >= ms) f.set(k, c); });
+            return f;
+        }
+        function maximalOf(f) {
+            const m = new Map();
+            const sets = [...f.keys()].map(k => [k, unkey(k)]);
+            sets.forEach(([k, s]) => {
+                const hasBigger = sets.some(([, o]) => o.length > s.length && s.every(x => o.includes(x)));
+                if (!hasBigger) m.set(k, f.get(k));
+            });
+            return m;
+        }
+
+        /* ---------- 照著程式把整條串流跑一次，記下每一步 ---------- */
+        function buildTrace(txs, W, ms) {
+            const steps = [];
+            const win = [];                 // 視窗裡是哪幾筆（串流裡的位置），最舊的在前面
+            const count = new Map();        // 計數表：組合 -> 次數
+            let freq = new Map(), max = new Map();
+            let ops = 0, recompute = 0;
+            const push = (kind, extra) => steps.push({
+                kind, win: win.slice(), counts: new Map(count), freq, max, ops, recompute, ...extra
+            });
+
+            push('start', { arrival: 0 });
+            txs.forEach((items, idx) => {
+                const arrival = idx + 1;
+                // ① 新交易進入：每個非空子集合 +1
+                const t = [...items].sort(cmp);
+                win.push(idx);
+                const delta = new Map(), added = [];
+                subsets(t).forEach(s => {
+                    const k = key(s);
+                    const c = count.get(k) || 0;
+                    if (!c) added.push(k);
+                    count.set(k, c + 1);
+                    delta.set(k, 1);
+                });
+                ops += delta.size;
+                // 如果每來一筆都把整個視窗重數一遍，要做幾次 +1
+                txs.slice(Math.max(0, arrival - W), arrival).forEach(x => { recompute += 2 ** x.length - 1; });
+                push('add', { arrival, idx, delta, added, over: win.length > W });
+
+                // ② 視窗滿了：最舊的離開，每個非空子集合 -1，變成 0 就刪掉
+                if (win.length > W) {
+                    const oldIdx = win.shift();
+                    const old = [...txs[oldIdx]].sort(cmp);
+                    const d2 = new Map(), removed = [];
+                    subsets(old).forEach(s => {
+                        const k = key(s);
+                        const c = count.get(k) - 1;
+                        d2.set(k, -1);
+                        if (c === 0) { count.delete(k); removed.push(k); } else count.set(k, c);
+                    });
+                    ops += d2.size;
+                    push('expire', { arrival, idx: oldIdx, delta: d2, removed });
+                }
+
+                // ③ 更新頻繁 / 最大頻繁樣式，跟上一次比
+                const nf = frequentOf(count, ms), nm = maximalOf(nf);
+                const newF = orderKeys([...nf.keys()].filter(k => !freq.has(k)));
+                const goneF = orderKeys([...freq.keys()].filter(k => !nf.has(k)));
+                const newM = orderKeys([...nm.keys()].filter(k => !max.has(k)));
+                const goneM = orderKeys([...max.keys()].filter(k => !nm.has(k)));
+                freq = nf;
+                max = nm;
+                push('update', { arrival, idx, newF, goneF, newM, goneM });
+            });
+            push('end', { arrival: txs.length });
+            return steps;
+        }
+
+        /* 給測試用：每處理完一筆之後的頻繁 / 最大頻繁 / 整張計數表 */
+        function simulate(txs, W, ms) {
+            const dump = m => [...m.entries()].map(([k, c]) => [unkey(k), c]);
+            return buildTrace(txs, W, ms).filter(s => s.kind === 'update')
+                .map(s => ({ freq: dump(s.freq), max: dump(s.max), counts: dump(s.counts) }));
+        }
+
+        /* ---------- 說明文字 ---------- */
+        const list = (keys, n = 3) => {
+            const shown = keys.slice(0, n).map(k => fmt(unkey(k))).join('、');
+            return keys.length > n ? `${shown} 等 ${keys.length} 個` : shown;
+        };
+        const txt = i => `${label(i)}（${esc(stream[i].when)}）`;
+        function describe(s) {
+            const total = stream.length;
+            switch (s.kind) {
+                case 'start':
+                    return `串流裡的交易會一筆一筆進來，但我們只關心<b>最近 ${winSize} 筆</b>。計數表記住視窗裡每個商品組合出現幾次，` +
+                        `次數 ≥ <b>${minSup}</b> 的就是頻繁樣式。按「下一步」讓第一筆進來。`;
+                case 'add': {
+                    const t = stream[s.idx].items;
+                    const fill = s.win.length;
+                    return `${txt(s.idx)} 進入視窗：${fmt([...t].sort(cmp))} 有 ${t.length} 樣商品，所有非空子集合共 ${s.delta.size} 個，每個 <b class="up">+1</b>` +
+                        (s.added.length ? `，其中 ${s.added.length} 個是第一次出現、新加進表裡的。` : `，全都已經在表裡了。`) +
+                        (s.over ? `視窗變成 ${fill} 筆，超過 W = ${winSize}，最舊的 ${label(s.win[0])} 要離開。`
+                            : `視窗現在 ${fill} / ${winSize} 筆，還沒滿，沒有人要離開。`);
+                }
+                case 'expire':
+                    return `最舊的 ${txt(s.idx)} 離開視窗：它的 ${s.delta.size} 個子集合各 <b class="down">−1</b>` +
+                        (s.removed.length ? `，其中 ${s.removed.length} 個降到 0、從表裡刪掉（例如 ${list(s.removed, 2)}）。` : `，沒有降到 0 的。`) +
+                        `其他組合的次數完全不用動。`;
+                case 'update': {
+                    const nF = s.freq.size, nM = s.max.size;
+                    let out = `更新頻繁樣式：次數 ≥ ${minSup} 的有 <b>${nF}</b> 個，其中最大頻繁 ${nM} 個。`;
+                    if (s.newF.length) out += `<span class="up">新變成頻繁</span>：${list(s.newF)}（都是 ${label(s.idx)} 的子集合）。`;
+                    if (s.goneF.length) out += `<span class="down">不再頻繁</span>：${list(s.goneF)}。`;
+                    if (!s.newF.length && !s.goneF.length) out += `這一筆沒有讓任何組合跨過門檻，頻繁樣式不變。`;
+                    return out;
+                }
+                case 'end':
+                    return `範例串流到這裡用完了（真正的串流不會停）。整個過程計數表一共做了 <b>${s.ops}</b> 次 ±1；` +
+                        `如果每來一筆都把視窗重數一遍，要做 ${s.recompute} 次。也可以在上面自己加一筆，看看視窗怎麼反應。`;
+            }
+            return '';
+        }
+
+        const CODE_TAG = { start: 'start', add: 'add', expire: 'expire', update: 'update', end: 'loop' };
+
+        /* ---------- 輸送帶 ---------- */
+        function buildBelt() {
+            const inner = $('belt-inner');
+            inner.innerHTML = '';
+            stream.forEach((tx, i) => {
+                const card = document.createElement('div');
+                card.className = 'tx' + (tx.mine ? ' mine' : '');
+                card.innerHTML = `<span class="tid"></span><span class="when"></span>` +
+                    ITEMS.map(it => `<div class="slot ${tx.items.includes(it) ? 'on' : 'off'}" data-i="${it}"></div>`).join('');
+                card.querySelector('.tid').textContent = label(i);
+                card.querySelector('.when').textContent = tx.mine ? '你加的' : tx.when;
+                card.querySelectorAll('.slot.on').forEach(sl => { sl.textContent = EMOJI[sl.dataset.i]; sl.title = sl.dataset.i; });
+                inner.appendChild(card);
+            });
+            const frame = document.createElement('div');
+            frame.className = 'frame empty';
+            frame.id = 'frame';
+            frame.innerHTML = '<span class="lbl"></span>';
+            inner.appendChild(frame);
+        }
+
+        function renderBelt(s, smooth) {
+            const cards = [...$('belt-inner').querySelectorAll('.tx')];
+            const inWin = new Set(s.win);
+            const lo = s.win.length ? s.win[0] : null;
+            const sel = selKey ? unkey(selKey) : [];
+            cards.forEach((card, i) => {
+                const st = inWin.has(i) ? 'in' : (lo !== null && i < lo) || (s.kind === 'end' && !inWin.has(i)) ? 'past' : 'future';
+                card.className = 'tx' + (stream[i].mine ? ' mine' : '') +
+                    (st === 'past' ? ' past' : st === 'future' ? ' future' : '') +
+                    (s.kind === 'add' && i === s.idx ? ' enter' : '') +
+                    ((s.kind === 'add' && s.over && i === s.win[0]) || (s.kind === 'expire' && i === s.idx) ? ' leaving' : '');
+                if (s.kind === 'expire' && i === s.idx) card.classList.remove('past');
+                const has = sel.length && sel.every(x => stream[i].items.includes(x));
+                card.querySelectorAll('.slot').forEach(sl => sl.classList.toggle('hit', !!has && sel.includes(sl.dataset.i)));
+            });
+            const frame = $('frame');
+            if (!s.win.length) { frame.className = 'frame empty'; $('belt').scrollTo({ left: 0 }); return; }
+            const a = cards[s.win[0]], b = cards[s.win[s.win.length - 1]];
+            const left = a.offsetLeft - 5, width = b.offsetLeft + b.offsetWidth + 5 - left;
+            frame.style.transition = smooth ? '' : 'none';
+            frame.style.left = left + 'px';
+            frame.style.width = width + 'px';
+            frame.className = 'frame' + (s.win.length > winSize ? ' over' : '');
+            frame.querySelector('.lbl').textContent = s.win.length > winSize ? `${s.win.length} 筆 > W` : `視窗 ${s.win.length}/${winSize}`;
+            frame.title = `視窗：${s.win.map(label).join('、')}`;
+            if (!smooth) { void frame.offsetWidth; frame.style.transition = ''; }
+            // 只捲輸送帶本身：讓視窗右邊（新進來的那端）和下一筆都看得到
+            const belt = $('belt');
+            const right = $('belt-inner').offsetLeft + b.offsetLeft + b.offsetWidth + 64;
+            belt.scrollTo({ left: Math.max(0, right - belt.clientWidth), behavior: smooth ? 'smooth' : 'auto' });
+        }
+
+        /* ---------- 計數表 ---------- */
+        function renderTable(s) {
+            const box = $('tbl');
+            const counts = s.counts;
+            const delta = s.delta || new Map();
+            const removed = new Set(s.removed || []);
+            const up = new Set(s.kind === 'update' ? s.newF : []);
+            const down = new Set(s.kind === 'update' ? s.goneF : []);
+            const lowest = filterMode === 'freq' ? minSup : filterMode === 'near' ? minSup - 1 : 0;
+            let keys = [...new Set([...counts.keys(), ...down])].filter(k => (counts.get(k) || 0) >= lowest || down.has(k));
+            if (filterMode === 'all') keys = keys.concat([...removed]);
+            keys.sort((x, y) => (counts.get(y) || 0) - (counts.get(x) || 0) || byOrder(unkey(x), unkey(y)));
+
+            // 這一步的摘要
+            const sum = $('tbl-sum');
+            if (s.kind === 'add') sum.innerHTML = `這一步：<span class="up">${delta.size} 個組合 +1</span>，${s.added.length} 個是新加進表的。`;
+            else if (s.kind === 'expire') sum.innerHTML = `這一步：<span class="down">${delta.size} 個組合 −1</span>，${s.removed.length} 個降到 0 被刪掉。`;
+            else if (s.kind === 'update') sum.innerHTML = `這一步不改次數，只看誰跨過門檻 ${minSup}：<span class="up">${up.size} 個變頻繁</span>、<span class="down">${down.size} 個不再頻繁</span>。`;
+            else sum.textContent = s.kind === 'start' ? '計數表還是空的。' : '串流用完了。';
+
+            box.innerHTML = '';
+            if (!keys.length) {
+                box.innerHTML = `<div class="tbl-empty">${counts.size ? '沒有符合篩選條件的組合，換「全部」看看。' : '還沒有任何組合。'}</div>`;
+            }
+            const scale = Math.max(winSize, 1);
+            keys.forEach(k => {
+                const set = unkey(k);
+                const c = counts.get(k) || 0;
+                const d = delta.get(k);
+                const row = document.createElement('div');
+                row.className = 'trow' + (c >= minSup ? ' freq' : '') + (d > 0 ? ' plus' : d < 0 ? ' minus' : '') +
+                    (removed.has(k) ? ' removed' : '') + (up.has(k) ? ' cross-up' : '') + (down.has(k) ? ' cross-down' : '') +
+                    (k === selKey ? ' sel' : '');
+                row.dataset.k = k;
+                row.innerHTML = `<div class="set"><span class="emo"></span><span class="nm"></span></div><span class="c"></span>` +
+                    `<div class="bar"><div class="fill"></div><div class="th"></div></div><span class="d"></span>`;
+                row.querySelector('.emo').textContent = emo(set);
+                row.querySelector('.nm').textContent = set.join('、');
+                row.querySelector('.c').textContent = c;
+                row.querySelector('.fill').style.width = Math.min(100, c / scale * 100) + '%';
+                row.querySelector('.th').style.left = `calc(${Math.min(100, minSup / scale * 100)}% - 1px)`;
+                row.querySelector('.d').textContent = d > 0 ? '+1' : d < 0 ? (removed.has(k) ? '刪' : '−1') : up.has(k) ? '↑' : down.has(k) ? '↓' : '';
+                box.appendChild(row);
+            });
+            $('tbl-foot').textContent = `顯示 ${keys.filter(k => !removed.has(k)).length} / 表裡共 ${counts.size} 個組合　·　點一列看它的支持度變化`;
+            $('st-size').textContent = counts.size;
+            $('st-step').textContent = s.delta ? s.delta.size : 0;
+            $('st-ops').textContent = s.ops;
+            $('compare').innerHTML = s.recompute
+                ? `如果每來一筆都把視窗裡的交易重數一遍，到這裡要做 <b>${s.recompute}</b> 次 +1；滑動視窗只做了 <b>${s.ops}</b> 次。視窗越大，省得越多。`
+                : `每一步只動「進來那筆」和「離開那筆」的子集合，不用把整個視窗重數。`;
+        }
+
+        /* ---------- 頻繁樣式 ---------- */
+        function patButton(k, c, cls, flag) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pat ' + cls + (k === selKey ? ' sel' : '');
+            b.dataset.k = k;
+            b.innerHTML = `<span class="nm"></span><span class="n"></span>${flag ? '<span class="flag"></span>' : ''}`;
+            b.querySelector('.nm').textContent = fmt(unkey(k));
+            b.querySelector('.n').textContent = c;
+            if (flag) b.querySelector('.flag').textContent = flag;
+            return b;
+        }
+
+        function renderPatterns(s) {
+            const fresh = s.kind === 'update';
+            const state = $('pat-state');
+            state.className = 'tag-state' + (fresh ? ' fresh' : '');
+            state.textContent = s.kind === 'start' ? '還沒有資料'
+                : fresh ? `剛更新（${label(s.idx)} 處理完）`
+                    : s.kind === 'end' ? '最後的結果' : '上一次的結果，這筆處理完才更新';
+            const newF = new Set(fresh ? s.newF : []), newM = new Set(fresh ? s.newM : []);
+            const goneF = fresh ? s.goneF : [], goneM = fresh ? s.goneM : [];
+            const nowCount = k => s.counts.get(k) || 0;
+
+            const box = $('levels');
+            box.innerHTML = '';
+            const bySize = {};
+            [...s.freq.keys()].forEach(k => { const n = unkey(k).length; (bySize[n] = bySize[n] || []).push({ k, c: s.freq.get(k), cls: newF.has(k) ? 'new' : '', flag: newF.has(k) ? '新' : '' }); });
+            goneF.forEach(k => { const n = unkey(k).length; (bySize[n] = bySize[n] || []).push({ k, c: nowCount(k), cls: 'gone', flag: '掉出' }); });
+            const sizes = Object.keys(bySize).map(Number).sort((a, b) => a - b);
+            if (!sizes.length) box.innerHTML = `<div class="empty">${s.kind === 'start' ? '視窗還是空的。' : `目前沒有組合在視窗裡出現 ${minSup} 次以上。`}</div>`;
+            sizes.forEach(n => {
+                const row = document.createElement('div');
+                row.className = 'level';
+                row.innerHTML = `<span class="tag">${n} 個</span><div class="items"></div>`;
+                bySize[n].sort((x, y) => byOrder(unkey(x.k), unkey(y.k)))
+                    .forEach(p => row.querySelector('.items').appendChild(patButton(p.k, p.c, p.cls, p.flag)));
+                box.appendChild(row);
+            });
+
+            const mbox = $('maxes');
+            mbox.innerHTML = '';
+            $('max-n').textContent = s.max.size ? `（${s.max.size} 個）` : '';
+            const items = document.createElement('div');
+            items.className = 'items';
+            items.style.display = 'flex';
+            items.style.flexWrap = 'wrap';
+            items.style.gap = '0.35rem';
+            orderKeys([...s.max.keys()]).forEach(k => items.appendChild(patButton(k, s.max.get(k), 'max' + (newM.has(k) ? ' new' : ''), newM.has(k) ? '新' : '')));
+            goneM.forEach(k => items.appendChild(patButton(k, nowCount(k), 'gone', s.freq.has(k) ? '不再最大' : '掉出')));
+            if (!items.children.length) mbox.innerHTML = '<div class="empty">（無）</div>';
+            else mbox.appendChild(items);
+        }
+
+        /* ---------- 支持度折線圖（自己用 SVG 畫） ---------- */
+        let chartPts = [];
+        function seriesOf(k) {
+            return trace.filter(s => s.kind === 'update').map(s => s.counts.get(k) || 0);
+        }
+        function doneArrivals(s) {
+            if (s.kind === 'end') return stream.length;
+            if (s.kind === 'update') return s.arrival;
+            return Math.max(0, s.arrival - 1);
+        }
+        function renderChart(s) {
+            const svg = $('chart');
+            const Wd = Math.max(260, Math.round($('chart-wrap').clientWidth || 480));
+            const Hd = 190;
+            const L = 30, R = 14, T = 22, B = 26;
+            const N = stream.length;
+            const vals = seriesOf(selKey);
+            const yMax = winSize;
+            const x = i => L + (N <= 1 ? 0 : (i - 1) / (N - 1) * (Wd - L - R));
+            const y = v => T + (1 - v / yMax) * (Hd - T - B);
+            const done = doneArrivals(s);
+            let g = '';
+            // 範例的時段（淡淡的底色）
+            PHASES.forEach((p, idx) => {
+                if (p.to > N) return;
+                const x0 = idx === 0 ? L : (x(p.from - 1) + x(p.from)) / 2;
+                const x1 = p.to === N ? Wd - R : (x(p.to) + x(p.to + 1)) / 2;
+                if (idx % 2 === 0) g += `<rect class="band" x="${x0}" y="${T}" width="${x1 - x0}" height="${Hd - T - B}"/>`;
+                g += `<text class="band-t" x="${(x0 + x1) / 2}" y="${T - 8}" text-anchor="middle">${p.label}</text>`;
+            });
+            for (let v = 0; v <= yMax; v++) {
+                g += `<line class="grid" x1="${L}" x2="${Wd - R}" y1="${y(v)}" y2="${y(v)}"/>`;
+                if (yMax <= 6 || v % 2 === 0) g += `<text class="axis-t" x="${L - 7}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`;
+            }
+            const every = N <= 12 ? 1 : N <= 24 ? 5 : 10;
+            for (let i = 1; i <= N; i++) {
+                // 最後一筆一定標；太靠近它的整數刻度就不標，免得字疊在一起
+                if (i === 1 || i === N || (i % every === 0 && N - i >= Math.ceil(every / 2))) g += `<text class="axis-t" x="${x(i)}" y="${Hd - 8}" text-anchor="middle">T${i}</text>`;
+            }
+            g += `<line class="th-line" x1="${L}" x2="${Wd - R}" y1="${y(minSup)}" y2="${y(minSup)}"/>`;
+            g += `<text class="th-t" x="${Wd - R}" y="${y(minSup) - 5}" text-anchor="end">門檻 ${minSup}</text>`;
+            if (done > 0) g += `<line class="now-line" x1="${x(done)}" x2="${x(done)}" y1="${T}" y2="${Hd - B}"/>`;
+            chartPts = [];
+            for (let i = 1; i <= done; i++) chartPts.push({ i, v: vals[i - 1], px: x(i), py: y(vals[i - 1]) });
+            if (chartPts.length > 1) g += `<polyline class="series" points="${chartPts.map(p => `${p.px},${p.py}`).join(' ')}"/>`;
+            chartPts.forEach(p => { g += `<circle class="pt${p.v >= minSup ? ' ok' : ''}" cx="${p.px}" cy="${p.py}" r="4"/>`; });
+            g += `<line class="guide" id="guide" x1="0" x2="0" y1="${T}" y2="${Hd - B}" style="display:none"/>`;
+            svg.setAttribute('viewBox', `0 0 ${Wd} ${Hd}`);
+            svg.innerHTML = g;
+            const set = unkey(selKey);
+            const cur = done ? vals[done - 1] : null;
+            $('chart-cap').textContent = `${fmt(set)} 在視窗裡出現的次數（每處理完一筆記一次）。` +
+                (cur === null ? '還沒有資料。' : `處理完 T${done} 後是 ${cur} 次，${cur >= minSup ? '是頻繁樣式' : '不到門檻'}。`) +
+                (chartPts.length ? '把滑鼠移到圖上可以看每一點。' : '');
+        }
+        function chartHover(e) {
+            const svg = $('chart');
+            const tip = $('chart-tip');
+            const guide = $('guide');
+            if (!chartPts.length || !guide) return;
+            const r = svg.getBoundingClientRect();
+            const vb = svg.viewBox.baseVal;
+            const px = (e.clientX - r.left) * vb.width / r.width;
+            const p = chartPts.reduce((a, b) => (Math.abs(b.px - px) < Math.abs(a.px - px) ? b : a));
+            guide.setAttribute('x1', p.px);
+            guide.setAttribute('x2', p.px);
+            guide.style.display = '';
+            tip.textContent = `T${p.i} 之後：${p.v} 次${p.v >= minSup ? '（頻繁）' : ''}`;
+            tip.style.display = 'block';
+            const sx = p.px * r.width / vb.width, sy = p.py * r.height / vb.height;
+            const tw = tip.offsetWidth;
+            tip.style.left = Math.max(0, Math.min(r.width - tw, sx - tw / 2)) + 'px';
+            tip.style.top = Math.max(0, sy - 34) + 'px';
+        }
+        function chartLeave() {
+            $('chart-tip').style.display = 'none';
+            const guide = $('guide');
+            if (guide) guide.style.display = 'none';
+        }
+        $('chart').addEventListener('pointermove', chartHover);
+        $('chart').addEventListener('pointerdown', chartHover);
+        $('chart').addEventListener('pointerleave', chartLeave);
+
+        function fillPicker() {
+            const all = new Set();
+            trace.forEach(s => s.counts.forEach((_, k) => all.add(k)));
+            if (!all.has(selKey)) selKey = all.has('茶葉蛋|飯糰') ? '茶葉蛋|飯糰' : [...all][0] || '咖啡';
+            const sel = $('pick-pattern');
+            sel.innerHTML = '';
+            orderKeys([...all]).forEach(k => {
+                const o = document.createElement('option');
+                o.value = k;
+                o.textContent = `${emo(unkey(k))} ${unkey(k).join('、')}`;
+                sel.appendChild(o);
+            });
+            sel.value = selKey;
+        }
+
+        function select(k) {
+            selKey = k;
+            $('pick-pattern').value = k;
+            const s = trace[cursor];
+            renderBelt(s, false);
+            renderTable(s);
+            renderPatterns(s);
+            renderChart(s);
+        }
+        $('pick-pattern').addEventListener('change', e => select(e.target.value));
+        $('tbl').addEventListener('click', e => { const r = e.target.closest('.trow'); if (r) select(r.dataset.k); });
+        $('levels').addEventListener('click', e => { const b = e.target.closest('.pat'); if (b) select(b.dataset.k); });
+        $('maxes').addEventListener('click', e => { const b = e.target.closest('.pat'); if (b) select(b.dataset.k); });
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final private for if return new boolean int void class import while else null this'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda yield del'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tag) {
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, tags], i) =>
+                `<span class="ln${tags.includes(tag) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((a, b) => (b.length > a.length ? b : a));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/SlidingWindow.java" download>SlidingWindow.java</a>　執行 <code>javac SlidingWindow.java && java SlidingWindow</code>'
+                : '下載 <a href="code/sliding_window.py" download>sliding_window.py</a>　執行 <code>python3 sliding_window.py</code>';
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        function renderPhases(s) {
+            const box = $('phases');
+            const n = s.kind === 'start' ? 0 : s.arrival;
+            box.innerHTML = '';
+            PHASES.forEach(p => {
+                const d = document.createElement('div');
+                d.className = 'phase' + (n >= p.from && n <= p.to ? ' cur' : '');
+                d.innerHTML = `<b>${p.label}</b> T${p.from}–${p.to}<span class="pn">：${p.note}</span>`;
+                box.appendChild(d);
+            });
+            if (stream.length > 20) {
+                const d = document.createElement('div');
+                d.className = 'phase' + (n > 20 ? ' cur' : '');
+                d.innerHTML = `<b>你加的</b> T21–${stream.length}`;
+                box.appendChild(d);
+            }
+        }
+
+        function showStep(smooth = true) {
+            const s = trace[cursor];
+            $('explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${trace.length}</span>${describe(s)}`;
+            renderBelt(s, smooth);
+            renderPhases(s);
+            renderTable(s);
+            renderPatterns(s);
+            renderChart(s);
+            renderCode(CODE_TAG[s.kind]);
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0;
+            $('btn-next').disabled = cursor === trace.length - 1;
+        }
+
+        /* 說明框用最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${trace.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+        }
+
+        function renderParams() {
+            $('w-val').textContent = winSize;
+            $('sup-val').textContent = minSup;
+            $('w-minus').disabled = winSize <= 3;
+            $('w-plus').disabled = winSize >= 8;
+            $('sup-minus').disabled = minSup <= 1;
+            $('sup-plus').disabled = minSup >= winSize;
+        }
+
+        /* 重新產生紀錄；keep = 盡量停在同一筆交易的同一個階段 */
+        function rebuild(keep) {
+            stopAuto();
+            const was = keep && trace[cursor] ? { a: trace[cursor].arrival, k: trace[cursor].kind } : null;
+            minSup = Math.max(1, Math.min(minSup, winSize));
+            trace = buildTrace(stream.map(t => t.items), winSize, minSup);
+            cursor = 0;
+            if (was) {
+                let i = trace.findIndex(s => s.arrival === was.a && s.kind === was.k);
+                if (i < 0) i = trace.findIndex(s => s.arrival === was.a && s.kind === 'update');
+                cursor = Math.max(0, i);
+            }
+            buildBelt();
+            fillPicker();
+            renderParams();
+            showStep(false);
+            reserveExplainHeight();
+        }
+
+        /* ---------- 操作 ---------- */
+        function step(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 1500);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.closest && e.target.closest('select, input, textarea')) return;
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+
+        $('w-minus').addEventListener('click', () => { if (winSize > 3) { winSize--; rebuild(true); } });
+        $('w-plus').addEventListener('click', () => { if (winSize < 8) { winSize++; rebuild(true); } });
+        $('sup-minus').addEventListener('click', () => { if (minSup > 1) { minSup--; rebuild(true); } });
+        $('sup-plus').addEventListener('click', () => { if (minSup < winSize) { minSup++; rebuild(true); } });
+
+        $('filter').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            filterMode = b.dataset.f;
+            [...$('filter').children].forEach(x => x.classList.toggle('active', x === b));
+            renderTable(trace[cursor]);
+        });
+
+        /* 自己加一筆交易到串流尾端 */
+        function renderPicks() {
+            const box = $('picks');
+            box.innerHTML = '';
+            ITEMS.forEach(it => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'pick' + (picking.has(it) ? ' on' : '');
+                b.textContent = `${EMOJI[it]} ${it}`;
+                b.setAttribute('aria-pressed', picking.has(it));
+                b.addEventListener('click', () => {
+                    if (picking.has(it)) picking.delete(it); else picking.add(it);
+                    renderPicks();
+                });
+                box.appendChild(b);
+            });
+            $('btn-append').disabled = !picking.size || stream.length >= MAX_STREAM;
+        }
+        $('btn-append').addEventListener('click', () => {
+            if (!picking.size || stream.length >= MAX_STREAM) return;
+            const items = ITEMS.filter(it => picking.has(it));
+            stream.push({ items, when: '', mine: true });
+            picking.clear();
+            renderPicks();
+            rebuild(true);
+            $('add-hint').textContent = `已經把 ${label(stream.length - 1)} ${fmt([...items].sort(cmp))} 接在串流尾端，一直按「下一步」處理到它時就會進入視窗。` +
+                (stream.length >= MAX_STREAM ? `（最多 ${MAX_STREAM} 筆）` : '');
+            const belt = $('belt');
+            belt.scrollTo({ left: belt.scrollWidth, behavior: 'smooth' });
+        });
+        $('btn-reset-stream').addEventListener('click', () => {
+            resetStream();
+            winSize = 5;
+            minSup = 3;
+            selKey = '茶葉蛋|飯糰';
+            $('add-hint').textContent = '';
+            renderPicks();
+            rebuild(false);
+        });
+
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAG[trace[cursor].kind]);
+        });
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { reserveExplainHeight(); renderBelt(trace[cursor], false); renderChart(trace[cursor]); }, 150);
+        });
+
+        resetStream();
+        renderPicks();
+        rebuild(false);
+    </script>
+</body>
+
+</html>

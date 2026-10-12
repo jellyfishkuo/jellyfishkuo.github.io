@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 一排交易從左到右流過，青色框是只看最近幾筆的視窗 -->
+  <rect x="7" y="22" width="8" height="20" rx="2.5" fill="#2a2a40"/>
+  <rect x="19" y="22" width="8" height="20" rx="2.5" fill="#facc15"/>
+  <rect x="31" y="22" width="8" height="20" rx="2.5" fill="#22d3ee"/>
+  <rect x="43" y="22" width="8" height="20" rx="2.5" fill="#818cf8"/>
+  <rect x="55" y="22" width="3" height="20" rx="1.5" fill="none" stroke="#4a4a6a" stroke-width="1.6" stroke-dasharray="2.5 2"/>
+  <rect x="15" y="16" width="40" height="32" rx="6" fill="none" stroke="#22d3ee" stroke-width="2.6"/>
+  <path d="M22 55 H44 M40 51.5 L44 55 L40 58.5" fill="none" stroke="#6a6a8a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

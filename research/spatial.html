@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/spatial.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/spatial-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/spatial-180.png">
+    <title>空間資料：四元樹與共位樣式</title>
+    <meta name="description" content="在一張街區地圖上一步一步看點區域四元樹怎麼插入、切割、做範圍查詢，以及空間共位樣式探勘怎麼用參與指數找出常開在一起的店，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* ── 分頁 ── */
+        .tabs { display: flex; gap: 0.4rem; margin-top: 1.3rem; border-bottom: 1px solid var(--border); }
+        .tabs button {
+            background: none;
+            border: 1px solid transparent;
+            border-bottom: none;
+            color: var(--muted);
+            font: inherit;
+            font-size: 0.92rem;
+            padding: 0.5rem 0.9rem;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            margin-bottom: -1px;
+        }
+        .tabs button:hover { color: var(--text); }
+        .tabs button.active { color: var(--text); background: var(--panel); border-color: var(--border); border-bottom: 1px solid var(--panel); }
+        .tabs .no { font: 700 0.78rem 'Space Mono', monospace; color: var(--accent2); margin-right: 0.35rem; }
+        [hidden] { display: none !important; }
+
+        .layout { display: grid; gap: 1rem; margin-top: 1rem; }
+        .layout > * { min-width: 0; display: grid; gap: 1rem; align-content: start; }
+        .layout > * > * { min-width: 0; }
+        @media (min-width: 960px) { .layout { grid-template-columns: 1fr 1.02fr; } }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+        button.btn.small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .params { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin-top: 0.75rem; font-size: 0.88rem; }
+        .param { display: flex; align-items: center; gap: 0.45rem; }
+        .param .val { font: 700 1rem 'Space Mono', monospace; min-width: 1.4em; text-align: center; }
+        .param input[type=range] { width: 120px; accent-color: var(--accent2); }
+        .param .unit { color: var(--muted); font-size: 0.8rem; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .explain .ok { color: #86efac; font-weight: 600; }
+        .explain .no { color: #fca5a5; font-weight: 600; }
+
+        /* 分段切換：建樹過程 / 範圍查詢 */
+        .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .seg button { background: none; border: none; color: var(--muted); padding: 0.3rem 0.75rem; font: inherit; font-size: 0.84rem; cursor: pointer; }
+        .seg button + button { border-left: 1px solid var(--border); }
+        .seg button.active { background: rgba(6, 182, 212, 0.16); color: var(--text); }
+
+        /* ── 地圖 ── */
+        .map-box { background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        svg.map { display: block; width: 100%; height: auto; touch-action: manipulation; user-select: none; -webkit-user-select: none; cursor: crosshair; }
+        svg.map.drag { touch-action: none; }
+        svg.map * { vector-effect: non-scaling-stroke; }
+        .map .bg { fill: #0b0b17; }
+        .map .gridfaint { stroke: #15152a; stroke-width: 1; }
+        .map .border { fill: none; stroke: #3a3a5a; stroke-width: 1.5; }
+        .map .qline { stroke: #50508a; }
+        .map .cell-path { fill: rgba(245, 158, 11, 0.05); stroke: rgba(245, 158, 11, 0.5); stroke-width: 1.5; }
+        .map .cell-leaf { fill: rgba(245, 158, 11, 0.16); stroke: var(--warn); stroke-width: 2.5; }
+        .map .cell-split { fill: rgba(245, 158, 11, 0.08); stroke: var(--warn); stroke-width: 2.5; stroke-dasharray: 6 4; }
+        .map .cell-new { fill: rgba(6, 182, 212, 0.14); }
+        .map .cell-skip { fill: rgba(120, 120, 150, 0.26); }
+        .map .cell-cur { fill: rgba(245, 158, 11, 0.14); stroke: var(--warn); stroke-width: 2.5; }
+        .map .cell-go { fill: none; stroke: var(--accent2); stroke-width: 1.6; stroke-dasharray: 4 3; }
+        .map .qrect { fill: rgba(6, 182, 212, 0.08); stroke: var(--accent2); stroke-width: 2; stroke-dasharray: 7 4; }
+        .map .dragrect { fill: rgba(6, 182, 212, 0.14); stroke: var(--accent2); stroke-width: 2; }
+        .map .pt { stroke: #05050a; stroke-width: 1; }
+        .map .pt.pending { fill: none; stroke-width: 1.6; opacity: 0.6; }
+        .map .pt.dim { opacity: 0.22; }
+        .map .pt.faded { opacity: 0.4; }
+        .map .ring { fill: none; stroke-width: 2.4; }
+        .map .ring.cur { stroke: var(--warn); }
+        .map .ring.hit { stroke: var(--good); }
+        .map .ring.miss { stroke: var(--bad); }
+        .map .ring.moved { stroke: var(--accent2); }
+        .map .ring.part { stroke: var(--warn); }
+        .map .ring.old { opacity: 0.45; stroke-width: 1.6; }
+        .map .lbl { fill: var(--text); paint-order: stroke; stroke: #05050a; stroke-width: 3px; stroke-linejoin: round; font-family: 'Space Mono', ui-monospace, monospace; font-weight: 700; }
+        .map .nbr { fill: none; stroke-width: 1; opacity: 0.35; }
+        .map .edge { stroke: var(--warn); stroke-width: 2; opacity: 0.9; stroke-linecap: round; }
+        .map .scale { stroke: var(--text); stroke-width: 2; }
+
+        .map-tools { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.7rem; }
+        .kinds { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; flex-basis: 100%; }
+        .kinds .lab { color: var(--muted); font-size: 0.8rem; margin-right: 0.15rem; }
+        .kind {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+            color: var(--text); font: inherit; font-size: 0.8rem; padding: 0.15rem 0.6rem 0.15rem 0.4rem; cursor: pointer;
+        }
+        .kind svg { width: 14px; height: 14px; display: block; }
+        .kind.sel { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .kind .cnt { font: 700 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.3em; }
+        .hint.warn { color: var(--warn); }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.45rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 0.3rem; vertical-align: -1px; border: 2px solid; }
+
+        /* ── 統計 ── */
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .v small { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .sub { color: var(--muted); font-size: 0.78rem; margin: 0.8rem 0 0.4rem; }
+        .bars { display: grid; gap: 0.35rem; margin-top: 0.8rem; }
+        .bar { display: grid; grid-template-columns: 7.2em 1fr 2.4em; gap: 0.5rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
+        .bar .track { height: 10px; background: #1b1b30; border-radius: 6px; overflow: hidden; }
+        .bar .fill { height: 100%; background: var(--accent2); border-radius: 6px; transition: width 0.25s; }
+        .bar .fill.all { background: #4a4a6a; }
+        .bar .n { font: 700 0.8rem 'Space Mono', monospace; color: var(--text); text-align: right; }
+
+        /* ── 共位樣式表 ── */
+        .levels { display: grid; gap: 0.7rem; }
+        .lv-tag { font: 700 0.78rem 'Space Mono', monospace; color: var(--accent2); margin-bottom: 0.3rem; }
+        .crow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); font-size: 0.82rem; }
+        .crow + .crow { margin-top: 0.3rem; }
+        .crow.cur { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .crow.ok { border-color: rgba(34, 197, 94, 0.55); }
+        .crow.ok.cur { border-color: var(--warn); }
+        .crow.pruned, .crow.fail { opacity: 0.62; }
+        .crow .pat { display: inline-flex; gap: 0.2rem; flex-wrap: wrap; font-weight: 600; }
+        .crow .meta { color: var(--muted); font-size: 0.78rem; }
+        .crow .meta b { color: var(--text); font: 700 0.78rem 'Space Mono', monospace; }
+        .crow .verdict { margin-left: auto; font-size: 0.75rem; border-radius: 6px; padding: 0 0.4rem; white-space: nowrap; }
+        .verdict.ok { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+        .verdict.fail { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+        .verdict.pruned { background: rgba(138, 138, 163, 0.18); color: var(--muted); }
+        .verdict.wait { background: rgba(245, 158, 11, 0.16); color: var(--warn); }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 560px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+            position: relative;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · SPATIAL DATA</div>
+        <h1>空間資料：四元樹與共位樣式<small>把地圖切成格子查得快，再看哪些店總是開在一起</small></h1>
+        <p class="intro">
+            地圖上的資料跟交易紀錄不一樣：每個點有<b>位置</b>，「靠得近」本身就是資訊。這頁用一個街區當例子，地圖上有超商、公車站、咖啡店、飲料店。
+            分頁一看<b>四元樹</b>怎麼把地圖一路切成小格子，範圍查詢時把不相干的整塊跳過；
+            分頁二看<b>空間共位樣式</b>：哪幾種店常常開在彼此附近。它其實就是 <a href="apriori.html">Apriori</a>／<a href="fp-growth.html">FP-Growth</a> 那種頻繁樣式探勘搬到地圖上，只是空間裡沒有「一筆一筆的交易」，要改用距離來定義。
+        </p>
+
+        <div class="tabs" role="tablist">
+            <button role="tab" id="tab-qt" data-tab="qt" class="active" aria-selected="true"><span class="no">01</span>四元樹與範圍查詢</button>
+            <button role="tab" id="tab-co" data-tab="co" aria-selected="false"><span class="no">02</span>空間共位樣式</button>
+        </div>
+
+        <!-- ===================== 分頁一：四元樹 ===================== -->
+        <section id="panel-qt" role="tabpanel" aria-labelledby="tab-qt">
+            <div class="layout">
+                <div>
+                    <div class="card">
+                        <div class="card-head">
+                            <h2>一步一步看</h2>
+                            <div class="seg" id="qt-view">
+                                <button data-view="build" class="active">建樹過程</button>
+                                <button data-view="query">範圍查詢</button>
+                            </div>
+                        </div>
+                        <div class="player">
+                            <button class="btn" id="qt-first" title="回到開頭">⏮</button>
+                            <button class="btn" id="qt-prev">◀ 上一步</button>
+                            <button class="btn primary" id="qt-next">下一步 ▶</button>
+                            <button class="btn" id="qt-play">▶ 自動播放</button>
+                            <button class="btn" id="qt-last">⏭ 一次插入全部</button>
+                        </div>
+                        <div class="params">
+                            <div class="param">
+                                <span>節點容量</span>
+                                <button class="btn stepper" id="cap-minus" aria-label="減少">−</button>
+                                <span class="val" id="cap-val">2</span>
+                                <button class="btn stepper" id="cap-plus" aria-label="增加">+</button>
+                                <span class="unit">個點，超過就切</span>
+                            </div>
+                        </div>
+                        <div class="explain" id="qt-explain"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head"><h2>街區地圖</h2><span class="unit" id="qt-count" style="color:var(--muted);font-size:0.8rem"></span></div>
+                        <div class="map-box"><svg class="map" id="qt-map" viewBox="-1 -1 130 130" role="img" aria-label="地圖與四元樹的格子"></svg></div>
+                        <div class="map-tools" id="qt-tools"></div>
+                        <div class="hint" id="qt-hint"></div>
+                        <div class="legend" id="qt-legend"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <h2>樹與查詢的統計</h2>
+                        <div class="stats">
+                            <div class="stat"><div class="v" id="st-nodes">0</div><div class="k">節點數</div></div>
+                            <div class="stat"><div class="v" id="st-leaves">0</div><div class="k">葉子（沒切開的格子）</div></div>
+                            <div class="stat"><div class="v" id="st-depth">0</div><div class="k">最深切到第幾層</div></div>
+                        </div>
+                        <div class="sub" id="st-qlabel">範圍查詢</div>
+                        <div class="stats">
+                            <div class="stat"><div class="v" id="st-visit">0</div><div class="k">拜訪的節點</div></div>
+                            <div class="stat"><div class="v" id="st-skip">0</div><div class="k">整塊跳過的子樹</div></div>
+                            <div class="stat"><div class="v" id="st-found">0</div><div class="k">找到的點</div></div>
+                        </div>
+                        <div class="bars">
+                            <div class="bar"><span>四元樹檢查</span><div class="track"><div class="fill" id="bar-qt"></div></div><span class="n" id="bar-qt-n">0</span></div>
+                            <div class="bar"><span>全部掃一遍</span><div class="track"><div class="fill all" id="bar-all"></div></div><span class="n" id="bar-all-n">0</span></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head">
+                            <h2>程式碼</h2>
+                            <div class="lang" data-group="qt">
+                                <button data-lang="java" class="active">Java</button>
+                                <button data-lang="py">Python</button>
+                            </div>
+                        </div>
+                        <pre class="code" id="qt-code"></pre>
+                        <div class="downloads" id="qt-downloads"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notes">
+                <div class="card">
+                    <h2>為什麼可以整塊跳過？</h2>
+                    <p>每個節點管一塊正方形，它底下所有的點<b>一定都在這塊正方形裡</b>。所以只要正方形跟查詢框完全沒有重疊，裡面不管有幾個點都不可能在框裡，整棵子樹連看都不用看。
+                        反過來，有重疊只代表「可能有」，所以還是要走到葉子、一個一個確認；檢查了卻不在框裡的點，就是四元樹查詢「白跑一趟」的成本。</p>
+                    <p style="margin-top:0.5rem">切割時一定從<b>中線</b>切成四塊，所以每個點往下走的路是唯一的；容量越小，樹切得越深、葉子越小，查詢時跳得越精準，但節點也越多。
+                        兩個點疊在同一個位置時，怎麼切都分不開，所以程式限制<b>最多切 7 層</b>（格子剩 1×1）就不再切，讓那個葉子超過容量。</p>
+                </div>
+                <div class="card">
+                    <h2>優缺點，以及跟實驗室研究的關係</h2>
+                    <ul>
+                        <li><b>依資料決定切多細：</b>店家密集的地方切得很細，空曠的地方一大塊就帶過，比固定大小的網格更省。</li>
+                        <li><b>切線固定在中點：</b>點全部擠在一個小角落時樹會變得很深；R-tree 改用「剛好包住這群點的框」，k-d tree 則依資料的中位數切，各有取捨。</li>
+                        <li><b>空間關鍵字查詢：</b>真正的查詢常常是「附近有賣珍奶的店」，不只看位置也看關鍵字。常見做法是在四元樹（或 R-tree）每個節點多記「這塊裡有哪些關鍵字」，位置不對、或關鍵字對不上的節點都能整塊跳過。</li>
+                        <li>實驗室論文裡的九方區域樹這類索引，核心問題也一樣：<b>空間要怎麼切、每一塊要記什麼摘要</b>，查詢時才能跳過最多。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== 分頁二：共位樣式 ===================== -->
+        <section id="panel-co" role="tabpanel" aria-labelledby="tab-co" hidden>
+            <div class="layout">
+                <div>
+                    <div class="card">
+                        <div class="card-head"><h2>一步一步看</h2></div>
+                        <div class="player">
+                            <button class="btn" id="co-first" title="回到開頭">⏮</button>
+                            <button class="btn" id="co-prev">◀ 上一步</button>
+                            <button class="btn primary" id="co-next">下一步 ▶</button>
+                            <button class="btn" id="co-play">▶ 自動播放</button>
+                            <button class="btn" id="co-last">⏭ 直接看結果</button>
+                        </div>
+                        <div class="params">
+                            <label class="param"><span>鄰近距離 r</span><input type="range" id="r-range" min="4" max="40" step="1" value="16"><span class="val" id="r-val">16</span></label>
+                            <label class="param"><span>門檻 minPrev</span><input type="range" id="mp-range" min="5" max="100" step="5" value="50"><span class="val" id="mp-val">0.50</span></label>
+                        </div>
+                        <div class="explain" id="co-explain"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head"><h2>街區地圖</h2><span class="unit" id="co-count" style="color:var(--muted);font-size:0.8rem"></span></div>
+                        <div class="map-box"><svg class="map" id="co-map" viewBox="-1 -1 130 130" role="img" aria-label="地圖與鄰近關係"></svg></div>
+                        <div class="map-tools" id="co-tools"></div>
+                        <div class="hint" id="co-hint"></div>
+                        <div class="legend">
+                            <span><i style="border-color:var(--warn);border-radius:0;border-width:0 0 2px 0;height:6px"></i>距離 ≤ r 的實例連線</span>
+                            <span><i style="border-color:var(--warn);border-radius:50%"></i>有參與的點</span>
+                            <span><i style="border-color:#8a8aa3;border-radius:50%;border-style:dashed"></i>半徑 r 的圈</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <h2>候選與共位樣式</h2>
+                        <div class="levels" id="co-table"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head">
+                            <h2>程式碼</h2>
+                            <div class="lang" data-group="co">
+                                <button data-lang="java" class="active">Java</button>
+                                <button data-lang="py">Python</button>
+                            </div>
+                        </div>
+                        <pre class="code" id="co-code"></pre>
+                        <div class="downloads" id="co-downloads"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notes">
+                <div class="card">
+                    <h2>為什麼 PI 也能像 Apriori 一樣剪枝？</h2>
+                    <p>一組 {超商, 公車站, 飲料店} 的實例是三個兩兩相鄰的點；把飲料店那個點拿掉，剩下的超商和公車站當然還是相鄰，也就是 {超商, 公車站} 的一組實例。
+                        所以有參與大樣式的超商，<b>一定也有參與它的子樣式</b>：樣式變大時，每種類型的參與率只會變小或不變，取最小值的 PI 也一樣。</p>
+                    <p style="margin-top:0.5rem">結論就是：<b>大小 k 的樣式，PI 不會比它任何一個子樣式大</b>。只要有一個子樣式沒達到門檻，大樣式不用找實例就知道不夠，直接剪掉，這跟 Apriori 的向下封閉性是同一個道理。
+                        這頁的程式不限大小，一層一層往上長（4 種類型最多到大小 4），預設資料會長到大小 3。</p>
+                    <p style="margin-top:0.5rem">PI 取的是<b>最小</b>的參與率，意思是「每一種都要有夠多的點靠近其他種」。公車站很多、其中只有幾站旁邊有超商時，超商的參與率可能很高，但公車站的很低，取最小才不會被單邊騙到。</p>
+                </div>
+                <div class="card">
+                    <h2>跟頻繁樣式探勘的對應</h2>
+                    <ul>
+                        <li><b>交易 → 鄰近關係：</b>空間裡沒有「一張發票」把東西綁在一起，點是散在地圖上的，所以改成「兩兩距離 ≤ r 的一組點」算一組，叫做<b>列實例</b>。</li>
+                        <li><b>商品 → 類型，支持度 → 參與指數 PI，最小支持度 → minPrev。</b>合併、剪枝、一層一層往上長的流程跟 <a href="apriori.html">Apriori</a> 幾乎一樣。</li>
+                        <li><b>為什麼不直接數實例有幾組？</b>同一家超商可能跟好幾個公車站相鄰，數組數會重複算；PI 只看「有幾個不同的點參與」，再除以該類型的總數，點數差很多的類型也能公平比較。</li>
+                        <li><b>r 決定一切：</b>太小什麼都找不到，太大什麼都算鄰近，試著拉拉看。資料很多時，找鄰居本身就很花時間，這時候分頁一的<b>四元樹</b>（或網格）就派上用場：只去查附近的格子。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        /* =========================================================
+           空間資料一步一步看
+           網頁裡用 JavaScript 照著同樣的演算法跑一次，把每一步記下來；
+           上一步／下一步只是在這些紀錄之間移動。右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = { qt: {"java": [["static final int MAX_DEPTH = 7;   // 地圖 128×128，切 7 層格子就只剩 1×1，疊在一起的點不再切", ["init"]], ["", []], ["static class Point {", []], ["    final int x, y;", []], ["    final String kind;", []], ["    Point(int x, int y, String kind) { this.x = x; this.y = y; this.kind = kind; }", []], ["    public String toString() { return kind + \"(\" + x + \",\" + y + \")\"; }", []], ["}", []], ["", []], ["/** 查詢框（含邊界）：x1 ≤ x ≤ x2、y1 ≤ y ≤ y2 */", []], ["static class Rect {", []], ["    final int x1, y1, x2, y2;", []], ["    Rect(int x1, int y1, int x2, int y2) { this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2; }", []], ["    boolean contains(Point p) { return x1 <= p.x && p.x <= x2 && y1 <= p.y && p.y <= y2; }", []], ["}", []], ["", []], ["/** 一個節點管一塊正方形：x ≤ 點的 x < x+size，y 也一樣 */", []], ["static class Node {", []], ["    final int x, y, size, depth;", []], ["    List<Point> points = new ArrayList<>();", []], ["    Node[] children;                              // null 代表葉子", []], ["    Node(int x, int y, int size, int depth) { this.x = x; this.y = y; this.size = size; this.depth = depth; }", []], ["    boolean intersects(Rect q) {", []], ["        return q.x1 < x + size && x <= q.x2 && q.y1 < y + size && y <= q.y2;", []], ["    }", []], ["}", []], ["", []], ["/** 中線右邊 +1、下面 +2：0 左上、1 右上、2 左下、3 右下 */", []], ["static int quadrant(Node n, Point p) {", []], ["    int half = n.size / 2;", []], ["    return (p.x >= n.x + half ? 1 : 0) + (p.y >= n.y + half ? 2 : 0);", []], ["}", []], ["", []], ["final int capacity;                               // 每個葉子最多放幾個點", ["init"]], ["final Node root = new Node(0, 0, 128, 0);", ["init"]], ["int visited, checked;                             // 查詢時拜訪的節點數、檢查的點數", ["init"]], ["", []], ["QuadTree(int capacity) { this.capacity = capacity; }", ["init"]], ["", []], ["void insert(Point p) { insert(root, p); }", ["descend"]], ["", []], ["void insert(Node node, Point p) {", []], ["    while (node.children != null)                 // 已經切開的格子：看 p 在哪一塊，往下走", ["descend"]], ["        node = node.children[quadrant(node, p)];", ["descend"]], ["    if (node.points.size() < capacity || node.depth == MAX_DEPTH) {", ["add"]], ["        node.points.add(p);                       // 還沒滿，直接放進去", ["add"]], ["        return;", ["add"]], ["    }", ["add"]], ["    split(node);                                  // 滿了：切成四塊", ["split"]], ["    insert(node, p);                              // 再從這格往下走一次", ["split"]], ["}", []], ["", []], ["void split(Node node) {", ["split"]], ["    int half = node.size / 2;", ["split"]], ["    node.children = new Node[4];", ["split"]], ["    for (int i = 0; i < 4; i++)", ["split"]], ["        node.children[i] = new Node(node.x + (i % 2) * half, node.y + (i / 2) * half, half, node.depth + 1);", ["split"]], ["    for (Point q : node.points)                   // 原本的點依位置重新分到子格", ["split"]], ["        node.children[quadrant(node, q)].points.add(q);", ["split"]], ["    node.points = new ArrayList<>();", ["split"]], ["}", ["split"]], ["", []], ["List<Point> rangeQuery(Rect q) {", ["qstart"]], ["    visited = checked = 0;", ["qstart"]], ["    List<Point> out = new ArrayList<>();", ["qstart"]], ["    query(root, q, out);", ["qstart"]], ["    return out;", ["qend", "qstart"]], ["}", ["qstart"]], ["", []], ["void query(Node node, Rect q, List<Point> out) {", []], ["    visited++;", ["visit"]], ["    if (node.children == null) {                  // 葉子：一個一個檢查裡面的點", ["leaf"]], ["        for (Point p : node.points) {", ["leaf"]], ["            checked++;", ["leaf"]], ["            if (q.contains(p)) out.add(p);", ["leaf"]], ["        }", ["leaf"]], ["        return;", ["leaf"]], ["    }", ["leaf"]], ["    for (Node c : node.children)", ["kids"]], ["        if (c.intersects(q)) query(c, q, out);    // 沒交集的子格整塊跳過", ["kids"]], ["}", []]], "py": [["MAX_DEPTH = 7       # 地圖 128×128，切 7 層格子就只剩 1×1，疊在一起的點不再切", ["init"]], ["", []], ["", []], ["class Point:", []], ["    def __init__(self, x, y, kind):", []], ["        self.x, self.y, self.kind = x, y, kind", []], ["", []], ["    def __str__(self):", []], ["        return f\"{self.kind}({self.x},{self.y})\"", []], ["", []], ["", []], ["class Node:", []], ["    \"\"\"一個節點管一塊正方形：x ≤ 點的 x < x+size，y 也一樣\"\"\"", []], ["    def __init__(self, x, y, size, depth):", []], ["        self.x, self.y, self.size, self.depth = x, y, size, depth", []], ["        self.points = []", []], ["        self.children = None            # None 代表葉子", []], ["", []], ["    def intersects(self, q):            # q = (x1, y1, x2, y2)，含邊界", []], ["        x1, y1, x2, y2 = q", []], ["        return x1 < self.x + self.size and self.x <= x2 and y1 < self.y + self.size and self.y <= y2", []], ["", []], ["", []], ["def quadrant(node, p):", []], ["    \"\"\"中線右邊 +1、下面 +2：0 左上、1 右上、2 左下、3 右下\"\"\"", []], ["    half = node.size // 2", []], ["    return (p.x >= node.x + half) + 2 * (p.y >= node.y + half)", []], ["", []], ["", []], ["class QuadTree:", []], ["    def __init__(self, capacity):", ["init"]], ["        self.capacity = capacity        # 每個葉子最多放幾個點", ["init"]], ["        self.root = Node(0, 0, 128, 0)", ["init"]], ["        self.visited = self.checked = 0 # 查詢時拜訪的節點數、檢查的點數", ["init"]], ["", []], ["    def insert(self, p, node=None):", []], ["        node = node or self.root", ["descend"]], ["        while node.children:            # 已經切開的格子：看 p 在哪一塊，往下走", ["descend"]], ["            node = node.children[quadrant(node, p)]", ["descend"]], ["        if len(node.points) < self.capacity or node.depth == MAX_DEPTH:", ["add"]], ["            node.points.append(p)       # 還沒滿，直接放進去", ["add"]], ["            return", ["add"]], ["        self.split(node)                # 滿了：切成四塊", ["split"]], ["        self.insert(p, node)            # 再從這格往下走一次", ["split"]], ["", []], ["    def split(self, node):", ["split"]], ["        half = node.size // 2", ["split"]], ["        node.children = [Node(node.x + (i % 2) * half, node.y + (i // 2) * half, half, node.depth + 1)", ["split"]], ["                         for i in range(4)]", ["split"]], ["        for q in node.points:           # 原本的點依位置重新分到子格", ["split"]], ["            node.children[quadrant(node, q)].points.append(q)", ["split"]], ["        node.points = []", ["split"]], ["", []], ["    def range_query(self, q):", ["qstart"]], ["        self.visited = self.checked = 0", ["qstart"]], ["        out = []", ["qstart"]], ["        self._query(self.root, q, out)", ["qstart"]], ["        return out", ["qend", "qstart"]], ["", []], ["    def _query(self, node, q, out):", []], ["        self.visited += 1", ["visit"]], ["        if node.children is None:       # 葉子：一個一個檢查裡面的點", ["leaf"]], ["            x1, y1, x2, y2 = q", ["leaf"]], ["            for p in node.points:", ["leaf"]], ["                self.checked += 1", ["leaf"]], ["                if x1 <= p.x <= x2 and y1 <= p.y <= y2:", ["leaf"]], ["                    out.append(p)", ["leaf"]], ["            return", ["leaf"]], ["        for c in node.children:", ["kids"]], ["            if c.intersects(q):         # 沒交集的子格整塊跳過", ["kids"]], ["                self._query(c, q, out)", ["kids"]]]}, co: {"java": [["record Point(int x, int y, String kind) {}", []], ["", []], ["/** 兩點距離 ≤ r 就算鄰近（用平方比，不用開根號） */", []], ["static boolean near(Point p, Point q, int r) {", []], ["    int dx = p.x() - q.x(), dy = p.y() - q.y();", []], ["    return dx * dx + dy * dy <= r * r;", []], ["}", []], ["", []], ["/** 回傳所有共位樣式：類型清單 → 參與指數 PI */", []], ["static Map<List<String>, Double> coLocations(List<Point> pts, int r, double minPrev) {", ["start"]], ["    Map<String, Integer> total = new LinkedHashMap<>();       // 類型照第一次出現的順序，順便數點數", ["start"]], ["    for (Point p : pts) total.merge(p.kind(), 1, Integer::sum);", ["start"]], ["    // 大小 1：每個點自己就是一個實例", ["start"]], ["    Map<List<String>, List<int[]>> inst = new LinkedHashMap<>();", ["start"]], ["    for (String t : total.keySet()) inst.put(List.of(t), new ArrayList<>());", ["start"]], ["    for (int i = 0; i < pts.size(); i++) inst.get(List.of(pts.get(i).kind())).add(new int[]{i});", ["start"]], ["    Map<List<String>, Double> result = new LinkedHashMap<>();", ["start"]], ["    while (!inst.isEmpty()) {", ["cands"]], ["        List<List<String>> prev = new ArrayList<>(inst.keySet());", ["cands"]], ["        Map<List<String>, List<int[]>> next = new LinkedHashMap<>();", ["cands"]], ["        for (int a = 0; a < prev.size(); a++)", ["cands"]], ["            for (int b = a + 1; b < prev.size(); b++) {", ["cands"]], ["                List<String> P = prev.get(a), Q = prev.get(b);", ["cands"]], ["                int k = P.size();", ["cands"]], ["                if (!P.subList(0, k - 1).equals(Q.subList(0, k - 1))) continue;   // 前面的類型一樣才合併", ["cands"]], ["                List<String> cand = new ArrayList<>(P);", ["cands"]], ["                cand.add(Q.get(k - 1));", ["cands"]], ["                if (!allSubsPrevalent(cand, inst)) continue;                       // 剪枝", ["prune"]], ["                // 列實例：前面的點相同、最後兩個點又相鄰 → 兩兩都相鄰", ["rows"]], ["                List<int[]> rows = new ArrayList<>();", ["rows"]], ["                for (int[] x : inst.get(P))", ["rows"]], ["                    for (int[] y : inst.get(Q))", ["rows"]], ["                        if (Arrays.equals(x, 0, k - 1, y, 0, k - 1) && near(pts.get(x[k - 1]), pts.get(y[k - 1]), r)) {", ["rows"]], ["                            int[] row = Arrays.copyOf(x, k + 1);", ["rows"]], ["                            row[k] = y[k - 1];", ["rows"]], ["                            rows.add(row);", ["rows"]], ["                        }", ["rows"]], ["                double pi = participationIndex(cand, rows, total);", ["pr"]], ["                if (pi >= minPrev) {                                                // 達到門檻：是共位樣式", ["pi"]], ["                    next.put(cand, rows);", ["pi"]], ["                    result.put(cand, pi);", ["pi"]], ["                }", ["pi"]], ["            }", ["cands"]], ["        inst = next;                                                                // 只有共位樣式能再長大", ["cands"]], ["    }", ["cands"]], ["    return result;", ["end"]], ["}", []], ["", []], ["/** 拿掉任一個類型後的子樣式，都要是上一層的共位樣式 */", []], ["static boolean allSubsPrevalent(List<String> cand, Map<List<String>, List<int[]>> inst) {", ["prune"]], ["    for (int i = 0; i < cand.size(); i++) {", ["prune"]], ["        List<String> sub = new ArrayList<>(cand);", ["prune"]], ["        sub.remove(i);", ["prune"]], ["        if (!inst.containsKey(sub)) return false;", ["prune"]], ["    }", ["prune"]], ["    return true;", ["prune"]], ["}", ["prune"]], ["", []], ["static double participationIndex(List<String> cand, List<int[]> rows, Map<String, Integer> total) {", ["pr"]], ["    double pi = 1.0;", ["pr"]], ["    for (int j = 0; j < cand.size(); j++) {", ["pr"]], ["        Set<Integer> part = new HashSet<>();                  // 有參與的點（不重複）", ["pr"]], ["        for (int[] row : rows) part.add(row[j]);", ["pr"]], ["        pi = Math.min(pi, (double) part.size() / total.get(cand.get(j)));   // PR，取最小的就是 PI", ["pr"]], ["    }", ["pr"]], ["    return pi;", ["pr"]], ["}", ["pr"]]], "py": [["def near(p, q, r):", []], ["    \"\"\"兩點距離 ≤ r 就算鄰近（用平方比，不用開根號）\"\"\"", []], ["    return (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 <= r * r", []], ["", []], ["", []], ["def co_locations(points, r, min_prev):", ["start"]], ["    \"\"\"points: [(x, y, 類型)]；回傳 {樣式(類型 tuple): 參與指數 PI}\"\"\"", ["start"]], ["    types = list(dict.fromkeys(t for _, _, t in points))     # 類型照第一次出現的順序", ["start"]], ["    total = {t: sum(1 for p in points if p[2] == t) for t in types}", ["start"]], ["    # 大小 1：每個點自己就是一個實例", ["start"]], ["    inst = {(t,): [(i,) for i, p in enumerate(points) if p[2] == t] for t in types}", ["start"]], ["    result = {}", ["start"]], ["    while inst:", ["cands"]], ["        prev, nxt = list(inst), {}", ["cands"]], ["        for a in range(len(prev)):", ["cands"]], ["            for b in range(a + 1, len(prev)):", ["cands"]], ["                P, Q = prev[a], prev[b]", ["cands"]], ["                if P[:-1] != Q[:-1]:        # 前面的類型一樣才合併", ["cands"]], ["                    continue", ["cands"]], ["                cand = P + Q[-1:]", ["cands"]], ["                if any(cand[:i] + cand[i + 1:] not in inst for i in range(len(cand))):", ["prune"]], ["                    continue                # 剪枝：有子樣式不是共位樣式", ["prune"]], ["                # 列實例：前面的點相同、最後兩個點又相鄰 → 兩兩都相鄰", ["rows"]], ["                rows = [x + y[-1:] for x in inst[P] for y in inst[Q]", ["rows"]], ["                        if x[:-1] == y[:-1] and near(points[x[-1]], points[y[-1]], r)]", ["rows"]], ["                pi = participation_index(cand, rows, total)", ["pr"]], ["                if pi >= min_prev:          # 達到門檻：是共位樣式", ["pi"]], ["                    nxt[cand] = rows", ["pi"]], ["                    result[cand] = pi", ["pi"]], ["        inst = nxt                          # 只有共位樣式能再長大", ["cands"]], ["    return result", ["end"]], ["", []], ["", []], ["def participation_index(cand, rows, total):", ["pr"]], ["    pi = 1.0", ["pr"]], ["    for j, t in enumerate(cand):", ["pr"]], ["        part = {row[j] for row in rows}     # 有參與的 t 點（不重複）", ["pr"]], ["        pi = min(pi, len(part) / total[t])  # PR(t)，取最小的就是 PI", ["pr"]], ["    return pi", ["pr"]]]} };
+
+        const WORLD = 128;          // 地圖 128×128
+        const MAX_DEPTH = 7;        // 跟程式裡一樣：最多切 7 層
+        const MAX_POINTS = 60;
+        const KINDS = ['超商', '公車站', '咖啡店', '飲料店'];
+        const KIND_INFO = {
+            '超商': { emo: '🏪', color: '#60a5fa', shape: 'circle' },
+            '公車站': { emo: '🚏', color: '#f472b6', shape: 'square' },
+            '咖啡店': { emo: '☕', color: '#d6a46c', shape: 'triangle' },
+            '飲料店': { emo: '🧋', color: '#a78bfa', shape: 'diamond' }
+        };
+        const DEFAULT_POINTS = [
+            [26, 54, '超商'], [38, 36, '超商'], [54, 74, '超商'], [84, 56, '超商'],
+            [108, 76, '超商'], [60, 114, '超商'], [12, 96, '超商'], [90, 26, '超商'],
+            [20, 60, '公車站'], [44, 30, '公車站'], [48, 68, '公車站'], [78, 62, '公車站'],
+            [102, 68, '公車站'], [96, 22, '公車站'], [44, 102, '公車站'], [100, 106, '公車站'],
+            [84, 14, '咖啡店'], [110, 36, '咖啡店'], [118, 12, '咖啡店'], [70, 40, '咖啡店'],
+            [60, 62, '咖啡店'], [22, 104, '咖啡店'], [72, 110, '咖啡店'],
+            [88, 42, '飲料店'], [112, 22, '飲料店'], [74, 30, '飲料店'], [26, 70, '飲料店'],
+            [110, 62, '飲料店'], [40, 42, '飲料店'], [16, 18, '飲料店'], [62, 64, '飲料店']
+        ];
+        const DEFAULT_QUERY = { x1: 64, y1: 8, x2: 120, y2: 48 };
+        const QN = ['左上', '右上', '左下', '右下'];
+
+        const $ = id => document.getElementById(id);
+        let pts = DEFAULT_POINTS.map(([x, y, kind]) => ({ x, y, kind }));
+        let capacity = 2;
+        let queryRect = { ...DEFAULT_QUERY };
+        let radius = 16;
+        let minPct = 50;                     // minPrev = minPct / 100
+        let newKind = '超商';
+        let activeTab = 'qt';
+        let qtView = 'build';
+        let lang = 'java';
+
+        let qtBuild = null;                  // { steps, root }
+        let qtQuery = [];
+        let coSteps = [];
+        const cursors = { build: 0, query: 0, co: 0 };
+        const timers = { qt: null, co: null };
+
+        const pn = (points, j) => `${points[j].kind}(${points[j].x},${points[j].y})`;
+        const fmtPat = pat => '{' + pat.join(', ') + '}';
+        const minPrev = () => minPct / 100;
+        const num = v => String(+v.toFixed(3));
+
+        /* =================== 四元樹：照著程式跑一次 =================== */
+        function qtQuadrant(n, p) {
+            const half = n.size / 2;
+            return (p.x >= n.x + half ? 1 : 0) + (p.y >= n.y + half ? 2 : 0);
+        }
+        function qtIntersects(n, q) {
+            return q.x1 < n.x + n.size && n.x <= q.x2 && q.y1 < n.y + n.size && n.y <= q.y2;
+        }
+        const inRect = (p, q) => q.x1 <= p.x && p.x <= q.x2 && q.y1 <= p.y && p.y <= q.y2;
+
+        function qtSnapshot(root) {
+            const out = [];
+            (function walk(n) {
+                out.push({ id: n.id, x: n.x, y: n.y, size: n.size, depth: n.depth, leaf: !n.children, pts: n.children ? [] : n.points.slice() });
+                if (n.children) n.children.forEach(walk);
+            })(root);
+            return out;
+        }
+
+        function qtBuildTrace(points, cap) {
+            let nextId = 0;
+            const mk = (x, y, size, depth) => ({ id: nextId++, x, y, size, depth, points: [], children: null });
+            const root = mk(0, 0, WORLD, 0);
+            const steps = [];
+            let inserted = 0;
+            const push = (kind, extra = {}) => steps.push({ kind, nodes: qtSnapshot(root), inserted, ...extra });
+            push('b-start');
+            points.forEach((p, i) => {
+                let node = root;
+                let from = root.id, path = [root.id], moves = [];
+                for (;;) {
+                    while (node.children) {                       // 已經切開：往 p 所在的那一塊走
+                        const q = qtQuadrant(node, p);
+                        moves.push(q);
+                        node = node.children[q];
+                        path.push(node.id);
+                    }
+                    if (node.points.length < cap || node.depth === MAX_DEPTH) {
+                        const before = node.points.length;
+                        node.points.push(i);
+                        inserted = i + 1;
+                        push('b-add', { pi: i, from, path, moves, leaf: node.id, before, forced: before >= cap });
+                        break;
+                    }
+                    // 滿了：切成四塊，原本的點重新分配
+                    const old = node.points.slice();
+                    const half = node.size / 2;
+                    node.children = [0, 1, 2, 3].map(k => mk(node.x + (k % 2) * half, node.y + Math.floor(k / 2) * half, half, node.depth + 1));
+                    const moved = old.map(j => ({ j, q: qtQuadrant(node, points[j]) }));
+                    moved.forEach(m => node.children[m.q].points.push(m.j));
+                    node.points = [];
+                    push('b-split', { pi: i, from, path, moves, leaf: node.id, moved, newIds: node.children.map(c => c.id) });
+                    from = node.id; path = [node.id]; moves = [];    // 再從這格往下走一次
+                }
+            });
+            push('b-end');
+            return { steps, root };
+        }
+
+        function qtQueryTrace(root, points, q) {
+            const steps = [];
+            const st = { visited: 0, checked: 0, skippedTrees: 0 };
+            const skipped = [], found = [], checkedPts = [];
+            const countPts = n => n.children ? n.children.reduce((a, c) => a + countPts(c), 0) : n.points.length;
+            const push = (kind, extra = {}) => steps.push({
+                kind, ...extra, st: { ...st }, skipped: skipped.slice(), found: found.slice(), checkedPts: checkedPts.slice()
+            });
+            push('q-start');
+            (function visit(node) {
+                st.visited++;
+                if (!node.children) {                             // 葉子：一個一個檢查
+                    const checks = node.points.map(j => {
+                        st.checked++;
+                        const inside = inRect(points[j], q);
+                        if (inside) found.push(j);
+                        checkedPts.push(j);
+                        return { j, inside };
+                    });
+                    push('q-leaf', { node: node.id, checks });
+                    return;
+                }
+                const go = [], skip = [];
+                node.children.forEach((c, k) => (qtIntersects(c, q) ? go : skip).push(k));
+                let skipPts = 0;
+                skip.forEach(k => { skipped.push(node.children[k].id); st.skippedTrees++; skipPts += countPts(node.children[k]); });
+                push('q-node', { node: node.id, go, skip, skipPts, goIds: go.map(k => node.children[k].id) });
+                go.forEach(k => visit(node.children[k]));
+            })(root);
+            push('q-end');
+            return steps;
+        }
+
+        /* =================== 共位樣式：照著程式跑一次 =================== */
+        const near = (p, q, r) => (p.x - q.x) ** 2 + (p.y - q.y) ** 2 <= r * r;
+        const patKey = pat => pat.join('|');
+
+        function coTrace(points, r, minPrev) {
+            const steps = [];
+            const types = [...new Set(points.map(p => p.kind))];       // 類型照第一次出現的順序
+            const total = {};
+            points.forEach(p => { total[p.kind] = (total[p.kind] || 0) + 1; });
+            let inst = new Map();
+            types.forEach(t => inst.set(patKey([t]), { pat: [t], rows: [] }));
+            points.forEach((p, i) => inst.get(patKey([p.kind])).rows.push([i]));
+            const table = [];
+            const push = (kind, extra = {}) => steps.push({ kind, ...extra, table: table.map(t => ({ ...t })) });
+            push('c-start', { types, total: { ...total } });
+
+            while (inst.size) {
+                const prev = [...inst.values()];
+                const k = prev[0].pat.length + 1;
+                const next = new Map();
+                // 合併 + 剪枝（跟程式同一個順序）
+                const cands = [];
+                for (let a = 0; a < prev.length; a++) {
+                    for (let b = a + 1; b < prev.length; b++) {
+                        const P = prev[a], Q = prev[b];
+                        if (patKey(P.pat.slice(0, -1)) !== patKey(Q.pat.slice(0, -1))) continue;
+                        const cand = [...P.pat, Q.pat[Q.pat.length - 1]];
+                        let missing = null;
+                        for (let i = 0; i < cand.length && !missing; i++) {
+                            const sub = cand.filter((_, j) => j !== i);
+                            if (!inst.has(patKey(sub))) missing = sub;
+                        }
+                        cands.push({ pat: cand, P, Q, missing });
+                        table.push({ pat: cand, status: missing ? 'pruned' : 'wait', missing });
+                    }
+                }
+                push('c-cands', { k, cands: cands.map(c => ({ pat: c.pat, missing: c.missing, from: [c.P.pat, c.Q.pat] })) });
+
+                for (const c of cands) {
+                    if (c.missing) continue;
+                    const rec = table.find(t => patKey(t.pat) === patKey(c.pat));
+                    const rows = [];
+                    for (const x of c.P.rows) {
+                        for (const y of c.Q.rows) {
+                            let same = true;
+                            for (let i = 0; i < k - 2; i++) if (x[i] !== y[i]) { same = false; break; }
+                            if (same && near(points[x[k - 2]], points[y[k - 2]], r)) rows.push([...x, y[k - 2]]);
+                        }
+                    }
+                    rec.rows = rows.length;
+                    rec.status = 'count';
+                    push('c-rows', { pat: c.pat, from: [c.P.pat, c.Q.pat], rows });
+
+                    const part = c.pat.map((_, j) => [...new Set(rows.map(row => row[j]))]);
+                    const pr = c.pat.map((t, j) => ({ n: part[j].length, d: total[t] }));
+                    let pi = 1;
+                    pr.forEach(x => { pi = Math.min(pi, x.n / x.d); });
+                    rec.pr = pr;
+                    push('c-part', { pat: c.pat, rows, part, pr });
+
+                    const ok = pi >= minPrev;
+                    rec.pi = pi;
+                    rec.status = ok ? 'ok' : 'fail';
+                    if (ok) next.set(patKey(c.pat), { pat: c.pat, rows });
+                    push('c-judge', { pat: c.pat, rows, part, pr, pi, ok });
+                }
+                inst = next;                                  // 只有共位樣式能再長大
+            }
+            push('c-end', { result: table.filter(t => t.status === 'ok').map(t => ({ pat: t.pat, pi: t.pi })) });
+            return steps;
+        }
+
+        /* =================== 說明文字 =================== */
+        function nodeLabel(n) {
+            if (n.depth === 0) return '根（整張地圖）';
+            const names = [];
+            for (let d = 1; d <= n.depth; d++) {
+                const s = WORLD / 2 ** d;
+                names.push(QN[(Math.floor(n.x / s) % 2) + 2 * (Math.floor(n.y / s) % 2)]);
+            }
+            return '「' + names.join('›') + '」';
+        }
+        const nodeRange = n => `x ${n.x}–${n.x + n.size}、y ${n.y}–${n.y + n.size}`;
+
+        function qtDescribe(s, view) {
+            const nodes = view === 'build' ? null : qtFinalNodes();
+            const byId = id => (view === 'build' ? s.nodes : nodes).find(n => n.id === id);
+            const n = pts.length;
+            switch (s.kind) {
+                case 'b-start':
+                    if (!n) return `地圖上還沒有點。點一下地圖就能新增，四元樹會跟著長出來。`;
+                    return `從一棵空的四元樹開始：根節點就是整張 128×128 的地圖。每個葉子最多放 <b>${capacity}</b> 個點，再多就從中線切成四塊。接下來把 ${n} 個點一個一個插進去（空心的點是還沒插入的）。`;
+                case 'b-add':
+                case 'b-split': {
+                    const leaf = byId(s.leaf);
+                    const head = `插入第 ${s.pi + 1} 個點 <b>${pn(pts, s.pi)}</b>：`;
+                    let walk;
+                    if (s.from === 0) {
+                        walk = s.moves.length
+                            ? `從根往下走 ${s.moves.map(q => QN[q]).join(' → ')}，到了葉子 ${nodeLabel(leaf)}。`
+                            : `根還沒切開，它本身就是葉子。`;
+                    } else {
+                        walk = `切開之後從 ${nodeLabel(byId(s.from))} 繼續往下走 ${s.moves.map(q => QN[q]).join(' → ')}，到了 ${nodeLabel(leaf)}。`;
+                    }
+                    if (s.kind === 'b-add') {
+                        if (s.forced) return head + walk + `這格已經切到最深（第 ${MAX_DEPTH} 層，1×1），點疊在同一個位置怎麼切都分不開，只好讓它超過容量。`;
+                        return head + walk + `裡面原本有 ${s.before} 個點，還沒滿（容量 ${capacity}），<b>直接放進去</b>。`;
+                    }
+                    const h = leaf.size / 2;
+                    const same = s.moved.every(m => m.q === s.moved[0].q);
+                    return head + walk + `這格已經有 ${capacity} 個點，<b>滿了</b>：從中線 x=${leaf.x + h}、y=${leaf.y + h} 切成四塊，原本的點依位置重新分到子格（` +
+                        s.moved.map(m => `${pn(pts, m.j)}→${QN[m.q]}`).join('、') + `）。` +
+                        (same ? `它們全擠在同一塊，等一下可能還要再切。` : `接著新的點從這格重新往下走。`);
+                }
+                case 'b-end': {
+                    if (!n) return `地圖上沒有點，樹只有一個空的根。`;
+                    const leaves = s.nodes.filter(x => x.leaf).length;
+                    const depth = Math.max(...s.nodes.map(x => x.depth));
+                    return `${n} 個點都插完了：樹有 ${s.nodes.length} 個節點、${leaves} 個葉子，最深切到第 ${depth} 層。點密的地方切得細、空曠的地方一大塊帶過。切到上面的<b>範圍查詢</b>，看這些格子怎麼幫查詢省工。`;
+                }
+                case 'q-start':
+                    return `查詢框是 x ${queryRect.x1}–${queryRect.x2}、y ${queryRect.y1}–${queryRect.y2}，要找出框裡所有的點。最直接的做法是 ${n} 個點全部檢查一次；四元樹則從根開始往下，<b>跟查詢框沒有交集的格子整塊跳過</b>。`;
+                case 'q-node': {
+                    const node = byId(s.node);
+                    let t = `拜訪 ${nodeLabel(node)}：它已經切開，看四個子格跟查詢框有沒有交集。`;
+                    if (s.go.length) t += `${s.go.map(k => QN[k]).join('、')} 有交集，要往下走`;
+                    t += s.skip.length
+                        ? `${s.go.length ? '；' : ''}${s.skip.map(k => QN[k]).join('、')} 沒有交集，<b>整塊跳過</b>` + (s.skipPts ? `（裡面 ${s.skipPts} 個點都不用看）` : '（裡面本來就沒有點）') + '。'
+                        : '，四塊都要看。';
+                    return t;
+                }
+                case 'q-leaf': {
+                    const node = byId(s.node);
+                    if (!s.checks.length) return `拜訪葉子 ${nodeLabel(node)}（${nodeRange(node)}）：裡面沒有點，不用檢查。`;
+                    return `拜訪葉子 ${nodeLabel(node)}：逐一檢查裡面的 ${s.checks.length} 個點，` +
+                        s.checks.map(c => `${pn(pts, c.j)} ${c.inside ? '<span class="ok">在框內 ✓</span>' : '<span class="no">不在框內 ✗</span>'}`).join('、') + '。';
+                }
+                case 'q-end':
+                    return `查詢完成！找到 <b>${s.found.length}</b> 個點。拜訪了 ${s.st.visited} 個節點、整塊跳過 ${s.st.skippedTrees} 棵子樹，只檢查了 <b>${s.st.checked}</b> 個點；全部掃一遍要檢查 ${n} 個。` +
+                        (s.st.checked > s.found.length ? `其中 ${s.st.checked - s.found.length} 個是格子跟框有交集、但點本身在框外。` : '');
+            }
+            return '';
+        }
+
+        function coDescribe(s) {
+            const mp = num(minPrev());
+            switch (s.kind) {
+                case 'c-start':
+                    if (!pts.length) return `地圖上沒有點。點一下地圖新增幾個不同類型的點吧。`;
+                    return `地圖上有 ${pts.length} 個點、${s.types.length} 種類型（${s.types.map(t => `${t} ${s.total[t]} 個`).join('、')}）。兩個點距離 ≤ <b>r = ${radius}</b> 就算「鄰近」，地圖上的虛線圈就是半徑 r。` +
+                        `要找的是：哪幾種類型的點<b>常常互相靠近</b>，標準是參與指數 PI ≥ minPrev = ${mp}。`;
+                case 'c-cands': {
+                    const pruned = s.cands.filter(c => c.missing);
+                    if (s.k === 2) {
+                        return s.cands.length
+                            ? `大小 2 的候選：${s.cands.length > 1 ? '任兩種類型配一對' : '兩種類型配成一對'}，共 ${s.cands.length} 組。接下來一組一組看：先找鄰近的點對，再算參與率。`
+                            : `地圖上只有 ${new Set(pts.map(p => p.kind)).size} 種類型，湊不出大小 2 的候選。`;
+                    }
+                    if (!s.cands.length) return `大小 ${s.k - 1} 的共位樣式裡，沒有「前 ${s.k - 2} 種類型相同」可以合併的兩個，<b>沒有大小 ${s.k} 的候選</b>，探勘結束。`;
+                    return `大小 ${s.k} 的候選：把大小 ${s.k - 1} 的共位樣式中「前 ${s.k - 2} 種類型相同」的兩兩合併，得到 ${s.cands.length} 個。` +
+                        (pruned.length
+                            ? pruned.map(c => `${fmtPat(c.pat)} 的子樣式 ${fmtPat(c.missing)} 不是共位樣式`).join('、') + `，<b>直接剪掉</b>，連實例都不用找。`
+                            : `每個候選的子樣式都是共位樣式，都要檢查。`);
+                }
+                case 'c-rows':
+                    if (s.pat.length === 2) {
+                        return `看 <b>${fmtPat(s.pat)}</b>：找出所有距離 ≤ ${radius} 的 ${s.pat[0]}–${s.pat[1]} 點對，這種一組互相鄰近的點叫做<b>列實例</b>（row instance）。共 ${s.rows.length} 組，就是地圖上的連線。`;
+                    }
+                    return `看 <b>${fmtPat(s.pat)}</b>：要找 ${s.pat.length} 個點<b>兩兩都相鄰</b>的組合。程式拿 ${fmtPat(s.from[0])} 和 ${fmtPat(s.from[1])} 的實例來拼：前面的點相同、最後兩個點也相鄰才算。共 ${s.rows.length} 組。`;
+                case 'c-part':
+                    return `標出有參與的點（至少出現在一組實例裡，重複出現只算一次），每種類型的<b>參與率</b> PR = 參與的點數 ÷ 這種類型的總點數：` +
+                        s.pr.map((x, j) => `PR(${s.pat[j]}) = ${x.n}/${x.d}`).join('、') + '。';
+                case 'c-judge': {
+                    const t = `參與指數 PI = 所有 PR 取最小 = <b>${num(s.pi)}</b>，`;
+                    if (s.ok) return t + `≥ ${mp}，${fmtPat(s.pat)} <span class="ok">是共位樣式 ✓</span>，之後可以拿來合併更大的樣式。`;
+                    const hi = s.pr.reduce((a, x) => Math.max(a, x.n / x.d), 0);
+                    return t + `< ${mp}，<span class="no">不是共位樣式 ✗</span>` +
+                        (hi >= minPrev() ? `。就算有一種類型的參與率夠高也沒用，要每一種都夠高才算。` : '。');
+                }
+                case 'c-end':
+                    if (!s.result.length) return `完成！在 r = ${radius}、minPrev = ${mp} 下<b>沒有任何共位樣式</b>。試著把 r 拉大或把門檻調低。`;
+                    return `完成！共找到 <b>${s.result.length}</b> 個共位樣式：` + s.result.map(x => `${fmtPat(x.pat)}（PI ${num(x.pi)}）`).join('、') + '。';
+            }
+            return '';
+        }
+
+        const QT_TAGS = { 'b-start': ['init'], 'b-add': ['descend', 'add'], 'b-split': ['descend', 'split'], 'b-end': [], 'q-start': ['qstart'], 'q-node': ['visit', 'kids'], 'q-leaf': ['visit', 'leaf'], 'q-end': ['qend'] };
+        const CO_TAGS = { 'c-start': ['start'], 'c-cands': ['cands', 'prune'], 'c-rows': ['rows'], 'c-part': ['pr'], 'c-judge': ['pi'], 'c-end': ['end'] };
+
+        /* =================== 畫地圖 =================== */
+        function shapeSvg(kind, cx, cy, s, cls = 'pt', attrs = '') {
+            const info = KIND_INFO[kind] || { color: '#ccc', shape: 'circle' };
+            const pend = /pending/.test(cls);
+            const paint = pend ? `stroke="${info.color}"` : `fill="${info.color}"`;
+            const f = v => +v.toFixed(2);
+            switch (info.shape) {
+                case 'square': return `<rect class="${cls}" ${paint} ${attrs} x="${f(cx - s * 0.88)}" y="${f(cy - s * 0.88)}" width="${f(s * 1.76)}" height="${f(s * 1.76)}" rx="${f(s * 0.25)}"/>`;
+                case 'triangle': return `<polygon class="${cls}" ${paint} ${attrs} points="${f(cx)},${f(cy - s * 1.15)} ${f(cx + s * 1.05)},${f(cy + s * 0.8)} ${f(cx - s * 1.05)},${f(cy + s * 0.8)}"/>`;
+                case 'diamond': return `<polygon class="${cls}" ${paint} ${attrs} points="${f(cx)},${f(cy - s * 1.2)} ${f(cx + s * 1.2)},${f(cy)} ${f(cx)},${f(cy + s * 1.2)} ${f(cx - s * 1.2)},${f(cy)}"/>`;
+                default: return `<circle class="${cls}" ${paint} ${attrs} cx="${cx}" cy="${cy}" r="${s}"/>`;
+            }
+        }
+        const PT = 2.1;                                   // 點的大小（地圖單位）
+        const unitPx = svg => (svg.getBoundingClientRect().width || 500) / 130;
+        const cellRect = (n, cls) => `<rect class="${cls}" x="${n.x}" y="${n.y}" width="${n.size}" height="${n.size}"/>`;
+        const ring = (p, cls, r = 3.9) => `<circle class="ring ${cls}" cx="${p.x}" cy="${p.y}" r="${r}"/>`;
+        function label(svg, p, text) {
+            const fs = 12 / unitPx(svg);
+            const right = p.x > 92;
+            const ty = p.y < 10 ? p.y + 5.5 + fs * 0.7 : p.y - 5;
+            return `<text class="lbl" x="${p.x + (right ? -4.5 : 4.5)}" y="${ty}" font-size="${fs.toFixed(2)}" text-anchor="${right ? 'end' : 'start'}">${text}</text>`;
+        }
+        function mapBase() {
+            let h = '<rect class="bg" x="0" y="0" width="128" height="128"/>';
+            for (let v = 16; v < WORLD; v += 16) h += `<line class="gridfaint" x1="${v}" y1="0" x2="${v}" y2="128"/><line class="gridfaint" x1="0" y1="${v}" x2="128" y2="${v}"/>`;
+            return h;
+        }
+        function qtLines(nodes) {
+            let h = '';
+            nodes.forEach(n => {
+                if (n.leaf) return;
+                const m = n.size / 2, w = Math.max(0.8, 2.2 - n.depth * 0.3);
+                h += `<line class="qline" stroke-width="${w}" x1="${n.x + m}" y1="${n.y}" x2="${n.x + m}" y2="${n.y + n.size}"/>` +
+                    `<line class="qline" stroke-width="${w}" x1="${n.x}" y1="${n.y + m}" x2="${n.x + n.size}" y2="${n.y + m}"/>`;
+            });
+            return h;
+        }
+
+        function qtFinalNodes() { const st = qtBuild.steps; return st[st.length - 1].nodes; }
+        function qtCurrentSteps() { return qtView === 'build' ? qtBuild.steps : qtQuery; }
+
+        function drawQtMap() {
+            const svg = $('qt-map');
+            const steps = qtCurrentSteps();
+            const s = steps[cursors[qtView]];
+            let h = mapBase();
+            let pointsHtml = '', rings = '', labels = '';
+            if (qtView === 'build') {
+                const byId = new Map(s.nodes.map(n => [n.id, n]));
+                if (s.kind === 'b-add' || s.kind === 'b-split') {
+                    s.path.slice(0, -1).forEach(id => { if (byId.get(id).depth > 0) h += cellRect(byId.get(id), 'cell-path'); });
+                    if (s.kind === 'b-split') {
+                        new Set(s.moved.map(m => s.newIds[m.q])).forEach(id => { h += cellRect(byId.get(id), 'cell-new'); });
+                        h += cellRect(byId.get(s.leaf), 'cell-split');
+                    } else {
+                        h += cellRect(byId.get(s.leaf), 'cell-leaf');
+                    }
+                }
+                h += qtLines(s.nodes);
+                const movedSet = new Set((s.moved || []).map(m => m.j));
+                pts.forEach((p, i) => {
+                    const pending = s.kind !== 'b-end' && i >= s.inserted;
+                    pointsHtml += shapeSvg(p.kind, p.x, p.y, PT, pending ? 'pt pending' : 'pt');
+                    if (i === s.pi) { rings += ring(p, 'cur', 4.4); labels += label(svg, p, `(${p.x},${p.y})`); }
+                    else if (movedSet.has(i)) rings += ring(p, 'moved');
+                });
+            } else {
+                const nodes = qtFinalNodes();
+                const byId = new Map(nodes.map(n => [n.id, n]));
+                const skippedCells = s.skipped.map(id => byId.get(id));
+                skippedCells.forEach(n => { h += cellRect(n, 'cell-skip'); });
+                if (s.kind === 'q-node' || s.kind === 'q-leaf') {
+                    const cur = byId.get(s.node);
+                    if (cur.depth > 0 || s.kind === 'q-leaf') h += cellRect(cur, 'cell-cur');
+                    (s.goIds || []).forEach(id => { h += cellRect(byId.get(id), 'cell-go'); });
+                }
+                h += qtLines(nodes);
+                const q = queryRect;
+                h += `<rect class="qrect" x="${q.x1}" y="${q.y1}" width="${q.x2 - q.x1}" height="${q.y2 - q.y1}"/>`;
+                const found = new Set(s.found), checked = new Set(s.checkedPts);
+                const nowChecks = new Map((s.checks || []).map(c => [c.j, c.inside]));
+                pts.forEach((p, i) => {
+                    const hidden = skippedCells.some(n => p.x >= n.x && p.x < n.x + n.size && p.y >= n.y && p.y < n.y + n.size);
+                    pointsHtml += shapeSvg(p.kind, p.x, p.y, PT, hidden ? 'pt dim' : 'pt');
+                    if (nowChecks.has(i)) rings += ring(p, nowChecks.get(i) ? 'hit' : 'miss', 4.4);
+                    else if (found.has(i)) rings += ring(p, 'hit');
+                    else if (checked.has(i)) rings += ring(p, 'miss old');
+                });
+            }
+            h += '<rect class="border" x="0" y="0" width="128" height="128"/>';
+            h += pointsHtml + rings + labels + '<rect class="dragrect" id="qt-drag" x="0" y="0" width="0" height="0" style="display:none"/>';
+            svg.innerHTML = h;
+            svg.classList.toggle('drag', qtView === 'query');
+        }
+
+        function drawCoMap() {
+            const svg = $('co-map');
+            const s = coSteps[cursors.co];
+            let h = mapBase();
+            const involved = s.pat ? new Set(s.pat) : null;
+            // 半徑 r 的圈
+            const circleFor = s.kind === 'c-start' ? pts.map((_, i) => i) : (s.pat ? pts.map((p, i) => (involved.has(p.kind) ? i : -1)).filter(i => i >= 0) : []);
+            circleFor.forEach(i => {
+                const p = pts[i];
+                h += `<circle class="nbr" cx="${p.x}" cy="${p.y}" r="${radius}" stroke="${KIND_INFO[p.kind].color}" stroke-dasharray="3 3"/>`;
+            });
+            // 列實例的連線
+            if (s.rows) {
+                const seen = new Set();
+                s.rows.forEach(row => {
+                    for (let a = 0; a < row.length; a++) for (let b = a + 1; b < row.length; b++) {
+                        const k = row[a] < row[b] ? row[a] + '-' + row[b] : row[b] + '-' + row[a];
+                        if (seen.has(k)) continue;
+                        seen.add(k);
+                        const p = pts[row[a]], q = pts[row[b]];
+                        h += `<line class="edge" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>`;
+                    }
+                });
+            }
+            h += '<rect class="border" x="0" y="0" width="128" height="128"/>';
+            const partSet = new Set((s.part || []).flat());
+            let rings = '';
+            pts.forEach((p, i) => {
+                let cls = 'pt';
+                if (involved && !involved.has(p.kind)) cls += ' dim';
+                else if (involved && s.part && !partSet.has(i)) cls += ' faded';
+                h += shapeSvg(p.kind, p.x, p.y, PT, cls);
+                if (s.part && partSet.has(i)) rings += ring(p, 'part');
+            });
+            // 比例尺：r 有多長
+            const sx = 4, sy = 123;
+            h += rings + `<line class="scale" x1="${sx}" y1="${sy}" x2="${sx + radius}" y2="${sy}"/>` +
+                `<line class="scale" x1="${sx}" y1="${sy - 1.5}" x2="${sx}" y2="${sy + 1.5}"/><line class="scale" x1="${sx + radius}" y1="${sy - 1.5}" x2="${sx + radius}" y2="${sy + 1.5}"/>` +
+                `<text class="lbl" x="${sx + radius + 2}" y="${sy + 1.5}" font-size="${(11 / unitPx(svg)).toFixed(2)}">r = ${radius}</text>`;
+            svg.innerHTML = h;
+        }
+
+        /* =================== 地圖工具列（兩個分頁共用） =================== */
+        function iconSvg(kind) {
+            return `<svg viewBox="-3 -3 6 6" aria-hidden="true">${shapeSvg(kind, 0, 0, 2.2, 'pt')}</svg>`;
+        }
+        function renderTools(group) {
+            const box = $(group + '-tools');
+            const counts = {};
+            pts.forEach(p => { counts[p.kind] = (counts[p.kind] || 0) + 1; });
+            box.innerHTML = `<div class="kinds"><span class="lab">新增：</span>` + KINDS.map(k =>
+                `<button class="kind${k === newKind ? ' sel' : ''}" data-kind="${k}" title="新增的點是${k}">${iconSvg(k)}<span>${k}</span><span class="cnt">${counts[k] || 0}</span></button>`).join('') +
+                `</div><button class="btn small" data-act="random">🎲 隨機產生</button><button class="btn small" data-act="clear">清空</button><button class="btn small" data-act="reset">恢復預設</button>`;
+            $(group + '-count').textContent = `${pts.length} 個點`;
+        }
+        ['qt', 'co'].forEach(group => {
+            $(group + '-tools').addEventListener('click', e => {
+                const kb = e.target.closest('[data-kind]');
+                if (kb) { newKind = kb.dataset.kind; renderTools('qt'); renderTools('co'); return; }
+                const act = e.target.closest('[data-act]');
+                if (!act) return;
+                if (act.dataset.act === 'random') pts = randomPoints();
+                if (act.dataset.act === 'clear') pts = [];
+                if (act.dataset.act === 'reset') { pts = DEFAULT_POINTS.map(([x, y, kind]) => ({ x, y, kind })); queryRect = { ...DEFAULT_QUERY }; }
+                pointsChanged(group, act.dataset.act);
+            });
+        });
+
+        function randomPoints() {
+            const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+            const out = [];
+            const seen = new Set();
+            const centers = Array.from({ length: rnd(4, 6) }, () => ({
+                x: rnd(14, 114), y: rnd(14, 114),
+                kinds: [...KINDS].sort(() => Math.random() - 0.5).slice(0, rnd(2, 3))
+            }));
+            const n = rnd(26, 38);
+            let guard = 0;
+            while (out.length < n && guard++ < 1000) {
+                let x, y, kind;
+                if (Math.random() < 0.75) {
+                    const c = centers[rnd(0, centers.length - 1)];
+                    x = c.x + rnd(-14, 14); y = c.y + rnd(-14, 14);
+                    kind = c.kinds[rnd(0, c.kinds.length - 1)];
+                } else {
+                    x = rnd(3, 124); y = rnd(3, 124);
+                    kind = KINDS[rnd(0, 3)];
+                }
+                x = Math.max(2, Math.min(125, x)); y = Math.max(2, Math.min(125, y));
+                if (seen.has(x + ',' + y)) continue;
+                seen.add(x + ',' + y);
+                out.push({ x, y, kind });
+            }
+            // 類型照固定順序排一下，看起來比較整齊（共位樣式的類型順序 = 第一次出現的順序）
+            return out.sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind));
+        }
+
+        /* =================== 在地圖上點、拖曳 =================== */
+        function toWorld(svg, e) {
+            const pt = svg.createSVGPoint();
+            pt.x = e.clientX; pt.y = e.clientY;
+            return pt.matrixTransform(svg.getScreenCTM().inverse());
+        }
+        const clampW = v => Math.max(0, Math.min(WORLD - 1, Math.round(v)));
+        function setHint(group, text, warn) {
+            const el = $(group + '-hint');
+            el.textContent = text;
+            el.classList.toggle('warn', !!warn);
+        }
+        function defaultHint(group) {
+            if (group === 'qt' && qtView === 'query') return '在地圖上拖曳，畫出新的查詢框（手機用手指拖）。要新增或刪除點，請切回「建樹過程」。';
+            if (group === 'qt') return '點地圖空白處新增一個點（類型選上面），點一下已有的點刪除它；新增後會直接播放它怎麼插進樹裡。';
+            return '點地圖空白處新增一個點、點一下已有的點刪除它，共位樣式會馬上重算。';
+        }
+
+        function tapMap(group, svg, e) {
+            const w = toWorld(svg, e);
+            if (w.x < 0 || w.y < 0 || w.x >= WORLD || w.y >= WORLD) return;
+            const hitR = Math.max(3.2, 13 / unitPx(svg));
+            let best = -1, bestD = Infinity;
+            pts.forEach((p, i) => { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bestD) { bestD = d; best = i; } });
+            if (best >= 0 && bestD <= hitR) {
+                const p = pts[best];
+                pts.splice(best, 1);
+                pointsChanged(group, 'delete');
+                setHint(group, `刪掉了 ${p.kind}(${p.x},${p.y})。`);
+                return;
+            }
+            if (pts.length >= MAX_POINTS) { setHint(group, `最多 ${MAX_POINTS} 個點，先刪掉一些吧。`, true); return; }
+            const p = { x: clampW(w.x), y: clampW(w.y), kind: newKind };
+            pts.push(p);
+            pointsChanged(group, 'add');
+            setHint(group, `新增了 ${p.kind}(${p.x},${p.y})。`);
+        }
+
+        function wireMap(group) {
+            const svg = $(group + '-map');
+            let start = null, startW = null, dragging = false;
+            svg.addEventListener('pointerdown', e => {
+                if (e.button !== undefined && e.button !== 0) return;
+                start = { x: e.clientX, y: e.clientY };
+                startW = toWorld(svg, e);
+                dragging = group === 'qt' && qtView === 'query';
+                if (dragging) {
+                    svg.setPointerCapture(e.pointerId);
+                    e.preventDefault();
+                }
+            });
+            svg.addEventListener('pointermove', e => {
+                if (!start || !dragging) return;
+                const w = toWorld(svg, e);
+                const r = $('qt-drag');
+                const x1 = Math.max(0, Math.min(startW.x, w.x)), y1 = Math.max(0, Math.min(startW.y, w.y));
+                const x2 = Math.min(WORLD - 1, Math.max(startW.x, w.x)), y2 = Math.min(WORLD - 1, Math.max(startW.y, w.y));
+                r.style.display = '';
+                r.setAttribute('x', x1); r.setAttribute('y', y1);
+                r.setAttribute('width', Math.max(0, x2 - x1)); r.setAttribute('height', Math.max(0, y2 - y1));
+            });
+            const end = e => {
+                if (!start) return;
+                const moved = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+                const wasDrag = dragging;
+                start = null; dragging = false;
+                if (e.type === 'pointercancel') { if (wasDrag) drawQtMap(); return; }
+                if (wasDrag) {
+                    const w = toWorld(svg, e);
+                    const x1 = clampW(Math.min(startW.x, w.x)), x2 = clampW(Math.max(startW.x, w.x));
+                    const y1 = clampW(Math.min(startW.y, w.y)), y2 = clampW(Math.max(startW.y, w.y));
+                    if (x2 - x1 < 2 || y2 - y1 < 2) { drawQtMap(); setHint('qt', '框太小了，按住拖曳出一個長方形。', true); return; }
+                    queryRect = { x1, y1, x2, y2 };
+                    qtQuery = qtQueryTrace(qtBuild.root, pts, queryRect);
+                    cursors.query = 0;
+                    stopAuto('qt');
+                    qtShow();
+                    reserveExplainHeight('qt');
+                    setHint('qt', `新的查詢框：x ${x1}–${x2}、y ${y1}–${y2}。按「下一步」看查詢怎麼走。`);
+                    return;
+                }
+                if (moved < 8) tapMap(group, svg, e);
+            };
+            svg.addEventListener('pointerup', end);
+            svg.addEventListener('pointercancel', end);
+        }
+        wireMap('qt');
+        wireMap('co');
+
+        /* =================== 資料或參數改變：重算 trace =================== */
+        function rebuildQt() {
+            qtBuild = qtBuildTrace(pts, capacity);
+            qtQuery = qtQueryTrace(qtBuild.root, pts, queryRect);
+        }
+        function rebuildCo() {
+            coSteps = coTrace(pts, radius, minPrev());
+        }
+        function pointsChanged(group, how) {
+            stopAuto('qt'); stopAuto('co');
+            rebuildQt();
+            rebuildCo();
+            if (group === 'qt' && how === 'add') {
+                // 直接從新點的插入過程開始看
+                const idx = pts.length - 1;
+                cursors.build = qtBuild.steps.findIndex(s => s.pi === idx);
+            } else {
+                cursors.build = how === 'random' || how === 'reset' || how === 'clear' ? 0 : qtBuild.steps.length - 1;
+            }
+            cursors.query = 0;
+            cursors.co = group === 'co' ? Math.min(cursors.co, coSteps.length - 1) : 0;
+            renderTools('qt'); renderTools('co');
+            setHint('qt', defaultHint('qt')); setHint('co', defaultHint('co'));
+            showActive();
+            reserveExplainHeight(activeTab);
+        }
+
+        /* =================== 程式碼 =================== */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this record double continue'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue'.split(' '))
+        };
+        function highlight(line) {
+            const esc = x => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, numb, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (numb) return `<span class="num">${numb}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        const FILES = {
+            qt: { java: ['QuadTree.java', 'javac QuadTree.java && java QuadTree'], py: ['quadtree.py', 'python3 quadtree.py'] },
+            co: { java: ['CoLocation.java', 'javac CoLocation.java && java CoLocation'], py: ['colocation.py', 'python3 colocation.py'] }
+        };
+        function renderCode(group, tags) {
+            const pre = $(group + '-code');
+            pre.innerHTML = CODE[group][lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length && pre.clientHeight) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            const [file, cmd] = FILES[group][lang];
+            $(group + '-downloads').innerHTML = `下載 <a href="code/${file}" download>${file}</a>　執行 <code>${cmd}</code>`;
+        }
+
+        /* =================== 顯示某一步 =================== */
+        function qtStats() {
+            const nodes = qtView === 'build' ? qtBuild.steps[cursors.build].nodes : qtFinalNodes();
+            $('st-nodes').textContent = nodes.length;
+            $('st-leaves').textContent = nodes.filter(n => n.leaf).length;
+            $('st-depth').textContent = Math.max(...nodes.map(n => n.depth));
+            const qs = qtView === 'query' ? qtQuery[cursors.query] : qtQuery[qtQuery.length - 1];
+            $('st-qlabel').textContent = qtView === 'query' ? '範圍查詢（目前這一步）' : '範圍查詢（目前查詢框的最終結果，切到「範圍查詢」可以一步一步看）';
+            $('st-visit').textContent = qs.st.visited;
+            $('st-skip').textContent = qs.st.skippedTrees;
+            $('st-found').textContent = qs.found.length;
+            const n = pts.length || 1;
+            $('bar-qt').style.width = (qs.st.checked / n * 100) + '%';
+            $('bar-all').style.width = (pts.length ? 100 : 0) + '%';
+            $('bar-qt-n').textContent = qs.st.checked;
+            $('bar-all-n').textContent = pts.length;
+        }
+
+        function qtShow() {
+            const steps = qtCurrentSteps();
+            const c = cursors[qtView];
+            const s = steps[c];
+            $('qt-explain').innerHTML = `<span class="step-no">${qtView === 'build' ? '建樹' : '查詢'} · 步驟 ${c + 1} / ${steps.length}</span>${qtDescribe(s, qtView)}`;
+            drawQtMap();
+            qtStats();
+            renderCode('qt', QT_TAGS[s.kind] || []);
+            $('qt-prev').disabled = $('qt-first').disabled = c === 0;
+            $('qt-next').disabled = $('qt-last').disabled = c === steps.length - 1;
+            $('qt-last').textContent = qtView === 'build' ? '⏭ 一次插入全部' : '⏭ 直接看結果';
+            $('cap-val').textContent = capacity;
+            $('cap-minus').disabled = capacity <= 1;
+            $('cap-plus').disabled = capacity >= 4;
+            [...$('qt-view').children].forEach(b => b.classList.toggle('active', b.dataset.view === qtView));
+            $('qt-legend').innerHTML = qtView === 'build'
+                ? '<span><i style="border-color:var(--warn)"></i>這一步走到的格子</span><span><i style="border-color:var(--warn);border-style:dashed"></i>要切開的格子</span><span><i style="border-color:var(--accent2);border-radius:50%"></i>被重新分配的點</span><span><i style="border-color:#8a8aa3;border-radius:50%"></i>空心：還沒插入</span>'
+                : '<span><i style="border-color:var(--accent2);border-style:dashed"></i>查詢框</span><span><i style="border-color:#77779a;background:rgba(120,120,150,0.4)"></i>整塊跳過的格子</span><span><i style="border-color:var(--good);border-radius:50%"></i>在框內</span><span><i style="border-color:var(--bad);border-radius:50%"></i>檢查了但不在框內</span>';
+        }
+
+        function coTableRender(s) {
+            const box = $('co-table');
+            box.innerHTML = '';
+            if (!s.table.length) {
+                box.innerHTML = `<div class="empty">${s.kind === 'c-start' ? '按「下一步」開始產生候選。' : '沒有任何候選。'}</div>`;
+                return;
+            }
+            const bySize = {};
+            s.table.forEach(t => { (bySize[t.pat.length] = bySize[t.pat.length] || []).push(t); });
+            const curKey = s.pat ? patKey(s.pat) : null;
+            Object.keys(bySize).sort((a, b) => a - b).forEach(k => {
+                const lv = document.createElement('div');
+                lv.innerHTML = `<div class="lv-tag">大小 ${k}</div>`;
+                bySize[k].forEach(t => {
+                    const row = document.createElement('div');
+                    row.className = 'crow ' + t.status + (patKey(t.pat) === curKey ? ' cur' : '');
+                    let meta = '';
+                    if (t.status === 'pruned') meta = `<span class="meta">子樣式 ${fmtPat(t.missing)} 不是共位樣式</span>`;
+                    if (t.rows !== undefined) meta += `<span class="meta">實例 <b>${t.rows}</b> 組</span>`;
+                    if (t.pr) meta += `<span class="meta">PR ${t.pr.map(x => `<b>${x.n}/${x.d}</b>`).join(' · ')}</span>`;
+                    if (t.pi !== undefined) meta += `<span class="meta">PI <b>${num(t.pi)}</b></span>`;
+                    const verdict = { ok: ['ok', '共位樣式 ✓'], fail: ['fail', `PI < ${num(minPrev())}`], pruned: ['pruned', '剪枝'], wait: ['wait', '待檢查'], count: ['wait', '計算中'] }[t.status];
+                    row.innerHTML = `<span class="pat">${t.pat.map(x => `<span>${KIND_INFO[x] ? KIND_INFO[x].emo : ''}${x}</span>`).join('<span style="color:var(--muted)">+</span>')}</span>${meta}<span class="verdict ${verdict[0]}">${verdict[1]}</span>`;
+                    lv.appendChild(row);
+                });
+                box.appendChild(lv);
+            });
+        }
+
+        function coShow() {
+            const s = coSteps[cursors.co];
+            $('co-explain').innerHTML = `<span class="step-no">步驟 ${cursors.co + 1} / ${coSteps.length}</span>${coDescribe(s)}`;
+            drawCoMap();
+            coTableRender(s);
+            renderCode('co', CO_TAGS[s.kind] || []);
+            $('co-prev').disabled = $('co-first').disabled = cursors.co === 0;
+            $('co-next').disabled = $('co-last').disabled = cursors.co === coSteps.length - 1;
+            $('r-val').textContent = radius;
+            $('mp-val').textContent = minPrev().toFixed(2);
+        }
+
+        function showActive() { if (activeTab === 'qt') qtShow(); else coShow(); }
+
+        /* 說明框用最長那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight(group) {
+            const box = $(group + '-explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            const measure = (steps, fn, prefix) => steps.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">${prefix}步驟 ${i + 1} / ${steps.length}</span>${fn(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            if (group === 'qt') {
+                measure(qtBuild.steps, s => qtDescribe(s, 'build'), '建樹 · ');
+                measure(qtQuery, s => qtDescribe(s, 'query'), '查詢 · ');
+            } else {
+                measure(coSteps, coDescribe, '');
+            }
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+        }
+
+        /* =================== 播放控制 =================== */
+        function stepsOf(group) { return group === 'qt' ? qtCurrentSteps() : coSteps; }
+        function curKey(group) { return group === 'qt' ? qtView : 'co'; }
+        function go(group, dir) {
+            const key = curKey(group);
+            const next = cursors[key] + dir;
+            if (next < 0 || next >= stepsOf(group).length) return false;
+            cursors[key] = next;
+            group === 'qt' ? qtShow() : coShow();
+            return cursors[key] < stepsOf(group).length - 1;
+        }
+        function stopAuto(group) {
+            clearInterval(timers[group]);
+            timers[group] = null;
+            $(group + '-play').textContent = '▶ 自動播放';
+        }
+        ['qt', 'co'].forEach(group => {
+            const show = () => (group === 'qt' ? qtShow() : coShow());
+            $(group + '-next').addEventListener('click', () => { stopAuto(group); go(group, 1); });
+            $(group + '-prev').addEventListener('click', () => { stopAuto(group); go(group, -1); });
+            $(group + '-first').addEventListener('click', () => { stopAuto(group); cursors[curKey(group)] = 0; show(); });
+            $(group + '-last').addEventListener('click', () => { stopAuto(group); cursors[curKey(group)] = stepsOf(group).length - 1; show(); });
+            $(group + '-play').addEventListener('click', () => {
+                if (timers[group]) { stopAuto(group); return; }
+                if (cursors[curKey(group)] === stepsOf(group).length - 1) { cursors[curKey(group)] = 0; show(); }
+                $(group + '-play').textContent = '⏸ 暫停';
+                timers[group] = setInterval(() => { if (!go(group, 1)) stopAuto(group); }, 1700);
+            });
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            if (e.key === 'ArrowRight') { stopAuto(activeTab); go(activeTab, 1); }
+            if (e.key === 'ArrowLeft') { stopAuto(activeTab); go(activeTab, -1); }
+        });
+
+        $('qt-view').addEventListener('click', e => {
+            const b = e.target.closest('button[data-view]');
+            if (!b || b.dataset.view === qtView) return;
+            stopAuto('qt');
+            qtView = b.dataset.view;
+            setHint('qt', defaultHint('qt'));
+            qtShow();
+        });
+        $('cap-minus').addEventListener('click', () => { if (capacity > 1) { capacity--; capChanged(); } });
+        $('cap-plus').addEventListener('click', () => { if (capacity < 4) { capacity++; capChanged(); } });
+        function capChanged() {
+            stopAuto('qt');
+            rebuildQt();
+            cursors.build = qtBuild.steps.length - 1;        // 直接看新容量下的整棵樹
+            cursors.query = 0;
+            qtShow();
+            reserveExplainHeight('qt');
+        }
+        function coParamChanged() {
+            stopAuto('co');
+            rebuildCo();
+            cursors.co = Math.min(cursors.co, coSteps.length - 1);
+            coShow();
+            reserveExplainHeight('co');
+        }
+        $('r-range').addEventListener('input', e => { radius = Number(e.target.value); coParamChanged(); });
+        $('mp-range').addEventListener('input', e => { minPct = Number(e.target.value); coParamChanged(); });
+
+        document.querySelectorAll('.lang').forEach(box => box.addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            document.querySelectorAll('.lang button').forEach(x => x.classList.toggle('active', x.dataset.lang === lang));
+            showActive();
+        }));
+
+        function switchTab(tab) {
+            if (tab === activeTab) return;
+            stopAuto(activeTab);
+            activeTab = tab;
+            document.querySelectorAll('.tabs button').forEach(b => {
+                const on = b.dataset.tab === tab;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on);
+            });
+            $('panel-qt').hidden = tab !== 'qt';
+            $('panel-co').hidden = tab !== 'co';
+            history.replaceState(null, '', tab === 'co' ? '#colocation' : '#quadtree');
+            showActive();
+            reserveExplainHeight(tab);
+        }
+        document.querySelector('.tabs').addEventListener('click', e => {
+            const b = e.target.closest('button[data-tab]');
+            if (b) switchTab(b.dataset.tab);
+        });
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { showActive(); reserveExplainHeight(activeTab); }, 150);
+        });
+
+        rebuildQt();
+        rebuildCo();
+        renderTools('qt'); renderTools('co');
+        setHint('qt', defaultHint('qt')); setHint('co', defaultHint('co'));
+        if (location.hash === '#colocation') switchTab('co');
+        showActive();
+        reserveExplainHeight(activeTab);
+    </script>
+</body>
+
+</html>

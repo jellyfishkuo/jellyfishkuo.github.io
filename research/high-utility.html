@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/high-utility.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/high-utility-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/high-utility-180.png">
+    <title>HUI-Miner 高效益樣式探勘</title>
+    <meta name="description" content="一步一步看 HUI-Miner 怎麼用 TWU 和 utility list 找出「賺得多」而不只是「買得多」的商品組合：TWU 剪枝、iutil／rutil 上界、集合列舉樹，Java 與 Python 程式碼逐行對照，並和 Apriori 的結果比較。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* 手機：一欄，依序 步驟 → 交易 → utility list → 搜尋樹 → 程式碼 → 結果
+           電腦：左欄 步驟／交易／utility list，右欄 搜尋樹／程式碼／結果 */
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; align-items: start; }
+        .col { display: contents; }
+        .layout .card { min-width: 0; }
+        .a-step { order: 1; }
+        .a-data { order: 2; }
+        .a-lists { order: 3; }
+        .a-tree { order: 4; }
+        .a-code { order: 5; }
+        .a-result { order: 6; }
+        @media (min-width: 960px) {
+            .layout { grid-template-columns: 1fr 1.05fr; }
+            .col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .sub { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .mu { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; font-size: 0.88rem; margin-top: 0.75rem; }
+        .mu .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.2em; text-align: center; }
+        .mu input[type=range] { flex: 1 1 140px; min-width: 0; accent-color: var(--accent); }
+        .mu .pct { color: var(--muted); font-size: 0.78rem; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+
+        /* ── 交易資料庫 ── */
+        .db { width: 100%; border-collapse: separate; border-spacing: 0 3px; }
+        .db th { font-weight: 400; color: var(--muted); font-size: 0.72rem; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
+        .db th .emo { display: block; font-size: 1.2rem; }
+        .db th .pf { display: block; font: 700 0.7rem 'Space Mono', monospace; color: #fcd34d; margin-top: 0.1rem; }
+        .db th.sel { color: var(--warn); }
+        .db th.off, .db td.twu.out { opacity: 0.4; }
+        .db th.off .nm { text-decoration: line-through; }
+        .db td { text-align: center; padding: 0; }
+        .db td.tid { font: 0.76rem 'Space Mono', monospace; color: var(--muted); text-align: left; width: 2.4em; padding-left: 0.3rem; }
+        .db td.tu { font: 700 0.78rem 'Space Mono', monospace; color: var(--accent2); width: 2.8em; }
+        .db td.tu.sel, .db th.tu-h.sel { color: var(--warn); }
+        .db tr.cur td, .db tr.match td { background: rgba(245, 158, 11, 0.12); }
+        .db tr.cur td:first-child, .db tr.match td:first-child { border-radius: 8px 0 0 8px; color: var(--warn); }
+        .db tr.cur td:last-child, .db tr.match td:last-child { border-radius: 0 8px 8px 0; }
+        .db tr.later { opacity: 0.55; }
+        .db tfoot td { font: 700 0.72rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.35rem; border-top: 1px dashed var(--border); }
+        .db tfoot td.tid { color: var(--muted); }
+        .db tfoot td.twu.out { color: var(--bad); text-decoration: line-through; opacity: 1; }
+        .cell {
+            width: 30px;
+            min-height: 30px;
+            margin: 0 auto;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font: 700 0.85rem/1.1 'Space Mono', monospace;
+        }
+        .cell.has { background: #2a2a48; }
+        .cell.off { opacity: 0.35; text-decoration: line-through; }
+        .cell.hit { background: rgba(245, 158, 11, 0.38); }
+        .cell small { font-size: 0.62rem; font-weight: 400; color: #fcd34d; }
+        .db-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+
+        /* ── utility list ── */
+        .uls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; min-height: 120px; }
+        .uls-empty { color: var(--muted); font-size: 0.85rem; align-self: center; }
+        .ul { background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; padding: 0.4rem 0.5rem 0.45rem; min-width: 112px; }
+        .ul.res { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .ul.focus { border-color: var(--warn); }
+        .ul-h { display: flex; align-items: baseline; gap: 0.35rem; font-size: 0.8rem; margin-bottom: 0.2rem; }
+        .ul-h .role { font: 700 0.7rem 'Space Mono', monospace; color: var(--accent2); }
+        .ul table { border-collapse: collapse; font: 0.74rem 'Space Mono', monospace; width: 100%; }
+        .ul th { color: var(--muted); font-weight: 400; text-align: right; padding: 0 0.3rem; font-size: 0.68rem; }
+        .ul th:first-child, .ul td:first-child { text-align: left; }
+        .ul td { padding: 0.05rem 0.3rem; text-align: right; }
+        .ul tr.dim td { opacity: 0.3; }
+        .ul tr.new td { background: rgba(34, 197, 94, 0.18); }
+        .ul tr.ex td { background: rgba(245, 158, 11, 0.22); color: #fde68a; }
+        .ul tr.sum td { border-top: 1px solid var(--border); font-weight: 700; color: var(--accent2); }
+        .ul-f { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+        .ul-f b { font-family: 'Space Mono', monospace; color: var(--text); }
+        .ul-f b.ok { color: #86efac; }
+        .ul-f b.no { color: #fca5a5; }
+        .op { align-self: center; color: var(--muted); font: 700 1rem 'Space Mono', monospace; }
+
+        /* ── 搜尋樹 ── */
+        .tree { position: relative; max-height: 540px; overflow: auto; background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.6rem; min-height: 140px; }
+        .tree-empty { color: var(--muted); font-size: 0.85rem; padding: 1.5rem 0.5rem; text-align: center; }
+        .tr, .tr ul { list-style: none; }
+        .tr ul { margin-left: 0.6rem; }
+        .tr li { position: relative; }
+        .tr ul > li { padding-left: 1rem; }
+        .tr ul > li::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1.5px solid #34345a; }
+        .tr ul > li:last-child::before { bottom: auto; height: 1.05rem; }
+        .tr ul > li::after { content: ''; position: absolute; left: 0; top: 1.05rem; width: 0.85rem; border-top: 1.5px solid #34345a; }
+        .tn {
+            display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.5rem;
+            padding: 0.15rem 0.5rem; margin: 0.15rem 0; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--panel-2); font-size: 0.82rem; max-width: 100%;
+        }
+        .tn .v { font: 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .tn .v b { color: var(--text); }
+        .tn .tag { font-size: 0.72rem; border-radius: 5px; padding: 0 0.35rem; background: #23233d; color: var(--muted); }
+        .tn.root { color: var(--muted); }
+        .tn.wait, .tn.built { border-style: dashed; }
+        .tn.wait .n { color: var(--muted); }
+        .tn.hui { border-color: rgba(34, 197, 94, 0.6); }
+        .tn.hui .tag { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+        .tn.go .tag { background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .tn.cut { border-color: rgba(248, 113, 113, 0.5); }
+        .tn.cut .tag { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+        .tn.cut .n, .tn.empty .n { text-decoration: line-through; color: var(--muted); }
+        .tn.empty { opacity: 0.6; border-style: dashed; }
+        .tn.cur { box-shadow: 0 0 0 2px var(--warn); }
+        .tn.src { box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.7); }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.55rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        /* ── 結果 ── */
+        .levels { display: grid; gap: 0.45rem; }
+        .level { display: grid; grid-template-columns: 2.8em 1fr; gap: 0.5rem; align-items: start; }
+        .level .tag { font: 700 0.8rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.2rem; }
+        .level .items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .pat { font-size: 0.82rem; border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 7px; padding: 0.12rem 0.5rem; }
+        .pat .n { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.35rem; color: #86efac; }
+        .pat.fresh { box-shadow: 0 0 0 2px var(--warn); }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .compare { margin-top: 0.9rem; font-size: 0.85rem; color: var(--muted); }
+        .compare h3 { font-size: 0.9rem; color: var(--text); margin-bottom: 0.45rem; }
+        .compare a { color: var(--accent2); }
+        .cmp-row { display: grid; grid-template-columns: 7em 1fr; gap: 0.5rem; margin-top: 0.4rem; align-items: start; }
+        .cmp-row .lbl { font-size: 0.78rem; padding-top: 0.15rem; }
+        .cmp-row .items { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+        .cp { font-size: 0.8rem; color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 0.08rem 0.45rem; }
+        .cp small { font: 0.7rem 'Space Mono', monospace; color: var(--muted); margin-left: 0.3rem; }
+        .cp.both { border-color: rgba(34, 197, 94, 0.5); }
+        .cp.hui { border-color: rgba(245, 158, 11, 0.6); }
+        .cp.freq { border-style: dashed; }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · HIGH-UTILITY ITEMSET MINING</div>
+        <h1>HUI-Miner 高效益樣式探勘<small>不只看買了幾次，還要看賺了多少</small></h1>
+        <p class="intro">
+            跟 <a href="apriori.html">Apriori</a>、<a href="fp-growth.html">FP-Growth</a> 用同一間超商、同樣 8 筆交易，
+            只是這次每筆多記了<b>每樣買了幾個</b>，每個商品也有自己的<b>利潤</b>。只數「出現幾次」，會漏掉很少人買、但一次買很多又很賺的組合；
+            <b>高效益樣式探勘</b>改看「數量 × 利潤」加起來有沒有達到門檻。麻煩的是效益<b>沒有向下封閉性</b>，不能像 Apriori 那樣看到不夠就剪。
+            HUI-Miner 先用 <b>TWU</b> 刪掉一定不可能的商品，再替每個組合建一張 <b>utility list</b>，用裡面記的「剩餘效益」算出上界來剪枝。
+        </p>
+
+        <div class="layout">
+            <div class="col">
+                <div class="card a-step">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="mu">
+                        <span>最小效益門檻</span>
+                        <button class="btn stepper" id="mu-minus" aria-label="減少">−</button>
+                        <span class="val" id="mu-val">250</span>
+                        <button class="btn stepper" id="mu-plus" aria-label="增加">+</button>
+                        <input type="range" id="mu-range" min="100" max="500" step="10" value="250" aria-label="最小效益門檻">
+                        <span class="pct" id="mu-pct"></span>
+                    </div>
+                    <div class="explain" id="explain"></div>
+                </div>
+
+                <div class="card a-data">
+                    <div class="card-head"><h2>交易資料庫</h2><span class="sub" id="db-sub"></span></div>
+                    <table class="db" id="db"></table>
+                    <p class="db-note">格子裡是購買數量，商品下面是單位利潤；TU 是這筆交易的總效益，TWU 是有買這個商品的交易 TU 加起來。</p>
+                </div>
+
+                <div class="card a-lists">
+                    <div class="card-head"><h2>Utility list</h2><span class="sub" id="ul-sub"></span></div>
+                    <div class="uls" id="uls"></div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card a-tree">
+                    <div class="card-head"><h2>搜尋樹（集合列舉樹）</h2><span class="sub">每往下一層多加一個商品</span></div>
+                    <div class="tree" id="tree"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn)"></i>這一步</span>
+                        <span><i style="border-color:var(--good)"></i>高效益，輸出</span>
+                        <span><i style="border-color:var(--bad)"></i>被剪掉（後面寫原因）</span>
+                        <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒檢查</span>
+                    </div>
+                    <p class="legend" style="margin-top:0.3rem">效益 = Σiutil，上界 = Σiutil + Σrutil（往下加商品最多能到多少）</p>
+                </div>
+
+                <div class="card a-code">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+
+                <div class="card a-result">
+                    <h2>目前找到的高效益樣式</h2>
+                    <div class="levels" id="levels"></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-scan">0</div><div class="k">掃描資料庫次數</div></div>
+                        <div class="stat"><div class="v" id="st-lists">0</div><div class="k">建立的 utility list</div></div>
+                        <div class="stat"><div class="v" id="st-twu">0</div><div class="k">被 TWU 刪掉的商品</div></div>
+                        <div class="stat"><div class="v" id="st-prune">0</div><div class="k">被上界剪掉的分支</div></div>
+                    </div>
+                    <div class="compare" id="compare"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼 TWU 和 rutil 可以拿來剪？</h2>
+                <p>效益本身沒有向下封閉性。預設資料裡 {咖啡, 茶葉蛋} 的效益只有 245，不到 250；加上麵包變成 {茶葉蛋, 咖啡, 麵包}，出現的交易從 3 筆變成 2 筆，
+                    但每筆都多算了麵包的錢，效益反而是 250。所以不能拿「效益不夠」來剪，要找一個<b>保證不會比真正效益小的上界</b>，上界不夠，才能放心剪。</p>
+                <ul>
+                    <li><b>TWU：</b>一個組合在某筆交易裡的效益，不可能超過那筆的總效益 TU；而包含這個組合的交易，一定也包含它裡面的每個商品。
+                        所以任何組合的效益 ≤ 它裡面任一個商品的 TWU。某個商品的 TWU 不到門檻，含它的組合全都不可能達標，整個刪掉是安全的。</li>
+                    <li><b>Σiutil + Σrutil：</b>把 X 再加上排在後面的商品，在每筆交易裡多出來的效益最多就是 rutil（後面所有商品的效益都算進去了）；
+                        而新組合出現的交易只會更少。所以 X 的整個分支，效益都不超過 Σiutil + Σrutil。它只算「排在後面」而且「沒被刪掉」的商品，通常比 TWU 緊很多。</li>
+                </ul>
+                <p style="margin-top:0.5rem">照 TWU 由小到大排，是 HUI-Miner 論文的建議：比較不賺的商品排在前面，它們的分支最先被檢查，也最容易早早被剪掉。</p>
+            </div>
+            <div class="card">
+                <h2>跟前面的方法比，以及實驗室在做的事</h2>
+                <ul>
+                    <li><b>結果真的不一樣：</b>同樣 8 筆交易，<a href="apriori.html">Apriori</a> 認為飯糰常被買（3 次），但它每次都買得少又便宜，TWU 不到門檻，第一步就被刪掉；
+                        {洋芋片, 牛奶, 麵包} 只出現 1 次，卻因為一次買很多而入選。</li>
+                    <li><b>不產生候選：</b>早期的 Two-Phase 方法先用 TWU 找出候選、再掃一次資料庫算真正的效益；HUI-Miner 把效益和剩餘效益都帶在 utility list 裡，
+                        合併兩張 list 就能算出新組合的效益，整個過程只掃兩次資料庫（跟 <a href="fp-growth.html">FP-Growth</a> 一樣）。</li>
+                    <li><b>代價：</b>每個組合都要建一張 list，合併很花時間和記憶體。後來的 FHM、EFIM 等方法繼續想辦法少建幾張、剪得更早。</li>
+                    <li><b>資料會一直變：</b>真實的交易每天都在增加、修改、刪除。實驗室學長姐研究的增量／動態高效益樣式探勘（例如 TUR 樹、BPIT、TID-Bit，以及 utility list 類的方法），
+                        就是在處理資料變動時，怎麼只更新受影響的部分，而不是每次都從頭重挖。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           HUI-Miner 一步一步看
+           網頁裡用 JavaScript 照著同樣的流程跑一次，把每一步（含每一層遞迴）記下來；
+           右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = {"java": [["/** 一個商品組合的 utility list：出現在哪些交易，以及在那筆交易裡的 iutil、rutil */", []], ["static class UtilityList {", []], ["    List<String> items;", []], ["    Map<Integer, int[]> entries = new LinkedHashMap<>();   // tid -> {iutil, rutil}", []], ["    int sumIutil, sumRutil;", []], ["    UtilityList(List<String> items) { this.items = items; }", []], ["    void add(int tid, int iutil, int rutil) {", []], ["        entries.put(tid, new int[] { iutil, rutil });", []], ["        sumIutil += iutil;", []], ["        sumRutil += rutil;", []], ["    }", []], ["}", []], ["", []], ["public static Map<List<String>, Integer> huiMiner(List<Map<String, Integer>> db, Map<String, Integer> profit, int minUtil) {", ["start"]], ["    // 1. 第 1 次掃描：算每筆交易的效益 TU，加進它裡面每個商品的 TWU", ["tu"]], ["    Map<String, Integer> twu = new HashMap<>();", ["tu"]], ["    for (Map<String, Integer> t : db) {", ["tu"]], ["        int tu = 0;", ["tu"]], ["        for (String item : t.keySet()) tu += t.get(item) * profit.get(item);", ["tu"]], ["        for (String item : t.keySet()) twu.merge(item, tu, Integer::sum);", ["tu"]], ["    }", ["tu"]], ["    // TWU 不到門檻的商品整個刪掉，剩下的照 TWU 由小到大排", ["twu"]], ["    List<String> order = new ArrayList<>();", ["twu"]], ["    for (String item : twu.keySet()) if (twu.get(item) >= minUtil) order.add(item);", ["twu"]], ["    order.sort((a, b) -> twu.get(a).equals(twu.get(b)) ? a.compareTo(b) : twu.get(a) - twu.get(b));", ["twu"]], ["", []], ["    // 2. 第 2 次掃描：建每個商品的 utility list", ["scan"]], ["    List<UtilityList> lists = new ArrayList<>();", ["scan"]], ["    for (String item : order) lists.add(new UtilityList(List.of(item)));", ["scan"]], ["    for (int tid = 0; tid < db.size(); tid++) {", ["scan"]], ["        int rutil = 0;                       // 從最後面往前走：排在後面的商品效益總和", ["scan"]], ["        for (int k = order.size() - 1; k >= 0; k--) {", ["scan"]], ["            Integer q = db.get(tid).get(order.get(k));", ["scan"]], ["            if (q == null) continue;", ["scan"]], ["            int u = q * profit.get(order.get(k));", ["scan"]], ["            lists.get(k).add(tid, u, rutil);", ["scan"]], ["            rutil += u;", ["scan"]], ["        }", ["scan"]], ["    }", ["scan"]], ["", []], ["    // 3. 從單一商品的 list 開始深度優先搜尋", ["search0"]], ["    Map<List<String>, Integer> result = new LinkedHashMap<>();", ["search0"]], ["    search(null, lists, minUtil, result);", ["search0"]], ["    return result;", ["end"]], ["}", []], ["", []], ["static void search(UtilityList p, List<UtilityList> uls, int minUtil, Map<List<String>, Integer> result) {", []], ["    for (int i = 0; i < uls.size(); i++) {", ["check"]], ["        UtilityList x = uls.get(i);", ["check"]], ["        if (x.sumIutil >= minUtil) result.put(x.items, x.sumIutil);   // 高效益，輸出", ["output"]], ["        if (x.sumIutil + x.sumRutil < minUtil) continue;             // 再怎麼往下加也不夠，剪掉", ["prune"]], ["        List<UtilityList> ext = new ArrayList<>();", ["expand"]], ["        for (int j = i + 1; j < uls.size(); j++) {", ["expand"]], ["            UtilityList xy = construct(p, x, uls.get(j));", ["call", "expand"]], ["            if (!xy.entries.isEmpty()) ext.add(xy);                  // 沒有共同交易的就不要", ["call", "expand"]], ["        }", ["expand"]], ["        search(x, ext, minUtil, result);                             // 遞迴：以 x 為前綴往下找", ["recurse"]], ["    }", ["check"]], ["}", []], ["", []], ["/** 合併 Px 和 Py 的 utility list，得到 Pxy 的 */", []], ["static UtilityList construct(UtilityList p, UtilityList px, UtilityList py) {", ["construct"]], ["    List<String> items = new ArrayList<>(px.items);", ["construct"]], ["    items.add(py.items.get(py.items.size() - 1));", ["construct"]], ["    UtilityList pxy = new UtilityList(items);", ["construct"]], ["    for (int tid : px.entries.keySet()) {", ["construct"]], ["        int[] ex = px.entries.get(tid), ey = py.entries.get(tid);", ["construct"]], ["        if (ey == null) continue;                                    // 這筆交易沒有 y", ["construct"]], ["        int iutil = ex[0] + ey[0];", ["construct"]], ["        if (p != null) iutil -= p.entries.get(tid)[0];               // P 的效益兩邊都算了，扣掉一次", ["construct"]], ["        pxy.add(tid, iutil, ey[1]);                                  // rutil 用 Py 的（y 排在 x 後面）", ["construct"]], ["    }", ["construct"]], ["    return pxy;", ["construct"]], ["}", ["construct"]]], "py": [["class UtilityList:", []], ["    \"\"\"一個商品組合的 utility list：出現在哪些交易，以及在那筆交易裡的 iutil、rutil\"\"\"", []], ["    def __init__(self, items):", []], ["        self.items = items", []], ["        self.entries = {}              # tid -> (iutil, rutil)", []], ["        self.sum_iutil = 0", []], ["        self.sum_rutil = 0", []], ["", []], ["    def add(self, tid, iutil, rutil):", []], ["        self.entries[tid] = (iutil, rutil)", []], ["        self.sum_iutil += iutil", []], ["        self.sum_rutil += rutil", []], ["", []], ["", []], ["def hui_miner(db, profit, min_util):", ["start"]], ["    # 1. 第 1 次掃描：算每筆交易的效益 TU，加進它裡面每個商品的 TWU", ["tu"]], ["    twu = {}", ["tu"]], ["    for t in db:", ["tu"]], ["        tu = sum(q * profit[item] for item, q in t.items())", ["tu"]], ["        for item in t:", ["tu"]], ["            twu[item] = twu.get(item, 0) + tu", ["tu"]], ["    # TWU 不到門檻的商品整個刪掉，剩下的照 TWU 由小到大排", ["twu"]], ["    order = [item for item in twu if twu[item] >= min_util]", ["twu"]], ["    order.sort(key=lambda item: (twu[item], item))", ["twu"]], ["", []], ["    # 2. 第 2 次掃描：建每個商品的 utility list", ["scan"]], ["    lists = [UtilityList([item]) for item in order]", ["scan"]], ["    for tid, t in enumerate(db):", ["scan"]], ["        rutil = 0                      # 從最後面往前走：排在後面的商品效益總和", ["scan"]], ["        for k in reversed(range(len(order))):", ["scan"]], ["            if order[k] in t:", ["scan"]], ["                u = t[order[k]] * profit[order[k]]", ["scan"]], ["                lists[k].add(tid, u, rutil)", ["scan"]], ["                rutil += u", ["scan"]], ["", []], ["    # 3. 從單一商品的 list 開始深度優先搜尋", ["search0"]], ["    result = {}", ["search0"]], ["    search(None, lists, min_util, result)", ["search0"]], ["    return result", ["end"]], ["", []], ["", []], ["def search(p, uls, min_util, result):", []], ["    for i, x in enumerate(uls):", ["check"]], ["        if x.sum_iutil >= min_util:                    # 高效益，輸出", ["output"]], ["            result[tuple(x.items)] = x.sum_iutil", ["output"]], ["        if x.sum_iutil + x.sum_rutil < min_util:       # 再怎麼往下加也不夠，剪掉", ["prune"]], ["            continue", ["prune"]], ["        ext = []", ["expand"]], ["        for y in uls[i + 1:]:", ["expand"]], ["            xy = construct(p, x, y)", ["call", "expand"]], ["            if xy.entries:                             # 沒有共同交易的就不要", ["call", "expand"]], ["                ext.append(xy)", ["call", "expand"]], ["        search(x, ext, min_util, result)               # 遞迴：以 x 為前綴往下找", ["recurse"]], ["", []], ["", []], ["def construct(p, px, py):", ["construct"]], ["    \"\"\"合併 Px 和 Py 的 utility list，得到 Pxy 的\"\"\"", ["construct"]], ["    pxy = UtilityList(px.items + py.items[-1:])", ["construct"]], ["    for tid, (iu_x, _) in px.entries.items():", ["construct"]], ["        if tid not in py.entries:", ["construct"]], ["            continue                                   # 這筆交易沒有 y", ["construct"]], ["        iu_y, ru_y = py.entries[tid]", ["construct"]], ["        iutil = iu_x + iu_y", ["construct"]], ["        if p is not None:", ["construct"]], ["            iutil -= p.entries[tid][0]                 # P 的效益兩邊都算了，扣掉一次", ["construct"]], ["        pxy.add(tid, iutil, ru_y)                      # rutil 用 Py 的（y 排在 x 後面）", ["construct"]], ["    return pxy", ["construct"]]]};
+
+        const ITEMS = ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'];
+        const EMOJI = { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' };
+        const PROFIT = { '咖啡': 30, '麵包': 15, '牛奶': 20, '飯糰': 10, '茶葉蛋': 5, '洋芋片': 25 };
+        /* 跟 Apriori 頁同樣的 8 筆交易，多了購買數量 */
+        const DB = [
+            { '咖啡': 4, '麵包': 2, '牛奶': 2 },
+            { '咖啡': 3, '麵包': 5, '茶葉蛋': 4 },
+            { '咖啡': 1, '麵包': 1, '牛奶': 2, '飯糰': 2 },
+            { '麵包': 3, '牛奶': 4, '洋芋片': 5 },
+            { '咖啡': 3, '牛奶': 2, '茶葉蛋': 2 },
+            { '咖啡': 1, '麵包': 2, '牛奶': 1, '茶葉蛋': 1 },
+            { '飯糰': 1, '茶葉蛋': 2, '洋芋片': 2 },
+            { '咖啡': 1, '麵包': 2, '飯糰': 1 }
+        ];
+        const AP_MINSUP = 3;           // 拿來對照的 Apriori 門檻（跟 Apriori 頁預設一樣）
+        const MU_MIN = 100, MU_MAX = 500, MU_STEP = 10;
+
+        const $ = id => document.getElementById(id);
+        let minUtil = 250;
+        let lang = 'java';
+        let trace = [];
+        let cursor = 0;
+        let timer = null;
+
+        /* 跟 Java 的 compareTo、Python 的字串比較同一個順序（依字碼） */
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const fmt = set => esc('{' + set.join(', ') + '}');
+        const arrowPath = items => esc(items.join(' → '));
+        const tName = tid => 'T' + (tid + 1);
+        const keyOf = items => items.join('|');
+        const has = (t, item) => Object.prototype.hasOwnProperty.call(t, item);
+
+        /* ---------- 照著程式跑一次，記下每一步 ---------- */
+        function buildTrace(db, profit, minUtil) {
+            const steps = [];
+            const result = [];
+            const nodes = [];                  // 搜尋樹的節點（照建立的順序）
+            const nodeById = new Map();
+            const stats = { scans: 0, lists: 0, twuOut: 0, pruned: 0 };
+            const st = { tu: [], twu: {}, order: [], removed: [], twuCalc: false, twuDone: false };
+
+            const addNode = (items, parent, extra) => {
+                const n = { id: keyOf(items), items, parent, ...extra };
+                nodes.push(n);
+                nodeById.set(n.id, n);
+                return n;
+            };
+            const push = (kind, extra = {}) => {
+                steps.push({
+                    kind, ...extra,
+                    stats: { ...stats },
+                    result: result.map(r => ({ ...r })),
+                    nodes: nodes.map(n => ({ ...n })),
+                    tu: st.tu.slice(), twu: { ...st.twu }, order: st.order.slice(), removed: st.removed.slice(), twuCalc: st.twuCalc, twuDone: st.twuDone
+                });
+                result.forEach(r => { r.fresh = false; });
+            };
+
+            push('start');
+
+            // 1. 第 1 次掃描：TU 與 TWU
+            stats.scans++;
+            st.tu = db.map(t => Object.keys(t).reduce((a, i) => a + t[i] * profit[i], 0));
+            push('tu');
+            db.forEach((t, k) => Object.keys(t).forEach(i => { st.twu[i] = (st.twu[i] || 0) + st.tu[k]; }));
+            st.twuCalc = true;
+            push('twu');
+            const byTwu = (a, b) => st.twu[a] - st.twu[b] || cmp(a, b);
+            st.order = Object.keys(st.twu).filter(i => st.twu[i] >= minUtil).sort(byTwu);
+            st.removed = Object.keys(st.twu).filter(i => st.twu[i] < minUtil).sort(byTwu);
+            st.twuDone = true;
+            stats.twuOut = st.removed.length;
+            st.order.forEach(i => addNode([i], '', { status: 'wait' }));
+            st.removed.forEach(i => addNode([i], '', { status: 'twu', twu: st.twu[i] }));
+            push('cut');
+
+            // 2. 第 2 次掃描：建每個商品的 utility list
+            stats.scans++;
+            const lists = st.order.map(i => ({ items: [i], rows: [], iu: 0, ru: 0 }));
+            db.forEach((t, tid) => {
+                let rutil = 0;
+                const info = [];
+                for (let k = st.order.length - 1; k >= 0; k--) {
+                    const item = st.order[k];
+                    if (!has(t, item)) continue;
+                    const u = t[item] * profit[item];
+                    lists[k].rows.push([tid, u, rutil]);
+                    lists[k].iu += u;
+                    lists[k].ru += rutil;
+                    info.unshift({ item, q: t[item], u, ru: rutil });
+                    rutil += u;
+                }
+                if (tid === db.length - 1) {
+                    stats.lists += lists.length;
+                    lists.forEach(l => Object.assign(nodeById.get(keyOf(l.items)), { status: 'built', iu: l.iu, ru: l.ru }));
+                }
+                push('row', {
+                    tid, info, dropped: Object.keys(t).filter(i => st.removed.includes(i)),
+                    uls: lists.map(l => ({ ul: { items: l.items, rows: l.rows.slice(), iu: l.iu, ru: l.ru }, newTid: tid }))
+                });
+            });
+
+            // 3. 深度優先搜尋
+            function construct(p, px, py) {
+                const items = [...px.items, py.items[py.items.length - 1]];
+                const yRow = new Map(py.rows.map(r => [r[0], r]));
+                const pRow = p ? new Map(p.rows.map(r => [r[0], r])) : null;
+                const xy = { items, rows: [], iu: 0, ru: 0 };
+                px.rows.forEach(([tid, iuX]) => {
+                    const ry = yRow.get(tid);
+                    if (!ry) return;                                  // 這筆交易沒有 y
+                    const iu = iuX + ry[1] - (p ? pRow.get(tid)[1] : 0);
+                    xy.rows.push([tid, iu, ry[2]]);
+                    xy.iu += iu;
+                    xy.ru += ry[2];
+                });
+                return xy;
+            }
+            let first = true;
+            function search(p, uls) {
+                for (let i = 0; i < uls.length; i++) {
+                    const x = uls[i];
+                    const node = nodeById.get(keyOf(x.items));
+                    const hui = x.iu >= minUtil;
+                    const prune = x.iu + x.ru < minUtil;
+                    const later = uls.slice(i + 1).map(y => y.items[y.items.length - 1]);
+                    if (hui) result.push({ set: x.items, util: x.iu, fresh: true });
+                    if (prune && later.length) stats.pruned++;
+                    Object.assign(node, { status: 'done', hui, prune, leaf: !later.length });
+                    push('check', { x, p, later, hui, prune, first, cur: node.id });
+                    first = false;
+                    if (prune) continue;
+                    const ext = [];
+                    for (let j = i + 1; j < uls.length; j++) {
+                        const y = uls[j];
+                        const xy = construct(p, x, y);
+                        const empty = !xy.rows.length;
+                        addNode(xy.items, node.id, empty ? { status: 'empty' } : { status: 'built', iu: xy.iu, ru: xy.ru });
+                        if (!empty) { stats.lists++; ext.push(xy); }
+                        push('construct', { p, x, y, xy, empty, cur: keyOf(xy.items), srcs: [node.id, keyOf(y.items)] });
+                    }
+                    search(x, ext);
+                }
+            }
+            search(null, lists);
+            push('end');
+            return steps;
+        }
+
+        /* ---------- 對照用：直接列舉每個組合 ---------- */
+        function allSubsets() {
+            const out = [];
+            for (let m = 1; m < (1 << ITEMS.length); m++) out.push(ITEMS.filter((_, i) => m >> i & 1));
+            return out;
+        }
+        const supportOf = set => DB.filter(t => set.every(i => has(t, i))).length;
+        const utilOf = set => DB.filter(t => set.every(i => has(t, i))).reduce((a, t) => a + set.reduce((b, i) => b + t[i] * PROFIT[i], 0), 0);
+
+        /* ---------- 說明文字 ---------- */
+        const qp = (t, items) => items.map(i => `${t[i]}×${PROFIT[i]}`).join(' + ');
+        function describe(s) {
+            switch (s.kind) {
+                case 'start': {
+                    const t0 = DB[0], its = Object.keys(t0).slice(0, 2);
+                    return `每筆交易記的是<b>每樣買了幾個</b>，每個商品有固定的<b>單位利潤</b>。一個組合在某筆交易裡的效益 = 數量 × 利潤加起來，` +
+                        `例如 T1 裡的 ${fmt(its)} = ${qp(t0, its)} = ${its.reduce((a, i) => a + t0[i] * PROFIT[i], 0)}；` +
+                        `把它出現過的每筆交易加起來，就是它的效益。目標：找出效益至少 <b>${minUtil}</b> 的所有組合，叫做<b>高效益樣式</b>。`;
+                }
+                case 'tu': {
+                    const k = s.tu.indexOf(Math.max(...s.tu));
+                    return `第 1 次掃描資料庫：先算每筆交易的總效益 <b>TU</b>（表格最右邊那欄）。例如 ${tName(k)} = ${qp(DB[k], Object.keys(DB[k]))} = ${s.tu[k]}，是最賺的一筆。`;
+                }
+                case 'twu': {
+                    const i = Object.keys(s.twu).sort((a, b) => s.twu[a] - s.twu[b] || cmp(a, b))[0];
+                    const ks = DB.map((t, k) => k).filter(k => has(DB[k], i));
+                    return `同一次掃描順便算每個商品的 <b>TWU</b>：有買它的交易 TU 加起來（表格最下面那列）。例如 ${esc(i)} 出現在 ${ks.map(tName).join('、')}：` +
+                        `${ks.map(k => s.tu[k]).join(' + ')} = ${s.twu[i]}。含這個商品的任何組合，在每筆交易裡的效益都不會超過那筆的 TU，` +
+                        `所以 TWU 是它們效益的<b>上界</b>：可能比真正的效益大，但保證不會比較小。`;
+                }
+                case 'cut': {
+                    let t = '';
+                    if (s.removed.length) {
+                        t += s.removed.map(i => `${esc(i)} 的 TWU 只有 ${s.twu[i]}`).join('、') + ` < ${minUtil}，含它的組合都不可能達標，<b>整個刪掉</b>`;
+                        const freq = s.removed.filter(i => supportOf([i]) >= AP_MINSUP);
+                        if (freq.length) t += `（它出現 ${supportOf([freq[0]])} 次，Apriori 說它很常被買，但每次都買得少又便宜）`;
+                        t += '。';
+                    } else {
+                        t += `每個商品的 TWU 都至少 ${minUtil}，這次沒有商品被刪掉。`;
+                    }
+                    t += s.order.length ? `${s.removed.length ? '剩下的' : '全部'}照 TWU 由小到大排成 <b>${arrowPath(s.order)}</b>，表格的欄也照這個順序排。` : `沒有商品留下來，不可能有高效益樣式。`;
+                    return t;
+                }
+                case 'row': {
+                    const label = tName(s.tid);
+                    const drop = s.dropped.length ? `${esc(s.dropped.join('、'))} 已經被刪掉，不放進 list，也不算進 rutil。` : '';
+                    if (!s.info.length) return `第 2 次掃描：${label} 裡沒有留下來的商品，跳過。${drop}`;
+                    const f = s.info[0], rest = s.info.slice(1);
+                    return `第 2 次掃描：${label} 照順序排成 ${arrowPath(s.info.map(x => x.item))}，每個商品在自己的 utility list 加一列 (tid, iutil, rutil)：` +
+                        `<b>iutil</b> 是它自己在這筆的效益，<b>rutil</b> 是<b>排在它後面</b>的商品效益加起來。例如 ${esc(f.item)}：iutil = ${f.q}×${PROFIT[f.item]} = ${f.u}，` +
+                        (rest.length > 1 ? `rutil = ${rest.map(x => x.u).join(' + ')} = ${f.ru}。` : rest.length ? `rutil = ${f.ru}。` : `後面沒有商品，rutil = 0。`) + drop;
+                }
+                case 'check': {
+                    const { x } = s, ub = x.iu + x.ru;
+                    let t = `檢查 ${fmt(x.items)}：Σiutil = ${x.iu}` + (s.hui ? ` ≥ ${minUtil}，<b>是高效益樣式，輸出</b>。` : ` < ${minUtil}，本身不夠。`);
+                    const later = esc(s.later.join('、'));
+                    if (!s.later.length) t += s.hui ? `後面沒有商品可以再加，這個分支到此為止。` : `後面也沒有商品可以再加，到此為止。`;
+                    else if (s.prune) t += `Σiutil + Σrutil = ${x.iu} + ${x.ru} = ${ub} < ${minUtil}：不管再加上後面的 ${later} 哪幾個，多出來的效益都已經算在 rutil 裡了，整個分支最多只有 ${ub}，<b>直接剪掉</b>，那些 list 都不用建。`;
+                    else t += `Σiutil + Σrutil = ${x.iu} + ${x.ru} = ${ub} ≥ ${minUtil}，加上後面的商品還有機會，往下展開：跟 ${later} ${s.later.length > 1 ? '各' : ''}合併一次。` +
+                        (s.hui ? '' : `<b>不能像 Apriori 那樣看它不夠就丟掉</b>：效益沒有向下封閉性，組合變大後每筆多算了新商品的錢，總和可能反而變大。`);
+                    return t;
+                }
+                case 'construct': {
+                    const { x, y, xy, p } = s;
+                    const pair = `${fmt(x.items)} 和 ${fmt(y.items)}`;
+                    if (s.empty) return `合併 ${pair}：兩張 list 沒有共同的交易（這幾樣從來沒有一起被買過），${fmt(xy.items)} 的 list 是空的，直接丟掉。`;
+                    const tids = xy.rows.map(r => tName(r[0])).join('、');
+                    const tid = xy.rows[0][0];
+                    const a = x.rows.find(r => r[0] === tid)[1], b = y.rows.find(r => r[0] === tid)[1];
+                    const tail = `得到 ${fmt(xy.items)}：效益 ${xy.iu}、上界 ${xy.iu + xy.ru}。`;
+                    if (!p) {
+                        return `合併 ${pair}：兩邊都有的交易是 ${tids}。每筆的 iutil 直接相加，例如 ${tName(tid)}：${a} + ${b} = ${a + b}；` +
+                            `rutil 照抄 ${fmt(y.items)} 的，因為 ${esc(y.items[0])} 排在後面，它後面的商品也就是新組合後面的商品。${tail}`;
+                    }
+                    const c = p.rows.find(r => r[0] === tid)[1];
+                    return `合併 ${pair}（共同前綴 P = ${fmt(p.items)}）：兩邊都有的交易是 ${tids}。兩邊的 iutil 都已經含有 P 的效益，相加會算兩次，` +
+                        `所以要<b>扣掉 P 的一次</b>，例如 ${tName(tid)}：${a} + ${b} − ${c} = ${a + b - c}。${tail}`;
+                }
+                case 'end': {
+                    const n = s.result.length;
+                    return (n ? `完成！找到 <b>${n}</b> 個高效益樣式。` : `完成！沒有任何組合的效益達到 ${minUtil}。`) +
+                        `整個過程只掃描資料庫 ${s.stats.scans} 次、建了 ${s.stats.lists} 張 utility list；TWU 刪掉 ${s.stats.twuOut} 個商品，上界（Σiutil + Σrutil）剪掉 ${s.stats.pruned} 個分支。` +
+                        `結果區最下面有跟 Apriori 的對照。`;
+                }
+            }
+            return '';
+        }
+
+        const CODE_TAGS = s => {
+            switch (s.kind) {
+                case 'check': return ['check', 'prune'].concat(s.hui ? ['output'] : [], s.first ? ['search0'] : []);
+                case 'construct': return ['call', 'construct'];
+                case 'row': return ['scan'];
+                case 'twu': return ['tu'];
+                case 'cut': return ['twu'];
+                default: return [s.kind];        // start / tu / end
+            }
+        };
+
+        /* ---------- 畫面 ---------- */
+        function focusOf(s) {
+            if (s.kind === 'check') return { tids: new Set(s.x.rows.map(r => r[0])), items: new Set(s.x.items) };
+            if (s.kind === 'construct') return { tids: new Set(s.xy.rows.map(r => r[0])), items: new Set(s.xy.items) };
+            return { tids: new Set(), items: new Set() };
+        }
+
+        function drawDB(s) {
+            const cols = s.twuDone ? [...s.order, ...s.removed, ...ITEMS.filter(i => !(i in s.twu))] : ITEMS;
+            const f = focusOf(s);
+            const off = i => s.removed.includes(i);
+            let h = '<thead><tr><th></th>' + cols.map(i =>
+                `<th class="${off(i) ? 'off' : ''}${f.items.has(i) ? ' sel' : ''}"><span class="emo">${EMOJI[i]}</span><span class="nm">${esc(i)}</span><span class="pf">$${PROFIT[i]}</span></th>`).join('') +
+                `<th class="tu-h${s.kind === 'tu' ? ' sel' : ''}">TU</th></tr></thead><tbody>`;
+            DB.forEach((t, r) => {
+                const cur = s.kind === 'row' && s.tid === r;
+                const match = f.tids.has(r);
+                const cls = [cur ? 'cur' : '', match ? 'match' : '', s.kind === 'row' && r > s.tid ? 'later' : ''].join(' ');
+                h += `<tr class="${cls}"><td class="tid">${tName(r)}</td>` + cols.map(i => {
+                    if (!has(t, i)) return '<td><div class="cell"></div></td>';
+                    const showU = cur && !off(i);
+                    return `<td><div class="cell has${off(i) ? ' off' : ''}${match && f.items.has(i) ? ' hit' : ''}">${t[i]}${showU ? `<small>${t[i] * PROFIT[i]}</small>` : ''}</div></td>`;
+                }).join('') + `<td class="tu${s.kind === 'tu' ? ' sel' : ''}">${s.tu.length ? s.tu[r] : ''}</td></tr>`;
+            });
+            h += '</tbody>';
+            if (s.twuCalc) h += '<tfoot><tr><td class="tid">TWU</td>' + cols.map(i => `<td class="twu${off(i) ? ' out' : ''}">${i in s.twu ? s.twu[i] : ''}</td>`).join('') + '<td></td></tr></tfoot>';
+            $('db').innerHTML = h;
+            $('db-sub').textContent = s.twuDone ? '欄已照 TWU 由小到大排' : '';
+        }
+
+        /* 一張 utility list 的小表格 */
+        function ulBox(ul, { role = '', cls = '', newTid = -1, keep = null, ex = -1, verdict = false } = {}) {
+            const rows = ul.rows.map(([tid, iu, ru]) => {
+                const c = tid === ex ? 'ex' : tid === newTid ? 'new' : keep && !keep.has(tid) ? 'dim' : '';
+                return `<tr class="${c}"><td>${tName(tid)}</td><td>${iu}</td><td>${ru}</td></tr>`;
+            }).join('');
+            const ub = ul.iu + ul.ru;
+            const foot = verdict
+                ? `Σiutil <b class="${ul.iu >= minUtil ? 'ok' : 'no'}">${ul.iu}</b> · 上界 <b class="${ub >= minUtil ? 'ok' : 'no'}">${ub}</b>`
+                : `上界 <b>${ub}</b>`;
+            return `<div class="ul ${cls}"><div class="ul-h">${role ? `<span class="role">${role}</span>` : ''}<span>${fmt(ul.items)}</span></div>` +
+                `<table><tr><th>tid</th><th>iutil</th><th>rutil</th></tr>${rows || '<tr><td colspan="3" style="color:var(--muted)">（空）</td></tr>'}` +
+                `<tr class="sum"><td>Σ</td><td>${ul.iu}</td><td>${ul.ru}</td></tr></table><div class="ul-f">${foot}</div></div>`;
+        }
+
+        function drawLists(s) {
+            const box = $('uls');
+            const sub = $('ul-sub');
+            if (s.kind === 'row') {
+                sub.textContent = `第 2 次掃描，讀到 ${tName(s.tid)}`;
+                box.innerHTML = s.uls.length ? s.uls.map(x => ulBox(x.ul, { newTid: x.newTid })).join('') : '<div class="uls-empty">沒有商品留下來，不用建 list。</div>';
+            } else if (s.kind === 'check') {
+                sub.textContent = `檢查 ${'{' + s.x.items.join(', ') + '}'}（門檻 ${minUtil}）`;
+                box.innerHTML = ulBox(s.x, { cls: 'focus', verdict: true });
+            } else if (s.kind === 'construct') {
+                const keep = new Set(s.xy.rows.map(r => r[0]));
+                const ex = s.xy.rows.length ? s.xy.rows[0][0] : -1;
+                const pre = s.p ? 'P' : '';
+                sub.textContent = '合併出 ' + '{' + s.xy.items.join(', ') + '}';
+                box.innerHTML = ulBox(s.x, { role: pre + 'x', keep, ex }) + '<span class="op">+</span>' + ulBox(s.y, { role: pre + 'y', keep, ex }) +
+                    (s.p ? '<span class="op">−</span>' + ulBox(s.p, { role: 'P', keep, ex }) : '') +
+                    '<span class="op">→</span>' + ulBox(s.xy, { role: pre + 'xy', cls: 'res', ex });
+            } else if (s.kind === 'end') {
+                sub.textContent = '';
+                box.innerHTML = '<div class="uls-empty">搜尋結束。按「上一步」可以回頭看每一張 list 是怎麼合併出來的。</div>';
+            } else {
+                sub.textContent = '';
+                box.innerHTML = `<div class="uls-empty">${s.kind === 'cut' ? '下一步開始第 2 次掃描，替每個留下來的商品建一張 list。' : '第 1 次掃描算完 TWU 之後，第 2 次掃描才開始建。'}</div>`;
+            }
+        }
+
+        function nodeView(n, s) {
+            const last = n.items[n.items.length - 1];
+            let cls = n.status, tag = '';
+            switch (n.status) {
+                case 'wait': tag = '等第 2 次掃描建 list'; break;
+                case 'built': tag = '待檢查'; break;
+                case 'empty': tag = '沒有共同交易，丟掉'; break;
+                case 'twu': cls = 'cut'; tag = `✂ TWU ${n.twu} < ${minUtil}`; break;
+                case 'done':
+                    if (n.hui) { cls = 'hui'; tag = '✓ 高效益'; }
+                    else if (n.prune && !n.leaf) { cls = 'cut'; tag = `✂ 上界 ${n.iu + n.ru} < ${minUtil}`; }
+                    else if (n.leaf) { cls = 'low'; tag = '不夠，後面也沒商品'; }
+                    else { cls = 'go'; tag = '不夠，但上界夠，往下找'; }
+                    break;
+            }
+            if (n.id === s.cur) cls += ' cur';
+            else if (s.srcs && s.srcs.includes(n.id)) cls += ' src';
+            const vals = n.iu !== undefined ? `<span class="v">效益 <b>${n.iu}</b> · 上界 ${n.iu + n.ru}</span>` : '';
+            return `<div class="tn ${cls}" data-id="${esc(n.id)}" title="${esc('{' + n.items.join(', ') + '}')}"><span class="n">${n.items.length > 1 ? '＋' : ''}${EMOJI[last] || ''}${esc(last)}</span>${vals}<span class="tag">${tag}</span></div>`;
+        }
+
+        function drawTree(s) {
+            const box = $('tree');
+            if (!s.twuDone) {
+                box.innerHTML = '<div class="tree-empty">算完 TWU、決定好商品的順序之後，這裡會長出搜尋樹。</div>';
+                return;
+            }
+            const kids = {};
+            s.nodes.forEach(n => { (kids[n.parent] = kids[n.parent] || []).push(n); });
+            const li = n => `<li>${nodeView(n, s)}${kids[n.id] ? `<ul>${kids[n.id].map(li).join('')}</ul>` : ''}</li>`;
+            box.innerHTML = `<ul class="tr"><li><div class="tn root">∅ 從空集合開始</div><ul>${(kids[''] || []).map(li).join('')}</ul></li></ul>`;
+            // 只捲樹的框，讓這一步的節點留在看得到的地方
+            const el = box.querySelector('.tn.cur');
+            if (el) {
+                const y = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+                if (y < box.scrollTop + 10 || y + el.offsetHeight > box.scrollTop + box.clientHeight - 10) {
+                    box.scrollTo({ top: Math.max(0, y - box.clientHeight / 2), behavior: 'smooth' });
+                }
+            }
+        }
+
+        function drawResult(s) {
+            const box = $('levels');
+            box.innerHTML = '';
+            if (!s.result.length) box.innerHTML = `<div class="empty">${s.kind === 'end' ? '沒有找到。把門檻調低一點試試看。' : '還沒有，開始搜尋之後會出現在這裡。'}</div>`;
+            const bySize = {};
+            s.result.forEach(r => { (bySize[r.set.length] = bySize[r.set.length] || []).push(r); });
+            Object.keys(bySize).sort().forEach(k => {
+                const row = document.createElement('div');
+                row.className = 'level';
+                row.innerHTML = `<span class="tag">${k} 個</span><div class="items"></div>`;
+                bySize[k].forEach(r => {
+                    const p = document.createElement('span');
+                    p.className = 'pat' + (r.fresh ? ' fresh' : '');
+                    p.innerHTML = `<span></span><span class="n">${r.util}</span>`;
+                    p.firstChild.textContent = '{' + r.set.join(', ') + '}';
+                    row.querySelector('.items').appendChild(p);
+                });
+                box.appendChild(row);
+            });
+            $('st-scan').textContent = s.stats.scans;
+            $('st-lists').textContent = s.stats.lists;
+            $('st-twu').textContent = s.stats.twuOut;
+            $('st-prune').textContent = s.stats.pruned;
+            drawCompare(s);
+        }
+
+        /* 跟 Apriori（只看出現次數）對照 */
+        function drawCompare(s) {
+            const box = $('compare');
+            if (s.kind !== 'end') {
+                box.innerHTML = `全部做完之後，這裡會把結果跟 <a href="apriori.html">Apriori</a>（同樣的交易、只看出現次數）對照。`;
+                return;
+            }
+            const sortKey = set => ITEMS.filter(i => set.includes(i)).join('|');
+            const hui = new Set(s.result.map(r => sortKey(r.set)));
+            const freq = allSubsets().filter(set => supportOf(set) >= AP_MINSUP);
+            const freqKeys = new Set(freq.map(sortKey));
+            const groups = [
+                ['兩邊都有', 'both', s.result.filter(r => freqKeys.has(sortKey(r.set))).map(r => r.set)],
+                ['只有高效益', 'hui', s.result.filter(r => !freqKeys.has(sortKey(r.set))).map(r => r.set)],
+                ['只有頻繁', 'freq', freq.filter(set => !hui.has(sortKey(set)))]
+            ];
+            box.innerHTML = `<h3>跟 Apriori 對照</h3><div>同樣 8 筆交易，Apriori（最小支持度 ${AP_MINSUP}）只看出現幾次，找到 ${freq.length} 個頻繁樣式。小字是「出現次數 · 效益」。</div>`;
+            groups.forEach(([label, cls, sets]) => {
+                const row = document.createElement('div');
+                row.className = 'cmp-row';
+                row.innerHTML = '<span class="lbl"></span><div class="items"></div>';
+                row.firstChild.textContent = `${label}（${sets.length}）`;
+                if (!sets.length) row.lastChild.innerHTML = '<span class="empty">沒有</span>';
+                sets.forEach(set => {
+                    const c = document.createElement('span');
+                    c.className = 'cp ' + cls;
+                    c.textContent = '{' + set.join(', ') + '}';
+                    const sm = document.createElement('small');
+                    sm.textContent = `${supportOf(set)} 次 · ${utilOf(set)}`;
+                    c.appendChild(sm);
+                    row.lastChild.appendChild(c);
+                });
+                box.appendChild(row);
+            });
+        }
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this continue'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tags) {
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/HUIMiner.java" download>HUIMiner.java</a>　執行 <code>javac HUIMiner.java && java HUIMiner</code>'
+                : '下載 <a href="code/hui_miner.py" download>hui_miner.py</a>　執行 <code>python3 hui_miner.py</code>';
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        function showStep() {
+            const s = trace[cursor];
+            $('explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${trace.length}</span>${describe(s)}`;
+            drawDB(s);
+            drawLists(s);
+            drawTree(s);
+            drawResult(s);
+            renderCode(CODE_TAGS(s));
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0;
+            $('btn-next').disabled = cursor === trace.length - 1;
+            $('mu-val').textContent = minUtil;
+            $('mu-range').value = minUtil;
+            $('mu-minus').disabled = minUtil <= MU_MIN;
+            $('mu-plus').disabled = minUtil >= MU_MAX;
+            const total = DB.reduce((a, t) => a + Object.keys(t).reduce((b, i) => b + t[i] * PROFIT[i], 0), 0);
+            $('mu-pct').textContent = `（全部交易總效益 ${total} 的 ${Math.round(minUtil / total * 100)}%）`;
+        }
+
+        /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${trace.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+        }
+
+        function rebuild() {
+            stopAuto();
+            trace = buildTrace(DB, PROFIT, minUtil);
+            cursor = 0;
+            showStep();
+            reserveExplainHeight();
+        }
+
+        function step(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        function setMinUtil(v) {
+            v = Math.max(MU_MIN, Math.min(MU_MAX, v));
+            if (v === minUtil) return;
+            minUtil = v;
+            rebuild();
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 1900);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT') return;      // 在滑桿上按左右鍵是調門檻
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+        $('mu-minus').addEventListener('click', () => setMinUtil(minUtil - MU_STEP));
+        $('mu-plus').addEventListener('click', () => setMinUtil(minUtil + MU_STEP));
+        $('mu-range').addEventListener('input', e => setMinUtil(Number(e.target.value)));
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAGS(trace[cursor]));
+        });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(reserveExplainHeight, 150); });
+
+        rebuild();
+    </script>
+</body>
+
+</html>
