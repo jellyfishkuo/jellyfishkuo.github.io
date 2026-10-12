@@ -1,0 +1,4 @@
+# GitHub Pages：這些檔案只給開發用，不需要發佈成網頁
+exclude:
+  - CLAUDE.md
+  - tools/

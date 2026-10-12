@@ -8,7 +8,7 @@
 
 ## 這個 repo 是什麼
 
-一個 GitHub Pages 網站，包含個人簡介、競賽紀錄，以及七個作品；其中六個是可直接操作的互動遊戲／工具。每個互動專案都有兩個入口：
+一個 GitHub Pages 網站，包含個人簡介、研究方向的互動 Demo、競賽紀錄，以及自己做的小遊戲／小工具。大部分互動專案都有兩個入口：
 
 - **直接試玩** —— 可以立刻操作的成品
 - **技術介紹** —— 針對工程師讀者寫的深入剖析，包含演算法推導、設計取捨、實測數據，以及誠實記錄的已知限制
@@ -23,7 +23,23 @@
 | SET 練功房 | 組合數學 / SVG | [game-set.html](games/game-set.html) | [game-set-detail.html](games/game-set-detail.html) |
 | 1A2B 猜數字 | 邏輯推理 / 資訊論 | [1A2B.html](games/1A2B.html) | [1A2B-detail.html](games/1A2B-detail.html) |
 | 部落衝突卡牌交易站 | 狀態管理 / localStorage | [coc-card.html](games/coc-card.html) | [coc-card-detail.html](games/coc-card-detail.html) |
+| 電費紀錄 | 工具 / Canvas 圖表 | [electricity-tracker/](electricity-tracker/) | [electricity-detail.html](games/electricity-detail.html) |
+| 河內塔 | 遞迴教學 | [hanoi.html](games/hanoi.html) | （頁面本身就是講解） |
+| 晚餐吃什麼？ | 轉盤 / Canvas | [dinner-wheel.html](games/dinner-wheel.html) | — |
 | 程式解題紀錄 | 筆記 | [Notion](https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link) | — |
+
+## 研究互動 Demo
+
+每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。
+
+| Demo | 主題 |
+|---|---|
+| [Apriori](research/apriori.html) | 頻繁樣式探勘：合併、剪枝、計數、篩選 |
+| [FP-Growth](research/fp-growth.html) | FP-tree、條件模式基底、遞迴探勘 |
+| [HUI-Miner](research/high-utility.html) | 高效益樣式探勘：TWU、utility list |
+| [FUP](research/incremental.html) | 增量探勘：新增交易時只更新受影響的部分 |
+| [滑動視窗](research/sliding-window.html) | 資料串流上的頻繁 / 最大頻繁樣式 |
+| [空間資料](research/spatial.html) | 四元樹範圍查詢、空間共位樣式 |
 
 ### 幾個從這些專案裡算出來的結果
 
@@ -38,11 +54,16 @@
 
 ```
 .
-├── index.html                 # 首頁（簡介 / 技能 / 專案 / 競賽紀錄 / 聯絡）
+├── index.html                 # 首頁（簡介 / 研究 / 技能 / 專案 / 競賽紀錄 / 聯絡）
+├── CLAUDE.md                  # 給 AI 助手的專案說明（慣例、踩過的坑、驗證方式）
 ├── assets/
-│   ├── logo.ico               # 站台 favicon
-│   ├── puzzle.ico             # Pentomino 用 favicon
+│   ├── logo.svg / logo.ico    # 站台圖示
+│   ├── icons/                 # 每個作品的圖示（svg + 32/180 png）
 │   └── me.jpg
+├── electricity-tracker/       # 電費紀錄
+├── research/                  # 研究互動 Demo（由 tools/research 產生）
+│   └── code/                  # 可直接執行的 Java / Python
+├── tools/                     # 產生技術介紹頁與研究 Demo 的原始檔、測試（見 tools/README.md）
 └── games/
     ├── detail.css             # 所有「技術介紹」頁共用的樣式表
     ├── pentomino.html         # 每日挑戰（拖曳）+ 自由解答（求解器）
@@ -56,12 +77,15 @@
     ├── 1A2B.html
     ├── 1A2B-detail.html
     ├── coc-card.html
-    └── coc-card-detail.html
+    ├── coc-card-detail.html
+    ├── electricity-detail.html
+    ├── hanoi.html
+    └── dinner-wheel.html
 ```
 
 ## 技術與設計原則
 
-**沒有建置流程。** 沒有 npm、沒有打包工具、沒有 CI。改完 HTML 推上 `main`，GitHub Pages 就會部署。
+**沒有建置流程。** 沒有 npm、沒有打包工具、沒有 CI。改完 HTML 推上 `main`，GitHub Pages 就會部署。唯一的例外是技術介紹頁和研究 Demo：它們由 `tools/` 裡的 Python 腳本產生，要改請改原始檔再重新產生（見 [`tools/README.md`](tools/README.md)）。
 
 - **遊戲頁是自我完備的單檔**：HTML + 內嵌 CSS + 內嵌 JS 全部在同一個檔案裡。優點是任何一頁都能單獨複製、單獨打開；代價是頁面之間有些重複的程式碼（例如粒子背景）。
 - **技術介紹頁共用 [`games/detail.css`](games/detail.css)**：所有技術介紹頁的樣式高度一致，各自內嵌會變成多份 900 行的複本，所以抽成共用樣式表。
@@ -86,7 +110,7 @@ npx serve .
 ## 想再加一個專案的話
 
 1. 在 `games/` 放 `你的專案.html`（單檔，自我完備）。
-2. 想寫技術介紹就加 `games/你的專案-detail.html`，`<head>` 裡連 `detail.css`，沿用 `.tech-card` / `.code-window` / `.callout` / `.table-wrap` 這些現成元件。
+2. 想寫技術介紹就在 `tools/detail/content/` 加一份內容、把專案加進 `build_detail.py` 的 `GAMES`，重新產生所有技術介紹頁（側欄交叉連結才會同步）。
 3. 在 `index.html` 的 `#projects` 區塊複製一張 `.project-card`，補上「技術介紹」與「直接試玩」兩個連結。
 4. 在其他新版技術文章的「其他技術剖析」側欄補上交叉連結，並同步 README 的專案表與檔案樹。
 5. 記得檢查：

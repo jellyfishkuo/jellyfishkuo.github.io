@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 *.class
+tools/**/code.json
+tools/**/out/
+tools/set-online/node_modules/
+tools/set-online/site/
+tools/set-online/*.log
