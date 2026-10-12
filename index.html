@@ -80,7 +80,12 @@
         nav ul {
             list-style: none;
             display: flex;
-            gap: 2.5rem;
+            gap: clamp(1rem, 2.6vw, 2.5rem);   /* 6 個連結在平板寬度也排得下 */
+        }
+
+        @media (max-width: 1000px) {
+            nav { padding: 1.2rem 1.5rem; }
+            nav a { font-size: 0.78rem; letter-spacing: 0.05em; }
         }
 
         nav a {
@@ -430,6 +435,45 @@
             transition: transform 1s ease;
         }
 
+        /* ── Research ── */
+        #research {
+            position: relative;
+            z-index: 1;
+            padding: 6rem 10vw;
+        }
+
+        .research-lead {
+            color: var(--muted);
+            max-width: 760px;
+            line-height: 1.8;
+        }
+
+        .topic-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 1.8rem;
+        }
+
+        .topic-chip {
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            color: var(--accent2);
+            border-radius: 999px;
+            padding: 0.35rem 0.9rem;
+            font-size: 0.88rem;
+        }
+
+        .roadmap {
+            margin-top: 1.6rem;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        .roadmap b {
+            color: var(--text);
+            font-weight: 600;
+        }
+
         /* ── Projects ── */
         #projects {
             position: relative;
@@ -758,6 +802,7 @@
 
             #hero,
             #about,
+            #research,
             #skills,
             #projects,
             #achievements,
@@ -807,6 +852,7 @@
         <a href="#" class="logo" style="text-decoration:none; text-transform:none;">jellyfishkuo</a>
         <ul>
             <li><a href="#about">About</a></li>
+            <li><a href="#research">Research</a></li>
             <li><a href="#skills">Skills</a></li>
             <li><a href="#projects">Projects</a></li>
             <li><a href="#achievements">Achievements</a></li>
@@ -818,6 +864,7 @@
             <span></span>
             <div class="mobile-menu" id="mobileMenu">
                 <a href="#about" onclick="closeMenu()">About</a>
+                <a href="#research" onclick="closeMenu()">Research</a>
                 <a href="#skills" onclick="closeMenu()">Skills</a>
                 <a href="#projects" onclick="closeMenu()">Projects</a>
                 <a href="#achievements" onclick="closeMenu()">Achievements</a>
@@ -882,8 +929,37 @@
         </div>
     </section>
 
+    <section id="research">
+        <div class="reveal section-label">// 02 — Research</div>
+        <div class="reveal">
+            <h2>What I'm digging into.</h2>
+            <p class="research-lead">在資料庫系統實驗室研究資料探勘：從交易、時間序列與空間資料裡找出有意義的樣式，並設計資料結構和剪枝策略，讓資料不斷更新時也能有效率地維護結果。
+                我習慣把讀到的演算法做成可以一步一步操作的互動 Demo，附上 Java 與 Python 程式碼，邊做邊確定自己真的懂了。</p>
+            <div class="topic-chips">
+                <span class="topic-chip">頻繁樣式探勘</span>
+                <span class="topic-chip">高效益樣式探勘</span>
+                <span class="topic-chip">增量資料庫</span>
+                <span class="topic-chip">資料串流・滑動視窗</span>
+                <span class="topic-chip">空間索引・共位樣式</span>
+            </div>
+        </div>
+        <div class="projects-grid">
+            <div class="project-card reveal">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/apriori.svg" alt="" width="28" height="28">Apriori 頻繁樣式探勘</div>
+                <div class="project-desc">用超商交易紀錄一步一步看 Apriori 怎麼找出常一起買的商品：合併、剪枝、計數、篩選，每一步都同步標出 Java / Python 程式碼正在跑的那幾行。
+                    資料和最小支持度都可以自己改，被剪掉的候選會說明是哪個子集合不頻繁；程式碼可直接下載執行。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/apriori.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+        </div>
+        <p class="roadmap reveal">接下來：<b>FP-Growth</b> → <b>高效益樣式探勘</b> → <b>增量探勘</b></p>
+    </section>
+
     <section id="skills">
-        <div class="reveal section-label">// 02 — Skills</div>
+        <div class="reveal section-label">// 03 — Skills</div>
         <div class="reveal">
             <h2>What I work with.</h2>
         </div>
@@ -969,7 +1045,7 @@
     </section>
 
     <section id="projects">
-        <div class="reveal section-label">// 03 — Projects</div>
+        <div class="reveal section-label">// 04 — Projects</div>
         <div class="reveal">
             <h2>Things I've built.</h2>
         </div>
@@ -1096,7 +1172,7 @@
     </section>
 
     <section id="achievements">
-        <div class="reveal section-label">// 04 — Achievements</div>
+        <div class="reveal section-label">// 05 — Achievements</div>
         <div class="reveal">
             <h2>Competition record.</h2>
         </div>
@@ -1224,7 +1300,7 @@
 
     <section id="contact">
         <div class="contact-inner reveal">
-            <div class="section-label">// 05 — Contact</div>
+            <div class="section-label">// 06 — Contact</div>
             <h2>Let's work together.</h2>
             <p>Have a project in mind or just want to chat? My inbox is always open.</p>
             <a href="mailto:ginakuo0923@gmail.com" class="btn btn-primary"
