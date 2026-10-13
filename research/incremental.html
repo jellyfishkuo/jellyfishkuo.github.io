@@ -899,6 +899,7 @@
         }
 
         function renderCode(tags) {
+            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
             const pre = $('code');
             pre.innerHTML = CODE[lang].map(([text, t], i) =>
                 `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
@@ -945,6 +946,40 @@
             $('btn-play').disabled = trace.length < 2;
         }
 
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
+        let measuringBlocks = false, blockJob = 0;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            if (!blocks.length || count < 2) return;
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                const until = performance.now() + 25;
+                measuringBlocks = true;
+                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                while (pass < passes && performance.now() < until) {
+                    showAt(i);
+                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                    if (++i === count) {
+                        i = 0; pass++;
+                        base = tallest.map(h => h + 'px');
+                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    }
+                }
+                measuringBlocks = false;
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                showAt(cur);
+                if (pass < passes) setTimeout(chunk, 0);
+            };
+            chunk();
+        }
+
         /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
         function reserveExplainHeight() {
             const box = $('explain');
@@ -960,6 +995,7 @@
             });
             probe.remove();
             box.style.minHeight = tallest + 'px';
+            reserveBlockHeights(document, trace.length, i => { cursor = i; showStep(); }, () => cursor);
         }
 
         function rebuild(keepCursor) {

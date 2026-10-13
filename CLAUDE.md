@@ -43,7 +43,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 - 單檔、零建置、零框架；外部只用 CDN（Google Fonts、PeerJS、MQTT.js、canvas-confetti、MathJax）。
 - 視覺：深色底、紫 `#7c3aed` / 青 `#06b6d4`，標題 `Syne`、等寬 `Space Mono`。
 - **不要用 `top`、`name`、`status`、`parent` 當全域變數或函式名**（`const top` 曾讓整頁掛掉）。
-- 一步一步播放的說明框要**用最長說明的高度固定**，否則下面的程式碼會被推上推下。
+- **內容會變長變短的區塊，不能推動旁邊或下面的其他區塊**（使用者明確要求，所有程式都適用）。一步一步播放的說明框用最長說明的高度固定；Research Demo 的每個 `.card` 由 `reserveBlockHeights()` 把每一步都畫一次、用最高的那次固定（分段量，不卡畫面），新 Demo 也要接上。要切換顯示的提示文字用 `visibility` 切，不要清空內容。驗證：從頭按到尾，每個區塊的位置都不能變。
 - 程式碼框自動捲動只捲框本身（`pre.scrollTo`），不要 `scrollIntoView` 捲整頁。
 - grid 子元素加 `min-width: 0`；寬內容（程式碼、表格）在自己的框內捲動。
 - 手機標題用 `nowrap` 時要搭配依螢幕寬度縮放的字級，不然放大字體或窄螢幕會撐破頁面。
