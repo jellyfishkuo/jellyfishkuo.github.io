@@ -12,6 +12,9 @@
     --border: rgba(255, 255, 255, 0.08);
 }
 
+/* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
 * {
     margin: 0;
     padding: 0;

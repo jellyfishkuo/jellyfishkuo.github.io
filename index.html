@@ -16,6 +16,9 @@
     <meta property="og:url" content="https://jellyfishkuo.github.io/">
     <meta property="og:image" content="https://jellyfishkuo.github.io/assets/logo-180.png">
     <style>
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
 
         *,
@@ -933,8 +936,7 @@
         <div class="reveal section-label">// 02 — Research</div>
         <div class="reveal">
             <h2>What I'm digging into.</h2>
-            <p class="research-lead">在資料庫系統實驗室研究資料探勘：從交易、時間序列與空間資料裡找出有意義的樣式，並設計資料結構和剪枝策略，讓資料不斷更新時也能有效率地維護結果。
-                我習慣把讀到的演算法做成可以一步一步操作的互動 Demo，附上 Java 與 Python 程式碼，邊做邊確定自己真的懂了。</p>
+            <p class="research-lead">在資料庫系統實驗室研究資料探勘：從交易、時間序列與空間資料裡找出有意義的樣式，並設計資料結構和剪枝策略，讓資料不斷更新時也能有效率地維護結果。</p>
             <div class="topic-chips">
                 <span class="topic-chip">頻繁樣式探勘</span>
                 <span class="topic-chip">高效益樣式探勘</span>

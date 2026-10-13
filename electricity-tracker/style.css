@@ -21,6 +21,9 @@
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #101018;

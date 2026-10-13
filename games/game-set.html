@@ -18,6 +18,9 @@
     <!-- MQTT.js：直連打不通時的備援通道（經由公開 MQTT 伺服器轉送牌局訊息）。 -->
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js" defer></script>
     <style>
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
         :root {
             --card-bg: #ffffff;
             --card-border: #d4d0c5;
