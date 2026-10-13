@@ -10,9 +10,9 @@
     <title>HUI-Miner 高效益樣式探勘</title>
     <meta name="description" content="一步一步看 HUI-Miner 怎麼用 TWU 和 utility list 找出「賺得多」而不只是「買得多」的商品組合：TWU 剪枝、iutil／rutil 上界、集合列舉樹，Java 與 Python 程式碼逐行對照，並和 Apriori 的結果比較。">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }

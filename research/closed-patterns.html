@@ -10,9 +10,9 @@
     <title>封閉與最大頻繁樣式 CHARM</title>
     <meta name="description" content="頻繁樣式太多怎麼辦？比較全部頻繁、封閉、最大三種答案，再一步一步看 CHARM 怎麼用 tidset 的四條性質直接找出封閉樣式，Java 與 Python 程式碼逐行對照。">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }

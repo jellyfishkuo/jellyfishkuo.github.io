@@ -10,9 +10,9 @@
     <title>關聯規則：信賴度與提升度</title>
     <meta name="description" content="一步一步看怎麼從頻繁樣式切出「買了 X 的人也會買 Y」的關聯規則：算信賴度、提升度，後件逐層變大並剪枝，Java 與 Python 程式碼逐行對照。">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }

@@ -10,9 +10,9 @@
     <title>FP-Growth 頻繁樣式探勘</title>
     <meta name="description" content="一步一步看 FP-Growth 怎麼把交易壓成一棵 FP-tree、再用條件模式基底遞迴挖出所有頻繁樣式，Java 與 Python 程式碼逐行對照，並和 Apriori 比較。">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
