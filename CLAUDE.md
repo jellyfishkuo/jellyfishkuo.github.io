@@ -36,7 +36,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `electricity-tracker/` | 電費紀錄：localStorage `electricityMeterRecords_v1`；4 位數電表 9999→0000 視為繞圈；跨天用電依時間平均分配；匯入時整理 Excel 改過的日期格式 |
 | `research/apriori.html`、`fp-growth.html`、`eclat.html`、`closed-patterns.html`、`association-rules.html`、`prefixspan.html`、`two-phase.html`、`up-growth.html`、`high-utility.html`、`top-k-hui.html`、`incremental.html`、`cantree.html`、`sliding-window.html`、`stream-counting.html`、`count-min.html`、`spatial.html`、`rtree.html`、`dbscan.html` | 研究 Demo（18 個，首頁 Research 的主題標籤可以篩選；新增 Demo 時卡片要加 `data-topics`）：同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），一步一步看＋Java/Python 逐行高亮＋可下載執行 |
 
-首頁 About 的「自己做的小工具與遊戲」數字（目前 9）在新增 Projects 作品時要跟著改。
+首頁 About 的「自己做的小工具與遊戲」數字（目前 9）在新增 Projects 作品時要跟著改。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
 ## 開發慣例與踩過的坑
 

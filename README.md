@@ -30,22 +30,22 @@
 
 ## 研究互動 Demo
 
-每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。
+共 18 個，全部用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔）當例子。每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。首頁 Research 區可以點主題標籤篩選。
 
-| Demo | 主題 |
+| 主題 | Demo |
 |---|---|
-| [Apriori](research/apriori.html) | 頻繁樣式探勘：合併、剪枝、計數、篩選 |
-| [FP-Growth](research/fp-growth.html) | FP-tree、條件模式基底、遞迴探勘 |
-| [HUI-Miner](research/high-utility.html) | 高效益樣式探勘：TWU、utility list |
-| [FUP](research/incremental.html) | 增量探勘：新增交易時只更新受影響的部分 |
-| [滑動視窗](research/sliding-window.html) | 資料串流上的頻繁 / 最大頻繁樣式 |
-| [空間資料](research/spatial.html) | 四元樹範圍查詢、空間共位樣式 |
+| 頻繁樣式 | [Apriori](research/apriori.html)、[FP-Growth](research/fp-growth.html)、[Eclat](research/eclat.html)、[封閉與最大樣式（CHARM）](research/closed-patterns.html) |
+| 關聯規則・序列 | [關聯規則：信賴度與提升度](research/association-rules.html)、[序列樣式 PrefixSpan](research/prefixspan.html) |
+| 高效益樣式 | [Two-Phase](research/two-phase.html)、[UP-Growth](research/up-growth.html)、[HUI-Miner](research/high-utility.html)、[Top-k 高效益樣式](research/top-k-hui.html) |
+| 增量資料庫 | [FUP](research/incremental.html)、[CanTree](research/cantree.html) |
+| 資料串流 | [滑動視窗](research/sliding-window.html)、[Lossy Counting・Space-Saving](research/stream-counting.html)、[Count-Min Sketch](research/count-min.html) |
+| 空間資料 | [四元樹與共位樣式](research/spatial.html)、[R-tree 與 kNN 查詢](research/rtree.html)、[DBSCAN 密度分群](research/dbscan.html) |
 
 ### 幾個從這些專案裡算出來的結果
 
 - **無限井字棋被完整求解了**：116,074 個可達局面、先手必勝、13 手收官，而且<u>只有下四個「邊」格才贏</u> —— 中央與角落都是和局，和標準井字棋的開局理論完全相反。
 - **Pentomino** 經典的中央 2×2 缺口共有 **520 個解**，正好等於文獻上的「65 個本質解 × 8 種對稱」。
-- **SET** 隨機 12 張檯面平均藏著 2.78 組解，但有 **3.22%** 的機率完全無解（約每 31 副一次）—— 這解釋了為什麼「提示」按鈕必須兼任自動補牌；現在也支援電腦對戰與四位數房間碼的 WebRTC 雙人連線，先送出合法組合就自動得分。
+- **SET** 隨機 12 張檯面平均藏著 2.78 組解，但有 **3.22%** 的機率完全無解（約每 31 副一次）—— 這解釋了為什麼「提示」按鈕必須兼任自動補牌；現在也支援三段難度的電腦對手，以及四位數房間碼、最多 6 人的連線對戰（WebRTC 直連，打不通時改走 MQTT 備援）。
 - **1A2B** 解空間 5,040、回饋只有 14 種，資訊論下界是 4 猜；純邏輯推理跑完全部 5,040 個答案的平均成績是 **5.56 猜**。
 
 推導過程與驗證方法都寫在各自的技術介紹頁裡。
@@ -89,9 +89,9 @@
 
 - **遊戲頁是自我完備的單檔**：HTML + 內嵌 CSS + 內嵌 JS 全部在同一個檔案裡。優點是任何一頁都能單獨複製、單獨打開；代價是頁面之間有些重複的程式碼（例如粒子背景）。
 - **技術介紹頁共用 [`games/detail.css`](games/detail.css)**：所有技術介紹頁的樣式高度一致，各自內嵌會變成多份 900 行的複本，所以抽成共用樣式表。
-- **外部依賴只有四個 CDN 資源**：Google Fonts（Space Mono / Syne 等）、[canvas-confetti](https://github.com/catdad/canvas-confetti)（過關特效）、[MathJax](https://www.mathjax.org/)（技術介紹頁的數學式）、[PeerJS](https://peerjs.com/)（SET 練功房的四位碼 WebRTC 雙人連線）。沒有 CDN 也不會壞掉，只是少了特效、排版精緻度，或連線對戰功能。
+- **外部依賴只有幾個 CDN 資源**：Google Fonts（Space Mono / Syne 等）、[canvas-confetti](https://github.com/catdad/canvas-confetti)（過關特效）、[MathJax](https://www.mathjax.org/)（技術介紹頁的數學式）、[PeerJS](https://peerjs.com/) 與 [MQTT.js](https://github.com/mqttjs/MQTT.js)（SET 練功房的多人連線與備援通道）。沒有 CDN 也不會壞掉，只是少了特效、排版精緻度，或連線對戰功能。
 - **視覺語言**：深色底 + 紫（`#7c3aed`）青（`#06b6d4`）漸層，`Syne` 做標題、`Space Mono` 做等寬與標籤。
-- **資料一律留在本機**：卡牌交易站用 `localStorage`，沒有後端、沒有帳號、沒有追蹤。
+- **資料一律留在本機**：卡牌交易站、電費紀錄、晚餐轉盤都存在瀏覽器的 `localStorage`，沒有後端、沒有帳號、沒有追蹤。
 
 ## 本機預覽
 
@@ -99,38 +99,41 @@
 
 ```bash
 # Python 內建就有
-python3 -m http.server 8000
+python3 -m http.server 8770
 
 # 或 Node
 npx serve .
 ```
 
-然後開 <http://localhost:8000>。
+然後開 <http://localhost:8770>（測試腳本也預設用這個埠）。
 
 ## 想再加一個專案的話
 
 1. 在 `games/` 放 `你的專案.html`（單檔，自我完備）。
 2. 想寫技術介紹就在 `tools/detail/content/` 加一份內容、把專案加進 `build_detail.py` 的 `GAMES`，重新產生所有技術介紹頁（側欄交叉連結才會同步）。
-3. 在 `index.html` 的 `#projects` 區塊複製一張 `.project-card`，補上「技術介紹」與「直接試玩」兩個連結。
+3. 在 `index.html` 的 `#projects` 區塊複製一張 `.project-card`，補上「技術介紹」與「直接試玩」兩個連結，並把 About 的「自己做的小工具與遊戲」數字加一。
 4. 在其他新版技術文章的「其他技術剖析」側欄補上交叉連結，並同步 README 的專案表與檔案樹。
-5. 記得檢查：
+5. 新增的是研究 Demo 的話，照 [`tools/research/BRIEF.md`](tools/research/BRIEF.md) 做；首頁卡片要加 `data-topics` 才篩選得到，README 的研究表也要補上。
+6. 記得檢查：
    - `<html lang="zh-Hant">` 與 `<meta name="viewport">` 都要有，且**不要**鎖 `user-scalable=no`（違反 WCAG 1.4.4）
    - favicon 路徑從 `games/` 出發是 `../assets/...`
+   - CSS 要有 `html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }`，而且放在字型的 `@import` 後面
    - 在 320 / 390 / 768 / 1280px 四個寬度看一下有沒有水平溢出
 
 ## 品質檢查
 
-這個網站沒有測試框架，但改動時我會用 headless Chrome（puppeteer）與 jsdom 做幾件事：
+這個網站沒有測試框架，但改動時會用 Playwright + Chromium（本機伺服器開在 8770 埠）做幾件事：
 
 - **全站掃描**：每頁攔截 JS 例外、驗證所有本地連結與資源是否存在、量測各尺寸下的水平溢出。
-- **行為測試**：用 jsdom 載入實際頁面模擬點擊與按鍵，驗證遊戲邏輯（例如 SET 的判定重入鎖、1A2B 的 A/B 判定是否自洽）。
-- **演算法驗證**：把頁面裡的演算法原封不動抽出來跑窮舉或大量取樣，確認實作與理論一致（例如 SET 的 1,080 組、Pentomino 的 520 個解）。
+- **行為測試**：載入實際頁面模擬點擊與按鍵，驗證遊戲邏輯（例如 SET 的判定重入鎖、1A2B 的 A/B 判定是否自洽）。
+- **演算法驗證**：把頁面裡的演算法原封不動抽出來跑窮舉或大量取樣，確認實作與理論一致（例如 SET 的 1,080 組、Pentomino 的 520 個解）；研究 Demo 則用各自的 `test.py` 拿隨機資料跟 Python 版交叉比對。
 
 幾個踩過的坑值得記著：
 
 - macOS 上的 headless Chrome 有 **500px 最小視窗限制**，`--window-size=390` 會變成「用 500px 排版再裁成 390px」，看起來像溢出 bug。要測行動版必須用 CDP 的裝置模擬。
-- jsdom 在 `file://`（opaque origin）下**不提供 `localStorage`**，測持久化要用 `https://` 的 URL。
-- jsdom 沒有 canvas 實作，`getContext('2d')` 回傳 `null` —— 這反而幫我抓到「純裝飾的背景動畫會讓整個遊戲開不起來」這種真實的健壯性問題。
+- 測試環境連不到外部字型時，要把 `fonts.googleapis.com` 的請求直接擋掉（`route(..., abort)`），不然頁面會一直等字型。
+- 樣式表裡 `@import` 必須是第一條規則，前面多了任何一行，字型就整個載不進來。
+- 一步一步播放的說明框、Demo 的每張卡片都要先用最長內容的高度固定住，不然按「下一步」時下面的區塊會跟著跳。
 
 ---
 
