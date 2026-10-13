@@ -24,6 +24,7 @@
 - 返回連結 `../index.html#research`，head 裡的 icon 連結指向你的圖示。
 - 「一步一步看」：上一步 / 下一步 / 回到開頭 / 自動播放、鍵盤左右鍵；每一步一段說明（`.explain`），**用最長說明的高度固定說明框**（照抄 reserveExplainHeight），否則下面的東西會跳。
 - **區塊不能互相推擠**：每個 `.card` 都要用 `reserveBlockHeights()`（照抄現有 Demo，在 reserveExplainHeight 結尾呼叫）固定成所有步驟裡最高的高度；驗證時從頭按到尾，每個 `.card` 的位置都不能變。
+- CSS 開頭要有 `html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }`（手機才不會把程式碼的字放大得忽大忽小）。
 - 程式碼框：Java / Python 切換；每一步高亮正在執行的那幾行（用模板裡的 «tag» 標記，build.py 產生 JSON 嵌進頁面）；**只捲程式碼框本身（pre.scrollTo），絕對不要 scrollIntoView 去捲整頁**；下方有下載連結和執行指令。網頁上顯示的程式碼和下載的檔案必須同源（都由 .tpl 產生）。
 - 網頁裡用 JavaScript 照同樣的演算法跑一次產生步驟紀錄（trace），上一步/下一步只是在紀錄裡移動。
 - 使用者可調的參數（門檻等）改了要重新產生 trace。

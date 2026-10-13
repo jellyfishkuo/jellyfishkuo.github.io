@@ -18,6 +18,8 @@
     <!-- MQTT.js：直連打不通時的備援通道（經由公開 MQTT 伺服器轉送牌局訊息）。 -->
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js" defer></script>
     <style>
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
 

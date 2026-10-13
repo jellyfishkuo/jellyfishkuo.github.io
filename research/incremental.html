@@ -10,6 +10,8 @@
     <title>增量探勘 FUP</title>
     <meta name="description" content="資料庫一直新增交易時，FUP 怎麼只讀新的那幾筆就更新頻繁樣式：舊樣式只加新次數、新候選先用引理篩掉，必要時才回頭掃舊資料庫。和全部重算比較讀了幾筆交易，Java 與 Python 程式碼逐行對照。">
     <style>
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */

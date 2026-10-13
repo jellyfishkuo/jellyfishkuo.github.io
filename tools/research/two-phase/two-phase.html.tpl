@@ -10,6 +10,8 @@
     <title>Two-Phase 高效益樣式探勘</title>
     <meta name="description" content="一步一步看 Two-Phase 怎麼找高效益樣式：第一階段用有向下封閉性的 TWU 當上界，照 Apriori 的方式一層一層產生候選；第二階段再掃一次資料庫算真正的效益。Java 與 Python 程式碼逐行對照，並和 HUI-Miner 比較。">
     <style>
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
