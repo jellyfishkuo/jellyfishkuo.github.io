@@ -10,10 +10,10 @@
     <title>滑動視窗頻繁樣式探勘</title>
     <meta name="description" content="一步一步看資料串流上的滑動視窗：每進來一筆交易、最舊的一筆就離開，用計數表即時更新頻繁樣式與最大頻繁樣式，Java 與 Python 程式碼逐行對照。">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
-
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
         :root {
             --bg: #05050a;
