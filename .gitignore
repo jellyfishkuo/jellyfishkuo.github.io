@@ -6,3 +6,6 @@ tools/**/out/
 tools/set-online/node_modules/
 tools/set-online/site/
 tools/set-online/*.log
+
+# 測試截圖（各 Demo 的 test.py 會存在自己的資料夾）
+tools/**/*.png
