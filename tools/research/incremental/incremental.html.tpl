@@ -96,8 +96,11 @@
         .stepper { width: 30px; height: 30px; padding: 0 !important; }
 
         .db-scroll { max-height: 620px; overflow-y: auto; overscroll-behavior: contain; margin: 0 -0.2rem; padding: 0 0.2rem; }
-        .db { width: 100%; border-collapse: separate; border-spacing: 0 3px; }
-        .db th { font-weight: 400; color: var(--muted); font-size: 0.75rem; padding: 0 2px 4px; text-align: center; line-height: 1.25; position: sticky; top: 0; background: var(--panel); z-index: 1; }
+        .db { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 3px; }
+        /* 欄寬固定：商品欄平分，不會因為「茶葉蛋」「洋芋片」三個字就比較寬 */
+        .db th.tid-h { width: 2.3rem; }
+        .db th.del-h { width: 30px; }
+        .db th { font-weight: 400; color: var(--muted); font-size: clamp(0.6rem, 3vw, 0.75rem); white-space: nowrap; padding: 0 1px 4px; text-align: center; line-height: 1.25; position: sticky; top: 0; background: var(--panel); z-index: 1; }
         .db th .emo { display: block; font-size: 1.25rem; }
         .db th.sel { color: var(--warn); }
         .db td { text-align: center; padding: 0; }
@@ -726,8 +729,8 @@
                     ITEMS.map(i => `<td><div class="cell${t.has(i) ? ' has' : ''}${cls === 'pend' ? ' nw' : ''}${match && hit.has(i) ? ' hit' : ''}"></div></td>`).join('') +
                     (editing ? `<td>${extra || ''}</td>` : '') + '</tr>';
             };
-            let html = '<tr><th></th>' + ITEMS.map(i =>
-                `<th class="${hit.has(i) ? 'sel' : ''}"><span class="emo">${EMOJI[i]}</span>${i}</th>`).join('') + (editing ? '<th></th>' : '') + '</tr>';
+            let html = '<tr><th class="tid-h"></th>' + ITEMS.map(i =>
+                `<th class="${hit.has(i) ? 'sel' : ''}"><span class="emo">${EMOJI[i]}</span>${i}</th>`).join('') + (editing ? '<th class="del-h"></th>' : '') + '</tr>';
             baseDB.forEach((t, r) => { html += row(t, `T${r + 1}`, ''); });
             const cols = ITEMS.length + (editing ? 2 : 1);
             if (pending.length) {
