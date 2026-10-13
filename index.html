@@ -1479,6 +1479,10 @@
             entries.forEach(e => {
                 if (e.isIntersecting) {
                     e.target.classList.add('visible');
+                    // 錯開的 transition-delay 只給進場用，進場完就拿掉，不然滑鼠移上去時越後面的卡片反應越慢
+                    const el = e.target, delay = parseFloat(el.style.transitionDelay) || 0;
+                    if (delay) setTimeout(() => { el.style.transitionDelay = ''; }, delay * 1000 + 900);
+                    observer.unobserve(el);
                     e.target.querySelectorAll('.skill-bar').forEach(bar => {
                         bar.style.transform = `scaleX(${bar.dataset.width})`;
                     });
