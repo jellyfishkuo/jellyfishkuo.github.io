@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 左邊一筆一筆流進來的商品，右邊是有限的幾個計數器：實心是估計次數、淡色是誤差範圍、白線是真實次數 -->
+  <circle cx="10" cy="20" r="3" fill="#facc15"/>
+  <circle cx="10" cy="32" r="3" fill="#818cf8"/>
+  <circle cx="10" cy="44" r="3" fill="#4a4a6a"/>
+  <path d="M15.5 32 H21 M18.5 29 L21.5 32 L18.5 35" fill="none" stroke="#6a6a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="25" y="16" width="31" height="8" rx="4" fill="#1e1e36"/>
+  <rect x="25" y="16" width="27" height="8" rx="4" fill="#22d3ee"/>
+  <rect x="25" y="28" width="31" height="8" rx="4" fill="#1e1e36"/>
+  <rect x="25" y="28" width="22" height="8" rx="4" fill="#22d3ee" fill-opacity="0.35"/>
+  <rect x="25" y="28" width="13" height="8" rx="4" fill="#22d3ee"/>
+  <rect x="25" y="40" width="31" height="8" rx="4" fill="#1e1e36"/>
+  <rect x="25" y="40" width="16" height="8" rx="4" fill="#22d3ee" fill-opacity="0.35"/>
+  <rect x="25" y="40" width="8" height="8" rx="4" fill="#22d3ee"/>
+  <rect x="51" y="13.5" width="2.2" height="13" rx="1" fill="#fff"/>
+  <rect x="42" y="25.5" width="2.2" height="13" rx="1" fill="#fff"/>
+  <rect x="36" y="37.5" width="2.2" height="13" rx="1" fill="#fff"/>
+</svg>

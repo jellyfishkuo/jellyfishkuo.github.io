@@ -116,8 +116,11 @@
         .explain b { color: var(--warn); font-weight: 600; }
 
         /* ── 交易資料庫 ── */
-        .db { width: 100%; border-collapse: separate; border-spacing: 0 3px; }
-        .db th { font-weight: 400; color: var(--muted); font-size: 0.72rem; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
+        .db { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 3px; }
+        /* 欄寬固定：商品欄平分，不會因為「茶葉蛋」「洋芋片」三個字就比較寬 */
+        .db th.tid-h { width: 2rem; }
+        .db th.tu-h { width: 2.4rem; }
+        .db th { font-weight: 400; color: var(--muted); font-size: clamp(0.6rem, 3vw, 0.72rem); white-space: nowrap; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
         .db th .emo { display: block; font-size: 1.2rem; }
         .db th .pf { display: block; font: 700 0.7rem 'Space Mono', monospace; color: #fcd34d; margin-top: 0.1rem; }
         .db th.sel { color: var(--warn); }
@@ -655,7 +658,7 @@
             const cols = s.twuDone ? [...s.order, ...s.removed, ...ITEMS.filter(i => !(i in s.twu))] : ITEMS;
             const f = focusOf(s);
             const off = i => s.removed.includes(i);
-            let h = '<thead><tr><th></th>' + cols.map(i =>
+            let h = '<thead><tr><th class="tid-h"></th>' + cols.map(i =>
                 `<th class="${off(i) ? 'off' : ''}${f.items.has(i) ? ' sel' : ''}"><span class="emo">${EMOJI[i]}</span><span class="nm">${esc(i)}</span><span class="pf">$${PROFIT[i]}</span></th>`).join('') +
                 `<th class="tu-h${s.kind === 'tu' ? ' sel' : ''}">TU</th></tr></thead><tbody>`;
             DB.forEach((t, r) => {

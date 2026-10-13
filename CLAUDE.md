@@ -34,7 +34,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `games/hanoi.html` | 河內塔：自己玩（任意盤面的最佳提示）＋ 看遞迴怎麼解（Python/JS/C++ 逐行高亮、呼叫堆疊） |
 | `games/dinner-wheel.html` | 晚餐轉盤：選項存 localStorage（`dinner-wheel-v1`），新增預設選項時調 `DEFAULTS_VERSION` 與 `ADDED_IN`，舊使用者會自動補上 |
 | `electricity-tracker/` | 電費紀錄：localStorage `electricityMeterRecords_v1`；4 位數電表 9999→0000 視為繞圈；跨天用電依時間平均分配；匯入時整理 Excel 改過的日期格式 |
-| `research/apriori.html`、`fp-growth.html`、`high-utility.html`、`incremental.html`、`sliding-window.html`、`spatial.html` | 研究 Demo：同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），一步一步看＋Java/Python 逐行高亮＋可下載執行 |
+| `research/apriori.html`、`fp-growth.html`、`eclat.html`、`closed-patterns.html`、`association-rules.html`、`prefixspan.html`、`two-phase.html`、`high-utility.html`、`incremental.html`、`sliding-window.html`、`stream-counting.html`、`spatial.html` | 研究 Demo（12 個）：同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），一步一步看＋Java/Python 逐行高亮＋可下載執行 |
 
 首頁 About 的「自己做的小工具與遊戲」數字（目前 9）在新增 Projects 作品時要跟著改。
 

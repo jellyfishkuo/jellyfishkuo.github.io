@@ -939,9 +939,12 @@
             <p class="research-lead">在資料庫系統實驗室研究資料探勘：從交易、時間序列與空間資料裡找出有意義的樣式，並設計資料結構和剪枝策略，讓資料不斷更新時也能有效率地維護結果。</p>
             <div class="topic-chips">
                 <span class="topic-chip">頻繁樣式探勘</span>
+                <span class="topic-chip">封閉・最大樣式</span>
+                <span class="topic-chip">關聯規則</span>
+                <span class="topic-chip">序列樣式</span>
                 <span class="topic-chip">高效益樣式探勘</span>
                 <span class="topic-chip">增量資料庫</span>
-                <span class="topic-chip">資料串流・滑動視窗</span>
+                <span class="topic-chip">資料串流</span>
                 <span class="topic-chip">空間索引・共位樣式</span>
             </div>
         </div>
@@ -968,6 +971,51 @@
             </div>
             <div class="project-card reveal" style="transition-delay:0.2s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/eclat.svg" alt="" width="28" height="28">Eclat：垂直格式與交集</div>
+                <div class="project-desc">同一份超商資料的第三種做法：先把交易轉成「每個商品出現在哪幾筆交易」的垂直格式，再把同前綴的交易編號集合兩兩取交集、深度優先往下挖。交集有幾筆就是支持度，整個過程只掃一次資料庫；最後跟 Apriori、FP-Growth 比較。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/eclat.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/closed-patterns.svg" alt="" width="28" height="28">封閉與最大樣式：CHARM</div>
+                <div class="project-desc">頻繁樣式常常多到看不完，而且很多資訊重複。先比較全部頻繁、封閉、最大三種答案：封閉樣式保留所有次數，最大樣式只留邊界。再一步一步看 CHARM 怎麼比較兩個樣式的交易集合，用四條性質合併、吸收或刪掉，直接找出封閉樣式。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/closed-patterns.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/association-rules.svg" alt="" width="28" height="28">關聯規則：信賴度與提升度</div>
+                <div class="project-desc">接在 Apriori 後面：把頻繁樣式切成「買了 X 的人也會買 Y」的規則，一步一步算信賴度和提升度。後件逐層變大，只要一條不夠，包含它的更大後件就整批剪掉。看信賴度 75% 的規則為什麼可能其實毫無關聯，規則表可依信賴度、提升度排序。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/association-rules.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" style="transition-delay:0.2s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/prefixspan.svg" alt="" width="28" height="28">序列樣式：PrefixSpan</div>
+                <div class="project-desc">這次多了先後順序：「早上買☕🍞，下次再來買🍙」。每位常客一條時間軸，看 PrefixSpan 怎麼用前綴把資料庫投影成越來越小的後綴，分成「同一次一起買」和「下一次才買」兩種延伸，一路遞迴找出常見的購買順序。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/prefixspan.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/two-phase.svg" alt="" width="28" height="28">Two-Phase 高效益樣式</div>
+                <div class="project-desc">HUI-Miner 之前的經典兩階段做法：第一階段用有向下封閉性的 TWU 當上界，照 Apriori 一層一層挑候選；第二階段再掃一次資料庫算真正的效益。用長條圖看上界有多鬆、哪些候選是白算的，最後跟 HUI-Miner 比較掃描次數和候選數量。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/two-phase.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/high-utility.svg" alt="" width="28" height="28">HUI-Miner 高效益樣式探勘</div>
                 <div class="project-desc">同一間超商，這次記下每樣買了幾個、每樣賺多少。看「出現次數多」和「賺最多」的組合有什麼不同、為什麼效益不能像 Apriori 那樣直接剪，以及 TWU 上界和 utility list 的剩餘效益怎麼安全地剪掉不可能的分支。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
@@ -975,7 +1023,7 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" style="transition-delay:0.3s">
+            <div class="project-card reveal" style="transition-delay:0.2s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/incremental.svg" alt="" width="28" height="28">增量探勘：FUP</div>
                 <div class="project-desc">資料庫一直進新交易時，不用全部重算：舊樣式只看新的那幾筆就能更新次數，新冒出的候選先用一條引理篩過，只有少數需要回頭掃舊資料。可以自己組一批新交易，看 FUP 和全部重算各讀了幾筆。</div>
@@ -984,7 +1032,7 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" style="transition-delay:0.4s">
+            <div class="project-card reveal">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/sliding-window.svg" alt="" width="28" height="28">滑動視窗頻繁樣式</div>
                 <div class="project-desc">資料串流源源不絕，只關心最近 W 筆：每進來一筆、最舊的離開，用計數表只改受影響的組合，即時更新頻繁與最大頻繁樣式。附支持度隨時間變化的折線圖，看早上、中午、晚上的購買習慣怎麼變。</div>
@@ -993,7 +1041,16 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" style="transition-delay:0.5s">
+            <div class="project-card reveal" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/stream-counting.svg" alt="" width="28" height="28">串流近似計數：Lossy Counting・Space-Saving</div>
+                <div class="project-desc">資料串流停不下來、記憶體又不夠每個商品都記時，怎麼知道誰賣得最多？看 Lossy Counting 分桶大掃除、Space-Saving 只用 k 個計數器搶位子，對照真實次數和估計次數，看「少算不超過 εN／多算不超過 N/k」的保證怎麼成立。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/stream-counting.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" style="transition-delay:0.2s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/spatial.svg" alt="" width="28" height="28">空間資料：四元樹與共位樣式</div>
                 <div class="project-desc">在街區地圖上點出店家，看四元樹怎麼依密度一路切格子、範圍查詢怎麼整塊跳過不相干的區域；另一頁用鄰近距離定義「一起出現」，算參與指數找出哪幾種店總是開在彼此附近。</div>
