@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/up-growth.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/up-growth-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/up-growth-180.png">
+    <title>UP-Growth 高效益樣式探勘</title>
+    <meta name="description" content="一步一步看 UP-Growth 怎麼用一棵 UP-Tree 找高效益樣式：DGU 刪掉不夠的商品、DGN 讓節點只記到自己為止的效益，挖條件樹時再用 DLU、DLN 收緊上界，最後掃一次資料庫驗證候選。Java 與 Python 程式碼逐行對照，並和 Two-Phase、HUI-Miner 比較。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* 手機：一欄，依序 步驟 → 樹 → 計算過程 → 交易 → 候選 → 程式碼 → 結果
+           電腦：左欄 步驟／樹／計算過程／交易，右欄 候選／程式碼／結果 */
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; align-items: start; }
+        .col { display: contents; }
+        .layout .card { min-width: 0; }
+        .a-step { order: 1; }
+        .a-tree { order: 2; }
+        .a-work { order: 3; }
+        .a-data { order: 4; }
+        .a-cands { order: 5; }
+        .a-code { order: 6; }
+        .a-result { order: 7; }
+        @media (min-width: 960px) {
+            .layout { grid-template-columns: 1fr 1fr; }
+            .col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .sub { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .mu { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; font-size: 0.88rem; margin-top: 0.75rem; }
+        .mu .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.2em; text-align: center; }
+        .mu input[type=range] { flex: 1 1 140px; min-width: 0; accent-color: var(--accent); }
+        .mu .pct { color: var(--muted); font-size: 0.78rem; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .phase { display: inline-block; font: 700 0.7rem 'Space Mono', monospace; border-radius: 5px; padding: 0 0.4rem; margin-left: 0.4rem; background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .phase.p2 { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+
+        /* ── UP-Tree（畫法跟 FP-Growth 頁一樣，多了節點效益） ── */
+        .crumbs { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; min-height: 1.6rem; }
+        .crumb { border: 1px solid var(--border); border-radius: 6px; padding: 0.05rem 0.45rem; }
+        .crumb.cur { border-color: var(--accent); color: var(--text); background: rgba(124, 58, 237, 0.15); }
+        .tree-wrap { display: grid; grid-template-columns: 1fr auto; gap: 0.8rem; align-items: start; }
+        @media (max-width: 520px) { .tree-wrap { grid-template-columns: 1fr; } }
+        .tree-box { overflow-x: auto; background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; min-height: 140px; display: flex; align-items: flex-start; justify-content: center; padding: 0.4rem; min-width: 0; }
+        .tree-box svg { display: block; max-width: 100%; height: auto; }
+        .tree-empty { color: var(--muted); font-size: 0.85rem; align-self: center; padding: 1rem; text-align: center; }
+        svg .edge { stroke: #3a3a5a; stroke-width: 2; }
+        svg .edge.on { stroke: var(--warn); stroke-width: 3; }
+        svg .link { stroke: var(--accent2); stroke-width: 1.6; stroke-dasharray: 4 3; fill: none; }
+        svg .node circle.body { fill: #1e1e36; stroke: #3a3a5a; stroke-width: 2; }
+        svg .node.on circle.body { stroke: var(--warn); stroke-width: 3; fill: #2b2318; }
+        svg .node.new circle.body { stroke: var(--good); stroke-width: 3; }
+        svg .node.linked circle.body { stroke: var(--accent2); stroke-width: 3; }
+        svg .node .emo { font-size: 17px; }
+        svg .node .badge { fill: #3b3b62; }
+        svg .node.on .badge { fill: var(--warn); }
+        svg .node.linked .badge { fill: var(--accent2); }
+        svg .node .cnt { font: 700 10.5px 'Space Mono', monospace; fill: #fff; }
+        svg .node .nu { font: 700 11px 'Space Mono', monospace; fill: #c4b5fd; paint-order: stroke; stroke: #0a0a14; stroke-width: 4px; stroke-linejoin: round; }
+        svg .node.linked .nu, svg .node.new .nu { fill: #fcd34d; }
+        svg .root circle { fill: #2a2a48; }
+        svg .root text { font: 9px 'Space Mono', monospace; fill: var(--muted); }
+        .header-table { border-collapse: collapse; font-size: 0.82rem; min-width: 150px; }
+        .header-table caption { text-align: left; color: var(--muted); font-size: 0.75rem; padding-bottom: 0.25rem; }
+        .header-table th { color: var(--muted); font-weight: 400; font-size: 0.7rem; text-align: right; padding: 0 0.35rem 0.15rem; }
+        .header-table td { padding: 0.18rem 0.35rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .header-table tr.sel td { background: rgba(6, 182, 212, 0.14); }
+        .header-table td.c { font: 700 0.8rem 'Space Mono', monospace; text-align: right; color: var(--muted); }
+        .header-table td.c.nu { color: #c4b5fd; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.55rem; }
+        .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+        .legend i.sq { width: 14px; height: 9px; border-radius: 3px; border: 0; vertical-align: 0; }
+
+        /* ── 計算過程 ── */
+        .work-empty { color: var(--muted); font-size: 0.85rem; }
+        .work-note { color: #c6c6d6; font-size: 0.82rem; margin-top: 0.5rem; }
+        .work-note b { color: var(--warn); font-weight: 600; }
+        .chip { display: inline-block; font-size: 0.8rem; border-radius: 6px; padding: 0.02rem 0.4rem; background: #23233d; margin: 0.08rem 0; }
+        .chip.out { background: none; color: var(--muted); text-decoration: line-through; }
+        .chip.ok { background: rgba(34, 197, 94, 0.18); }
+        .chip .v { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.25rem; color: #c4b5fd; }
+        .arrow { color: #4a4a66; font-size: 0.75rem; }
+
+        /* ── 交易資料庫 ── */
+        .db { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 3px; }
+        /* 欄寬固定：商品欄平分，不會因為「茶葉蛋」「洋芋片」三個字就比較寬 */
+        .db th.tid-h { width: 2rem; }
+        .db th.tu-h { width: 2.6rem; }
+        .db th { font-weight: 400; color: var(--muted); font-size: clamp(0.6rem, 3vw, 0.72rem); white-space: nowrap; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
+        .db th .emo { display: block; font-size: 1.2rem; }
+        .db th .pf { display: block; font: 700 0.7rem 'Space Mono', monospace; color: #fcd34d; margin-top: 0.1rem; }
+        .db th.sel { color: var(--warn); }
+        .db th.off, .db td.twu.out { opacity: 0.4; }
+        .db th.off .nm { text-decoration: line-through; }
+        .db td { text-align: center; padding: 0; }
+        .db td.tid { font: 0.76rem 'Space Mono', monospace; color: var(--muted); text-align: left; width: 2.4em; padding-left: 0.3rem; }
+        .db td.tu { font: 700 0.78rem/1.15 'Space Mono', monospace; color: var(--accent2); }
+        .db td.tu s { display: block; font-size: 0.62rem; font-weight: 400; color: var(--muted); }
+        .db td.tu.sel, .db th.tu-h.sel { color: var(--warn); }
+        .db tr.match td { background: rgba(245, 158, 11, 0.12); }
+        .db tr.match td:first-child { border-radius: 8px 0 0 8px; color: var(--warn); }
+        .db tr.match td:last-child { border-radius: 0 8px 8px 0; }
+        .db tfoot td { font: 700 0.72rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.35rem; border-top: 1px dashed var(--border); }
+        .db tfoot td.tid { color: var(--muted); }
+        .db tfoot td.twu.out { color: var(--bad); text-decoration: line-through; opacity: 1; }
+        .cell {
+            width: 30px;
+            min-height: 30px;
+            margin: 0 auto;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font: 700 0.85rem/1.1 'Space Mono', monospace;
+        }
+        .cell.has { background: #2a2a48; }
+        .cell.off { opacity: 0.35; text-decoration: line-through; }
+        .cell.hit { background: rgba(245, 158, 11, 0.38); }
+        .cell small { font-size: 0.62rem; font-weight: 400; color: #fcd34d; }
+        .db-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+
+        /* ── 候選清單：TWU、UP 上界、真正的效益 ── */
+        .clist { display: grid; gap: 0.15rem; max-height: 520px; overflow: auto; padding-right: 0.2rem; }
+        .clist-empty { color: var(--muted); font-size: 0.85rem; padding: 1.2rem 0.3rem; text-align: center; }
+        .crow {
+            display: block; width: 100%; text-align: left; font-family: inherit; color: var(--text);
+            background: none; border: 1px solid transparent; border-radius: 8px; padding: 0.25rem 0.4rem; cursor: pointer;
+        }
+        .crow:hover { border-color: var(--border); }
+        .crow.sel { border-color: var(--warn); }
+        .crow.fresh { background: rgba(6, 182, 212, 0.08); }
+        .cr-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 0.6rem; font-size: 0.82rem; }
+        .cr-num { font: 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .cr-num b { color: var(--text); }
+        .cr-num b.est { color: #c4b5fd; }
+        .cr-tag { font-size: 0.7rem; border-radius: 5px; padding: 0 0.35rem; margin-left: 0.35rem; }
+        .crow.hui .cr-tag { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+        .crow.loose .cr-tag { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+        .crow.loose .cr-name { color: var(--muted); }
+        .bar { position: relative; height: 11px; margin-top: 0.2rem; border-radius: 5px; background: #12121f; }
+        .bar .b-twu { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; border: 1.5px dashed rgba(6, 182, 212, 0.65); }
+        .bar .b-est { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: rgba(124, 58, 237, 0.55); }
+        .bar .b-u { position: absolute; left: 0; top: 3px; bottom: 3px; border-radius: 3px; background: var(--good); }
+        .crow.loose .bar .b-u { background: var(--bad); }
+        .bar .b-mu { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--warn); }
+        .legend.bars i { width: 14px; height: 9px; border-radius: 3px; border: 0; vertical-align: 0; }
+        .loose-sum { font-size: 0.82rem; color: #c6c6d6; margin-top: 0.5rem; }
+        .loose-sum b { color: var(--warn); font-weight: 600; }
+        .sel-hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; }
+        .sel-hint b { color: var(--warn); font-weight: 600; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        /* ── 結果 ── */
+        .levels { display: grid; gap: 0.45rem; }
+        .level { display: grid; grid-template-columns: 2.8em 1fr; gap: 0.5rem; align-items: start; }
+        .level .tag { font: 700 0.8rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.2rem; }
+        .level .items { display: flex; flex-wrap: wrap; gap: 0.35rem; min-width: 0; }
+        .pat { font-size: 0.82rem; border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 7px; padding: 0.12rem 0.5rem; }
+        .pat .n { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.35rem; color: #86efac; }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .compare { margin-top: 0.9rem; font-size: 0.85rem; color: var(--muted); }
+        .compare h3 { font-size: 0.9rem; color: var(--text); margin-bottom: 0.45rem; }
+        .compare a { color: var(--accent2); }
+        .cmp { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
+        .cmp th, .cmp td { border-bottom: 1px solid var(--border); padding: 0.3rem 0.35rem; text-align: right; }
+        .cmp th:first-child, .cmp td:first-child { text-align: left; }
+        .cmp th { color: var(--muted); font-weight: 400; }
+        .cmp td { color: var(--text); font-family: 'Space Mono', monospace; }
+        .cmp td:first-child { font-family: inherit; color: var(--muted); }
+        .cmp td.ok { color: #86efac; }
+        .cmp td.no { color: #fca5a5; }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · UP-GROWTH HIGH-UTILITY MINING</div>
+        <h1>UP-Growth 高效益樣式探勘<small>把交易壓成一棵樹，節點上記一個比 TWU 更緊的上界</small></h1>
+        <p class="intro">
+            跟 <a href="two-phase.html">Two-Phase</a>、<a href="high-utility.html">HUI-Miner</a> 頁同一間超商、同樣 8 筆交易、同樣的購買數量和單位利潤。
+            找高效益樣式有三種代表做法：Two-Phase <b>逐層</b>產生候選（像 <a href="apriori.html">Apriori</a>），HUI-Miner 用 <b>utility list</b>，
+            這頁的 <b>UP-Growth</b>（Tseng 等人，2010）則是<b>用樹</b>：像 <a href="fp-growth.html">FP-Growth</a> 一樣把交易壓成一棵 <b>UP-Tree</b>，
+            但每個節點除了次數，還記一個「節點效益」當上界。建樹時用 <b>DGU</b>、<b>DGN</b>，挖條件樹時用 <b>DLU</b>、<b>DLN</b>，一路把上界壓低，
+            候選就比只用 TWU 的 Two-Phase 少很多；最後還是要再掃一次資料庫，算出候選真正的效益。
+        </p>
+
+        <div class="layout">
+            <div class="col">
+                <div class="card a-step">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="mu">
+                        <span>最小效益門檻</span>
+                        <button class="btn stepper" id="mu-minus" aria-label="減少">−</button>
+                        <span class="val" id="mu-val">250</span>
+                        <button class="btn stepper" id="mu-plus" aria-label="增加">+</button>
+                        <input type="range" id="mu-range" min="100" max="500" step="10" value="250" aria-label="最小效益門檻">
+                        <span class="pct" id="mu-pct"></span>
+                    </div>
+                    <div class="explain" id="explain"></div>
+                </div>
+
+                <div class="card a-tree">
+                    <div class="card-head"><h2 id="tree-title">UP-Tree</h2></div>
+                    <div class="crumbs" id="crumbs"></div>
+                    <div class="tree-wrap">
+                        <div class="tree-box" id="tree"></div>
+                        <table class="header-table" id="header"></table>
+                    </div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn)"></i>這一步走過的路徑</span>
+                        <span><i style="border-color:var(--good)"></i>新長出的節點</span>
+                        <span><i style="border-color:var(--accent2)"></i>正在挖的商品（虛線串起來）</span>
+                    </div>
+                    <p class="legend" style="margin-top:0.3rem">節點右下角是次數，下面的紫色數字是節點效益 nu（上界）</p>
+                </div>
+
+                <div class="card a-work">
+                    <div class="card-head"><h2 id="work-title">計算過程</h2></div>
+                    <div id="work"></div>
+                </div>
+
+                <div class="card a-data">
+                    <div class="card-head"><h2>交易資料庫</h2><span class="sub" id="db-sub"></span></div>
+                    <table class="db" id="db"></table>
+                    <p class="db-note">格子裡是購買數量，商品下面是單位利潤；TU 是這筆交易的總效益，TWU 是有買這個商品的交易 TU 加起來。DGU 刪掉商品後，TU 那欄會改成刪完重算的 RTU（原本的 TU 劃線放在上面）。點右邊的候選，會標出它出現在哪幾筆，格子裡的小字是那一樣的效益。</p>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card a-cands">
+                    <div class="card-head"><h2>候選（PHUI）：上界對真正的效益</h2><span class="sub" id="cl-sub"></span></div>
+                    <div class="clist" id="clist"></div>
+                    <div class="legend bars">
+                        <span><i style="border:1.5px dashed rgba(6,182,212,0.65)"></i>TWU（Two-Phase 用的上界）</span>
+                        <span><i style="background:rgba(124,58,237,0.55)"></i>UP-Growth 的上界</span>
+                        <span><i style="background:var(--good)"></i>真正效益，夠</span>
+                        <span><i style="background:var(--bad)"></i>真正效益，不夠</span>
+                        <span><i style="background:var(--warn);width:3px"></i>門檻</span>
+                    </div>
+                    <div class="loose-sum" id="loose-sum"></div>
+                    <div class="sel-hint" id="hint-list"></div>
+                </div>
+
+                <div class="card a-code">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+
+                <div class="card a-result">
+                    <h2>目前找到的高效益樣式</h2>
+                    <div class="levels" id="levels"></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-scan">0</div><div class="k">掃描資料庫次數</div></div>
+                        <div class="stat"><div class="v" id="st-nodes">0</div><div class="k">UP-Tree 節點數</div></div>
+                        <div class="stat"><div class="v" id="st-trees">0</div><div class="k">建過的條件 UP-Tree</div></div>
+                        <div class="stat"><div class="v" id="st-cand">0</div><div class="k">候選（上界夠的組合）</div></div>
+                    </div>
+                    <div class="compare" id="compare"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼這些上界不會漏掉高效益樣式？</h2>
+                <p>效益沒有向下封閉性，所以只能拿「保證不比真正效益小」的上界來剪。UP-Growth 的四個技巧，每一個都只扣掉「一定不屬於這個組合」的錢，所以上界永遠 ≥ 真正的效益：</p>
+                <ul>
+                    <li><b>DGU（全域刪商品）：</b>商品的 TWU 不到門檻，含它的組合效益都不可能夠，跟 Two-Phase、HUI-Miner 第一步一樣直接刪掉，交易的總效益也跟著扣掉它（RTU）。</li>
+                    <li><b>DGN（節點只記到自己為止）：</b>從某個節點往上走，只會跟它<b>上面</b>的商品組成組合，排在它下面的商品不可能出現在這些組合裡，所以節點效益不用把它們算進去。
+                        這就是為什麼「節點效益加起來」會比 TWU 小。</li>
+                    <li><b>DLU（局部刪商品）：</b>在條件模式基底裡，一個商品的局部效益（經過它的路徑效益加起來）不夠，它跟後綴的組合就不可能夠，刪掉；
+                        刪掉時從路徑效益扣掉它<b>至少</b>值的錢 miu × 次數（miu 是它在一筆交易裡最少賺多少），扣的一定不比實際多。</li>
+                    <li><b>DLN（條件樹的節點也只記到自己為止）：</b>插入條件樹時，每個節點再扣掉排在它後面的商品，同樣用 miu × 次數，扣少不扣多。</li>
+                </ul>
+                <p style="margin-top:0.5rem">所以上界夠的組合（候選）一定包含所有高效益樣式，可能多、不會少；多出來的交給最後一次掃描淘汰。
+                    這個 Demo 的四個技巧都有做；條件樹沿用同一個商品順序，方便跟上一層對照（有的實作會依局部效益重排，找到的結果一樣）。</p>
+            </div>
+            <div class="card">
+                <h2>三種做法比一比，以及實驗室在做的事</h2>
+                <ul>
+                    <li><b><a href="two-phase.html">Two-Phase</a>（逐層）：</b>只用 TWU 當上界，一層一層合併、剪枝、掃資料庫。上界最鬆、候選最多，組合越長掃越多次。</li>
+                    <li><b>UP-Growth（用樹）：</b>只掃 3 次資料庫（算 TWU、建樹、驗證），之後都在樹上挖，不用逐層掃。上界比 TWU 緊，候選少很多，
+                        但還是兩階段：候選要回頭掃一次資料庫才知道真正的效益。</li>
+                    <li><b><a href="high-utility.html">HUI-Miner</a>（utility list）：</b>把每個組合在每筆交易的效益直接存在 list 裡，合併時就算出真正的效益，不需要候選、只掃 2 次；
+                        代價是每個組合都要建一張 list，記憶體和合併的時間比較多。</li>
+                    <li><b>為什麼樹的做法還很重要：</b>樹可以一筆一筆插入，很適合<b>資料一直在增加</b>的情況。實驗室學長姐研究的增量／資料串流高效益探勘，
+                        很多方法都是從 UP-Tree 這類樹結構延伸：新交易進來就插進樹裡、舊的移出就從樹上扣掉，不用每次從頭建。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           UP-Growth 一步一步看
+           網頁裡用 JavaScript 照著同樣的流程跑一次，把每一步（含每一層條件樹）記下來；
+           右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = {"java": [["static class Node {", []], ["    String item;", []], ["    Node parent;", []], ["    int count;                           // 經過這個節點的交易數", []], ["    int nu;                              // 節點效益（上界）", []], ["    Map<String, Node> children = new HashMap<>();", []], ["    Node(String item, Node parent) { this.item = item; this.parent = parent; }", []], ["}", []], ["", []], ["static class UPTree {", []], ["    Node root = new Node(null, null);", []], ["    List<String> order;                  // 表頭的商品順序", []], ["    Map<String, List<Node>> links = new HashMap<>();   // 同一個商品的所有節點", []], ["    UPTree(List<String> order) {", []], ["        this.order = order;", []], ["        for (String i : order) links.put(i, new ArrayList<>());", []], ["    }", []], ["", []], ["    /** 沿著 path 往下走，第 k 個節點的 nu 加上 nus[k] */", []], ["    void add(List<String> path, List<Integer> nus, int count) {", []], ["        Node node = root;", []], ["        for (int k = 0; k < path.size(); k++) {", []], ["            String item = path.get(k);", []], ["            Node child = node.children.get(item);", []], ["            if (child == null) {", []], ["                child = new Node(item, node);", []], ["                node.children.put(item, child);", []], ["                links.get(item).add(child);", []], ["            }", []], ["            node = child;", []], ["            node.count += count;", []], ["            node.nu += nus.get(k);", []], ["        }", []], ["    }", []], ["}", []], ["", []], ["public static Map<List<String>, Integer> upGrowth(List<Map<String, Integer>> db, Map<String, Integer> profit, int minUtil) {", ["start"]], ["    // 第 1 次掃描：每筆交易的效益 TU，加進它裡面每個商品的 TWU", ["tu"]], ["    Map<String, Integer> twu = new HashMap<>(), miu = new HashMap<>();", ["tu"]], ["    for (Map<String, Integer> t : db) {", ["tu"]], ["        int tu = 0;", ["tu"]], ["        for (String i : t.keySet()) tu += t.get(i) * profit.get(i);", ["tu"]], ["        for (String i : t.keySet()) {", ["tu"]], ["            twu.merge(i, tu, Integer::sum);", ["tu"]], ["            miu.merge(i, t.get(i) * profit.get(i), Math::min);   // 這個商品在一筆交易裡最少賺多少", ["tu"]], ["        }", ["tu"]], ["    }", ["tu"]], ["    // DGU：TWU 不夠的商品刪掉，留下的照 TWU 由大到小排", ["dgu"]], ["    List<String> order = new ArrayList<>();", ["dgu"]], ["    for (String i : twu.keySet()) if (twu.get(i) >= minUtil) order.add(i);", ["dgu"]], ["    order.sort((a, b) -> twu.get(a).equals(twu.get(b)) ? a.compareTo(b) : twu.get(b) - twu.get(a));", ["dgu"]], ["    UPTree tree = new UPTree(order);", ["dgu"]], ["    // 第 2 次掃描：每筆交易照這個順序插進 UP-Tree", ["insert"]], ["    for (Map<String, Integer> t : db) {", ["insert"]], ["        List<String> path = new ArrayList<>();", ["insert"]], ["        List<Integer> nus = new ArrayList<>();", ["insert"]], ["        int acc = 0;", ["insert"]], ["        for (String i : order)", ["insert"]], ["            if (t.containsKey(i)) {          // DGN：節點只記「到自己為止」的效益", ["insert"]], ["                acc += t.get(i) * profit.get(i);", ["insert"]], ["                path.add(i);", ["insert"]], ["                nus.add(acc);", ["insert"]], ["            }", ["insert"]], ["        tree.add(path, nus, 1);", ["insert"]], ["    }", ["insert"]], ["    Map<List<String>, Integer> cands = new LinkedHashMap<>();   // 候選（PHUI）-> 它的上界", ["mine"]], ["    mine(tree, new ArrayList<>(), minUtil, miu, cands);", ["mine"]], ["    // 第 3 次掃描：算候選真正的效益，夠的才輸出", ["verify"]], ["    Map<List<String>, Integer> util = new LinkedHashMap<>();", ["verify"]], ["    for (List<String> c : cands.keySet()) util.put(c, 0);", ["verify"]], ["    for (Map<String, Integer> t : db)", ["verify"]], ["        for (List<String> c : cands.keySet())", ["verify"]], ["            if (t.keySet().containsAll(c))", ["verify"]], ["                for (String i : c) util.merge(c, t.get(i) * profit.get(i), Integer::sum);", ["verify"]], ["    util.values().removeIf(u -> u < minUtil);", ["verify"]], ["    return util;", ["end"]], ["}", []], ["", []], ["static void mine(UPTree tree, List<String> suffix, int minUtil, Map<String, Integer> miu, Map<List<String>, Integer> cands) {", []], ["    for (int x = tree.order.size() - 1; x >= 0; x--) {    // 從表頭最下面往上挖", []], ["        String item = tree.order.get(x);", []], ["        List<Node> nodes = tree.links.get(item);", ["check"]], ["        int est = 0;", ["check"]], ["        for (Node n : nodes) est += n.nu;   // 這個商品的節點效益加起來", ["check"]], ["        if (est < minUtil) continue;     // 上界不夠：含它的組合都不可能，跳過", ["check"]], ["        List<String> pattern = new ArrayList<>();", ["check"]], ["        pattern.add(item);", ["check"]], ["        pattern.addAll(suffix);", ["check"]], ["        cands.put(pattern, est);", ["check"]], ["        // 條件模式基底：從每個 item 節點往上走到根", ["cpb"]], ["        List<List<String>> paths = new ArrayList<>();", ["cpb"]], ["        Map<String, Integer> lu = new HashMap<>();", ["cpb"]], ["        for (Node n : nodes) {", ["cpb"]], ["            LinkedList<String> path = new LinkedList<>();", ["cpb"]], ["            for (Node p = n.parent; p.item != null; p = p.parent) {", ["cpb"]], ["                path.addFirst(p.item);", ["cpb"]], ["                lu.merge(p.item, n.nu, Integer::sum);   // 局部效益：經過它的路徑效益加起來", ["dlu"]], ["            }", ["cpb"]], ["            paths.add(path);", ["cpb"]], ["        }", ["cpb"]], ["        // DLU：局部效益不夠的商品刪掉", ["dlu"]], ["        List<String> localOrder = new ArrayList<>();", ["dlu"]], ["        for (String i : tree.order) if (lu.getOrDefault(i, 0) >= minUtil) localOrder.add(i);", ["dlu"]], ["        UPTree local = new UPTree(localOrder);", ["dlu"]], ["        for (int k = 0; k < nodes.size(); k++) {", ["dln"]], ["            int pu = nodes.get(k).nu, pc = nodes.get(k).count, rest = 0;   // 路徑效益、路徑次數", ["dln"]], ["            List<String> keep = new ArrayList<>();", ["dlu"]], ["            for (String i : paths.get(k)) {", ["dlu"]], ["                if (lu.get(i) >= minUtil) { keep.add(i); rest += miu.get(i) * pc; }", ["dlu"]], ["                else pu -= miu.get(i) * pc;   // 刪掉的商品至少值 miu × 次數", ["dlu"]], ["            }", ["dlu"]], ["            List<Integer> nus = new ArrayList<>();", ["dln"]], ["            for (String i : keep) {          // DLN：每個節點扣掉排在它後面的商品", ["dln"]], ["                rest -= miu.get(i) * pc;", ["dln"]], ["                nus.add(pu - rest);", ["dln"]], ["            }", ["dln"]], ["            local.add(keep, nus, pc);", ["dln"]], ["        }", ["dln"]], ["        if (!localOrder.isEmpty()) mine(local, pattern, minUtil, miu, cands);", ["recurse"]], ["    }", []], ["}", []]], "py": [["class Node:", []], ["    def __init__(self, item, parent):", []], ["        self.item, self.parent = item, parent", []], ["        self.count = 0                     # 經過這個節點的交易數", []], ["        self.nu = 0                        # 節點效益（上界）", []], ["        self.children = {}", []], ["", []], ["", []], ["class UPTree:", []], ["    def __init__(self, order):", []], ["        self.root = Node(None, None)", []], ["        self.order = order                 # 表頭的商品順序", []], ["        self.links = {i: [] for i in order}   # 同一個商品的所有節點", []], ["", []], ["    def add(self, path, nus, count):", []], ["        \"\"\"沿著 path 往下走，第 k 個節點的 nu 加上 nus[k]\"\"\"", []], ["        node = self.root", []], ["        for item, nu in zip(path, nus):", []], ["            if item not in node.children:", []], ["                node.children[item] = Node(item, node)", []], ["                self.links[item].append(node.children[item])", []], ["            node = node.children[item]", []], ["            node.count += count", []], ["            node.nu += nu", []], ["", []], ["", []], ["def up_growth(db, profit, min_util):", ["start"]], ["    # 第 1 次掃描：每筆交易的效益 TU，加進它裡面每個商品的 TWU", ["tu"]], ["    twu, miu = {}, {}", ["tu"]], ["    for t in db:", ["tu"]], ["        tu = sum(q * profit[i] for i, q in t.items())", ["tu"]], ["        for i, q in t.items():", ["tu"]], ["            twu[i] = twu.get(i, 0) + tu", ["tu"]], ["            miu[i] = min(miu.get(i, q * profit[i]), q * profit[i])   # 這個商品在一筆交易裡最少賺多少", ["tu"]], ["    # DGU：TWU 不夠的商品刪掉，留下的照 TWU 由大到小排", ["dgu"]], ["    order = sorted((i for i in twu if twu[i] >= min_util), key=lambda i: (-twu[i], i))", ["dgu"]], ["    tree = UPTree(order)", ["dgu"]], ["    # 第 2 次掃描：每筆交易照這個順序插進 UP-Tree", ["insert"]], ["    for t in db:", ["insert"]], ["        path = [i for i in order if i in t]", ["insert"]], ["        nus, acc = [], 0", ["insert"]], ["        for i in path:                     # DGN：節點只記「到自己為止」的效益", ["insert"]], ["            acc += t[i] * profit[i]", ["insert"]], ["            nus.append(acc)", ["insert"]], ["        tree.add(path, nus, 1)", ["insert"]], ["    cands = {}                             # 候選（PHUI）-> 它的上界", ["mine"]], ["    mine(tree, (), min_util, miu, cands)", ["mine"]], ["    # 第 3 次掃描：算候選真正的效益，夠的才輸出", ["verify"]], ["    util = {c: 0 for c in cands}", ["verify"]], ["    for t in db:", ["verify"]], ["        for c in cands:", ["verify"]], ["            if all(i in t for i in c):", ["verify"]], ["                util[c] += sum(t[i] * profit[i] for i in c)", ["verify"]], ["    return {c: u for c, u in util.items() if u >= min_util}", ["end"]], ["", []], ["", []], ["def mine(tree, suffix, min_util, miu, cands):", []], ["    for item in reversed(tree.order):      # 從表頭最下面往上挖", []], ["        est = sum(n.nu for n in tree.links[item])   # 這個商品的節點效益加起來", ["check"]], ["        if est < min_util:                 # 上界不夠：含它的組合都不可能，跳過", ["check"]], ["            continue", ["check"]], ["        pattern = (item,) + suffix", ["check"]], ["        cands[pattern] = est", ["check"]], ["        # 條件模式基底：從每個 item 節點往上走到根", ["cpb"]], ["        paths, lu = [], {}", ["cpb"]], ["        for n in tree.links[item]:", ["cpb"]], ["            path, p = [], n.parent", ["cpb"]], ["            while p.item is not None:", ["cpb"]], ["                path.insert(0, p.item)", ["cpb"]], ["                lu[p.item] = lu.get(p.item, 0) + n.nu   # 局部效益：經過它的路徑效益加起來", ["dlu"]], ["                p = p.parent", ["cpb"]], ["            paths.append(path)", ["cpb"]], ["        # DLU：局部效益不夠的商品刪掉", ["dlu"]], ["        local = UPTree([i for i in tree.order if lu.get(i, 0) >= min_util])", ["dlu"]], ["        for n, path in zip(tree.links[item], paths):", ["dln"]], ["            pu, pc = n.nu, n.count         # 路徑效益、路徑次數", ["dln"]], ["            keep = [i for i in path if lu[i] >= min_util]", ["dlu"]], ["            pu -= sum(miu[i] * pc for i in path if lu[i] < min_util)   # 刪掉的商品至少值 miu × 次數", ["dlu"]], ["            rest = sum(miu[i] * pc for i in keep)", ["dln"]], ["            nus = []", ["dln"]], ["            for i in keep:                 # DLN：每個節點扣掉排在它後面的商品", ["dln"]], ["                rest -= miu[i] * pc", ["dln"]], ["                nus.append(pu - rest)", ["dln"]], ["            local.add(keep, nus, pc)", ["dln"]], ["        if local.order:", ["recurse"]], ["            mine(local, pattern, min_util, miu, cands)", ["recurse"]]]};
+
+        const ITEMS = ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'];
+        const EMOJI = { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' };
+        const PROFIT = { '咖啡': 30, '麵包': 15, '牛奶': 20, '飯糰': 10, '茶葉蛋': 5, '洋芋片': 25 };
+        /* 跟 HUI-Miner、Two-Phase 頁同樣的 8 筆交易（Apriori 頁的交易加上購買數量） */
+        const DB = [
+            { '咖啡': 4, '麵包': 2, '牛奶': 2 },
+            { '咖啡': 3, '麵包': 5, '茶葉蛋': 4 },
+            { '咖啡': 1, '麵包': 1, '牛奶': 2, '飯糰': 2 },
+            { '麵包': 3, '牛奶': 4, '洋芋片': 5 },
+            { '咖啡': 3, '牛奶': 2, '茶葉蛋': 2 },
+            { '咖啡': 1, '麵包': 2, '牛奶': 1, '茶葉蛋': 1 },
+            { '飯糰': 1, '茶葉蛋': 2, '洋芋片': 2 },
+            { '咖啡': 1, '麵包': 2, '飯糰': 1 }
+        ];
+        const MU_MIN = 100, MU_MAX = 500, MU_STEP = 10;
+
+        const $ = id => document.getElementById(id);
+        let minUtil = 250;
+        let lang = 'java';
+        let trace = [];
+        let cursor = 0;
+        let timer = null;
+        let selKey = null;                 // 使用者點選的候選
+
+        /* 跟 Java 的 compareTo、Python 的字串比較同一個順序（依字碼） */
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const fmtText = set => '{' + set.join(', ') + '}';
+        const fmt = set => esc(fmtText(set));
+        const arrowPath = items => esc(items.join(' → '));
+        const tName = tid => 'T' + (tid + 1);
+        const keyOf = items => items.join('|');
+        const has = (t, item) => Object.prototype.hasOwnProperty.call(t, item);
+        const contains = (t, set) => set.every(i => has(t, i));
+        const sum = arr => arr.reduce((a, b) => a + b, 0);
+
+        /* ---------- 照著程式跑一次，記下每一步 ---------- */
+        function buildTrace(db, profit, minUtil) {
+            const steps = [];
+            const stats = { scans: 0, nodes: 0, trees: 0 };
+            const st = { tu: [], twu: {}, miu: {}, order: [], removed: [], rtu: [], twuCalc: false, dguDone: false };
+            const cands = [];                  // 候選 {set, est, twu, util?, hui?}
+            let result = [];
+            let p2 = 0;                        // 0 = 第一階段，1 = 算完真正效益，2 = 篩選完
+            const frames = [];                 // 正在挖的樹：最外層是 UP-Tree，往內是條件樹
+            let nextId = 1;
+
+            const mkTree = order => ({ root: { id: 0, item: null, count: 0, nu: 0, children: new Map(), parent: null }, order, links: Object.fromEntries(order.map(i => [i, []])) });
+            /* 沿著 path 往下走，第 k 個節點的 nu 加上 nus[k]（跟 Java / Python 的 add 一樣） */
+            function addPath(tree, path, nus, count, global) {
+                let node = tree.root;
+                const pathIds = [], newIds = [];
+                path.forEach((item, k) => {
+                    let child = node.children.get(item);
+                    if (!child) {
+                        child = { id: nextId++, item, count: 0, nu: 0, children: new Map(), parent: node };
+                        node.children.set(item, child);
+                        tree.links[item].push(child);
+                        newIds.push(child.id);
+                        if (global) stats.nodes++;
+                    }
+                    node = child;
+                    node.count += count;
+                    node.nu += nus[k];
+                    pathIds.push(node.id);
+                });
+                return { pathIds, newIds };
+            }
+            const snap = tree => {
+                const out = [];
+                (function walk(n) {
+                    for (const c of n.children.values()) { out.push({ id: c.id, item: c.item, count: c.count, nu: c.nu, parent: n.id }); walk(c); }
+                })(tree.root);
+                return out;
+            };
+            const push = (kind, f, extra = {}) => {
+                const crumbs = frames.map(x => x.suffix);
+                if (f && !frames.includes(f)) crumbs.push(f.suffix);
+                steps.push({
+                    kind, p2, ...extra,
+                    stats: { ...stats, cands: cands.length },
+                    cands: cands.map(c => ({ ...c })),
+                    result: result.map(r => ({ ...r })),
+                    tu: st.tu.slice(), twu: { ...st.twu }, miu: { ...st.miu }, order: st.order.slice(), removed: st.removed.slice(), rtu: st.rtu.slice(),
+                    twuCalc: st.twuCalc, dguDone: st.dguDone,
+                    depth: f ? f.depth : 0, suffix: f ? f.suffix : [], crumbs,
+                    tree: f ? snap(f.tree) : [],
+                    header: f ? f.tree.order.map(i => ({ item: i, key: f.depth ? f.lu[i] : st.twu[i], sum: sum(f.tree.links[i].map(n => n.nu)) })) : []
+                });
+            };
+            const twuOf = set => sum(db.map((t, k) => (contains(t, set) ? st.tu[k] : 0)));
+            const utilOf = set => sum(db.map(t => (contains(t, set) ? sum(set.map(i => t[i] * profit[i])) : 0)));
+
+            push('start', null);
+
+            // 第 1 次掃描：TU、TWU、miu
+            stats.scans++;
+            st.tu = db.map(t => sum(Object.keys(t).map(i => t[i] * profit[i])));
+            push('tu', null);
+            db.forEach((t, k) => Object.keys(t).forEach(i => {
+                st.twu[i] = (st.twu[i] || 0) + st.tu[k];
+                const u = t[i] * profit[i];
+                st.miu[i] = i in st.miu ? Math.min(st.miu[i], u) : u;
+            }));
+            st.twuCalc = true;
+            push('twu', null);
+
+            // DGU：TWU 不夠的商品刪掉，留下的照 TWU 由大到小排
+            const byTwuDesc = (a, b) => st.twu[b] - st.twu[a] || cmp(a, b);
+            st.order = Object.keys(st.twu).filter(i => st.twu[i] >= minUtil).sort(byTwuDesc);
+            st.removed = Object.keys(st.twu).filter(i => st.twu[i] < minUtil).sort(byTwuDesc);
+            st.rtu = db.map(t => sum(st.order.filter(i => has(t, i)).map(i => t[i] * profit[i])));
+            st.dguDone = true;
+            const g = { tree: mkTree(st.order), suffix: [], depth: 0, lu: {} };
+            push('dgu', g);
+
+            // 第 2 次掃描：每筆交易照順序插進 UP-Tree（DGN：節點只記到自己為止）
+            stats.scans++;
+            db.forEach((t, row) => {
+                const path = st.order.filter(i => has(t, i));
+                const us = path.map(i => t[i] * profit[i]);
+                let acc = 0;
+                const nus = us.map(u => (acc += u));
+                const r = addPath(g.tree, path, nus, 1, true);
+                push('insert', g, { row, path, us, nus, ...r });
+            });
+            push('treeDone', g);
+
+            // 挖：從表頭最下面往上
+            function mine(f) {
+                frames.push(f);
+                const tree = f.tree;
+                for (let x = tree.order.length - 1; x >= 0; x--) {
+                    const item = tree.order[x];
+                    const nodes = tree.links[item];
+                    const est = sum(nodes.map(n => n.nu));
+                    const pattern = [item, ...f.suffix];
+                    const twuP = twuOf(pattern);
+                    const ok = est >= minUtil;
+                    if (ok) cands.push({ set: pattern, est, twu: twuP, fresh: true });
+                    push('check', f, { item, pattern, est, twuP, ok, nodeNus: nodes.map(n => n.nu), linkIds: nodes.map(n => n.id) });
+                    cands.forEach(c => { c.fresh = false; });
+                    if (!ok) continue;
+
+                    // 條件模式基底 + DLU
+                    const lu = {}, pathIds = [];
+                    const base = nodes.map(n => {
+                        const path = [];
+                        for (let p = n.parent; p.item !== null; p = p.parent) {
+                            path.unshift(p.item);
+                            lu[p.item] = (lu[p.item] || 0) + n.nu;
+                            pathIds.push(p.id);
+                        }
+                        return { path, pu: n.nu, pc: n.count };
+                    });
+                    const localOrder = tree.order.filter(i => (lu[i] || 0) >= minUtil);
+                    base.forEach(b => {
+                        b.keep = b.path.filter(i => lu[i] >= minUtil);
+                        b.drop = b.path.filter(i => lu[i] < minUtil);
+                        b.rpu = b.pu - sum(b.drop.map(i => st.miu[i] * b.pc));
+                        let rest = sum(b.keep.map(i => st.miu[i] * b.pc));
+                        b.nus = b.keep.map(i => { rest -= st.miu[i] * b.pc; return b.rpu - rest; });
+                    });
+                    const luOrder = tree.order.filter(i => i in lu);
+                    if (!base.some(b => b.path.length)) { steps[steps.length - 1].top = true; continue; }   // 在最上面：沒有前綴路徑
+                    push('cpb', f, { item, pattern, base, lu: { ...lu }, luOrder, localOrder, linkIds: nodes.map(n => n.id), pathIds });
+                    if (!localOrder.length) continue;
+
+                    // DLN：建條件 UP-Tree
+                    stats.trees++;
+                    const local = { tree: mkTree(localOrder), suffix: pattern, depth: f.depth + 1, lu };
+                    const newIds = [];
+                    base.forEach(b => newIds.push(...addPath(local.tree, b.keep, b.nus, b.pc, false).newIds));
+                    push('build', local, { item, pattern, base, newIds });
+                    mine(local);
+                    push('back', f, { item, pattern });
+                }
+                frames.pop();
+            }
+            mine(g);
+
+            // 第二階段：第 3 次掃描，算每個候選真正的效益
+            stats.scans++;
+            p2 = 1;
+            cands.forEach(c => { c.util = utilOf(c.set); });
+            push('verify', g);
+            p2 = 2;
+            cands.forEach(c => { c.hui = c.util >= minUtil; });
+            result = cands.filter(c => c.hui).map(c => ({ set: c.set, util: c.util }));
+            push('p2filter', g);
+            push('end', g);
+            return steps;
+        }
+
+        /* ---------- 對照用：同樣條件下 Two-Phase、HUI-Miner 的花費（跟那兩頁同一套做法） ---------- */
+        function twoPhaseCost(db, profit, mu) {
+            const tu = db.map(t => sum(Object.keys(t).map(i => t[i] * profit[i])));
+            const twuOf = set => sum(db.map((t, k) => (contains(t, set) ? tu[k] : 0)));
+            const utilOf = set => sum(db.map(t => (contains(t, set) ? sum(set.map(i => t[i] * profit[i])) : 0)));
+            const twu = {};
+            db.forEach((t, k) => Object.keys(t).forEach(i => { twu[i] = (twu[i] || 0) + tu[k]; }));
+            let L = Object.keys(twu).filter(i => twu[i] >= mu).sort((a, b) => twu[a] - twu[b] || cmp(a, b)).map(i => [i]);
+            const cands = L.slice();
+            let scans = 1;
+            for (let k = 2; L.length; k++) {
+                const prev = new Set(L.map(keyOf));
+                let C = [];
+                for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+                    const a = L[i], b = L[j];
+                    if (keyOf(a.slice(0, k - 2)) === keyOf(b.slice(0, k - 2))) C.push([...a, b[k - 2]]);
+                }
+                C = C.filter(c => c.every((_, x) => prev.has(keyOf(c.filter((__, y) => y !== x)))));
+                if (!C.length) break;
+                scans++;
+                L = C.filter(c => twuOf(c) >= mu);
+                cands.push(...L);
+            }
+            scans++;
+            return { scans, cands: cands.length, waste: cands.filter(c => utilOf(c) < mu).length };
+        }
+        function huiMinerLists(db, profit, mu) {
+            const tu = db.map(t => Object.keys(t).reduce((a, i) => a + t[i] * profit[i], 0));
+            const twu = {};
+            db.forEach((t, k) => Object.keys(t).forEach(i => { twu[i] = (twu[i] || 0) + tu[k]; }));
+            const order = Object.keys(twu).filter(i => twu[i] >= mu).sort((a, b) => twu[a] - twu[b] || cmp(a, b));
+            const lists = order.map(() => ({ rows: new Map(), iu: 0, ru: 0 }));
+            db.forEach((t, tid) => {
+                let r = 0;
+                for (let k = order.length - 1; k >= 0; k--) {
+                    if (!has(t, order[k])) continue;
+                    const u = t[order[k]] * profit[order[k]];
+                    lists[k].rows.set(tid, [u, r]); lists[k].iu += u; lists[k].ru += r; r += u;
+                }
+            });
+            let built = lists.length;
+            const search = (p, uls) => uls.forEach((x, i) => {
+                if (x.iu + x.ru < mu) return;
+                const ext = [];
+                uls.slice(i + 1).forEach(y => {
+                    const xy = { rows: new Map(), iu: 0, ru: 0 };
+                    x.rows.forEach(([iuX], tid) => {
+                        const ry = y.rows.get(tid);
+                        if (!ry) return;
+                        const iu = iuX + ry[0] - (p ? p.rows.get(tid)[0] : 0);
+                        xy.rows.set(tid, [iu, ry[1]]); xy.iu += iu; xy.ru += ry[1];
+                    });
+                    if (xy.rows.size) { built++; ext.push(xy); }
+                });
+                search(x, ext);
+            });
+            search(null, lists);
+            return built;
+        }
+
+        /* ---------- 說明文字（用頁面上的 DB） ---------- */
+        const qp = (t, items) => items.map(i => `${t[i]}×${PROFIT[i]}`).join(' + ');
+        const tidsOf = set => DB.map((t, k) => k).filter(k => contains(DB[k], set));
+        const utilIn = (t, set) => set.reduce((a, i) => a + t[i] * PROFIT[i], 0);
+        const where = s => s.depth === 0 ? 'UP-Tree' : `後綴 ${fmt(s.suffix)} 的條件 UP-Tree`;
+        function looseOf(cands) {
+            const bad = cands.filter(c => !c.hui);
+            if (!bad.length) return null;
+            return bad.reduce((x, y) => (y.est - y.util > x.est - x.util ? y : x));
+        }
+        function describe(s) {
+            switch (s.kind) {
+                case 'start': {
+                    const t0 = DB[0], its = Object.keys(t0).slice(0, 2);
+                    return `一個組合在某筆交易裡的效益 = 數量 × 利潤加起來，例如 T1 裡的 ${fmt(its)} = ${qp(t0, its)} = ${utilIn(t0, its)}；` +
+                        `把它出現過的每筆交易加起來，就是它的效益。目標：找出效益至少 <b>${minUtil}</b> 的所有組合（高效益樣式）。` +
+                        `UP-Growth 先把交易壓成一棵 <b>UP-Tree</b>，在樹上挖出上界夠的組合當<b>候選</b>，最後再掃一次資料庫驗證。`;
+                }
+                case 'tu': {
+                    const k = s.tu.indexOf(Math.max(...s.tu));
+                    return `第 1 次掃描資料庫：先算每筆交易的總效益 <b>TU</b>（表格最右邊那欄）。例如 ${tName(k)} = ${qp(DB[k], Object.keys(DB[k]))} = ${s.tu[k]}，是最賺的一筆。`;
+                }
+                case 'twu': {
+                    const i = Object.keys(s.twu).sort((a, b) => s.twu[a] - s.twu[b] || cmp(a, b))[0];
+                    const ks = tidsOf([i]);
+                    return `同一次掃描順便算每個商品的 <b>TWU</b>：有買它的交易 TU 加起來（表格最下面那列），例如 ${esc(i)}：${ks.map(k => s.tu[k]).join(' + ')} = ${s.twu[i]}。` +
+                        `另外記下每個商品在一筆交易裡<b>最少</b>賺多少（miu，下面計算過程那格），之後挖條件樹的 DLU、DLN 會用到。`;
+                }
+                case 'dgu': {
+                    let t = s.removed.length
+                        ? `<b>DGU</b>：${s.removed.map(i => `${esc(i)} 的 TWU 只有 ${s.twu[i]}`).join('、')} < ${minUtil}，含它的組合都不可能達標，從每筆交易刪掉，` +
+                          `交易的總效益也重算（<b>RTU</b>，表格最右邊）。`
+                        : `<b>DGU</b>：每個商品的 TWU 都至少 ${minUtil}，這次沒有商品要刪，RTU 跟 TU 一樣。`;
+                    t += s.order.length
+                        ? `留下的商品照 TWU <b>由大到小</b>排成 ${arrowPath(s.order)}（跟 FP-Growth 一樣，常出現、TWU 大的排前面，交易比較容易共用路徑；跟 HUI-Miner 頁的順序剛好相反）。`
+                        : `沒有商品留下來，不可能有高效益樣式。`;
+                    return t;
+                }
+                case 'insert': {
+                    const label = tName(s.row);
+                    if (!s.path.length) return `第 2 次掃描資料庫：${label} 裡的商品都被 DGU 刪掉了，不用插入。`;
+                    const head = `第 2 次掃描資料庫：把 ${label} 排成「${arrowPath(s.path)}」插進樹裡。`;
+                    const shared = s.path.length - s.newIds.length;
+                    const grow = !s.newIds.length ? '整條路徑樹上都有了，沿路累加。' : shared ? `前面 ${shared} 個節點共用，後面長出新的。` : '從根長出一條新路徑。';
+                    const dgn = s.path.map((i, k) => `${esc(i)} +${s.nus[k]}`).join('、');
+                    return head + grow + `<b>DGN</b>：每個節點只加「從根到自己」這幾樣的效益：${dgn}；` +
+                        (s.path.length > 1 ? `不是每個都加整筆的 RTU ${s.rtu[s.row]}。因為從節點往上找組合時，排在它下面的商品不會出現在組合裡，不用算進上界。` : `只有一樣，就是 ${s.nus[0]}。`);
+                }
+                case 'treeDone': {
+                    const gap = s.header.reduce((x, h) => (!x || h.key - h.sum > x.key - x.sum ? h : x), null);
+                    return `UP-Tree 建好了，共 <b>${s.tree.length}</b> 個節點（8 筆交易壓在一起）。表頭比較兩種上界：TWU 和「這個商品所有節點的 nu 加起來」。` +
+                        (gap && gap.key > gap.sum ? `例如 ${esc(gap.item)}：TWU ${gap.key}，節點效益和只有 ${gap.sum}，少算了排在它後面的商品。` : '') +
+                        `接下來從表頭<b>最下面</b>往上挖，跟 FP-Growth 一樣。`;
+                }
+                case 'check': {
+                    const at = s.depth === 0 ? `挖 <b>${esc(s.item)}</b>` : `在${where(s)} 裡挖 <b>${esc(s.item)}</b>`;
+                    const add = s.nodeNus.length > 1 ? `${s.nodeNus.join(' + ')} = ${s.est}` : `${s.est}`;
+                    if (s.ok) {
+                        return `${at}：它的節點效益加起來 = ${add} ≥ ${minUtil}，${fmt(s.pattern)} 列為<b>候選</b>（可能是高效益）。` +
+                            (s.twuP > s.est ? `同一個組合的 TWU 是 ${s.twuP}，UP-Growth 的上界緊了 <b>${s.twuP - s.est}</b>。` : `這次上界跟 TWU 一樣。`) +
+                            (s.top ? `${esc(s.item)} 的節點都直接接在根下面，往上沒有別的商品，這一支到此為止。` : `接著找它的條件模式基底，往上找更大的組合。`);
+                    }
+                    return `${at}：節點效益加起來 = ${add} < ${minUtil}，${fmt(s.pattern)} 和它往上能組成的組合效益都不可能夠，<b>整支跳過</b>，不用找條件模式基底。` +
+                        (s.twuP >= minUtil ? `如果只看 TWU（${s.twuP}），它還會被當成候選。` : '');
+                }
+                case 'cpb': {
+                    if (!s.base.some(b => b.path.length)) return `${fmt(s.pattern)} 的條件模式基底：${esc(s.item)} 的節點都直接接在根下面，沒有前綴路徑，以 ${fmt(s.pattern)} 結尾的組合到此為止。`;
+                    const drop = s.luOrder.filter(i => s.lu[i] < minUtil);
+                    let t = `找 ${fmt(s.pattern)} 的<b>條件模式基底</b>：從每個 ${esc(s.item)} 節點往上走到根，共 ${s.base.filter(b => b.path.length).length} 條路徑，每條的<b>路徑效益</b>就是那個 ${esc(s.item)} 節點的 nu。` +
+                        `把經過某商品的路徑效益加起來，是它的<b>局部效益</b>。`;
+                    t += drop.length
+                        ? `<b>DLU</b>：${drop.map(i => `${esc(i)} 只有 ${s.lu[i]}`).join('、')} < ${minUtil}，刪掉，路徑效益再扣掉它至少值的 miu × 次數。`
+                        : `每個商品的局部效益都夠，DLU 這次沒有刪。`;
+                    if (!s.localOrder.length) t += `沒有商品留下，不用建條件樹。`;
+                    return t;
+                }
+                case 'build': {
+                    const ex = s.base.find(b => b.keep.length > 1) || s.base.find(b => b.keep.length);
+                    return `用剩下的路徑建 ${fmt(s.pattern)} 的<b>條件 UP-Tree</b>，共 ${s.tree.length} 個節點。<b>DLN</b>：插入時每個節點再扣掉排在它後面的商品（每樣扣 miu × 次數），` +
+                        `例如「${arrowPath(ex.keep)}」×${ex.pc}，路徑效益 ${ex.rpu}，節點分別加 ${ex.nus.join('、')}。這棵樹上每個商品的節點效益和，就是它加進 ${fmt(s.pattern)} 的上界。`;
+                }
+                case 'back':
+                    return `以 ${fmt(s.pattern)} 結尾的組合都挖完了，回到${s.depth === 0 ? ' UP-Tree' : where(s)}，繼續往上挖下一個商品。`;
+                case 'verify': {
+                    const lo = looseOf(s.cands.map(c => ({ ...c, hui: c.util >= minUtil })));
+                    const c = lo || s.cands[s.cands.length - 1];
+                    if (!c) return `<b>第二階段</b>：沒有候選，不用驗證。程式還是會掃一次資料庫（第 ${s.stats.scans} 次），只是什麼都不用加。`;
+                    const ks = tidsOf(c.set);
+                    return `<b>第二階段</b>，第 ${s.stats.scans} 次掃描資料庫：對每個候選只加<b>組合裡那幾樣</b>的數量 × 利潤，得到真正的效益（右邊綠色／紅色細條）。` +
+                        `例如 ${fmt(c.set)}：${ks.map(k => `${tName(k)} ${utilIn(DB[k], c.set)}`).join('、')}，加起來 ${c.util}；它的上界是 ${c.est}（TWU 是 ${c.twu}）。`;
+                }
+                case 'p2filter': {
+                    const h = s.result.length, w = s.cands.length - h, lo = looseOf(s.cands);
+                    const tp = twoPhaseCost(DB, PROFIT, minUtil);
+                    return `效益 ≥ ${minUtil} 的 <b>${h}</b> 個是高效益樣式。` +
+                        (w ? `另外 <b>${w}</b> 個是上界過了、效益卻不夠的候選（右邊紅色），差最多的是 ${fmt(lo.set)}：上界 ${lo.est}，真正效益 ${lo.util}。` : `這次每個候選都是真的，上界沒有多抓。`) +
+                        `同樣的門檻只用 TWU（Two-Phase）會有 <b>${tp.cands}</b> 個候選。`;
+                }
+                case 'end': {
+                    const n2 = s.result.length;
+                    return (n2 ? `完成！找到 <b>${n2}</b> 個高效益樣式，跟 Two-Phase、HUI-Miner 找到的完全一樣。` : `完成！沒有任何組合的效益達到 ${minUtil}。`) +
+                        `UP-Growth 掃描資料庫 ${s.stats.scans} 次、建了 ${s.stats.trees} 棵條件 UP-Tree、留下 ${s.stats.cands} 個候選；結果區最下面有三種做法的對照。`;
+                }
+            }
+            return '';
+        }
+
+        const CODE_TAGS = s => ({
+            start: ['start'], tu: ['tu'], twu: ['tu'], dgu: ['dgu'], insert: ['insert'], treeDone: ['mine'],
+            check: ['check'], cpb: ['cpb', 'dlu'], build: ['dln'], back: ['recurse'], verify: ['verify'], p2filter: ['verify'], end: ['end']
+        })[s.kind] || [];
+
+        /* ---------- 點選某個候選：在交易表標出來，並說明三個數字 ---------- */
+        function selectedSet() {
+            return selKey ? selKey.split('|') : null;
+        }
+        function hintHTML(set, s) {
+            if (!set) return '';
+            const ks = tidsOf(set);
+            const c = s.cands.find(x => keyOf(x.set) === keyOf(set));
+            const u = ks.reduce((a, k) => a + utilIn(DB[k], set), 0);
+            return `${fmt(set)} 出現在 ${ks.map(tName).join('、')}（表格標黃的列）。TWU = 這幾筆的 TU 加起來 = <b>${c ? c.twu : ''}</b>；UP-Growth 的上界 = <b>${c ? c.est : ''}</b>；` +
+                `真正的效益只算這幾樣（格子裡的小字）= ${ks.map(k => utilIn(DB[k], set)).join(' + ')} = <b>${u}</b>。`;
+        }
+
+        /* ---------- 畫面 ---------- */
+        function drawDB(s) {
+            const cols = s.dguDone ? [...s.order, ...s.removed, ...ITEMS.filter(i => !(i in s.twu))] : ITEMS;
+            const sel = selectedSet();
+            const items = new Set(sel || []);
+            const off = i => s.removed.includes(i);
+            const cur = s.kind === 'insert' ? s.row : -1;
+            let h = '<thead><tr><th class="tid-h"></th>' + cols.map(i =>
+                `<th class="${off(i) ? 'off' : ''}${items.has(i) ? ' sel' : ''}"><span class="emo">${EMOJI[i]}</span><span class="nm">${esc(i)}</span><span class="pf">$${PROFIT[i]}</span></th>`).join('') +
+                `<th class="tu-h${s.kind === 'tu' || s.kind === 'dgu' || sel ? ' sel' : ''}">${s.dguDone ? 'RTU' : 'TU'}</th></tr></thead><tbody>`;
+            DB.forEach((t, r) => {
+                const match = (sel && contains(t, sel)) || r === cur;
+                let tu = s.tu.length ? String(s.tu[r]) : '';
+                if (s.dguDone) tu = (s.rtu[r] !== s.tu[r] ? `<s>${s.tu[r]}</s>` : '') + s.rtu[r];
+                h += `<tr class="${match ? 'match' : ''}"><td class="tid">${tName(r)}</td>` + cols.map(i => {
+                    if (!has(t, i)) return '<td><div class="cell"></div></td>';
+                    const hit = sel && match && items.has(i);
+                    return `<td><div class="cell has${off(i) ? ' off' : ''}${hit ? ' hit' : ''}">${t[i]}${hit ? `<small>${t[i] * PROFIT[i]}</small>` : ''}</div></td>`;
+                }).join('') + `<td class="tu${s.kind === 'tu' || match ? ' sel' : ''}">${tu}</td></tr>`;
+            });
+            h += '</tbody>';
+            if (s.twuCalc) h += '<tfoot><tr><td class="tid">TWU</td>' + cols.map(i => `<td class="twu${off(i) ? ' out' : ''}">${i in s.twu ? s.twu[i] : ''}</td>`).join('') + '<td></td></tr></tfoot>';
+            $('db').innerHTML = h;
+            $('db-sub').textContent = s.dguDone ? '欄已照 TWU 由大到小排' : '';
+        }
+
+        function drawTree(s) {
+            const box = $('tree');
+            $('tree-title').textContent = s.depth === 0 ? 'UP-Tree' : `條件 UP-Tree：後綴 ${fmtText(s.suffix)}`;
+            const crumbs = s.crumbs.length ? s.crumbs : [[]];
+            $('crumbs').innerHTML = crumbs.map((c, i) => `<span class="crumb${i === crumbs.length - 1 ? ' cur' : ''}">${c.length ? fmt(c) : 'UP-Tree'}</span>`).join('<span class="arrow">›</span>');
+            if (!s.tree.length) {
+                box.innerHTML = `<div class="tree-empty">${s.dguDone && !s.order.length ? '沒有商品留下來，樹是空的。' : '樹還是空的，第 2 次掃描時才開始長。'}</div>`;
+                return;
+            }
+            const kids = { 0: [] };
+            s.tree.forEach(n => { kids[n.id] = []; });
+            s.tree.forEach(n => kids[n.parent].push(n));
+            const pos = {};
+            let leaf = 0, maxDepth = 0;
+            (function place(id, d) {
+                maxDepth = Math.max(maxDepth, d);
+                const ch = kids[id] || [];
+                if (!ch.length) { pos[id] = { x: leaf++, y: d }; return; }
+                ch.forEach(c => place(c.id, d + 1));
+                pos[id] = { x: (pos[ch[0].id].x + pos[ch[ch.length - 1].id].x) / 2, y: d };
+            })(0, 0);
+            const DX = 54, DY = 66, PAD = 30;
+            const X = p => PAD + p.x * DX, Y = p => 22 + p.y * DY;
+            const W = PAD * 2 + Math.max(0, leaf - 1) * DX, H = 22 + maxDepth * DY + 44;
+
+            const onIds = new Set(s.pathIds || []);
+            const newIds = new Set(s.newIds || []);
+            const linkIds = s.linkIds || [];
+            const linked = new Set(linkIds);
+            let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" role="img" aria-label="UP-Tree">`;
+            s.tree.forEach(n => {
+                const a = pos[n.parent], b = pos[n.id];
+                const on = onIds.has(n.id) && (n.parent === 0 || onIds.has(n.parent) || linked.has(n.parent)) || (s.kind === 'cpb' && linked.has(n.id) && onIds.has(n.parent));
+                svg += `<line class="edge${on ? ' on' : ''}" x1="${X(a)}" y1="${Y(a)}" x2="${X(b)}" y2="${Y(b)}"/>`;
+            });
+            for (let i = 1; i < linkIds.length; i++) {
+                const a = pos[linkIds[i - 1]], b = pos[linkIds[i]];
+                if (!a || !b) continue;
+                const mx = (X(a) + X(b)) / 2, my = Math.max(Y(a), Y(b)) + 30;
+                svg += `<path class="link" d="M${X(a)} ${Y(a) + 18} Q${mx} ${my} ${X(b)} ${Y(b) + 18}"/>`;
+            }
+            svg += `<g class="root"><circle cx="${X(pos[0])}" cy="${Y(pos[0])}" r="11"/><text x="${X(pos[0])}" y="${Y(pos[0]) + 3}" text-anchor="middle">root</text></g>`;
+            s.tree.forEach(n => {
+                const p = pos[n.id];
+                const cls = ['node', onIds.has(n.id) ? 'on' : '', newIds.has(n.id) ? 'new' : '', linked.has(n.id) ? 'linked' : ''].join(' ');
+                svg += `<g class="${cls}"><title>${esc(n.item)}：次數 ${n.count}，節點效益 ${n.nu}</title>` +
+                    `<circle class="body" cx="${X(p)}" cy="${Y(p)}" r="18"/>` +
+                    `<text class="emo" x="${X(p)}" y="${Y(p) + 6}" text-anchor="middle">${EMOJI[n.item] || esc(n.item[0])}</text>` +
+                    `<circle class="badge" cx="${X(p) + 14}" cy="${Y(p) + 13}" r="8.5"/>` +
+                    `<text class="cnt" x="${X(p) + 14}" y="${Y(p) + 16.5}" text-anchor="middle">${n.count}</text>` +
+                    `<text class="nu" x="${X(p)}" y="${Y(p) + 35}" text-anchor="middle">${n.nu}</text></g>`;
+            });
+            svg += '</svg>';
+            box.innerHTML = svg;
+        }
+
+        function drawHeader(s) {
+            const t = $('header');
+            if (!s.header.length) { t.innerHTML = ''; return; }
+            t.innerHTML = `<caption>${s.depth === 0 ? '表頭' : '條件表頭'}</caption><tr><th></th><th></th><th>${s.depth === 0 ? 'TWU' : '局部'}</th><th>Σnu</th></tr>` + s.header.map(h =>
+                `<tr class="${h.item === s.item && s.kind !== 'build' ? 'sel' : ''}"><td>${EMOJI[h.item] || ''}</td><td>${esc(h.item)}</td><td class="c">${h.key}</td><td class="c nu">${h.sum}</td></tr>`).join('');
+        }
+
+        const chip = (i, cls = '', v = '') => `<span class="chip ${cls}">${esc(i)}${v !== '' ? `<span class="v">${v}</span>` : ''}</span>`;
+        function drawWork(s) {
+            const box = $('work');
+            let title = '計算過程', h = '';
+            switch (s.kind) {
+                case 'start': case 'tu':
+                    h = '<div class="work-empty">這格會顯示每一步的計算：每個商品的 miu、插入時每個節點加多少、條件模式基底的路徑效益……</div>';
+                    break;
+                case 'twu': case 'dgu': {
+                    title = '每個商品的 TWU 與 miu';
+                    const its = s.dguDone ? [...s.order, ...s.removed] : Object.keys(s.twu).sort((a, b) => cmp(ITEMS.indexOf(a), ITEMS.indexOf(b)));
+                    h = '<table class="cmp"><thead><tr><th>商品</th><th>TWU</th><th>miu（一筆最少賺）</th></tr></thead><tbody>' +
+                        its.map(i => `<tr><td>${EMOJI[i] || ''} ${esc(i)}</td><td class="${s.dguDone ? (s.twu[i] >= minUtil ? 'ok' : 'no') : ''}">${s.twu[i]}</td><td>${s.miu[i]}</td></tr>`).join('') + '</tbody></table>' +
+                        `<p class="work-note">miu 是這個商品在<b>所有交易裡</b>效益最小的那一次，之後要扣錢時只扣 miu，保證扣得不比實際多。</p>`;
+                    break;
+                }
+                case 'insert': {
+                    title = `插入 ${tName(s.row)}（DGN）`;
+                    if (!s.path.length) { h = '<div class="work-empty">這筆交易沒有留下來的商品。</div>'; break; }
+                    h = '<table class="cmp"><thead><tr><th>節點</th><th>數量 × 利潤</th><th>這一樣</th><th>節點 nu 加上</th></tr></thead><tbody>' +
+                        s.path.map((i, k) => `<tr><td>${EMOJI[i] || ''} ${esc(i)}</td><td>${DB[s.row][i]}×${PROFIT[i]}</td><td>${s.us[k]}</td><td>+${s.nus[k]}</td></tr>`).join('') + '</tbody></table>' +
+                        `<p class="work-note">節點 nu 加上的是「到自己為止」的累計；最後一個剛好是 RTU ${s.rtu[s.row]}。沒有 DGN 的話，每個節點都要加 ${s.rtu[s.row]}。</p>`;
+                    break;
+                }
+                case 'treeDone': {
+                    title = '兩種上界比一比';
+                    h = '<table class="cmp"><thead><tr><th>商品</th><th>TWU</th><th>Σnu</th><th>緊了</th></tr></thead><tbody>' +
+                        s.header.map(x => `<tr><td>${EMOJI[x.item] || ''} ${esc(x.item)}</td><td>${x.key}</td><td>${x.sum}</td><td>${x.key - x.sum}</td></tr>`).join('') + '</tbody></table>' +
+                        `<p class="work-note">Σnu 是這個商品所有節點的 nu 加起來。排在最前面的商品，上面沒有別的商品，Σnu 就是它自己的效益。</p>`;
+                    break;
+                }
+                case 'check': {
+                    title = `挖 ${s.item}`;
+                    h = '<table class="cmp"><tbody>' +
+                        `<tr><td>${esc(s.item)} 的節點 nu</td><td>${s.nodeNus.join(' + ')}</td></tr>` +
+                        `<tr><td>UP-Growth 的上界 Σnu</td><td class="${s.ok ? 'ok' : 'no'}">${s.est}</td></tr>` +
+                        `<tr><td>${fmt(s.pattern)} 的 TWU</td><td>${s.twuP}</td></tr>` +
+                        `<tr><td>門檻</td><td>${minUtil}</td></tr></tbody></table>` +
+                        `<p class="work-note">${s.ok ? `上界夠，${fmt(s.pattern)} 先記成候選。` : `上界不夠，<b>跳過</b>。`}</p>`;
+                    break;
+                }
+                case 'cpb': {
+                    title = `條件模式基底：${fmtText(s.pattern)}`;
+                    const rows = s.base.filter(b => b.path.length);
+                    if (!rows.length) { h = '<div class="work-empty">沒有前綴路徑。</div>'; break; }
+                    h = '<table class="cmp"><thead><tr><th>路徑</th><th>次數</th><th>路徑效益</th><th>DLU 後</th></tr></thead><tbody>' +
+                        rows.map(b => `<tr><td>${b.path.map(i => chip(i, s.lu[i] < minUtil ? 'out' : '')).join('<span class="arrow"> → </span>')}</td><td>${b.pc}</td><td>${b.pu}</td><td>${b.rpu}</td></tr>`).join('') + '</tbody></table>' +
+                        `<p class="work-note">局部效益：${s.luOrder.map(i => chip(i, s.lu[i] >= minUtil ? 'ok' : 'out', s.lu[i])).join(' ')}</p>`;
+                    break;
+                }
+                case 'build': {
+                    title = `DLN：插入 ${fmtText(s.pattern)} 的條件樹`;
+                    h = '<table class="cmp"><thead><tr><th>路徑（節點加上）</th><th>次數</th></tr></thead><tbody>' +
+                        s.base.filter(b => b.keep.length).map(b => `<tr><td>${b.keep.map((i, k) => chip(i, '', '+' + b.nus[k])).join('<span class="arrow"> → </span>')}</td><td>${b.pc}</td></tr>`).join('') + '</tbody></table>' +
+                        `<p class="work-note">每個節點加上「路徑效益 − 排在它後面的商品的 miu × 次數」，最後一個節點加的就是整條的路徑效益。</p>`;
+                    break;
+                }
+                case 'back':
+                    title = '回到上一層';
+                    h = `<div class="work-empty">${fmt(s.pattern)} 這一支挖完了。</div>`;
+                    break;
+                default: {
+                    title = '第二階段：驗證候選';
+                    const w = s.p2 === 2 ? s.cands.filter(c => !c.hui).length : null;
+                    h = s.cands.length
+                        ? '<table class="cmp"><tbody>' +
+                          `<tr><td>候選</td><td>${s.cands.length}</td></tr>` +
+                          `<tr><td>上界（Σnu）加起來</td><td>${sum(s.cands.map(c => c.est))}</td></tr>` +
+                          `<tr><td>TWU 加起來</td><td>${sum(s.cands.map(c => c.twu))}</td></tr>` +
+                          `<tr><td>真正效益加起來</td><td>${sum(s.cands.map(c => c.util))}</td></tr>` +
+                          `<tr><td>效益不夠（白算）</td><td>${w === null ? '–' : w}</td></tr></tbody></table>`
+                        : '<div class="work-empty">沒有候選。</div>';
+                }
+            }
+            $('work-title').textContent = title;
+            box.innerHTML = h;
+        }
+
+        function drawCandList(s) {
+            const box = $('clist');
+            box.innerHTML = '';
+            $('cl-sub').textContent = s.cands.length ? `${s.cands.length} 個 · ${s.p2 ? '第二階段' : '第一階段'}` : '';
+            if (!s.cands.length) {
+                box.innerHTML = `<div class="clist-empty">${s.kind === 'end' || s.p2 ? '沒有組合的上界達到門檻。' : '開始在樹上挖之後，上界夠的組合會一個一個加進來。'}</div>`;
+            }
+            const maxV = Math.max(1, ...s.cands.map(c => c.twu));
+            const pct = v => (Math.min(v, maxV) / maxV * 100).toFixed(1) + '%';
+            s.cands.forEach(c => {
+                const row = document.createElement('button');
+                row.type = 'button';
+                let cls = 'crow';
+                if (s.p2 === 2) cls += c.hui ? ' hui' : ' loose';
+                if (c.fresh) cls += ' fresh';
+                if (selKey === keyOf(c.set)) cls += ' sel';
+                row.className = cls;
+                const uTxt = c.util === undefined ? '?' : c.util;
+                const tag = s.p2 === 2 ? `<span class="cr-tag">${c.hui ? '✓ 高效益' : '✗ 效益不夠'}</span>` : '';
+                row.innerHTML = `<div class="cr-top"><span><span class="cr-name"></span>${tag}</span><span class="cr-num">TWU <b>${c.twu}</b> · 上界 <b class="est">${c.est}</b> · 效益 <b>${uTxt}</b></span></div>` +
+                    `<div class="bar"><i class="b-twu" style="width:${pct(c.twu)}"></i><i class="b-est" style="width:${pct(c.est)}"></i>` +
+                    `${c.util !== undefined ? `<i class="b-u" style="width:${pct(c.util)}"></i>` : ''}<i class="b-mu" style="left:${pct(minUtil)}"></i></div>`;
+                row.querySelector('.cr-name').textContent = fmtText(c.set);
+                row.addEventListener('click', () => toggleSel(keyOf(c.set)));
+                box.appendChild(row);
+            });
+            const ls = $('loose-sum');
+            if (s.cands.length) {
+                const sumT = sum(s.cands.map(c => c.twu)), sumE = sum(s.cands.map(c => c.est));
+                let t = `這 ${s.cands.length} 個候選的上界加起來是 TWU 加起來的 <b>${Math.round(sumE / Math.max(1, sumT) * 100)}%</b>（紫色比虛線短多少，就是 DGN、DLU、DLN 收緊了多少）。`;
+                if (s.p2 === 2) {
+                    const w = s.cands.filter(c => !c.hui).length, tp = twoPhaseCost(DB, PROFIT, minUtil);
+                    t += `其中 <b>${w}</b> 個效益不夠；只用 TWU 的 Two-Phase 會有 <b>${tp.cands}</b> 個候選。`;
+                }
+                ls.innerHTML = t;
+            } else {
+                ls.textContent = '虛線是 TWU，紫色是 UP-Growth 算出的上界；第二階段算出真正的效益後，會畫出中間的細條。點一列可以看它出現在哪幾筆交易。';
+            }
+            const fresh = box.querySelector('.crow.fresh');
+            if (fresh) box.scrollTo({ top: Math.max(0, fresh.offsetTop - box.offsetTop - 30), behavior: 'smooth' });
+            else if (s.kind === 'verify' || s.kind === 'start') box.scrollTo({ top: 0 });
+        }
+
+        function drawHints() {
+            const set = selectedSet();
+            const box = $('hint-list');
+            box.style.visibility = set ? 'visible' : 'hidden';
+            box.innerHTML = set ? hintHTML(set, trace[cursor]) : longestHintSet ? hintHTML(longestHintSet, trace[trace.length - 1]) : '';
+        }
+
+        function drawResult(s) {
+            const box = $('levels');
+            box.innerHTML = '';
+            if (!s.result.length) box.innerHTML = `<div class="empty">${s.kind === 'end' || s.kind === 'p2filter' ? '沒有找到。把門檻調低一點試試看。' : '第二階段算完真正的效益之後，才知道哪些是高效益樣式。'}</div>`;
+            const bySize = {};
+            s.result.forEach(r => { (bySize[r.set.length] = bySize[r.set.length] || []).push(r); });
+            Object.keys(bySize).sort().forEach(k => {
+                const row = document.createElement('div');
+                row.className = 'level';
+                row.innerHTML = `<span class="tag">${k} 個</span><div class="items"></div>`;
+                bySize[k].forEach(r => {
+                    const p = document.createElement('span');
+                    p.className = 'pat';
+                    p.innerHTML = `<span></span><span class="n">${r.util}</span>`;
+                    p.firstChild.textContent = fmtText(r.set);
+                    row.querySelector('.items').appendChild(p);
+                });
+                box.appendChild(row);
+            });
+            $('st-scan').textContent = s.stats.scans;
+            $('st-nodes').textContent = s.stats.nodes;
+            $('st-trees').textContent = s.stats.trees;
+            $('st-cand').textContent = s.stats.cands;
+            drawCompare(s);
+        }
+
+        /* 跟 Two-Phase、HUI-Miner（同樣的資料和門檻）對照 */
+        function drawCompare(s) {
+            const box = $('compare');
+            if (s.kind !== 'end') {
+                box.innerHTML = `全部做完之後，這裡會跟 <a href="two-phase.html">Two-Phase</a>、<a href="high-utility.html">HUI-Miner</a>（同樣的資料、同樣的門檻）對照。`;
+                return;
+            }
+            const tp = twoPhaseCost(DB, PROFIT, minUtil), lists = huiMinerLists(DB, PROFIT, minUtil);
+            const w = s.cands.filter(c => !c.hui).length;
+            box.innerHTML = `<h3>三種做法對照（門檻 ${minUtil}）</h3>` +
+                `<div>三個方法找到的高效益樣式完全一樣，差在過程花了多少力氣。</div>` +
+                `<table class="cmp"><thead><tr><th></th><th>Two-Phase</th><th>UP-Growth</th><th>HUI-Miner</th></tr></thead><tbody>` +
+                `<tr><td>做法</td><td>逐層</td><td>樹</td><td>list</td></tr>` +
+                `<tr><td>掃描資料庫</td><td>${tp.scans} 次</td><td>${s.stats.scans} 次</td><td>2 次</td></tr>` +
+                `<tr><td>候選（要回頭驗證）</td><td>${tp.cands}</td><td>${s.stats.cands}</td><td>不用</td></tr>` +
+                `<tr><td>白算的候選</td><td>${tp.waste}</td><td>${w}</td><td>—</td></tr>` +
+                `<tr><td>額外的結構</td><td>—</td><td>${s.stats.trees} 棵條件樹</td><td>${lists} 張 list</td></tr></tbody></table>`;
+        }
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this continue break'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue break'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tags) {
+            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/UPGrowth.java" download>UPGrowth.java</a>　執行 <code>javac UPGrowth.java && java UPGrowth</code>'
+                : '下載 <a href="code/up_growth.py" download>up_growth.py</a>　執行 <code>python3 up_growth.py</code>';
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        function stepHead(s, i) {
+            return `<span class="step-no">步驟 ${i + 1} / ${trace.length}<span class="phase${s.p2 ? ' p2' : ''}">${s.p2 ? '第二階段' : '第一階段'}</span></span>`;
+        }
+        function showStep() {
+            const s = trace[cursor];
+            $('explain').innerHTML = stepHead(s, cursor) + describe(s);
+            drawDB(s);
+            drawTree(s);
+            drawHeader(s);
+            drawWork(s);
+            drawCandList(s);
+            drawHints();
+            drawResult(s);
+            renderCode(CODE_TAGS(s));
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0;
+            $('btn-next').disabled = cursor === trace.length - 1;
+            $('mu-val').textContent = minUtil;
+            $('mu-range').value = minUtil;
+            $('mu-minus').disabled = minUtil <= MU_MIN;
+            $('mu-plus').disabled = minUtil >= MU_MAX;
+            const total = DB.reduce((a, t) => a + Object.keys(t).reduce((b, i) => b + t[i] * PROFIT[i], 0), 0);
+            $('mu-pct').textContent = `（全部交易總效益 ${total} 的 ${Math.round(minUtil / total * 100)}%）`;
+        }
+        /* 點選只重畫跟選取有關的部分，不動程式碼框和說明 */
+        function toggleSel(key) {
+            selKey = selKey === key ? null : key;
+            const s = trace[cursor];
+            drawDB(s);
+            document.querySelectorAll('.crow').forEach(r => r.classList.toggle('sel', r.querySelector('.cr-name').textContent === (selKey ? fmtText(selKey.split('|')) : null)));
+            drawHints();
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
+        let measuringBlocks = false, blockJob = 0;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            if (!blocks.length || count < 2) return;
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                const until = performance.now() + 25;
+                measuringBlocks = true;
+                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                while (pass < passes && performance.now() < until) {
+                    showAt(i);
+                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                    if (++i === count) {
+                        i = 0; pass++;
+                        base = tallest.map(h => h + 'px');
+                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    }
+                }
+                measuringBlocks = false;
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                showAt(cur);
+                if (pass < passes) setTimeout(chunk, 0);
+            };
+            chunk();
+        }
+
+        /* 點選候選後出現的說明：平常用 visibility 藏起來、但保留最長那段的位置，點了才不會把下面推開 */
+        let longestHintSet = null;
+        function pickLongestHint() {
+            const last = trace[trace.length - 1];
+            longestHintSet = last.cands.reduce((x, c) => (!x || hintHTML(c.set, last).length > hintHTML(x, last).length ? c.set : x), null);
+        }
+
+        /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = stepHead(s, i) + describe(s);
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            // 點選說明也一樣：用每個候選的說明裡最高的那個固定
+            const hint = $('hint-list'), last = trace[trace.length - 1];
+            if (hint.offsetWidth) {
+                const hp = hint.cloneNode(false);
+                hp.removeAttribute('id');
+                hp.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${hint.offsetWidth}px`;
+                document.body.appendChild(hp);
+                let th = 0;
+                last.cands.forEach(c => { hp.innerHTML = hintHTML(c.set, last); th = Math.max(th, hp.offsetHeight); });
+                hp.remove();
+                hint.style.minHeight = th + 'px';
+            }
+            reserveBlockHeights(document, trace.length, i => { cursor = i; showStep(); }, () => cursor);
+        }
+
+        function rebuild() {
+            stopAuto();
+            trace = buildTrace(DB, PROFIT, minUtil);
+            cursor = 0;
+            selKey = null;
+            pickLongestHint();
+            showStep();
+            reserveExplainHeight();
+        }
+
+        function step(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            selKey = null;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        function setMinUtil(v) {
+            v = Math.max(MU_MIN, Math.min(MU_MAX, v));
+            if (v === minUtil) return;
+            minUtil = v;
+            rebuild();
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; selKey = null; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 1900);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT') return;      // 在滑桿上按左右鍵是調門檻
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+        $('mu-minus').addEventListener('click', () => setMinUtil(minUtil - MU_STEP));
+        $('mu-plus').addEventListener('click', () => setMinUtil(minUtil + MU_STEP));
+        $('mu-range').addEventListener('input', e => setMinUtil(Number(e.target.value)));
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAGS(trace[cursor]));
+        });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(reserveExplainHeight, 150); });
+
+        rebuild();
+    </script>
+</body>
+
+</html>

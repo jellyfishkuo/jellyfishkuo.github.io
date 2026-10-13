@@ -1035,6 +1035,15 @@
             </div>
             <div class="project-card reveal" data-topics="hui" style="transition-delay:0.1s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/up-growth.svg" alt="" width="28" height="28">UP-Growth：用樹找高效益樣式</div>
+                <div class="project-desc">把交易壓成一棵 UP-Tree，節點只記「到自己為止」的效益，挖條件樹時再扣掉一定不屬於組合的錢，上界比 TWU 緊，候選比 Two-Phase 少。一步一步看 DGU、DGN、DLU、DLN 四招怎麼收緊上界，最後跟 Two-Phase、HUI-Miner 比較。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/up-growth.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.2s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/high-utility.svg" alt="" width="28" height="28">HUI-Miner 高效益樣式探勘</div>
                 <div class="project-desc">同一間超商，這次記下每樣買了幾個、每樣賺多少。看「出現次數多」和「賺最多」的組合有什麼不同、為什麼效益不能像 Apriori 那樣直接剪，以及 TWU 上界和 utility list 的剩餘效益怎麼安全地剪掉不可能的分支。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
@@ -1042,12 +1051,30 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="inc" style="transition-delay:0.2s">
+            <div class="project-card reveal" data-topics="hui">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/top-k-hui.svg" alt="" width="28" height="28">Top-k 高效益樣式</div>
+                <div class="project-desc">不知道門檻該設多少？直接要效益最高的前 k 名。在 HUI-Miner 的 utility list 旁放一個排行榜，門檻從單品效益起跳、邊挖邊往上調，被新門檻剪掉的分支會標出來；最後比較跟「早就知道門檻」相比多花了多少。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/top-k-hui.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="inc" style="transition-delay:0.1s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/incremental.svg" alt="" width="28" height="28">增量探勘：FUP</div>
                 <div class="project-desc">資料庫一直進新交易時，不用全部重算：舊樣式只看新的那幾筆就能更新次數，新冒出的候選先用一條引理篩過，只有少數需要回頭掃舊資料。可以自己組一批新交易，看 FUP 和全部重算各讀了幾筆。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="research/incremental.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="freq inc" style="transition-delay:0.2s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/cantree.svg" alt="" width="28" height="28">CanTree：不用重建的 FP-tree</div>
+                <div class="project-desc">商品照事先定好的固定順序插進樹裡，新交易進來只要沿著一條路徑把次數加一，不會因為次數變了就要整棵重排重建；要挖的時候才照 FP-Growth 的方式挖。可以自己加新交易、隨時挖，並跟 FP-tree 比較順序和節點數。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/cantree.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
@@ -1069,12 +1096,39 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.2s">
+            <div class="project-card reveal" data-topics="stream" style="transition-delay:0.2s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/count-min.svg" alt="" width="28" height="28">Count-Min Sketch</div>
+                <div class="project-desc">不記商品名稱，只用 d 列 × w 欄的計數格子數串流：每來一筆，每一列用雜湊算出一格加一；查詢時取 d 格裡最小的。看商品怎麼撞進同一格、為什麼只會多算不會少算，還可以切換保守更新比較誤差。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/count-min.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="spatial">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/spatial.svg" alt="" width="28" height="28">空間資料：四元樹與共位樣式</div>
                 <div class="project-desc">在街區地圖上點出店家，看四元樹怎麼依密度一路切格子、範圍查詢怎麼整塊跳過不相干的區域；另一頁用鄰近距離定義「一起出現」，算參與指數找出哪幾種店總是開在彼此附近。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="research/spatial.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/rtree.svg" alt="" width="28" height="28">R-tree 與 kNN 查詢</div>
+                <div class="project-desc">在街區地圖上一個點一個點插入，看 R-tree 怎麼挑「擴大最少」的框、節點滿了怎麼一分為二，長出一層層巢狀的框；再點地圖選位置，看優先佇列依距離一路找出最近的 k 家店，太遠的框連打開都不用。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/rtree.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.2s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/dbscan.svg" alt="" width="28" height="28">DBSCAN 密度分群</div>
+                <div class="project-desc">圈裡鄰居夠多的點是核心點，用佇列把鄰居一圈一圈拉進來長成一群，鄰居太少的先標成雜訊，之後可能被收編。不用先指定群數，兩個月牙、同心圓也分得開，還能跟 k-means 的結果並排比較。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/dbscan.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
