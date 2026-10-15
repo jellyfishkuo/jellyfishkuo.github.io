@@ -180,6 +180,21 @@
         .status { margin-top: 0.8rem; min-height: 1.6em; font-size: 0.95rem; }
         .status.good { color: var(--good); }
         .status.bad { color: var(--bad); }
+        /* 走了不是最佳解的那一步時，棋盤下方出現的小提醒；高度事先保留，出現消失都不會推動下面的區塊 */
+        .offpath {
+            margin-top: 0.5rem;
+            padding: 0.45rem 0.7rem;
+            border-left: 3px solid var(--warn);
+            border-radius: 6px;
+            background: rgba(245, 158, 11, 0.08);
+            color: #f5d08a;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s, visibility 0.35s;
+        }
+        .offpath.show { opacity: 1; visibility: visible; }
         .counter { font: 0.85rem 'Space Mono', monospace; color: var(--muted); }
         .counter b { color: var(--text); }
 
@@ -301,6 +316,7 @@
             <div class="card">
                 <div class="board" id="board"></div>
                 <div class="status" id="status"></div>
+                <div class="offpath" id="offpath" aria-live="polite"></div>
 
                 <!-- 解題模式才出現：播放控制與說明 -->
                 <div id="solve-panel" class="hidden">
@@ -377,6 +393,7 @@
         const boardEl = $('board');
         const statusEl = $('status');
         const counterEl = $('counter');
+        const offpathEl = $('offpath');
 
         let n = 3;              // 盤子數
         let pegs = [];          // pegs[i] = 由下到上的盤子編號，1 最小
@@ -445,9 +462,54 @@
             selected = null;
             moves = 0;
             hintMove = null;
+            hideOffpath();
             setStatus('點一根柱子拿起最上面的盤子。');
             updateCounter();
             render();
+            reservePlayHeights();
+        }
+
+        /* 走歪的小提醒：用 visibility 切換，文字留著，淡出時才不會突然變空 */
+        function showOffpath(text) {
+            offpathEl.textContent = text;
+            offpathEl.classList.add('show');
+        }
+        function hideOffpath() { offpathEl.classList.remove('show'); }
+
+        const offpathText = (d, to, left) =>
+            `小提醒：剛剛那步不是最佳解。最佳是把 ${d} 號盤搬到 ${PEG_NAMES[to]} 柱；照現在的盤面，最少還要 ${left} 步。`;
+        const doneText = (used, min) => used === min
+            ? `完成！用了 ${used} 步，剛好是最少步數 🎉`
+            : `完成！用了 ${used} 步（最少是 ${min} 步），再挑戰一次看看？`;
+
+        /**
+         * 狀態列和小提醒的文字有長有短，先用這個盤子數最長的句子量一次，固定成最小高度，
+         * 這樣訊息換來換去、提醒出現消失，下面的區塊都不會被推動。
+         */
+        function reservePlayHeights() {
+            if (mode !== 'play' || !statusEl.offsetWidth) return;
+            const tallest = (el, texts) => {
+                const probe = el.cloneNode(false);
+                probe.removeAttribute('id');
+                probe.className = el.className.split(' ')[0];
+                probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${el.offsetWidth}px`;
+                document.body.appendChild(probe);
+                let h = 0;
+                texts.forEach(t => { probe.textContent = t; h = Math.max(h, probe.offsetHeight); });
+                probe.remove();
+                return h;
+            };
+            const min = minMoves(), big = 10 ** String(min * 9).length - 1;   // 步數位數放寬一點
+            statusEl.style.minHeight = tallest(statusEl, [
+                '點一根柱子拿起最上面的盤子。',
+                `拿起了 ${n} 號盤，要放到哪一根？`,
+                `${n} 號盤比 ${n - 1} 號盤大，大盤子不能放在小盤子上面。`,
+                `提示：把 ${n} 號盤從 A 搬到 C。`,
+                doneText(big, min),
+            ]) + 'px';
+            const variants = [];                      // 換行位置會跟著數字長短變，所有組合都量
+            for (let d = 1; d <= n; d++) for (let to = 0; to < 3; to++) for (let left = 1; left <= min; left *= 10) variants.push(offpathText(d, to, left));
+            offpathEl.style.minHeight = tallest(offpathEl, variants) + 'px';
         }
 
         function updateCounter() {
@@ -467,17 +529,20 @@
                 selected = null;
                 setStatus('放回去了。');
             } else if (canMove(selected, p)) {
+                const best = nextBestMove();          // 從「目前盤面」算的最佳下一步（最佳路線只有一條）
+                const bestDisk = topDisk(best[0]);
                 doMove(selected, p);
                 moves++;
-                selected = null;
                 updateCounter();
                 if (isSolved()) {
-                    setStatus(moves === minMoves()
-                        ? `完成！用了 ${moves} 步，剛好是最少步數 🎉`
-                        : `完成！用了 ${moves} 步（最少是 ${minMoves()} 步），再挑戰一次看看？`, 'good');
+                    hideOffpath();
+                    setStatus(doneText(moves, minMoves()), 'good');
                 } else {
+                    if (best[0] === selected && best[1] === p) hideOffpath();
+                    else showOffpath(offpathText(bestDisk, best[1], movesLeft()));
                     setStatus('');
                 }
+                selected = null;
             } else {
                 setStatus(`${topDisk(selected)} 號盤比 ${topDisk(p)} 號盤大，大盤子不能放在小盤子上面。`, 'bad');
                 pegEl.classList.add('shake');
@@ -510,6 +575,20 @@
                 }
             }
             return move;
+        }
+
+        /** 從目前盤面到全部疊在 C 柱，最少還要幾步（跟 nextBestMove 同一個想法，每個要搬的盤子 d 算 2^(d-1) 步） */
+        function movesLeft() {
+            const where = [];
+            pegs.forEach((s, p) => s.forEach(d => { where[d] = p; }));
+            let target = 2, left = 0;
+            for (let d = n; d >= 1; d--) {
+                if (where[d] !== target) {
+                    left += 2 ** (d - 1);
+                    target = 3 - where[d] - target;
+                }
+            }
+            return left;
         }
 
         $('btn-hint').addEventListener('click', () => {
@@ -752,7 +831,7 @@
         let resizeTimer = null;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => { if (mode === 'solve') reserveExplainHeight(); }, 150);
+            resizeTimer = setTimeout(() => { mode === 'solve' ? reserveExplainHeight() : reservePlayHeights(); }, 150);
         });
 
         function stopAuto() {
@@ -790,6 +869,8 @@
             $('code-col').classList.toggle('hidden', m !== 'solve');
             $('layout').classList.toggle('solve', m === 'solve');
             $('btn-hint').classList.toggle('hidden', m !== 'play');
+            $('offpath').classList.toggle('hidden', m !== 'play');
+            if (m !== 'play') statusEl.style.minHeight = '';
             $('btn-reset').textContent = m === 'play' ? '重新開始' : '從頭開始';
             if (m === 'play') { stopAuto(); startPlay(); } else { startSolve(); }
         }
