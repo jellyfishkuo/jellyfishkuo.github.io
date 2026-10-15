@@ -32,7 +32,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `games/game-set.html` | SET：單人、電腦對手、**多人連線（最多 6 人）**。房主權威制；WebRTC（PeerJS，自訂 iceServers 時要自己列 TURN）打不通 10 秒後改走 MQTT 備援（EMQX、HiveMQ）。暱稱、等待室、全員同意才重新開始、斷線同房號重回（同暱稱合併紀錄）、配對亮 0.8 秒＋上方縮圖提示、同一局鎖定牌面排法。 |
 | `games/1A2B.html`、`infinite-tictactoe.html`、`vertical-gomoku.html`、`coc-card.html` | 各有技術介紹頁 |
 | `games/hanoi.html` | 河內塔：自己玩（任意盤面的最佳提示）＋ 看遞迴怎麼解（Python/JS/C++ 逐行高亮、呼叫堆疊） |
-| `games/dinner-wheel.html` | 晚餐轉盤：選項存 localStorage（`dinner-wheel-v1`），新增預設選項時調 `DEFAULTS_VERSION` 與 `ADDED_IN`，舊使用者會自動補上 |
+| `games/dinner-wheel.html` | 晚餐轉盤：選項存 localStorage（`dinner-wheel-v1`），新增預設選項時調 `DEFAULTS_VERSION` 與 `ADDED_IN`，舊使用者會自動補上；轉盤文字由 `fitLabel()` 依扇形寬度與中間按鈕縮字，放不下才加「…」 |
 | `electricity-tracker/` | 電費紀錄：localStorage `electricityMeterRecords_v1`；4 位數電表 9999→0000 視為繞圈；跨天用電依時間平均分配；匯入時整理 Excel 改過的日期格式 |
 | `research/apriori.html`、`fp-growth.html`、`eclat.html`、`closed-patterns.html`、`association-rules.html`、`prefixspan.html`、`two-phase.html`、`up-growth.html`、`high-utility.html`、`top-k-hui.html`、`incremental.html`、`cantree.html`、`sliding-window.html`、`stream-counting.html`、`count-min.html`、`spatial.html`、`rtree.html`、`dbscan.html` | 研究 Demo（18 個，首頁 Research 的主題標籤可以篩選；新增 Demo 時卡片要加 `data-topics`）：同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），一步一步看＋Java/Python 逐行高亮＋可下載執行 |
 

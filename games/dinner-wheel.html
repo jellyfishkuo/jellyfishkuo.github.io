@@ -255,10 +255,14 @@
            ========================================================= */
         const DEFAULT_ITEMS = ['🍚 滷肉飯', '🍜 牛肉麵', '🍱 便當', '🍥 拉麵', '🍲 火鍋', '🍔 速食',
             '🥟 水餃', '🍝 義大利麵', '🍛 咖哩飯', '🍳 炒飯', '🍣 壽司', '🍗 鹽酥雞',
-            '🌶️ 酸辣粉', '🐟 酸菜魚', '🍕 披薩', '🥘 麻辣燙', '🐔 鹹水雞', '🏪 超商', '🥪 三明治'];
+            '🌶️ 酸辣粉', '🐟 酸菜魚', '🍕 披薩', '🥘 麻辣燙', '🐔 鹹水雞', '🏪 超商', '🥪 三明治',
+            '🍞 烤土司', '🐓 麻油雞'];
         // 預設選項有新增時加一版：已經用過、存了自己清單的人，打開時也會自動補上新的
-        const DEFAULTS_VERSION = 2;
-        const ADDED_IN = { 2: ['🌶️ 酸辣粉', '🐟 酸菜魚', '🍕 披薩', '🥘 麻辣燙', '🐔 鹹水雞', '🏪 超商', '🥪 三明治'] };
+        const DEFAULTS_VERSION = 3;
+        const ADDED_IN = {
+            2: ['🌶️ 酸辣粉', '🐟 酸菜魚', '🍕 披薩', '🥘 麻辣燙', '🐔 鹹水雞', '🏪 超商', '🥪 三明治'],
+            3: ['🍞 烤土司', '🐓 麻油雞'],
+        };
         const COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#2dd4bf', '#38bdf8', '#818cf8', '#c084fc', '#f472b6'];
         const STORE_KEY = 'dinner-wheel-v1';
         const MAX_ITEMS = 24;
@@ -352,17 +356,59 @@
                 ctx.rotate(start + seg / 2);
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'middle';
-                const fontSize = Math.max(11, Math.min(18, size / 24, (seg * r) / 2.6));
-                ctx.font = `700 ${fontSize}px -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+                const label = fitLabel(item.name, seg, r, size);
+                ctx.font = labelFont(label.fs);
                 ctx.fillStyle = '#1a1a1a';
-                let text = item.name;
-                const maxW = r * 0.62;
-                while (ctx.measureText(text).width > maxW && text.length > 1) text = text.slice(0, -1);
-                if (text !== item.name) text = text.slice(0, -1) + '…';
-                ctx.fillText(text, r - 14, 0);
+                ctx.fillText(label.text, r - LABEL_PAD_OUT, 0);
                 ctx.restore();
             });
             ctx.restore();
+        }
+
+        /* ---------- 轉盤上的文字：整段都要待在自己那一格裡 ----------
+           文字從外圈往中心寫，越靠中心扇形越窄，所以要檢查「最靠中心那一端」的上下緣
+           有沒有超出扇形的兩條邊，也不能被中間的「轉！」按鈕蓋住。
+           先試大字、放不下就縮小；縮到最小還放不下才把尾巴改成「…」。 */
+        const LABEL_PAD_OUT = 8;        // 文字離外圈的距離
+        const LABEL_MAX_FS = 18, LABEL_MIN_FS = 9;
+        const labelCache = new Map();
+        const labelFont = fs => `700 ${fs}px -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+        // 用「字」為單位切（🌶️ 這種 emoji 由好幾個字元組成，不能從中間切斷）
+        const splitChars = str => (window.Intl && Intl.Segmenter)
+            ? Array.from(new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' }).segment(str), x => x.segment)
+            : Array.from(str);
+
+        function labelFits(text, fs, half, r, hub) {
+            ctx.font = labelFont(fs);
+            const m = ctx.measureText(text);
+            // emoji 常常比字級高，量得到實際高度就用實際的，量不到就抓寬一點
+            const up = m.actualBoundingBoxAscent, down = m.actualBoundingBoxDescent;
+            const h = (up > 0 && down > 0) ? Math.max(up, down) : fs * 0.65;
+            const inner = (r - LABEL_PAD_OUT) - m.width;      // 文字最靠中心那一端離圓心多遠
+            if (inner < hub) return false;
+            // 那一端的上下角離扇形邊至少留 2px
+            return inner * Math.sin(half) - (h + 0.5) * Math.cos(half) >= 2;
+        }
+
+        function fitLabel(name, seg, r, size) {
+            const key = name + '|' + seg.toFixed(5) + '|' + r.toFixed(1);
+            if (labelCache.has(key)) return labelCache.get(key);
+            const half = Math.min(seg / 2, Math.PI / 4);
+            const hub = size * 0.13 + 8;                         // 「轉！」按鈕半徑（寬 26%）＋白框
+            const maxFs = Math.max(LABEL_MIN_FS, Math.min(LABEL_MAX_FS, size / 22));
+            let out = null;
+            for (let fs = maxFs; fs >= LABEL_MIN_FS; fs -= 0.5) {
+                if (labelFits(name, fs, half, r, hub)) { out = { text: name, fs }; break; }
+            }
+            if (!out) {
+                const chars = splitChars(name);
+                let n = chars.length - 1;
+                while (n > 1 && !labelFits(chars.slice(0, n).join('') + '…', LABEL_MIN_FS, half, r, hub)) n--;
+                out = { text: chars.slice(0, n).join('') + '…', fs: LABEL_MIN_FS };
+            }
+            if (labelCache.size > 500) labelCache.clear();
+            labelCache.set(key, out);
+            return out;
         }
 
         /* 正上方指針指到的是第幾格 */
