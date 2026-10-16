@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/hyperloglog.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/hyperloglog-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/hyperloglog-180.png">
+    <title>HyperLogLog：今天來了幾位不同的會員</title>
+    <meta name="description" content="只用 m 個小暫存器估計串流裡有幾個「不同的」東西：一步一步看會員卡號怎麼雜湊、前 p 個位元決定第幾格、開頭幾個 0 變成 ρ、暫存器只留最大值，再用調和平均與 linear counting 算出估計值；可以一次灌入十萬次來店看誤差，以及兩家分店的 HLL 怎麼合併，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        [hidden] { display: none !important; }
+
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; }
+        .layout > * { min-width: 0; display: grid; gap: 1rem; align-content: start; }
+        .layout > * > * { min-width: 0; }
+        @media (min-width: 960px) { .layout { grid-template-columns: 1fr 1.02fr; } }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .card-head .unit { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+        button.btn.small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .params { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin-top: 0.75rem; font-size: 0.88rem; }
+        .param { display: flex; align-items: center; gap: 0.4rem; }
+        .param .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.6em; text-align: center; }
+        .param .unit { color: var(--muted); font-size: 0.8rem; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .explain .ok { color: #86efac; font-weight: 600; }
+        .explain .no { color: #fca5a5; font-weight: 600; }
+        .explain .k, .sk-note .k { font: 0.85em 'Space Mono', monospace; color: var(--text); white-space: nowrap; }
+        .toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+
+        /* ── 操作輸送帶 ── */
+        .belt {
+            overflow-x: auto;
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 8px;
+        }
+        .belt-inner { display: flex; gap: 6px; width: max-content; }
+        .op {
+            flex: none;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: var(--panel-2);
+            padding: 2px 7px 3px;
+            text-align: center;
+            transition: opacity 0.3s, border-color 0.3s;
+        }
+        .op .kind { display: block; font-size: 0.68rem; line-height: 1.3; }
+        .op .kind.add { color: #86efac; }
+        .op .kind.query { color: #67e8f9; }
+        .op .kind.del { color: #fca5a5; }
+        .op .key { display: block; font: 0.7rem/1.35 'Space Mono', monospace; white-space: nowrap; }
+        .op .idx { font: 0.56rem 'Space Mono', monospace; color: var(--muted); margin-right: 0.25rem; }
+        .op.future { opacity: 0.4; border-style: dashed; background: transparent; }
+        .op.cur { border-color: var(--good); box-shadow: 0 0 0 1px var(--good); }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 0.3rem; vertical-align: -1px; border: 2px solid; }
+        .composer { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); font-size: 0.85rem; }
+        .composer .lab { color: var(--muted); font-size: 0.8rem; flex-basis: 100%; }
+        .key-in {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 0.25rem 0.5rem;
+            font: 16px 'Space Mono', monospace;   /* 16px：iPhone 點進輸入框才不會自動放大整頁 */
+            width: 9.6em;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .key-in:focus { outline: none; border-color: var(--accent2); }
+        .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.3em; }
+        .hint.warn { color: var(--warn); }
+        .op .kind.again { color: var(--warn); }
+
+        /* ── 暫存器 ── */
+        .regs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+        @media (min-width: 600px) { .regs { grid-template-columns: repeat(16, minmax(0, 1fr)); } }
+        .reg {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            text-align: center;
+            padding: 1px 0 2px;
+            min-width: 0;
+            transition: border-color 0.25s, background 0.25s;
+        }
+        .reg .i { display: block; font: 0.58rem/1.2 'Space Mono', monospace; color: #5a5a78; }
+        .reg .v { display: block; font: 700 1rem/1.25 'Space Mono', monospace; }
+        .reg .v.zero { color: #4a4a66; font-weight: 400; }
+        .reg.one { background: rgba(6, 182, 212, 0.13); }
+        .reg.one .v { color: #67e8f9; }
+        .reg .dv { display: block; font: 0.56rem/1.25 'Space Mono', monospace; color: var(--good); visibility: hidden; white-space: nowrap; overflow: hidden; }
+        .reg .dv.on { visibility: visible; }
+        .reg .dv.keep { color: var(--muted); }
+        .reg.hit { border-color: var(--good); box-shadow: 0 0 0 1px var(--good) inset; }
+        .reg.ask { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .reg.keep { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        /* m 很大時改成小色塊：越亮代表數字越大 */
+        .regs.mini { grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 1px; }
+        @media (min-width: 600px) { .regs.mini { grid-template-columns: repeat(64, minmax(0, 1fr)); } }
+        .regs.mini .reg { height: 10px; border-radius: 2px; border: 0; padding: 0; }
+        .regs.mini .reg.hit, .regs.mini .reg.ask, .regs.mini .reg.keep { outline: 2px solid var(--good); outline-offset: 0; z-index: 1; box-shadow: none; }
+        .regs.mini .reg.keep { outline-color: var(--warn); }
+        .regs.mini .reg.ask { outline-color: var(--accent2); }
+        /* 合併用的小格子：只有數字 */
+        .mrow { display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 0.5rem; align-items: center; margin-top: 0.45rem; }
+        .mrow .lab { font-size: 0.78rem; color: var(--muted); line-height: 1.25; }
+        .mrow .lab b { display: block; color: var(--text); font-weight: 600; }
+        .cells { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 2px; }
+        .cells .c { font: 700 0.68rem/1.6 'Space Mono', monospace; text-align: center; border-radius: 4px; background: var(--panel-2); color: #67e8f9; min-width: 0; }
+        .cells .c.zero { color: #4a4a66; font-weight: 400; }
+        .cells .c.fromb { background: rgba(245, 158, 11, 0.22); color: #fcd34d; }
+        .cells.mini { grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 1px; }
+        @media (min-width: 600px) { .cells.mini { grid-template-columns: repeat(64, minmax(0, 1fr)); } }
+        .cells.mini .c { height: 8px; font-size: 0; border-radius: 1px; }
+        .cells.mini .c.fromb { background: var(--warn); }
+        .chips-line { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.3rem; }
+        .mchip { font: 0.66rem/1.5 'Space Mono', monospace; border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; color: var(--muted); }
+        .mchip.both { border-color: var(--warn); color: #fcd34d; }
+        .merge-box.on { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .merge-box { border: 1px solid transparent; border-radius: 10px; padding: 0.2rem 0.4rem 0.5rem; transition: border-color 0.3s; }
+
+        /* ── 32 位元雜湊 ── */
+        .bitrow { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 1px; margin: 0.4rem 0 0.2rem; }
+        .bitrow span { font: 700 0.74rem/1.9 'Space Mono', monospace; text-align: center; border-radius: 3px; background: var(--panel-2); color: #6a6a85; min-width: 0; }
+        .bitrow span.idx { background: rgba(124, 58, 237, 0.35); color: #e9d5ff; }
+        .bitrow span.z { background: rgba(245, 158, 11, 0.25); color: #fcd34d; }
+        .bitrow span.first { background: rgba(34, 197, 94, 0.3); color: #86efac; }
+        .bitrow span.cut { margin-left: 3px; }
+        .bitcap { display: grid; gap: 0.15rem; font-size: 0.82rem; color: #c6c6d6; margin-top: 0.4rem; }
+        .bitcap .k { font: 0.85em 'Space Mono', monospace; color: var(--text); }
+        .bitcap .tagi { color: #c4b5fd; }
+        .bitcap .tagz { color: #fcd34d; }
+        .hash-who { font-size: 0.8rem; color: var(--muted); }
+        .hash-who b { font: 700 0.9rem 'Space Mono', monospace; color: var(--text); }
+        .row.hrow { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 2.6em 3.4em; }
+        .row .num-c { font: 0.76rem 'Space Mono', monospace; text-align: right; white-space: nowrap; }
+        .row .num-c.dim { color: var(--muted); }
+        .row.future { opacity: 0.45; border-style: dashed; }
+
+        /* ── 估計 ── */
+        .formula div.on { color: var(--warn); }
+        #est-formula div { white-space: normal; }
+        .formula div.off { color: #5a5a78; }
+
+        /* ── 大量實驗 ── */
+        .exp { margin-top: 1rem; }
+        .exp-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .exp-btns .unit { color: var(--muted); font-size: 0.8rem; }
+        .stats.six { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0.8rem; }
+        @media (min-width: 960px) { .stats.six { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        .charts { display: grid; gap: 1rem; }
+        .charts > * { min-width: 0; }
+        @media (min-width: 960px) { .charts { grid-template-columns: 1fr 1fr 1fr; } }
+        .chart-wrap h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .exp .chart-cap { min-height: 3.2em; }
+        svg .truth { fill: none; stroke: var(--good); stroke-width: 2; }
+        svg .est { fill: none; stroke: var(--warn); stroke-width: 2; }
+        svg .band { fill: rgba(6, 182, 212, 0.14); }
+        svg .band2 { fill: none; stroke: rgba(6, 182, 212, 0.45); stroke-width: 1; stroke-dasharray: 4 3; }
+        svg .diag { stroke: var(--accent2); stroke-width: 1.5; stroke-dasharray: 4 3; }
+        svg .zero-l { stroke: #3a3a5a; stroke-width: 1; }
+        svg .bar-th { fill: rgba(6, 182, 212, 0.35); }
+        svg .bar-me { fill: var(--warn); }
+        svg .now-l { stroke: #fff; stroke-width: 1; stroke-dasharray: 2 2; }
+        svg .pt { fill: var(--warn); }
+        .row.prow { grid-template-columns: 2.2em 3.6em minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); text-align: right; font: 0.76rem 'Space Mono', monospace; }
+        .row.prow.head { font-family: inherit; }
+        .row.prow.cur { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .sk-note { margin-top: 0.6rem; font-size: 0.8rem; color: var(--muted); }
+        .sk-note b { color: var(--text); font: 700 0.8rem 'Space Mono', monospace; }
+
+        /* ── 雜湊表 ── */
+        .formula { font: 0.78rem/1.7 'Space Mono', monospace; color: #c6c6d6; background: var(--panel-2); border-radius: 8px; padding: 0.45rem 0.6rem; margin-bottom: 0.6rem; overflow-x: auto; }
+        .formula div { white-space: nowrap; }
+        .rows { display: grid; gap: 0.3rem; }
+        .row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 4.4em;
+            gap: 0.4rem;
+            align-items: center;
+            padding: 0.3rem 0.55rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            font-size: 0.84rem;
+        }
+        .row.head { background: none; border-color: transparent; color: var(--muted); font-size: 0.72rem; padding-top: 0; padding-bottom: 0; }
+        .row .it { min-width: 0; overflow: hidden; }
+        .row .it .key { display: block; font: 0.76rem 'Space Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row .it .tag { display: block; font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+        .row .it .tag.in { color: #86efac; }
+        .row .it .tag.gone { color: #fca5a5; }
+        .row .chips { display: flex; flex-wrap: wrap; gap: 3px; }
+        .row .chip { font: 700 0.7rem/1.5 'Space Mono', monospace; min-width: 1.9em; text-align: center; border-radius: 5px; border: 1px dashed #4a4a6a; color: var(--muted); }
+        .row .chip.one { border: 1px solid rgba(6, 182, 212, 0.6); background: rgba(6, 182, 212, 0.16); color: #67e8f9; }
+        .row .chip.z { border-color: var(--bad); color: #fca5a5; }
+        .row .ans { font-size: 0.76rem; text-align: right; white-space: nowrap; }
+        .row .ans.maybe { color: #67e8f9; }
+        .row .ans.no { color: var(--muted); }
+        .row .ans.fp { color: var(--warn); font-weight: 600; }
+        .row.cur { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .row.out .it .key { color: var(--muted); }
+        .row.fp { background: rgba(245, 158, 11, 0.1); }
+
+        /* ── 數字與曲線 ── */
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.15rem 'Space Mono', monospace; white-space: nowrap; }
+        .stat .v small { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        @media (max-width: 400px) { .stat .v { font-size: 0.98rem; } }
+        .chart-wrap { margin-top: 0.8rem; }
+        .chart-wrap svg { display: block; width: 100%; height: auto; }
+        .chart-cap { color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+        .chart-cap b { color: var(--text); }
+        svg .grid { stroke: #1e1e36; stroke-width: 1; }
+        svg .axis-t { font: 10px 'Space Mono', monospace; fill: #6a6a85; }
+        svg .curve { fill: none; stroke: var(--accent2); stroke-width: 2; }
+        svg .meas { fill: var(--warn); }
+        svg .opt-line { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 3; }
+        svg .opt-t { font: 10px 'Space Mono', monospace; fill: #86efac; }
+        svg .now { fill: none; stroke: #fff; stroke-width: 2; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+            position: relative;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · DATA STREAM MINING</div>
+        <h1>HyperLogLog<small>只用幾個位元組估計「有幾個不同的」：同一個人來幾次都只算一次，誤差大約 1.04/√m</small></h1>
+        <p class="intro">
+            超商想知道<b>今天有幾位「不同的」會員來店</b>。最直接的做法是把每張會員卡號放進一個集合，但一家店一天上千人，全台幾千家店、還要按小時、按商品分開算，集合會大到放不下。
+            HyperLogLog（Flajolet 等人，2007）不記卡號，只準備 <b>m = 2<sup>p</sup> 個小暫存器</b>：每位來客的卡號先雜湊成 32 位元，<b>前 p 個位元決定放第幾格</b>，
+            <b>剩下的位元開頭有幾個 0</b> 就是線索——就像丟硬幣，連續 k 次反面的機率是 1/2<sup>k</sup>，看過越長的一串 0，代表大概來過越多不同的人。
+            每格只留看過的最大值，<b>同一個人再來，雜湊值一模一樣，不會多算</b>。
+            它跟 <a href="bloom-filter.html">Bloom Filter</a>、<a href="count-min.html">Count-Min Sketch</a> 一樣是用雜湊壓縮的「草稿」，這次問的是「有幾個不同的」。
+            下面先一步一步看 A 店的 12 次來店，再一次灌入十萬次來店看誤差有多準，最後把兩家分店的 HLL 合併成聯集。
+        </p>
+
+        <div class="layout" id="main">
+            <div>
+                <div class="card">
+                    <div class="card-head"><h2>一步一步看</h2></div>
+                    <div class="player">
+                        <button class="btn" id="hl-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="hl-prev">◀ 上一步</button>
+                        <button class="btn primary" id="hl-next">下一步 ▶</button>
+                        <button class="btn" id="hl-play">▶ 自動播放</button>
+                        <button class="btn" id="hl-last">⏭ 直接看結果</button>
+                    </div>
+                    <div class="params">
+                        <div class="param">
+                            <span>前幾個位元 p</span>
+                            <button class="btn stepper" id="p-minus" aria-label="p 變小">−</button>
+                            <span class="val" id="p-val">4</span>
+                            <button class="btn stepper" id="p-plus" aria-label="p 變大">+</button>
+                            <span class="unit" id="p-unit">m = 2⁴ = 16 格</span>
+                        </div>
+                    </div>
+                    <div class="explain" id="hl-explain"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2>A 店今天的來店順序</h2><span class="unit" id="visit-count"></span></div>
+                    <div class="belt" id="hl-belt"><div class="belt-inner" id="hl-belt-inner"></div></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--good)"></i>正在處理的這一位</span>
+                        <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒來</span>
+                        <span style="color:var(--warn)">又來＝之前來過的會員</span>
+                    </div>
+                    <div class="composer">
+                        <span class="lab">自己輸入會員卡號（任何字串都可以，輸入之前來過的就是回頭客）：</span>
+                        <input class="key-in" id="key-in" type="text" maxlength="20" placeholder="M-12345678" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="會員卡號">
+                        <button class="btn small" id="do-add">＋ 來店</button>
+                        <button class="btn small" id="do-again">↺ 第 1 位再來一次</button>
+                    </div>
+                    <div class="composer">
+                        <button class="btn small" id="do-random">🎲 隨機來客</button>
+                        <button class="btn small" id="do-reset">恢復範例</button>
+                    </div>
+                    <div class="hint" id="hl-hint"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2>暫存器 M[0 … m−1]</h2><span class="unit" id="regs-unit">m = 16 格</span></div>
+                    <div class="regs" id="regs"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--accent2)"></i>這位來客分到的格子</span>
+                        <span><i style="border-color:var(--good)"></i>ρ 比較大，更新</span>
+                        <span><i style="border-color:var(--warn)"></i>ρ 沒比較大，不變</span>
+                    </div>
+                    <div class="sk-note" id="regs-note"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2>兩家分店合併</h2><span class="unit">每格取最大值</span></div>
+                    <div class="merge-box" id="merge-box">
+                        <div class="hash-who">B 店今天的來客（框黃色的也去過 A 店）：</div>
+                        <div class="chips-line" id="b-chips"></div>
+                        <div class="mrow"><span class="lab"><b>A 店</b><span id="ma-est"></span></span><div class="cells" id="ma"></div></div>
+                        <div class="mrow"><span class="lab"><b>B 店</b><span id="mb-est"></span></span><div class="cells" id="mb"></div></div>
+                        <div class="mrow"><span class="lab"><b>合併</b><span id="mu-est"></span></span><div class="cells" id="mu"></div></div>
+                    </div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn);background:rgba(245,158,11,0.3)"></i>合併後這格的最大值來自 B 店</span>
+                    </div>
+                    <div class="sk-note" id="merge-cap"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="card-head"><h2>雜湊：卡號 → 第幾格、ρ</h2><span class="unit" id="hash-unit">p = 4</span></div>
+                    <div class="formula">
+                        <div>h = fmix32(FNV-1a(卡號))，32 位元</div>
+                        <div>j = 前 p 個位元（第 j 格）</div>
+                        <div>ρ = 剩下 32−p 個位元開頭的 0 的個數 + 1</div>
+                        <div>M[j] = max(M[j], ρ)</div>
+                    </div>
+                    <div class="hash-who" id="hash-who"></div>
+                    <div class="bitrow" id="bitrow"></div>
+                    <div class="bitcap" id="bitcap"></div>
+                    <div class="rows" id="h-rows" style="margin-top:0.7rem"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2>估計有幾位不同會員</h2><span class="unit" id="est-unit"></span></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-est">0</div><div class="k">HLL 估計</div></div>
+                        <div class="stat"><div class="v" id="st-truth">0</div><div class="k">實際不同會員</div></div>
+                        <div class="stat"><div class="v" id="st-err">—</div><div class="k">相對誤差</div></div>
+                    </div>
+                    <div class="formula" id="est-formula" style="margin-top:0.7rem"></div>
+                    <div class="chart-wrap" id="run-wrap"><svg id="run-chart" role="img" aria-label="每位來客之後的估計值與實際值"></svg></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--good);background:var(--good)"></i>實際不同會員</span>
+                        <span><i style="border-color:var(--warn);background:var(--warn)"></i>HLL 估計</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="hl-code"></pre>
+                    <div class="downloads" id="hl-downloads"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card exp">
+            <div class="card-head"><h2>一次灌入大量會員：估計有多準？</h2><span class="unit" id="exp-unit"></span></div>
+            <div class="exp-btns">
+                <button class="btn small" data-n="1000">1,000 次來店</button>
+                <button class="btn small" data-n="10000">10,000 次來店</button>
+                <button class="btn small" data-n="100000">100,000 次來店</button>
+                <span class="unit">隨機會員，大約三成是回頭客；p 用上面設定的值，改 p 會用同一批來客重算</span>
+            </div>
+            <div class="stats six">
+                <div class="stat"><div class="v" id="ex-n">—</div><div class="k">來店次數</div></div>
+                <div class="stat"><div class="v" id="ex-truth">—</div><div class="k">實際不同會員</div></div>
+                <div class="stat"><div class="v" id="ex-est">—</div><div class="k">HLL 估計</div></div>
+                <div class="stat"><div class="v" id="ex-err">—</div><div class="k">相對誤差</div></div>
+                <div class="stat"><div class="v" id="ex-sigma">—</div><div class="k">理論標準誤差 1.04/√m</div></div>
+                <div class="stat"><div class="v" id="ex-mem">—</div><div class="k" id="ex-mem-k">記憶體</div></div>
+            </div>
+            <div class="charts" style="margin-top:0.4rem">
+                <div class="chart-wrap" id="ex-wrap1">
+                    <h3>估計值 vs 實際值（對數刻度）</h3>
+                    <svg id="ex-chart1" role="img" aria-label="估計值對實際值"></svg>
+                    <div class="chart-cap" id="ex-cap1"></div>
+                </div>
+                <div class="chart-wrap" id="ex-wrap2">
+                    <h3>相對誤差，邊灌邊看</h3>
+                    <svg id="ex-chart2" role="img" aria-label="相對誤差隨來店次數變化"></svg>
+                    <div class="chart-cap" id="ex-cap2"></div>
+                </div>
+                <div class="chart-wrap" id="ex-wrap3">
+                    <h3>每種 p 的誤差：理論 vs 實測</h3>
+                    <svg id="ex-chart3" role="img" aria-label="不同 p 的理論與實測誤差"></svg>
+                    <div class="chart-cap" id="ex-cap3"></div>
+                </div>
+            </div>
+            <div class="legend">
+                <span><i style="border-color:var(--warn);background:var(--warn)"></i>HLL 估計／實測誤差</span>
+                <span><i style="border-color:var(--accent2);border-style:dashed"></i>估計 = 實際</span>
+                <span><i style="border-color:rgba(6,182,212,0.5);background:rgba(6,182,212,0.25)"></i>±1.04/√m（虛線 ±2 倍）</span>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼開頭的 0 能估計人數？為什麼重複來店不影響？</h2>
+                <p>好的雜湊函數會把每個卡號變成「看起來像隨機」的 32 個位元，每個位元是 0 或 1 的機率各一半。開頭至少有 k 個 0 的機率是 1/2<sup>k</sup>，
+                    所以如果有 n 位<b>不同的</b>會員，我們大約會看到最長 log₂ n 個 0：看到 ρ = 10，大概來過 2<sup>10</sup> ≈ 1000 人。
+                    同一個人的卡號雜湊值永遠一樣，再來一次只是把同一個 ρ 再跟同一格比一次，<b>max 不會變</b>——所以 HLL 數的是「不同的」，不是來店次數。</p>
+                <p style="margin-top:0.5rem">只看一個最大值太看運氣（一個人剛好有很長的 0，估計就翻倍）。HLL 用前 p 個位元把來客分成 m 組，每組各記一個最大值，
+                    每組大約有 n/m 人，2<sup>M[j]</sup> 是那組的粗略估計。合起來用<b>調和平均</b>（倒數的平均）：m / Σ2<sup>−M[j]</sup>，再乘上組數 m 和修正係數 α<sub>m</sub>，就是 <b>E = α<sub>m</sub>·m² / Σ2<sup>−M[j]</sup></b>。
+                    調和平均對特別大的值不敏感，所以比算術平均穩定得多；論文證明標準誤差約 <b>1.04/√m</b>：m = 1024（p = 10）時約 3%，而且跟 n 是幾千還是幾億無關。</p>
+                <p style="margin-top:0.5rem">人很少時很多格還是 0，調和平均會偏高（每格至少算 1）。這時改用 <b>linear counting</b>：把 n 個人丟進 m 格，某格一直沒人的機率約 e<sup>−n/m</sup>，
+                    空格數 V ≈ m·e<sup>−n/m</sup>，反推 n ≈ m·ln(m/V)。論文規定 E ≤ 2.5m 而且有空格時用它；E 大到接近 2<sup>32</sup>/30 時雜湊值開始互撞，再做一次大範圍修正。</p>
+            </div>
+            <div class="card">
+                <h2>合併、跟前面方法比較，以及跟實驗室研究的關係</h2>
+                <ul>
+                    <li><b>可以合併：</b>兩個 HLL（同樣的 p、同樣的雜湊）每格取最大值，結果<b>跟把兩邊的資料一起丟進去完全一樣</b>，所以各分店、各台機器、各個小時可以各記各的，最後再合起來估聯集。交集可以用 |A| + |B| − |A ∪ B| 粗估，但誤差會放大。</li>
+                    <li><b>記憶體：</b>每格最大值不超過 33 − p，5 個位元就夠，m = 1024 格才 640 個位元組；精確的集合要記住每一張卡號，人越多越大。代價是只能回答「大約幾個」，不能回答「某某人來過沒」（那是 <a href="bloom-filter.html">Bloom Filter</a> 的工作），也不能刪除。</li>
+                    <li><b>跟前面方法比較：</b><a href="count-min.html">Count-Min Sketch</a> 估每個東西出現幾次，<a href="stream-counting.html">Lossy Counting／Space-Saving</a> 找出熱門的，HLL 估有幾個不同的；三者都是單趟掃串流、記憶體固定，都用雜湊或計數換掉「全部記下來」。</li>
+                    <li><b>實際用在哪：</b>Redis 的 PFCOUNT、Google BigQuery 的 APPROX_COUNT_DISTINCT、Presto／Spark 的 approx_distinct，都是 HLL 或它的改良版 HyperLogLog++（64 位元雜湊、小範圍用查表修正偏差）。</li>
+                    <li><b>跟實驗室的關係：</b>串流探勘常要知道「這個視窗裡有幾種不同商品／幾位不同顧客」來決定門檻或配置記憶體；增量資料庫也能每批各存一個 HLL，合併後就得到全部資料的不同數，不用重掃。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           HyperLogLog 一步一步看
+           網頁裡用 JavaScript 照著同樣的演算法跑一次，把每一步記下來；
+           上一步／下一步只是在這些紀錄之間移動。右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = /*CODE_JSON*/null;
+
+        // A 店今天的來客順序（跟 Java / Python 的範例一樣；第 4、7、12 位是回頭客）
+        const STORE_A = ['M-07912728', 'M-29287351', 'M-38578460', 'M-07912728', 'M-17359750', 'M-99101455',
+            'M-29287351', 'M-33234300', 'M-53404922', 'M-52472380', 'M-66640001', 'M-38578460'];
+        // B 店（有 3 位也去過 A 店），合併時用
+        const STORE_B = ['M-67098887', 'M-29287351', 'M-76880921', 'M-01950523', 'M-33234300', 'M-83880784',
+            'M-66640001', 'M-88887737'];
+        const P_MIN = 4, P_MAX = 10, MAX_VISITS = 30;
+        const TWO32 = 4294967296;
+        const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+        const $ = id => document.getElementById(id);
+        let visits = STORE_A.slice();
+        let hp = 4;
+        let lang = 'java';
+        let steps = [];
+        let cursor = 0;
+        let timer = null;
+
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const kk = x => `<span class="k">${esc(x)}</span>`;
+        const f2 = v => v.toFixed(2);
+        const big = v => Math.round(v).toLocaleString('en-US');
+        const sup = n => String(n).split('').map(d => SUP[d]).join('');
+        const signPct = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(d) + '%';
+
+        /* =================== 雜湊：FNV-1a 32 位元 + murmur3 fmix32 =================== */
+        const encoder = new TextEncoder();
+        function hashRaw(s) {
+            let h = 2166136261;
+            for (const b of encoder.encode(s)) h = Math.imul(h ^ b, 16777619) >>> 0;   // XOR 再乘質數，只留 32 位元
+            h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b);                                // 攪勻：讓前面幾個位元也夠亂
+            h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35);
+            h ^= h >>> 16;
+            return h >>> 0;
+        }
+        const hashCache = new Map();
+        function hash32(s) {
+            if (!hashCache.has(s)) hashCache.set(s, hashRaw(s));
+            return hashCache.get(s);
+        }
+        // 前 p 位元 → 第 j 格；剩下的移到最左邊數開頭幾個 0
+        function locate(h, p) {
+            const j = h >>> (32 - p);
+            const w = (h << p) >>> 0;
+            const rho = w === 0 ? 32 - p + 1 : Math.clz32(w) + 1;
+            return { j, w, rho };
+        }
+        const bin32 = h => h.toString(2).padStart(32, '0');
+        const hex32 = h => '0x' + h.toString(16).toUpperCase().padStart(8, '0');
+
+        /* =================== 估計值：調和平均 + linear counting =================== */
+        function alpha(m) {
+            if (m === 16) return 0.673;
+            if (m === 32) return 0.697;
+            if (m === 64) return 0.709;
+            return 0.7213 / (1 + 1.079 / m);
+        }
+        function estimateOf(M) {
+            const m = M.length;
+            let total = 0, zeros = 0;
+            for (const r of M) { total += Math.pow(2, -r); if (r === 0) zeros++; }
+            const raw = alpha(m) * m * m / total;
+            let est = raw, mode = 'raw';
+            if (raw <= 2.5 * m && zeros > 0) { est = m * Math.log(m / zeros); mode = 'small'; }
+            else if (raw > TWO32 / 30) { est = -TWO32 * Math.log(1 - raw / TWO32); mode = 'large'; }
+            return { total, zeros, raw, est, mode };
+        }
+        // 把一串卡號丟進 p 的 HLL（測試也用這個跟 Python 比對）
+        function hllRun(keys, p) {
+            const M = new Array(1 << p).fill(0);
+            for (const key of keys) {
+                const { j, rho } = locate(hashRaw(key), p);
+                if (rho > M[j]) M[j] = rho;
+            }
+            return { M, ...estimateOf(M) };
+        }
+
+        /* =================== HyperLogLog：照著程式跑一次 =================== */
+        function hllTrace(list, p) {
+            const m = 1 << p, M = new Array(m).fill(0);
+            const seen = new Map();          // 每位會員目前來了幾次（只給畫面對照用，HLL 本身不知道）
+            const out = [], curve = [];
+            const push = (kind, extra = {}) => out.push({ kind, p, m, M: M.slice(), distinct: seen.size, counts: new Map(seen), ...extra });
+            push('h-start');
+            list.forEach((key, vi) => {
+                const h = hash32(key), { j, w, rho } = locate(h, p);
+                const again = seen.get(key) || 0;
+                push('h-hash', { vi, key, h, j, w, rho, again });
+                const before = M[j];
+                if (rho > M[j]) M[j] = rho;
+                seen.set(key, again + 1);
+                curve.push([seen.size, estimateOf(M).est]);
+                push('h-update', { vi, key, h, j, w, rho, again, before, after: M[j] });
+            });
+            const e = estimateOf(M);
+            push('h-sum', { e });
+            push('h-raw', { e });
+            push('h-final', { e });
+            const MB = new Array(m).fill(0);
+            STORE_B.forEach(key => { const { j, rho } = locate(hash32(key), p); if (rho > MB[j]) MB[j] = rho; });
+            const MU = M.map((x, j) => Math.max(x, MB[j]));
+            push('h-merge', { e, MB, MU, eB: estimateOf(MB), eU: estimateOf(MU) });
+            out.forEach(s => { s.curve = curve; });
+            return out;
+        }
+
+        /* =================== 每一步的小工具 =================== */
+        const unionTruth = () => new Set([...visits, ...STORE_B]).size;
+        // 雜湊表要顯示哪一位：正在處理的；開頭顯示第 1 位當例子；最後幾步顯示最後一位
+        function focusOf(s) {
+            if (s.vi !== undefined) return { vi: s.vi, key: s.key };
+            if (!visits.length) return null;
+            const vi = s.kind === 'h-start' ? 0 : visits.length - 1;
+            return { vi, key: visits[vi] };
+        }
+        function rhoWords(w, p, rho) {
+            const z = rho - 1;
+            if (w === 0) return `剩下 ${32 - p} 個位元全是 0（機率非常小），ρ 直接算 ${rho}`;
+            return z === 0 ? `剩下的第 1 個位元就是 1，開頭沒有 0 → ρ = 1` : `剩下的位元開頭有 <b>${z} 個 0</b>，第 ${rho} 個才是 1 → ρ = ${rho}`;
+        }
+        const valueGroups = M => {
+            const cnt = new Map();
+            M.forEach(v => cnt.set(v, (cnt.get(v) || 0) + 1));
+            return [...cnt].sort((a, b) => a[0] - b[0]);
+        };
+        const fracOf = v => v === 0 ? '1' : `1/${2 ** v}`;
+
+        /* =================== 說明文字 =================== */
+        function describe(s) {
+            const m = s.m, p = s.p;
+            switch (s.kind) {
+                case 'h-start':
+                    return `準備 <b>m = 2${sup(p)} = ${m} 個暫存器</b>，一開始全是 0（每格只要 5 個位元，${m} 格共 ${Math.ceil(m * 5 / 8)} 個位元組）。` +
+                        `每位來客把卡號雜湊成 32 位元：<b>前 ${p} 個位元</b>決定放第幾格，<b>剩下 ${32 - p} 個位元開頭有幾個 0</b> 算出 ρ，那格只留看過的最大 ρ。` +
+                        `直覺是丟硬幣：開頭連續 k 個 0 的機率是 1/2<sup>k</sup>，要看到很長一串 0，通常得來過很多<b>不同的</b>人。同一個人雜湊值永遠一樣，再來幾次都不會讓數字變大。` +
+                        `接下來照順序處理 ${visits.length} 次來店。`;
+                case 'h-hash': {
+                    const bits = bin32(s.h);
+                    let h = `第 ${s.vi + 1} 位來客 ${kk(s.key)}：FNV-1a 再攪勻，得到 32 位元 ${kk(bits.slice(0, p) + ' ' + bits.slice(p, p + 8) + '…')}（${hex32(s.h)}）。` +
+                        `前 ${p} 個位元 ${kk(bits.slice(0, p))} 換成十進位是 <b>${s.j}</b>，所以他歸<b>第 ${s.j} 格</b>（現在 M[${s.j}] = ${s.M[s.j]}）。`;
+                    if (s.again) h += `<span class="no">他今天第 ${s.again + 1} 次來</span>，雜湊值跟上次一模一樣，一定又落在同一格。`;
+                    else h += `不同的人雜湊值看起來像隨機，會平均分到 ${m} 格裡。`;
+                    return h;
+                }
+                case 'h-update': {
+                    let h = `${kk(s.key)}：${rhoWords(s.w, p, s.rho)}。`;
+                    if (s.after > s.before) h += `M[${s.j}] 原本是 ${s.before}，ρ 比較大，<b>改成 ${s.after}</b>。`;
+                    else h += `M[${s.j}] 已經是 ${s.before}，ρ = ${s.rho} 沒有比較大，<b>不變</b>（只留最大值）。`;
+                    if (s.again) h += `回頭客的 ρ 跟上次完全一樣，<span class="ok">不會被多算</span>——這就是 HLL 只數「不同的」人的原因。`;
+                    const e = estimateOf(s.M);
+                    return h + `到目前為止實際有 ${s.distinct} 位不同會員，HLL 估計 ${f2(e.est)}。`;
+                }
+                case 'h-sum': {
+                    const g = valueGroups(s.M);
+                    return `${visits.length} 次來店都處理完了。把每格換成 2<sup>−M[j]</sup> 加起來：` +
+                        g.map(([v, c]) => `值 ${v} 的有 ${c} 格、各 ${fracOf(v)}`).join('；') +
+                        `，合計 <b>Σ = ${s.e.total.toFixed(4)}</b>。M[j] 越大，2<sup>−M[j]</sup> 越小，Σ 也越小，估計值就越大。另外還有 <b>V = ${s.e.zeros} 格</b>是 0（沒有人分到）。`;
+                }
+                case 'h-raw':
+                    return `調和平均估計：<b>E = α<sub>m</sub> · m² / Σ</b> = ${alpha(m).toFixed(4)} × ${m}² / ${s.e.total.toFixed(4)} = <b>${f2(s.e.raw)}</b>。` +
+                        `每格大約分到 n/m 人，2<sup>M[j]</sup> 是那一格的粗略估計；m / Σ 是它們的調和平均（倒數的平均），對運氣好看到超長 0 的那格不敏感，再乘上格數 m。` +
+                        `α<sub>m</sub> 是論文算出來修正系統性偏高的係數。`;
+                case 'h-final': {
+                    const e = s.e, err = s.distinct ? (e.est - s.distinct) / s.distinct : 0;
+                    let h;
+                    if (e.mode === 'small')
+                        h = `E = ${f2(e.raw)} ≤ 2.5m = ${2.5 * m}，而且還有 ${e.zeros} 格是 0：人太少時很多格根本沒用到，調和平均會偏高。` +
+                            `改用 <b>linear counting</b>：空格比例約 e<sup>−n/m</sup>，反推 n ≈ m·ln(m/V) = ${m}·ln(${m}/${e.zeros}) = <b>${f2(e.est)}</b>。`;
+                    else if (e.mode === 'large')
+                        h = `E 超過 2<sup>32</sup>/30，雜湊值開始互撞，做大範圍修正：−2<sup>32</sup>·ln(1 − E/2<sup>32</sup>) = <b>${f2(e.est)}</b>。`;
+                    else
+                        h = `E = ${f2(e.raw)} 大於 2.5m = ${2.5 * m}${e.zeros ? '' : '（或已經沒有空格）'}，調和平均已經夠準，直接用 <b>${f2(e.est)}</b>。`;
+                    return h + ` 實際有 <b>${s.distinct}</b> 位不同會員（${visits.length} 次來店），誤差 ${signPct(err)}。理論標準誤差 1.04/√m = ${(104 / Math.sqrt(m)).toFixed(1)}%，` +
+                        `人這麼少時 linear counting 通常更準；想看大量資料的誤差，往下看「一次灌入大量會員」。`;
+                }
+                case 'h-merge': {
+                    const fromB = s.MU.filter((v, j) => v > s.M[j]).length;
+                    return `B 店也用同樣的雜湊、同樣的 p 記了一個 HLL（估計 ${f2(s.eB.est)}，實際 ${new Set(STORE_B).size} 人）。總公司想知道兩家店<b>加起來有幾位不同會員</b>，` +
+                        `不用把卡號清單傳過去，只要<b>每格取最大值</b>：有 ${fromB} 格換成 B 店比較大的值。合併後的暫存器跟「把兩家的來客全部丟進同一個 HLL」完全一樣，` +
+                        `估計 <b>${f2(s.eU.est)}</b>，實際 ${unionTruth()} 人；兩家都去過的會員雜湊值相同，取最大值時不會重複算。`;
+                }
+            }
+            return '';
+        }
+
+        function tagsOf(s) {
+            switch (s.kind) {
+                case 'h-start': return ['start', 'hash'];
+                case 'h-hash': return ['hash', 'index'];
+                case 'h-update': return ['rho', 'update'];
+                case 'h-sum': return ['sum'];
+                case 'h-raw': return ['raw'];
+                case 'h-final': return [s.e.mode === 'small' ? 'small' : s.e.mode === 'large' ? 'large' : 'raw'];
+                case 'h-merge': return ['merge'];
+            }
+            return [];
+        }
+
+        /* =================== 來店輸送帶 =================== */
+        function renderBelt(s) {
+            const inner = $('hl-belt-inner');
+            const cur = s.vi !== undefined ? s.vi : -1;
+            const done = s.kind === 'h-start' ? -1 : cur >= 0 ? cur : visits.length;
+            const firstAt = new Map();
+            inner.innerHTML = visits.map((key, j) => {
+                const again = firstAt.has(key);
+                if (!again) firstAt.set(key, j);
+                let cls = 'op';
+                if (j === cur) cls += ' cur';
+                else if (j > done) cls += ' future';
+                return `<div class="${cls}"><span class="kind ${again ? 'again' : 'add'}"><span class="idx">${j + 1}</span>${again ? '↺ 又來' : '＋ 來店'}</span><span class="key">${esc(key)}</span></div>`;
+            }).join('');
+            $('visit-count').textContent = `${visits.length} 次來店、${new Set(visits).size} 位不同`;
+            if (measuringBlocks) return;
+            // 只捲輸送帶本身，讓正在處理的那一位留在中間
+            const belt = $('hl-belt');
+            const target = cur >= 0 ? inner.children[cur] : null;
+            if (target && belt.clientWidth) {
+                const br = belt.getBoundingClientRect(), tr = target.getBoundingClientRect();
+                belt.scrollTo({ left: Math.max(0, belt.scrollLeft + tr.left - br.left - belt.clientWidth / 2 + tr.width / 2), behavior: 'smooth' });
+            } else if (belt.clientWidth && s.kind === 'h-start') belt.scrollTo({ left: 0 });
+        }
+
+        /* =================== 暫存器 =================== */
+        const miniColor = v => v === 0 ? '#1e1e36' : `rgba(6, 182, 212, ${Math.min(1, 0.2 + v * 0.08).toFixed(2)})`;
+        function renderRegs(s) {
+            const mini = s.m > 64;
+            const box = $('regs');
+            // 格子很多（m > 64）時每格都是固定大小的色塊：量高度時格子數一樣就不用重畫（顏色和外框不影響高度）
+            const keep = measuringBlocks && mini && box.classList.contains('mini') && box.childElementCount === s.M.length;
+            box.classList.toggle('mini', mini);
+            let h = '';
+            if (!keep) {
+                s.M.forEach((v, j) => {
+                    let cls = 'reg' + (v ? ' one' : ''), dv = '·', dcls = 'dv';
+                    if (s.j === j && s.kind === 'h-hash') { cls += ' ask'; dv = `ρ 待算`; dcls += ' on keep'; }
+                    else if (s.j === j && s.kind === 'h-update') {
+                        if (s.after > s.before) { cls += ' hit'; dv = `${s.before}→${s.after}`; dcls += ' on'; }
+                        else { cls += ' keep'; dv = `ρ${s.rho} 不變`; dcls += ' on keep'; }
+                    } else if (s.kind === 'h-sum') { dv = fracOf(v); dcls += ' on keep'; }
+                    const tip = `M[${j}] = ${v}，2^(−${v}) = ${fracOf(v)}`;
+                    if (mini) h += `<div class="${cls}" style="background:${miniColor(v)}" title="${esc(tip)}"></div>`;
+                    else h += `<div class="${cls}" title="${esc(tip)}"><span class="i">${j}</span><span class="v${v ? '' : ' zero'}">${v}</span><span class="${dcls}">${esc(dv)}</span></div>`;
+                });
+                box.innerHTML = h;
+            }
+            $('regs-unit').textContent = `m = ${s.m} 格`;
+            const used = s.M.filter(v => v).length, mx = Math.max(...s.M);
+            $('regs-note').innerHTML = `用到的格子：<b>${used} / ${s.m}</b>，最大值 <b>${mx}</b>。` +
+                `每格最大不會超過 33 − p = ${33 - s.p}，5 個位元就夠：${s.m} 格只要 <b>${Math.ceil(s.m * 5 / 8)} 個位元組</b>，不管來多少人都一樣大。` +
+                (mini ? `格子太多，改用顏色表示：越亮數字越大，滑鼠移上去可以看值。` : `把滑鼠移到格子上可以看 2^(−M[j])。`);
+        }
+
+        /* =================== 雜湊表 =================== */
+        function renderHash(s) {
+            const f = focusOf(s), p = s.p;
+            $('hash-unit').textContent = `p = ${p}，剩下 ${32 - p} 位`;
+            if (!f) {
+                $('hash-who').innerHTML = '還沒有來客。';
+                $('bitrow').innerHTML = '<span></span>'.repeat(32);
+                $('bitcap').innerHTML = '<div>&nbsp;</div><div>&nbsp;</div>';
+                $('h-rows').innerHTML = '';
+                return;
+            }
+            const h = hash32(f.key), { j, w, rho } = locate(h, p), bits = bin32(h);
+            const showRho = s.kind !== 'h-hash';
+            $('hash-who').innerHTML = `${s.vi === undefined ? (s.kind === 'h-start' ? '例子：' : '最後一位：') : ''}第 ${f.vi + 1} 位來客 <b>${esc(f.key)}</b>　h = ${hex32(h)}`;
+            let row = '';
+            for (let i = 0; i < 32; i++) {
+                let cls = '';
+                if (i < p) cls = 'idx';
+                else if (showRho && i < p + rho - 1) cls = 'z';
+                else if (showRho && i === p + rho - 1) cls = 'first';
+                if (i === p) cls += ' cut';
+                row += `<span class="${cls.trim()}">${bits[i]}</span>`;
+            }
+            $('bitrow').innerHTML = row;
+            $('bitcap').innerHTML = `<div><span class="tagi">■</span> 前 ${p} 位 <span class="k">${bits.slice(0, p)}</span> → 第 <b>${j}</b> 格</div>` +
+                `<div style="visibility:${showRho ? 'visible' : 'hidden'}"><span class="tagz">■</span> 剩下的開頭 ${rho - 1} 個 0${w ? '，接著第一個 1' : '（全是 0）'} → ρ = <b>${rho}</b></div>`;
+            // 所有會員（照第一次來的順序）：還沒來的變淡
+            const order = [...new Set(visits)];
+            const last = s.vi !== undefined ? s.vi : (s.kind === 'h-start' ? -1 : visits.length - 1);
+            const counts = new Map();
+            visits.forEach((key, i) => { if (i <= last || (i === s.vi && s.kind === 'h-hash')) counts.set(key, (counts.get(key) || 0) + 1); });
+            let rows = `<div class="row hrow head"><span>會員卡號</span><span>前 ${p} 位 → 格</span><span style="text-align:right">ρ</span><span style="text-align:right">來店</span></div>`;
+            order.forEach(key => {
+                const hh = hash32(key), L = locate(hh, p), c = counts.get(key) || 0;
+                let cls = 'row hrow';
+                if (!c) cls += ' future';
+                if (key === s.key) cls += ' cur';
+                rows += `<div class="${cls}"><span class="it"><span class="key">${esc(key)}</span></span>` +
+                    `<span class="num-c" style="text-align:left">${bin32(hh).slice(0, p)} → ${L.j}</span>` +
+                    `<span class="num-c">${L.rho}</span><span class="num-c${c ? '' : ' dim'}">${c ? '×' + c : '還沒來'}</span></div>`;
+            });
+            $('h-rows').innerHTML = rows;
+        }
+
+        /* =================== 估計 =================== */
+        function renderEst(s) {
+            const M = s.M, m = s.m, e = estimateOf(M);
+            const truth = s.kind === 'h-hash' ? s.distinct : s.distinct;
+            const none = M.every(v => v === 0);
+            $('st-est').textContent = none ? '0' : f2(e.est);
+            $('st-truth').textContent = truth;
+            $('st-err').textContent = truth ? signPct((e.est - truth) / truth) : '—';
+            $('est-unit').textContent = `m = ${m}，α = ${alpha(m).toFixed(4)}`;
+            const on = k => s.kind === 'h-sum' ? (k === 'sum' ? 'on' : '') : s.kind === 'h-raw' ? (k === 'raw' ? 'on' : '') :
+                s.kind === 'h-final' ? (k === e.mode ? 'on' : k === 'sum' || k === 'raw' ? '' : 'off') : '';
+            $('est-formula').innerHTML =
+                `<div class="${on('sum')}">Σ = Σ 2^(−M[j]) = ${e.total.toFixed(4)}，空格 V = ${e.zeros}</div>` +
+                `<div class="${on('raw')}">E = α·m²/Σ = ${alpha(m).toFixed(4)}×${m}²/${e.total.toFixed(4)} = ${f2(e.raw)}</div>` +
+                `<div class="${on('small')}">E ≤ 2.5m = ${2.5 * m} 且 V > 0 → m·ln(m/V)${e.zeros ? ' = ' + f2(m * Math.log(m / e.zeros)) : '（沒有空格）'}</div>` +
+                `<div class="${on('raw') || on('large')}">否則 E${e.raw > TWO32 / 30 ? ' 太大 → 大範圍修正' : ''}：這次用 ${e.mode === 'small' ? 'linear counting' : e.mode === 'large' ? '大範圍修正' : '調和平均 E'}</div>`;
+            renderRunChart(s);
+        }
+        function renderRunChart(s) {
+            const svg = $('run-chart');
+            const curve = s.curve, n = curve.length;
+            const Wd = Math.max(260, Math.round($('run-wrap').clientWidth || 480)), Hd = 150;
+            const L = 30, R = 10, T = 10, B = 22;
+            const yMax = Math.max(4, ...curve.map(([t, e]) => Math.max(t, e))) * 1.12;
+            const x = i => L + (n ? i / n : 0) * (Wd - L - R);
+            const y = v => T + (1 - v / yMax) * (Hd - T - B);
+            let g = '';
+            const stepY = yMax > 40 ? 20 : yMax > 16 ? 5 : 2;
+            for (let v = 0; v <= yMax; v += stepY) {
+                g += `<line class="grid" x1="${L}" x2="${Wd - R}" y1="${y(v)}" y2="${y(v)}"/><text class="axis-t" x="${L - 5}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`;
+            }
+            const tickEvery = n > 20 ? 5 : n > 10 ? 2 : 1;
+            for (let i = tickEvery; i <= n; i += tickEvery) g += `<text class="axis-t" x="${x(i)}" y="${Hd - 7}" text-anchor="middle">${i}</text>`;
+            if (n) {
+                let tp = `${x(0)},${y(0)}`;
+                curve.forEach(([t], i) => { tp += ` ${x(i)},${y(i ? curve[i - 1][0] : 0)} ${x(i + 1) - 0.01},${y(i ? curve[i - 1][0] : 0)} ${x(i + 1)},${y(t)}`; });
+                g += `<polyline class="truth" points="${tp}"/>`;
+                g += `<polyline class="est" points="${x(0)},${y(0)} ${curve.map(([, e], i) => `${x(i + 1)},${y(e)}`).join(' ')}"/>`;
+                curve.forEach(([, e], i) => { g += `<circle class="pt" cx="${x(i + 1)}" cy="${y(e)}" r="2.6"/>`; });
+                const at = s.kind === 'h-start' ? 0 : s.kind === 'h-hash' ? s.vi : s.kind === 'h-update' ? s.vi + 1 : n;
+                g += `<line class="now-l" x1="${x(at)}" x2="${x(at)}" y1="${T}" y2="${Hd - B}"/>`;
+            }
+            g += `<text class="axis-t" x="${Wd - R}" y="${Hd - 7}" text-anchor="end"></text>`;
+            svg.setAttribute('viewBox', `0 0 ${Wd} ${Hd}`);
+            svg.innerHTML = g;
+        }
+
+        /* =================== 兩家分店合併 =================== */
+        let mergeDrawn = null;
+        function renderMerge(s) {
+            const last = steps[steps.length - 1];       // 合併永遠用 A 店全部來完的暫存器
+            $('merge-box').classList.toggle('on', s.kind === 'h-merge');
+            if (mergeDrawn === last) return;            // 同一份資料只要畫一次：每一步都一樣，只有外框亮不亮會變
+            mergeDrawn = last;
+            const MA = last.M, MB = last.MB, MU = last.MU, mini = s.m > 32;
+            const cells = (arr, mark) => arr.map((v, j) => {
+                const fb = mark && v > MA[j];
+                return `<span class="c${v ? '' : ' zero'}${fb ? ' fromb' : ''}"${mini ? ` style="background:${fb ? '' : miniColor(v)}"` : ''} title="M[${j}] = ${v}">${mini ? '' : v}</span>`;
+            }).join('');
+            ['ma', 'mb', 'mu'].forEach(id => $(id).classList.toggle('mini', mini));
+            $('ma').innerHTML = cells(MA, false);
+            $('mb').innerHTML = cells(MB, false);
+            $('mu').innerHTML = cells(MU, true);
+            const inA = new Set(visits);
+            $('b-chips').innerHTML = STORE_B.map(key => `<span class="mchip${inA.has(key) ? ' both' : ''}">${esc(key)}</span>`).join('');
+            $('ma-est').textContent = `≈${f2(last.e.est)}`;
+            $('mb-est').textContent = `≈${f2(last.eB.est)}`;
+            $('mu-est').textContent = `≈${f2(last.eU.est)}`;
+            const tA = new Set(visits).size, tB = new Set(STORE_B).size, tU = unionTruth();
+            $('merge-cap').innerHTML = `實際：A 店 <b>${tA}</b> 人、B 店 <b>${tB}</b> 人、兩店合計不同 <b>${tU}</b> 人（${tA + tB - tU} 人兩家都去過）。` +
+                `合併估計 <b>${f2(last.eU.est)}</b>；用 |A| + |B| − |A∪B| 粗估兩家都去過的人：${f2(last.e.est + last.eB.est - last.eU.est)}。`;
+        }
+
+        /* =================== 程式碼 =================== */
+        const KW = {
+            java: new Set('public static final for if return new boolean int long byte void class import while else null this double throw true false continue'.split(' ')),
+            py: new Set('def for in if else return not and or while import from as True False None class is lambda continue raise'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?(?:e-?\d+)?L?)\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, numb, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (numb) return `<span class="num">${numb}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word) && !/^[A-Z_0-9]+$/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        const FILES = { java: ['HyperLogLog.java', 'javac HyperLogLog.java && java HyperLogLog'], py: ['hyperloglog.py', 'python3 hyperloglog.py'] };
+        function renderCode(tags) {
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
+            const pre = $('hl-code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length && pre.clientHeight) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const bigG = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(bigG[0], bigG[bigG.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            const [file, cmd] = FILES[lang];
+            $('hl-downloads').innerHTML = `下載 <a href="code/${file}" download>${file}</a>　執行 <code>${cmd}</code>`;
+        }
+
+        /* =================== 顯示某一步 =================== */
+        function show() {
+            const s = steps[cursor];
+            $('hl-explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${steps.length}</span>${describe(s)}`;
+            renderBelt(s);
+            renderRegs(s);
+            renderHash(s);
+            renderEst(s);
+            renderMerge(s);
+            renderCode(tagsOf(s));
+            $('hl-prev').disabled = $('hl-first').disabled = cursor === 0;
+            $('hl-next').disabled = $('hl-last').disabled = cursor === steps.length - 1;
+            $('p-val').textContent = hp;
+            $('p-unit').textContent = `m = 2${sup(hp)} = ${1 << hp} 格`;
+            $('p-minus').disabled = hp <= P_MIN;
+            $('p-plus').disabled = hp >= P_MAX;
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
+                }
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
+            };
+            chunk();
+        }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
+
+        /* 說明框用最長那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('hl-explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            steps.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${steps.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            reserveBlockHeights($('main'), steps.length, i => { cursor = i; show(); }, () => cursor);
+        }
+
+        /* =================== 資料或參數改變：重算 trace =================== */
+        function rebuild() { steps = hllTrace(visits, hp); }
+        function paramChanged() {
+            stopAuto();
+            const old = steps[cursor];
+            rebuild();
+            // 盡量停在同一位來客的同一種步驟
+            const same = steps.findIndex(s => s.kind === old.kind && s.vi === old.vi);
+            cursor = Math.max(0, same);
+            show();
+            reserveExplainHeight();
+            runExp();
+        }
+        function visitsChanged(jumpToLast) {
+            stopAuto();
+            rebuild();
+            cursor = jumpToLast ? steps.findIndex(s => s.kind === 'h-hash' && s.vi === visits.length - 1) : 0;
+            show();
+            reserveExplainHeight();
+        }
+        function setHint(text, warn = false) { $('hl-hint').textContent = text; $('hl-hint').classList.toggle('warn', warn); }
+
+        const randomMember = () => 'M-' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
+        function randomVisits() {
+            const n = 10 + Math.floor(Math.random() * 9), out = [];
+            for (let i = 0; i < n; i++) out.push(i > 1 && Math.random() < 0.3 ? out[Math.floor(Math.random() * out.length)] : randomMember());
+            return out;
+        }
+        function addVisit(key) {
+            if (!key) { setHint('先在框裡輸入一個會員卡號（或任何字串）。', true); $('key-in').focus(); return; }
+            if (visits.length >= MAX_VISITS) { setHint(`最多 ${MAX_VISITS} 次來店，先按「恢復範例」或「隨機來客」重來；想看大量資料請用下面的「一次灌入大量會員」。`, true); return; }
+            const again = visits.includes(key);
+            visits.push(key);
+            visitsChanged(true);
+            setHint(again ? `${key} 是回頭客：按「下一步」看他的 ρ 跟上次一樣、暫存器不會變。` : `${key} 來店，直接跳到這一步。`);
+        }
+        $('do-add').addEventListener('click', () => addVisit($('key-in').value.trim()));
+        $('key-in').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addVisit($('key-in').value.trim()); } });
+        $('do-again').addEventListener('click', () => addVisit(visits[0] || STORE_A[0]));
+        $('do-random').addEventListener('click', () => {
+            visits = randomVisits();
+            visitsChanged(false);
+            setHint(`隨機產生 ${visits.length} 次來店、${new Set(visits).size} 位不同會員（有些是回頭客）。`);
+        });
+        $('do-reset').addEventListener('click', () => {
+            visits = STORE_A.slice();
+            visitsChanged(false);
+            setHint('恢復成範例：A 店 12 次來店、9 位不同會員。');
+        });
+
+        /* =================== 播放控制 =================== */
+        function go(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= steps.length) return false;
+            cursor = next;
+            show();
+            return cursor < steps.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('hl-play').textContent = '▶ 自動播放';
+        }
+        $('hl-next').addEventListener('click', () => { stopAuto(); go(1); });
+        $('hl-prev').addEventListener('click', () => { stopAuto(); go(-1); });
+        $('hl-first').addEventListener('click', () => { stopAuto(); cursor = 0; show(); });
+        $('hl-last').addEventListener('click', () => { stopAuto(); cursor = steps.length - 1; show(); });
+        $('hl-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === steps.length - 1) { cursor = 0; show(); }
+            $('hl-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!go(1)) stopAuto(); }, 1300);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            if (e.key === 'ArrowRight') { stopAuto(); go(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); go(-1); }
+        });
+        $('p-minus').addEventListener('click', () => { if (hp > P_MIN) { hp--; paramChanged(); } });
+        $('p-plus').addEventListener('click', () => { if (hp < P_MAX) { hp++; paramChanged(); } });
+
+        document.querySelectorAll('.lang').forEach(box => box.addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            document.querySelectorAll('.lang button').forEach(x => x.classList.toggle('active', x.dataset.lang === lang));
+            show();
+        }));
+
+        /* =================== 一次灌入大量會員 =================== */
+        let exp = null;          // { n, hashes, distinctAt }：同一批來客，改 p 時拿來重算
+        let pStats = null;       // 每種 p 的實測誤差（載入後在背景算）
+        function makeExp(n) {
+            const hashes = new Uint32Array(n), distinctAt = new Int32Array(n);
+            const members = [], seen = new Set();
+            for (let i = 0; i < n; i++) {
+                const key = i > 0 && Math.random() < 0.3 ? members[Math.floor(Math.random() * members.length)] : randomMember();
+                if (!seen.has(key)) { seen.add(key); members.push(key); }
+                hashes[i] = hashRaw(key);
+                distinctAt[i] = seen.size;
+            }
+            return { n, hashes, distinctAt };
+        }
+        function runExp() {
+            if (!exp) return;
+            const p = hp, m = 1 << p, n = exp.n;
+            const M = new Uint8Array(m), H1 = new Uint8Array(m), H2 = new Uint8Array(m);
+            const marks = new Set();
+            for (let k = 0; k <= 60; k++) marks.add(Math.max(1, Math.round(Math.pow(n, k / 60))));
+            const pts = [];
+            for (let i = 0; i < n; i++) {
+                const { j, rho } = locate(exp.hashes[i], p);
+                if (rho > M[j]) M[j] = rho;
+                const half = i % 2 ? H2 : H1;         // 拆成兩家店各記一半，最後合併比對
+                if (rho > half[j]) half[j] = rho;
+                if (marks.has(i + 1)) pts.push([i + 1, exp.distinctAt[i], estimateOf(M).est]);
+            }
+            let same = true;
+            for (let j = 0; j < m; j++) if (Math.max(H1[j], H2[j]) !== M[j]) same = false;
+            const truth = exp.distinctAt[n - 1], est = pts[pts.length - 1][2], sigma = 1.04 / Math.sqrt(m);
+            exp.result = { p, m, pts, truth, est, sigma, same };
+            $('ex-n').textContent = big(n);
+            $('ex-truth').textContent = big(truth);
+            $('ex-est').textContent = big(est);
+            $('ex-err').textContent = signPct((est - truth) / truth, 2);
+            $('ex-sigma').textContent = '±' + (sigma * 100).toFixed(2) + '%';
+            $('ex-mem').innerHTML = `${Math.ceil(m * 5 / 8)}<small> B</small>`;
+            $('ex-mem-k').textContent = `記憶體（精確記卡號至少 ${big(truth * 4 / 1024)} KB）`;
+            $('exp-unit').textContent = `p = ${p}，m = ${m} 格`;
+            document.querySelectorAll('.exp-btns button').forEach(b => b.classList.toggle('primary', +b.dataset.n === n));
+            renderExpCharts();
+        }
+        function logTicks(maxV) {
+            const out = [];
+            for (let v = 1; v <= maxV * 1.0001; v *= 10) out.push(v);
+            return out;
+        }
+        const tickLabel = v => v >= 1000 ? (v / 1000) + 'k' : String(v);
+        function renderExpCharts() {
+            if (!exp || !exp.result) return;
+            const r = exp.result;
+            // (1) 估計 vs 實際：對數刻度，帶狀是 ±1.04/√m
+            {
+                const svg = $('ex-chart1'), Wd = Math.max(240, Math.round($('ex-wrap1').clientWidth || 360)), Hd = 190;
+                const L = 40, R = 10, T = 10, B = 22;
+                const maxV = Math.max(r.truth, ...r.pts.map(q => q[2])) * 1.15;
+                const lx = v => L + Math.log10(Math.max(1, v)) / Math.log10(maxV) * (Wd - L - R);
+                const ly = v => T + (1 - Math.log10(Math.max(1, v)) / Math.log10(maxV)) * (Hd - T - B);
+                let g = '';
+                logTicks(maxV).forEach(v => {
+                    g += `<line class="grid" x1="${L}" x2="${Wd - R}" y1="${ly(v)}" y2="${ly(v)}"/><text class="axis-t" x="${L - 5}" y="${ly(v) + 3.5}" text-anchor="end">${tickLabel(v)}</text>`;
+                    g += `<line class="grid" x1="${lx(v)}" x2="${lx(v)}" y1="${T}" y2="${Hd - B}"/><text class="axis-t" x="${lx(v)}" y="${Hd - 7}" text-anchor="middle">${tickLabel(v)}</text>`;
+                });
+                const xs = [1, maxV / 1.15];
+                const up = [], dn = [];
+                for (let k = 0; k <= 40; k++) { const v = Math.pow(xs[1], k / 40); up.push(`${lx(v)},${ly(v * (1 + r.sigma))}`); dn.unshift(`${lx(v)},${ly(v * Math.max(0.01, 1 - r.sigma))}`); }
+                g += `<polygon class="band" points="${up.join(' ')} ${dn.join(' ')}"/>`;
+                g += `<line class="diag" x1="${lx(1)}" y1="${ly(1)}" x2="${lx(maxV)}" y2="${ly(maxV)}"/>`;
+                g += `<polyline class="est" points="${r.pts.map(([, t, e]) => `${lx(t)},${ly(e)}`).join(' ')}"/>`;
+                const lastP = r.pts[r.pts.length - 1];
+                g += `<circle class="pt" cx="${lx(lastP[1])}" cy="${ly(lastP[2])}" r="4"/>`;
+                svg.setAttribute('viewBox', `0 0 ${Wd} ${Hd}`);
+                svg.innerHTML = g;
+                $('ex-cap1').innerHTML = `橫軸是實際不同會員數、縱軸是 HLL 估計，兩軸都是對數。黃線貼著虛線（估計 = 實際）走，就是估得準；` +
+                    `淡青色帶是 ±1.04/√m = ±${(r.sigma * 100).toFixed(1)}%。`;
+            }
+            // (2) 相對誤差隨來店次數
+            {
+                const svg = $('ex-chart2'), Wd = Math.max(240, Math.round($('ex-wrap2').clientWidth || 360)), Hd = 190;
+                const L = 40, R = 10, T = 10, B = 22;
+                const errs = r.pts.map(([i, t, e]) => [i, (e - t) / t]);
+                const lim = Math.max(2.4 * r.sigma, ...errs.map(([, e]) => Math.abs(e) * 1.1));
+                const lx = v => L + Math.log10(Math.max(1, v)) / Math.log10(r.pts[r.pts.length - 1][0]) * (Wd - L - R);
+                const ly = v => T + (1 - (v + lim) / (2 * lim)) * (Hd - T - B);
+                let g = '';
+                logTicks(r.pts[r.pts.length - 1][0]).forEach(v => { g += `<text class="axis-t" x="${lx(v)}" y="${Hd - 7}" text-anchor="middle">${tickLabel(v)}</text>`; });
+                const x0 = lx(1), x1 = Wd - R;
+                g += `<rect class="band" x="${x0}" y="${ly(r.sigma)}" width="${x1 - x0}" height="${ly(-r.sigma) - ly(r.sigma)}"/>`;
+                [2 * r.sigma, -2 * r.sigma].forEach(v => { if (Math.abs(v) < lim) g += `<line class="band2" x1="${x0}" x2="${x1}" y1="${ly(v)}" y2="${ly(v)}"/>`; });
+                g += `<line class="zero-l" x1="${x0}" x2="${x1}" y1="${ly(0)}" y2="${ly(0)}"/>`;
+                const yt = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1].find(v => lim / v <= 3) || 1;   // 上下各最多 3 個刻度
+                for (let v = -Math.floor(lim / yt) * yt; v <= lim + 1e-9; v += yt) {
+                    g += `<text class="axis-t" x="${L - 5}" y="${ly(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}%</text>`;
+                }
+                g += `<polyline class="est" points="${errs.map(([i, e]) => `${lx(i)},${ly(e)}`).join(' ')}"/>`;
+                svg.setAttribute('viewBox', `0 0 ${Wd} ${Hd}`);
+                svg.innerHTML = g;
+                const inBand = errs.filter(([, e]) => Math.abs(e) <= r.sigma).length;
+                $('ex-cap2').innerHTML = `橫軸是來店次數（對數）。一開始人少，用 linear counting，誤差幾乎是 0；人多了換成調和平均，誤差在 ±1.04/√m 附近上下跳。` +
+                    `這次 ${errs.length} 個檢查點有 <b>${inBand}</b> 個落在色帶裡。拆成兩家店各記一半再合併，暫存器${r.same ? '<b>完全相同</b> ✓' : '<b>不同</b>（不應該發生）'}。`;
+            }
+            renderPStats();
+        }
+        // (3) 每種 p：理論 1.04/√m vs 實測（30 組 × 10,000 位不同會員的均方根誤差）
+        const PS_TRIALS = 30, PS_N = 10000;
+        function computePStats() {
+            const hs = new Uint32Array(PS_TRIALS * PS_N);
+            const seen = new Set();
+            for (let i = 0; i < hs.length;) {
+                const key = randomMember();
+                if (seen.has(key)) continue;          // 每組都是不同的會員
+                seen.add(key);
+                hs[i++] = hashRaw(key);
+            }
+            pStats = [];
+            for (let p = P_MIN; p <= P_MAX; p++) {
+                let sq = 0, sum = 0;
+                for (let t = 0; t < PS_TRIALS; t++) {
+                    const M = new Uint8Array(1 << p);
+                    for (let i = t * PS_N; i < (t + 1) * PS_N; i++) { const { j, rho } = locate(hs[i], p); if (rho > M[j]) M[j] = rho; }
+                    const err = estimateOf(M).est / PS_N - 1;
+                    sq += err * err; sum += err;
+                }
+                pStats.push({ p, theory: 1.04 / Math.sqrt(1 << p), rms: Math.sqrt(sq / PS_TRIALS), mean: sum / PS_TRIALS });
+            }
+            renderPStats();
+        }
+        function renderPStats() {
+            const svg = $('ex-chart3'), Wd = Math.max(240, Math.round($('ex-wrap3').clientWidth || 360)), Hd = 190;
+            const L = 40, R = 10, T = 14, B = 22;
+            const n = P_MAX - P_MIN + 1;
+            const yMax = 0.3;
+            const bw = (Wd - L - R) / n;
+            const ly = v => T + (1 - Math.min(v, yMax) / yMax) * (Hd - T - B);
+            let g = '';
+            for (let v = 0; v <= yMax + 1e-9; v += 0.1) g += `<line class="grid" x1="${L}" x2="${Wd - R}" y1="${ly(v)}" y2="${ly(v)}"/><text class="axis-t" x="${L - 5}" y="${ly(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}%</text>`;
+            for (let k = 0; k < n; k++) {
+                const p = P_MIN + k, x = L + k * bw, th = 1.04 / Math.sqrt(1 << p);
+                g += `<rect class="bar-th" x="${x + bw * 0.12}" y="${ly(th)}" width="${bw * 0.36}" height="${ly(0) - ly(th)}"><title>p = ${p}：理論 ${(th * 100).toFixed(1)}%</title></rect>`;
+                if (pStats) {
+                    const me = pStats[k].rms;
+                    g += `<rect class="bar-me" x="${x + bw * 0.52}" y="${ly(me)}" width="${bw * 0.36}" height="${ly(0) - ly(me)}"><title>p = ${p}：實測 ${(me * 100).toFixed(1)}%</title></rect>`;
+                }
+                g += `<text class="axis-t" x="${x + bw / 2}" y="${Hd - 7}" text-anchor="middle"${p === hp ? ' style="fill:#fff;font-weight:700"' : ''}>p${p}</text>`;
+            }
+            svg.setAttribute('viewBox', `0 0 ${Wd} ${Hd}`);
+            svg.innerHTML = g;
+            const cur = pStats && pStats[hp - P_MIN];
+            $('ex-cap3').innerHTML = `青色是理論 1.04/√m，黃色是實測：每種 p 各跑 ${PS_TRIALS} 組、每組 ${big(PS_N)} 位不同會員的均方根誤差。p 每加 1，格子翻倍、誤差變成 1/√2。` +
+                (cur ? `現在 p = ${hp}：理論 ${(cur.theory * 100).toFixed(1)}%、實測 <b>${(cur.rms * 100).toFixed(1)}%</b>。` : '計算中…');
+        }
+        document.querySelectorAll('.exp-btns button').forEach(b => b.addEventListener('click', () => {
+            exp = makeExp(+b.dataset.n);
+            runExp();
+        }));
+
+        let resizeTimer = null;
+        let lastWidth = window.innerWidth;
+        window.addEventListener('resize', () => {
+            if (window.innerWidth === lastWidth) return;   // 手機捲動時網址列伸縮也會觸發 resize，寬度沒變就不用重量
+            lastWidth = window.innerWidth;
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { show(); reserveExplainHeight(); renderExpCharts(); renderPStats(); }, 150);
+        });
+
+        rebuild();
+        show();
+        reserveExplainHeight();
+        renderPStats();
+        setTimeout(() => { exp = makeExp(10000); runExp(); setTimeout(computePStats, 50); }, 30);
+    </script>
+</body>
+
+</html>

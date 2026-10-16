@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/ihup.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/ihup-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/ihup-180.png">
+    <title>IHUP 增量高效益樣式</title>
+    <meta name="description" content="一步一步看 IHUP 怎麼做增量的高效益樣式探勘：IHUP_L-Tree 照固定的字典序插入交易、節點記 TWU，新交易直接插不用重建；要結果時才像 FP-Growth 一樣挖出 TWU 夠的候選，再掃一次資料庫算真正的效益。可以自己加交易、隨時挖，和每次從頭跑 Two-Phase 比較掃描次數與建樹成本，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --newc: #c084fc;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* 手機：一欄，依序 步驟 → 樹 → 計算過程 → 交易 → 程式碼 → 結果
+           電腦：左欄 步驟／樹／計算過程，右欄 交易／程式碼／結果 */
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; align-items: start; }
+        .col { display: contents; }
+        .layout .card { min-width: 0; }
+        .a-step { order: 1; }
+        .a-tree { order: 2; }
+        .a-work { order: 3; }
+        .a-data { order: 4; }
+        .a-code { order: 5; }
+        .a-result { order: 6; }
+        @media (min-width: 960px) {
+            .layout { grid-template-columns: 1.05fr 1fr; }
+            .col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .sub { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+        button.btn.small { padding: 0.25rem 0.55rem; font-size: 0.8rem; }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .controls { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin-top: 0.7rem; font-size: 0.88rem; }
+        .minsup { display: flex; align-items: center; gap: 0.45rem; }
+        .minsup .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.2em; text-align: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .mine-at { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+        .mine-at .lst { color: var(--muted); font-size: 0.82rem; }
+        .mine-at .lst b { color: var(--text); font-family: 'Space Mono', monospace; }
+        #btn-mine-here { min-width: 9.6em; }
+        .phase { display: inline-block; font: 700 0.7rem 'Space Mono', monospace; border-radius: 5px; padding: 0 0.4rem; margin-left: 0.4rem; background: rgba(192, 132, 252, 0.16); color: var(--newc); }
+        .phase.p1 { background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .phase.p2 { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+
+        /* ── 樹（畫法跟 CanTree、UP-Growth 頁一樣：右下角是次數，下面的紫色數字是 TWU） ── */
+        .crumbs { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; min-height: 1.6rem; }
+        .crumb { border: 1px solid var(--border); border-radius: 6px; padding: 0.05rem 0.45rem; }
+        .crumb.cur { border-color: var(--accent); color: var(--text); background: rgba(124, 58, 237, 0.15); }
+        .tree-wrap { display: grid; grid-template-columns: 1fr auto; gap: 0.8rem; align-items: start; }
+        @media (max-width: 520px) { .tree-wrap { grid-template-columns: 1fr; } }
+        .tree-box { overflow-x: auto; background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; min-height: 140px; display: flex; align-items: flex-start; justify-content: center; padding: 0.4rem; min-width: 0; }
+        .tree-box svg { display: block; max-width: 100%; height: auto; }
+        .tree-empty { color: var(--muted); font-size: 0.85rem; align-self: center; padding: 1rem; text-align: center; }
+        svg .edge { stroke: #3a3a5a; stroke-width: 2; }
+        svg .edge.on { stroke: var(--warn); stroke-width: 3; }
+        svg .link { stroke: var(--accent2); stroke-width: 1.6; stroke-dasharray: 4 3; fill: none; }
+        svg .node circle.body { fill: #1e1e36; stroke: #3a3a5a; stroke-width: 2; }
+        svg .node.on circle.body { stroke: var(--warn); stroke-width: 3; fill: #2b2318; }
+        svg .node.new circle.body { stroke: var(--good); stroke-width: 3; }
+        svg .node.linked circle.body { stroke: var(--accent2); stroke-width: 3; }
+        svg .node .emo { font-size: 17px; }
+        svg .node .badge { fill: #3b3b62; }
+        svg .node.on .badge { fill: var(--warn); }
+        svg .node.linked .badge { fill: var(--accent2); }
+        svg .node .cnt { font: 700 10.5px 'Space Mono', monospace; fill: #fff; }
+        svg .node .nu { font: 700 11px 'Space Mono', monospace; fill: #c4b5fd; paint-order: stroke; stroke: #0a0a14; stroke-width: 4px; stroke-linejoin: round; }
+        svg .node.linked .nu, svg .node.on .nu { fill: #fcd34d; }
+        svg .root circle { fill: #2a2a48; }
+        svg .root text { font: 9px 'Space Mono', monospace; fill: var(--muted); }
+
+        .header-table { border-collapse: collapse; font-size: 0.82rem; min-width: 150px; }
+        .header-table caption { text-align: left; color: var(--muted); font-size: 0.75rem; padding-bottom: 0.25rem; }
+        .header-table th { color: var(--muted); font-weight: 400; font-size: 0.7rem; text-align: right; padding: 0 0.35rem 0.15rem; }
+        .header-table td { padding: 0.18rem 0.35rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .header-table tr[data-item] { cursor: pointer; }
+        .header-table tr[data-item]:hover td { background: rgba(255, 255, 255, 0.03); }
+        .header-table tr.sel td { background: rgba(6, 182, 212, 0.14); }
+        .header-table tr.out { opacity: 0.45; }
+        .header-table tr.out td.nm { text-decoration: line-through; }
+        .header-table td.c { font: 700 0.8rem 'Space Mono', monospace; text-align: right; color: var(--muted); }
+        .header-table td.c.nu { color: #c4b5fd; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.55rem; }
+        .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+
+        /* 三種排法的順序比較（跟 CanTree 頁的順序比較同一個樣式） */
+        .orders { background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.65rem; margin-bottom: 0.6rem; font-size: 0.8rem; display: grid; gap: 0.2rem; }
+        .ord { display: grid; grid-template-columns: 7.6em 1fr; gap: 0.5rem; align-items: baseline; }
+        @media (max-width: 520px) { .ord { grid-template-columns: 1fr; gap: 0; } .ord + .ord { margin-top: 0.15rem; } }
+        .ord .k { color: var(--muted); }
+        .ord .v { min-width: 0; overflow-wrap: anywhere; }
+        .ord .v .diff { color: var(--warn); font-weight: 600; }
+        .ord-warn { font-size: 0.78rem; color: var(--muted); padding-top: 0.15rem; }
+        .ord-warn.bad { color: var(--warn); }
+        .ord-warn.ok { color: #86efac; }
+
+        /* ── 計算過程 ── */
+        .work-empty { color: var(--muted); font-size: 0.85rem; }
+        .work-note { color: #c6c6d6; font-size: 0.82rem; margin-top: 0.5rem; }
+        .work-note b { color: var(--warn); font-weight: 600; }
+        .chip { display: inline-block; font-size: 0.8rem; border-radius: 6px; padding: 0.02rem 0.4rem; background: #23233d; margin: 0.08rem 0; }
+        .chip.out { background: none; color: var(--muted); text-decoration: line-through; }
+        .chip.ok { background: rgba(34, 197, 94, 0.18); }
+        .chip .v { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.25rem; color: #c4b5fd; }
+        .arrow { color: #4a4a66; font-size: 0.75rem; }
+        .cmp { width: 100%; border-collapse: collapse; margin-top: 0.3rem; font-size: 0.8rem; }
+        .cmp th, .cmp td { border-bottom: 1px solid var(--border); padding: 0.3rem 0.35rem; text-align: right; }
+        .cmp th:first-child, .cmp td:first-child { text-align: left; }
+        .cmp th { color: var(--muted); font-weight: 400; }
+        .cmp td { color: var(--text); font-family: 'Space Mono', monospace; }
+        .cmp td:first-child { font-family: inherit; color: var(--muted); }
+        .cmp td.ok { color: #86efac; }
+        .cmp td.no { color: #fca5a5; }
+        .cmp tr.sum td { color: var(--accent2); }
+
+        /* ── 交易資料庫（跟 UP-Growth 頁同一個表格） ── */
+        .db { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 3px; }
+        .db th.tid-h { width: 2rem; }
+        .db th.tu-h { width: 2.6rem; }
+        .db th { font-weight: 400; color: var(--muted); font-size: clamp(0.6rem, 3vw, 0.72rem); white-space: nowrap; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
+        .db th .emo { display: block; font-size: 1.2rem; }
+        .db th .pf { display: block; font: 700 0.7rem 'Space Mono', monospace; color: #fcd34d; margin-top: 0.1rem; }
+        .db th.sel { color: var(--warn); }
+        .db td { text-align: center; padding: 0; }
+        .db td.tid { font: 0.76rem 'Space Mono', monospace; color: var(--muted); text-align: left; padding-left: 0.3rem; }
+        .db tr.nw td.tid { color: var(--newc); }
+        .db td.tu { font: 700 0.78rem/1.15 'Space Mono', monospace; color: var(--accent2); }
+        .db tr.todo td { opacity: 0.32; }
+        .db tr.match td { background: rgba(245, 158, 11, 0.12); }
+        .db tr.match td:first-child { border-radius: 8px 0 0 8px; color: var(--warn); }
+        .db tr.match td:last-child { border-radius: 0 8px 8px 0; }
+        .db tr.cur td { background: rgba(245, 158, 11, 0.13); }
+        .db tr.cur td:first-child { border-radius: 8px 0 0 8px; color: var(--warn); }
+        .db tr.cur td:last-child { border-radius: 0 8px 8px 0; }
+        .db tr.sep td { font-size: 0.76rem; color: var(--newc); padding: 0.3rem 0.4rem 0.05rem; border-top: 1px dashed rgba(192, 132, 252, 0.45); text-align: left; }
+        .db tfoot td { font: 700 0.72rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.35rem; border-top: 1px dashed var(--border); }
+        .db tfoot td.tid { color: var(--muted); font-size: 0.66rem; }
+        .cell {
+            width: 30px;
+            min-height: 30px;
+            margin: 0 auto;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font: 700 0.85rem/1.1 'Space Mono', monospace;
+        }
+        @media (max-width: 380px) { .cell { width: 26px; } }
+        .cell.has { background: #2a2a48; }
+        .db tr.nw .cell.has { background: rgba(192, 132, 252, 0.2); }
+        .cell.hit { background: rgba(245, 158, 11, 0.38) !important; }
+        .cell small { font-size: 0.62rem; font-weight: 400; color: #fcd34d; }
+        .db-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+
+        .compose { margin-top: 0.8rem; display: grid; gap: 0.55rem; border-top: 1px solid var(--border); padding-top: 0.7rem; }
+        .compose .lbl { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
+        .picks { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+        .pick {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.84rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .pick:hover { border-color: var(--newc); }
+        .pick.on { color: var(--text); border-color: var(--newc); background: rgba(192, 132, 252, 0.16); }
+        .pick .q { font: 700 0.76rem 'Space Mono', monospace; margin-left: 0.2rem; color: var(--newc); }
+        .presets { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .presets .btn.cur { border-color: var(--newc); color: var(--newc); }
+        .row-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+            position: relative;   /* 讓行的 offsetTop 從框的頂端算，自動捲動才捲得對 */
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        /* ── 結果 ── */
+        .result-note { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; }
+        .levels { display: grid; gap: 0.45rem; }
+        .level { display: grid; grid-template-columns: 2.8em 1fr; gap: 0.5rem; align-items: start; }
+        .level .tag { font: 700 0.8rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.2rem; }
+        .level .items { display: flex; flex-wrap: wrap; gap: 0.35rem; min-width: 0; }
+        .pat { font-size: 0.82rem; border: 1px solid rgba(124, 58, 237, 0.6); border-radius: 7px; padding: 0.12rem 0.5rem; }
+        .pat .n { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.35rem; color: #c4b5fd; }
+        .pat.hui { border-color: rgba(34, 197, 94, 0.6); background: rgba(34, 197, 94, 0.08); }
+        .pat.hui .n { color: #86efac; }
+        .pat.low { border-color: rgba(248, 113, 113, 0.4); color: var(--muted); }
+        .pat.low .s { text-decoration: line-through; }
+        .pat.low .n { color: #fca5a5; }
+        .pat.fresh { box-shadow: 0 0 0 2px var(--warn); }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+        .legend.pats i { width: 14px; height: 10px; border-radius: 3px; border-width: 1.5px; vertical-align: 0; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .compare { margin-top: 0.9rem; font-size: 0.85rem; color: var(--muted); }
+        .compare h3 { font-size: 0.9rem; color: var(--text); margin-bottom: 0.3rem; }
+        .compare a { color: var(--accent2); }
+        .compare .cmp th { font-size: 0.74rem; }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · INCREMENTAL HIGH-UTILITY MINING</div>
+        <h1>IHUP 增量高效益樣式<small>樹照固定順序長、節點記 TWU，新交易來了直接插，要結果時才挖</small></h1>
+        <p class="intro">
+            <a href="two-phase.html">Two-Phase</a>、<a href="up-growth.html">UP-Growth</a> 都假設資料庫是固定的；可是超商每天都有新交易，
+            每次都從頭跑一遍，舊的那幾千筆就要一直重掃。<b>IHUP</b>（Incremental High Utility Pattern，Ahmed 等人，TKDE 2009）把
+            <a href="cantree.html">CanTree</a> 的想法搬到高效益樣式：樹照<b>事先定好、永遠不變的字典序</b>插入交易（這裡把商品照貨架順序編號 ☕→🍞→🥛→🍙→🥚→🥔），
+            每個節點記<b>次數</b>和 <b>TWU</b>（經過它的交易 TU 加起來）。新交易進來只要算出它的 TU、沿一條路徑加上去，不用重排、不用重建；
+            要結果的時候，才像 <a href="fp-growth.html">FP-Growth</a> 一樣用 TWU 挖出候選，最後再掃一次資料庫算真正的效益。
+            同樣用 8 筆超商交易、同樣的數量和利潤，你也可以自己加交易、選要在哪幾個時間點挖。
+        </p>
+
+        <div class="layout">
+            <div class="col">
+                <div class="card a-step">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="controls">
+                        <div class="minsup">
+                            <span>最小效益門檻</span>
+                            <button class="btn stepper" id="mu-minus" aria-label="降低門檻">−</button>
+                            <span class="val" id="mu-val">250</span>
+                            <button class="btn stepper" id="mu-plus" aria-label="提高門檻">+</button>
+                        </div>
+                        <div class="mine-at">
+                            <button class="btn small" id="btn-mine-here">⛏ 插完這筆就挖</button>
+                            <span class="lst" id="mine-list"></span>
+                        </div>
+                    </div>
+                    <div class="explain" id="explain"></div>
+                </div>
+
+                <div class="card a-tree">
+                    <div class="card-head"><h2 id="tree-title">IHUP_L-Tree</h2></div>
+                    <div class="crumbs" id="crumbs"></div>
+                    <div class="orders">
+                        <div class="ord"><span class="k">IHUP_L 字典序</span><span class="v" id="ord-l"></span></div>
+                        <div class="ord"><span class="k">IHUP_TF 照次數</span><span class="v" id="ord-tf"></span></div>
+                        <div class="ord"><span class="k">IHUP_TWU 照 TWU</span><span class="v" id="ord-twu"></span></div>
+                        <div class="ord-warn" id="ord-warn">&nbsp;</div>
+                    </div>
+                    <div class="tree-wrap">
+                        <div class="tree-box" id="tree"></div>
+                        <table class="header-table" id="header"></table>
+                    </div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn)"></i>這一步走過的路徑</span>
+                        <span><i style="border-color:var(--good)"></i>新長出的節點</span>
+                        <span><i style="border-color:var(--accent2)"></i>同商品的節點鏈（點右邊的表也能看）</span>
+                    </div>
+                    <p class="legend" style="margin-top:0.3rem">節點右下角是次數，下面的紫色數字是 TWU（經過它的交易 TU 加起來）</p>
+                </div>
+
+                <div class="card a-work">
+                    <div class="card-head"><h2 id="work-title">計算過程</h2></div>
+                    <div id="work"></div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card a-data">
+                    <div class="card-head"><h2>交易資料庫</h2><span class="sub" id="db-sub"></span></div>
+                    <table class="db" id="db"></table>
+                    <p class="db-note">格子裡是購買數量，商品下面是單位利潤；TU 是這筆交易的總效益（數量 × 利潤加起來）。最下面一列是到目前為止插進樹的交易算出的 TWU。挖到某個組合時，標黃的列是有買這幾樣的交易，格子裡的小字是那一樣的效益。</p>
+                    <div class="compose">
+                        <div>
+                            <div class="lbl">組一筆新交易：點商品，每點一下數量 +1（點到 5 之後歸零），再按「＋ 加入」；最多 8 筆</div>
+                            <div class="picks" id="picks"></div>
+                        </div>
+                        <div>
+                            <div class="lbl">或直接換一組新交易</div>
+                            <div class="presets" id="presets"></div>
+                        </div>
+                        <div class="row-actions">
+                            <button class="btn small" id="btn-undo">刪掉最後一筆新交易</button>
+                            <button class="btn small" id="btn-clear">清空新交易</button>
+                            <button class="btn small" id="btn-reset">↺ 恢復範例</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card a-code">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+
+                <div class="card a-result">
+                    <h2>候選與高效益樣式</h2>
+                    <div class="result-note" id="result-note"></div>
+                    <div class="levels" id="levels"></div>
+                    <div class="legend pats">
+                        <span><i style="border-color:rgba(124,58,237,0.8)"></i>候選（數字是 TWU）</span>
+                        <span><i style="border-color:rgba(34,197,94,0.8);background:rgba(34,197,94,0.15)"></i>高效益（數字是真正效益）</span>
+                        <span><i style="border-color:rgba(248,113,113,0.6)"></i>候選但效益不夠</span>
+                    </div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-l">0</div><div class="k">IHUP_L-Tree 節點數</div></div>
+                        <div class="stat"><div class="v" id="st-tf">0</div><div class="k">IHUP_TF-Tree 節點數（照目前次數排）</div></div>
+                        <div class="stat"><div class="v" id="st-twu">0</div><div class="k">IHUP_TWU-Tree 節點數（照目前 TWU 排）</div></div>
+                        <div class="stat"><div class="v" id="st-re">0</div><div class="k">新交易讓 TF／TWU 順序變了幾次</div></div>
+                    </div>
+                    <div class="compare" id="compare"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼不重建，挖出來還是對的？</h2>
+                <p>兩件事讓 IHUP 可以「只插不重建」：</p>
+                <ul>
+                    <li><b>順序固定，路徑就是前綴：</b>跟 <a href="cantree.html">CanTree</a> 一樣，每筆交易都照同一個順序排，所以某個節點往上走到根，經過的就是跟它同一筆交易、排在它前面的商品。
+                        條件模式基底、條件樹、遞迴，都可以照 FP-Growth 搬過來。順序是不是照次數排，只影響樹的大小，不影響對錯。</li>
+                    <li><b>節點記的是 TWU，而 TWU 可以直接加：</b>一筆交易的 TU 在它進來的那一刻就算得出來，跟其他交易無關。
+                        節點的 TWU = 經過它的交易 TU 加起來，所以新交易只要把自己的 TU 加到路徑上每個節點，舊節點的值依然正確，<b>不用回頭看舊交易</b>。</li>
+                    <li><b>TWU 是上界、而且向下封閉：</b>組合 X 的效益 ≤ 有買 X 的交易 TU 加起來 = TWU(X)，組合變大 TWU 只會變小。
+                        所以在樹上挖出「TWU ≥ 門檻」的組合（跟 Two-Phase 第一階段找的是同一批），一定包含所有高效益樣式，只是可能多抓；多出來的靠最後一次掃描淘汰。</li>
+                </ul>
+                <p style="margin-top:0.5rem">這也是為什麼程式裡要把交易留著：第二階段要算「只算組合裡那幾樣」的真正效益，樹上只有 TWU，算不出來。</p>
+            </div>
+            <div class="card">
+                <h2>三種 IHUP 樹、跟從頭重跑比起來</h2>
+                <ul>
+                    <li><b>IHUP_L-Tree（字典序，這頁）：</b>插入最簡單，完全不用調整；代價是順序跟次數無關，共用的前綴比較少，樹通常最大。</li>
+                    <li><b>IHUP_TF-Tree（照出現次數）與 IHUP_TWU-Tree（照 TWU）：</b>常出現、TWU 大的商品放上面，樹比較小、挖得比較快（論文實驗裡 TWU 版挖得最快）；
+                        但新交易讓順序變了，就要把節點換位置（論文用相鄰兩個交換，像泡沫排序一樣），插入比較貴。上面的順序比較會告訴你什麼時候需要調整。</li>
+                    <li><b>跟每次從頭跑 <a href="two-phase.html">Two-Phase</a> 比：</b>從頭跑每次都要一層一層重掃整個資料庫；IHUP 新交易只讀一次，挖的時候在樹上算 TWU，只有驗證時掃一次。
+                        挖的次數越多、資料越大，差距越明顯。</li>
+                    <li><b>缺點：</b>還是兩階段，候選跟只用 TWU 的 Two-Phase 一樣多（上界最鬆），驗證時還是要掃整個資料庫。
+                        後來的 <a href="up-growth.html">UP-Growth</a> 把節點的上界收緊、<a href="high-utility.html">HUI-Miner</a> 改成不用候選；
+                        增量版本也一路往這兩個方向改（例如增量的 utility list），實驗室在做的增量、資料串流高效益探勘，很多都是從 IHUP 這類樹出發。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           IHUP 一步一步看
+           網頁裡用 JavaScript 照著同樣的流程跑一次（插入、在選定的時間點挖、繼續插入），
+           把每一步記下來；右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = {"java": [["// 字典序：論文裡商品編號 a、b、c… 照字母排；這裡照貨架順序編號，之後永遠不變", ["order"]], ["static final List<String> ORDER = List.of(\"咖啡\", \"麵包\", \"牛奶\", \"飯糰\", \"茶葉蛋\", \"洋芋片\");", ["order"]], ["// 排序用：照 ORDER 的位置；不在清單裡的商品排最後、照字碼", ["order"]], ["static final Comparator<String> LEX = Comparator", ["order"]], ["        .comparingInt((String s) -> ORDER.contains(s) ? ORDER.indexOf(s) : ORDER.size())", ["order"]], ["        .thenComparing(Comparator.naturalOrder());", ["order"]], ["", []], ["static class Node {", []], ["    String item;", []], ["    Node parent;", []], ["    int count;                                          // 經過這個節點的交易筆數", []], ["    int twu;                                            // 經過這個節點的交易，TU 加起來", []], ["    Map<String, Node> children = new HashMap<>();", []], ["    Node(String item, Node parent) { this.item = item; this.parent = parent; }", []], ["}", []], ["", []], ["/** 條件模式基底裡的一條路徑，帶著它的 TWU */", []], ["static class Row {", []], ["    List<String> items;", []], ["    int twu;", []], ["    Row(List<String> items, int twu) { this.items = items; this.twu = twu; }", []], ["}", []], ["", []], ["Map<String, Integer> profit;", []], ["Node root = new Node(null, null);", []], ["Map<String, List<Node>> header = new HashMap<>();      // 商品 → 樹上所有這個商品的節點（節點鏈）", []], ["List<Map<String, Integer>> db = new ArrayList<>();     // 交易也留著，第二階段驗證要用", []], ["int nodes = 0;", []], ["", []], ["IHUP(Map<String, Integer> profit) { this.profit = profit; }", []], ["", []], ["/** 插入一筆交易（商品 → 數量）：算出 TU，照字典序沿路徑走，路徑上每個節點的 TWU 加上 TU */", []], ["void add(Map<String, Integer> t) {", ["insert"]], ["    db.add(t);", ["insert"]], ["    int tu = 0;                                         // 這筆交易的總效益", ["insert"]], ["    for (String i : t.keySet()) tu += t.get(i) * profit.get(i);", ["insert"]], ["    List<String> path = new ArrayList<>(t.keySet());", ["insert"]], ["    path.sort(LEX);                                     // 順序固定，跟目前的 TWU 無關", ["insert"]], ["    Node node = root;", ["insert"]], ["    for (String item : path) {", ["insert"]], ["        Node child = node.children.get(item);", ["insert"]], ["        if (child == null) {                            // 沒有共用的前綴，長出新節點", ["insert"]], ["            child = new Node(item, node);", ["insert"]], ["            node.children.put(item, child);", ["insert"]], ["            header.computeIfAbsent(item, k -> new ArrayList<>()).add(child);", ["insert"]], ["            nodes++;", ["insert"]], ["        }", ["insert"]], ["        node = child;", ["insert"]], ["        node.count++;", ["insert"]], ["        node.twu += tu;                                 // 只有這條路徑上的節點會變", ["insert"]], ["    }", ["insert"]], ["}", ["insert"]], ["", []], ["/** 要結果時才挖：第一階段在樹上找 TWU 夠的候選，第二階段掃一次資料庫算真正的效益 */", []], ["Map<List<String>, Integer> mine(int minUtil) {", ["mine"]], ["    Map<List<String>, Integer> cands = new LinkedHashMap<>();   // 候選 → 它的 TWU", ["mine"]], ["    List<String> items = new ArrayList<>(header.keySet());", ["mine"]], ["    items.sort(LEX.reversed());                         // 從字典序最後面開始", ["mine"]], ["    for (String item : items) {", ["mine"]], ["        int twu = 0;", ["check"]], ["        for (Node n : header.get(item)) twu += n.twu;   // 節點鏈上的 TWU 加起來", ["check"]], ["        if (twu < minUtil)", ["check"]], ["            continue;                                   // TWU 不夠：含它的組合都不可能夠，跳過", ["skip"]], ["        cands.put(List.of(item), twu);", ["cand"]], ["        List<Row> base = new ArrayList<>();             // 條件模式基底", ["base"]], ["        for (Node n : header.get(item)) {", ["base"]], ["            List<String> path = prefixPath(n);", ["base"]], ["            if (!path.isEmpty()) base.add(new Row(path, n.twu));", ["base"]], ["        }", ["base"]], ["        grow(base, minUtil, List.of(item), cands);      // 之後跟 FP-Growth 一樣", ["recurse"]], ["    }", ["mine"]], ["    Map<List<String>, Integer> result = new LinkedHashMap<>();", ["verify"]], ["    for (List<String> c : cands.keySet()) {             // 第二階段：再掃一次資料庫", ["verify"]], ["        int u = 0;", ["verify"]], ["        for (Map<String, Integer> t : db)", ["verify"]], ["            if (t.keySet().containsAll(c))", ["verify"]], ["                for (String i : c) u += t.get(i) * profit.get(i);   // 只加組合裡那幾樣", ["verify"]], ["        if (u >= minUtil) result.put(c, u);", ["verify"]], ["    }", ["verify"]], ["    return result;", ["end"]], ["}", []], ["", []], ["/** 跟 FP-Growth 一樣：數條件模式基底裡的 TWU、建條件樹、遞迴；只是「次數」換成 TWU */", []], ["static void grow(List<Row> base, int minUtil, List<String> suffix, Map<List<String>, Integer> cands) {", []], ["    Map<String, Integer> twu = new HashMap<>();", ["count"]], ["    for (Row r : base)", ["count"]], ["        for (String item : r.items) twu.merge(item, r.twu, Integer::sum);", ["count"]], ["    List<String> order = new ArrayList<>();             // 條件樹也照字典序", ["count"]], ["    for (String item : twu.keySet())", ["count"]], ["        if (twu.get(item) >= minUtil) order.add(item);", ["count"]], ["    order.sort(LEX);", ["count"]], ["", []], ["    Node root = new Node(null, null);", ["cbuild"]], ["    Map<String, List<Node>> header = new HashMap<>();", ["cbuild"]], ["    for (String item : order) header.put(item, new ArrayList<>());", ["cbuild"]], ["    for (Row r : base) {", ["cbuild"]], ["        List<String> path = new ArrayList<>();", ["cbuild"]], ["        for (String item : r.items) if (header.containsKey(item)) path.add(item);", ["cbuild"]], ["        insertPath(root, path, r.twu, header);", ["cbuild"]], ["    }", ["cbuild"]], ["", []], ["    for (int k = order.size() - 1; k >= 0; k--) {", ["cloop"]], ["        String item = order.get(k);", ["ccand"]], ["        List<String> pattern = new ArrayList<>(suffix);", ["ccand"]], ["        pattern.add(0, item);", ["ccand"]], ["        cands.put(pattern, twu.get(item));              // TWU 夠：記成候選", ["ccand"]], ["        List<Row> sub = new ArrayList<>();", ["cbase"]], ["        for (Node n : header.get(item)) {", ["cbase"]], ["            List<String> path = prefixPath(n);", ["cbase"]], ["            if (!path.isEmpty()) sub.add(new Row(path, n.twu));", ["cbase"]], ["        }", ["cbase"]], ["        grow(sub, minUtil, pattern, cands);             // 遞迴", ["crecurse"]], ["    }", ["cloop"]], ["}", []], ["", []], ["static void insertPath(Node root, List<String> path, int u, Map<String, List<Node>> header) {", ["cbuild"]], ["    Node node = root;", ["cbuild"]], ["    for (String item : path) {", ["cbuild"]], ["        Node child = node.children.get(item);", ["cbuild"]], ["        if (child == null) {", ["cbuild"]], ["            child = new Node(item, node);", ["cbuild"]], ["            node.children.put(item, child);", ["cbuild"]], ["            header.get(item).add(child);", ["cbuild"]], ["        }", ["cbuild"]], ["        node = child;", ["cbuild"]], ["        node.twu += u;", ["cbuild"]], ["    }", ["cbuild"]], ["}", ["cbuild"]], ["", []], ["/** 從某個節點往上走到根，經過的商品就是它的前綴路徑 */", []], ["static List<String> prefixPath(Node node) {", ["base", "cbase"]], ["    LinkedList<String> path = new LinkedList<>();", ["base", "cbase"]], ["    for (Node p = node.parent; p.item != null; p = p.parent)", ["base", "cbase"]], ["        path.addFirst(p.item);", ["base", "cbase"]], ["    return path;", ["base", "cbase"]], ["}", ["base", "cbase"]]], "py": [["# 字典序：論文裡商品編號 a、b、c… 照字母排；這裡照貨架順序編號，之後永遠不變", ["order"]], ["ORDER = [\"咖啡\", \"麵包\", \"牛奶\", \"飯糰\", \"茶葉蛋\", \"洋芋片\"]", ["order"]], ["", []], ["", []], ["def rank(item):", ["order"]], ["    \"\"\"排序用：照 ORDER 的位置；不在清單裡的商品排最後、照字碼\"\"\"", ["order"]], ["    return (ORDER.index(item), \"\") if item in ORDER else (len(ORDER), item)", ["order"]], ["", []], ["", []], ["class Node:", []], ["    def __init__(self, item, parent):", []], ["        self.item = item", []], ["        self.parent = parent", []], ["        self.count = 0                             # 經過這個節點的交易筆數", []], ["        self.twu = 0                               # 經過這個節點的交易，TU 加起來", []], ["        self.children = {}", []], ["", []], ["", []], ["class IHUPTree:", []], ["    def __init__(self, profit):", []], ["        self.profit = profit", []], ["        self.root = Node(None, None)", []], ["        self.header = {}                           # 商品 → 樹上所有這個商品的節點（節點鏈）", []], ["        self.db = []                               # 交易也留著，第二階段驗證要用", []], ["        self.nodes = 0", []], ["", []], ["    def add(self, t):", ["insert"]], ["        \"\"\"插入一筆交易（商品 → 數量）：算出 TU，照字典序沿路徑走，路徑上每個節點的 TWU 加上 TU\"\"\"", ["insert"]], ["        self.db.append(t)", ["insert"]], ["        tu = sum(q * self.profit[i] for i, q in t.items())   # 這筆交易的總效益", ["insert"]], ["        node = self.root", ["insert"]], ["        for item in sorted(t, key=rank):           # 順序固定，跟目前的 TWU 無關", ["insert"]], ["            if item not in node.children:          # 沒有共用的前綴，長出新節點", ["insert"]], ["                child = Node(item, node)", ["insert"]], ["                node.children[item] = child", ["insert"]], ["                self.header.setdefault(item, []).append(child)", ["insert"]], ["                self.nodes += 1", ["insert"]], ["            node = node.children[item]", ["insert"]], ["            node.count += 1", ["insert"]], ["            node.twu += tu                         # 只有這條路徑上的節點會變", ["insert"]], ["", []], ["    def mine(self, min_util):", ["mine"]], ["        \"\"\"要結果時才挖：第一階段在樹上找 TWU 夠的候選，第二階段掃一次資料庫算真正的效益\"\"\"", ["mine"]], ["        cands = {}                                 # 候選 → 它的 TWU", ["mine"]], ["        for item in sorted(self.header, key=rank, reverse=True):   # 從字典序最後面開始", ["mine"]], ["            twu = sum(n.twu for n in self.header[item])   # 節點鏈上的 TWU 加起來", ["check"]], ["            if twu < min_util:", ["check"]], ["                continue                           # TWU 不夠：含它的組合都不可能夠，跳過", ["skip"]], ["            cands[(item,)] = twu", ["cand"]], ["            base = [(prefix_path(n), n.twu) for n in self.header[item]]   # 條件模式基底", ["base"]], ["            grow([b for b in base if b[0]], min_util, (item,), cands)   # 之後跟 FP-Growth 一樣", ["recurse"]], ["        util = {c: 0 for c in cands}               # 第二階段：再掃一次資料庫", ["verify"]], ["        for t in self.db:", ["verify"]], ["            for c in cands:", ["verify"]], ["                if all(i in t for i in c):", ["verify"]], ["                    util[c] += sum(t[i] * self.profit[i] for i in c)   # 只加組合裡那幾樣", ["verify"]], ["        return {c: u for c, u in util.items() if u >= min_util}", ["end"]], ["", []], ["", []], ["def grow(base, min_util, suffix, cands):", []], ["    \"\"\"跟 FP-Growth 一樣：數條件模式基底裡的 TWU、建條件樹、遞迴；只是「次數」換成 TWU\"\"\"", []], ["    twu = {}", ["count"]], ["    for path, u in base:", ["count"]], ["        for item in path:", ["count"]], ["            twu[item] = twu.get(item, 0) + u", ["count"]], ["    order = sorted((i for i in twu if twu[i] >= min_util), key=rank)   # 條件樹也照字典序", ["count"]], ["", []], ["    root = Node(None, None)", ["cbuild"]], ["    header = {i: [] for i in order}", ["cbuild"]], ["    for path, u in base:", ["cbuild"]], ["        insert_path(root, [i for i in path if i in header], u, header)", ["cbuild"]], ["", []], ["    for item in reversed(order):", ["cloop"]], ["        pattern = (item,) + suffix", ["ccand"]], ["        cands[pattern] = twu[item]                 # TWU 夠：記成候選", ["ccand"]], ["        sub = [(prefix_path(n), n.twu) for n in header[item]]", ["cbase"]], ["        grow([b for b in sub if b[0]], min_util, pattern, cands)   # 遞迴", ["crecurse"]], ["", []], ["", []], ["def insert_path(root, path, u, header):", ["cbuild"]], ["    node = root", ["cbuild"]], ["    for item in path:", ["cbuild"]], ["        if item not in node.children:", ["cbuild"]], ["            child = Node(item, node)", ["cbuild"]], ["            node.children[item] = child", ["cbuild"]], ["            header[item].append(child)", ["cbuild"]], ["        node = node.children[item]", ["cbuild"]], ["        node.twu += u", ["cbuild"]], ["", []], ["", []], ["def prefix_path(node):", ["base", "cbase"]], ["    \"\"\"從某個節點往上走到根，經過的商品就是它的前綴路徑\"\"\"", ["base", "cbase"]], ["    path = []", ["base", "cbase"]], ["    node = node.parent", ["base", "cbase"]], ["    while node.item is not None:", ["base", "cbase"]], ["        path.append(node.item)", ["base", "cbase"]], ["        node = node.parent", ["base", "cbase"]], ["    return path[::-1]", ["base", "cbase"]]]};
+
+        const ITEMS = ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'];
+        const ORDER = ITEMS;      // 字典序：跟程式裡的 ORDER 一樣（貨架順序編號），永遠不變
+        const EMOJI = { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' };
+        const PROFIT = { '咖啡': 30, '麵包': 15, '牛奶': 20, '飯糰': 10, '茶葉蛋': 5, '洋芋片': 25 };
+        /* 跟 Two-Phase、UP-Growth 頁同樣的 8 筆交易（商品 → 購買數量） */
+        const SAMPLE = [
+            { '咖啡': 4, '麵包': 2, '牛奶': 2 },
+            { '咖啡': 3, '麵包': 5, '茶葉蛋': 4 },
+            { '咖啡': 1, '麵包': 1, '牛奶': 2, '飯糰': 2 },
+            { '麵包': 3, '牛奶': 4, '洋芋片': 5 },
+            { '咖啡': 3, '牛奶': 2, '茶葉蛋': 2 },
+            { '咖啡': 1, '麵包': 2, '牛奶': 1, '茶葉蛋': 1 },
+            { '飯糰': 1, '茶葉蛋': 2, '洋芋片': 2 },
+            { '咖啡': 1, '麵包': 2, '飯糰': 1 }
+        ];
+        const PRESETS = [
+            { label: '🍙 飯糰洋芋片變多', rows: [{ '洋芋片': 3, '飯糰': 2 }, { '茶葉蛋': 2, '洋芋片': 2, '飯糰': 1 }, { '牛奶': 1, '飯糰': 3 }, { '洋芋片': 4, '飯糰': 1, '咖啡': 2 }] },
+            { label: '😐 跟原本差不多', rows: [{ '咖啡': 2, '麵包': 1 }, { '咖啡': 1, '牛奶': 2 }, { '麵包': 2, '牛奶': 1, '茶葉蛋': 2 }] },
+            { label: '🥚 茶葉蛋大量進貨', rows: [{ '茶葉蛋': 5 }, { '茶葉蛋': 4, '飯糰': 1 }, { '茶葉蛋': 5, '咖啡': 1 }, { '茶葉蛋': 3, '洋芋片': 1 }, { '茶葉蛋': 5, '牛奶': 1 }] }
+        ];
+        const MAX_BATCH = 8, MU_MIN = 50, MU_MAX = 800, MU_STEP = 10;
+
+        const $ = id => document.getElementById(id);
+        let batch = [];           // 新增的交易（接在 8 筆初始交易後面）
+        let presetUsed = 0;
+        let draft = {};           // 正在組的新交易：商品 → 數量
+        let minUtil = 250;
+        let minePoints = new Set([8]);   // 插完第幾筆時挖（不含最後一筆）
+        let mineEnd = true;              // 全部插完時也挖
+        let lang = 'java';
+        let trace = [];
+        let cursor = 0;
+        let linkItem = null;
+        let timer = null;
+
+        /* 跟 Java 的 compareTo、Python 的字串比較同一個順序（依字碼） */
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+        const rank = i => (ORDER.includes(i) ? ORDER.indexOf(i) : ORDER.length);
+        const lex = (a, b) => rank(a) - rank(b) || cmp(a, b);
+        const sortLex = items => items.slice().sort(lex);
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const fmtText = set => '{' + set.join(', ') + '}';
+        const fmt = set => esc(fmtText(set));
+        const arrowPath = items => esc(items.join(' → '));
+        const keyOf = items => items.join('|');
+        const has = (t, item) => Object.prototype.hasOwnProperty.call(t, item);
+        const contains = (t, set) => set.every(i => has(t, i));
+        const sum = arr => arr.reduce((a, b) => a + b, 0);
+        const tuOf = (t, profit) => sum(Object.keys(t).map(i => t[i] * profit[i]));
+        const allRows = () => SAMPLE.concat(batch);
+        /* 實際要挖的時間點（插完第幾筆），由小到大 */
+        function minePlan() {
+            const N = allRows().length;
+            const pts = [...minePoints].filter(p => p >= 1 && p < N);
+            if (mineEnd) pts.push(N);
+            return [...new Set(pts)].sort((a, b) => a - b);
+        }
+
+        /* 目前的次數、TWU，以及照它們排的順序（IHUP_TF、IHUP_TWU 用的） */
+        function orderInfo(rows, profit) {
+            const cnt = {}, twu = {};
+            rows.forEach(t => {
+                const tu = tuOf(t, profit);
+                Object.keys(t).forEach(i => { cnt[i] = (cnt[i] || 0) + 1; twu[i] = (twu[i] || 0) + tu; });
+            });
+            const its = Object.keys(cnt);
+            return {
+                cnt, twu,
+                tf: its.slice().sort((a, b) => cnt[b] - cnt[a] || lex(a, b)),
+                tw: its.slice().sort((a, b) => twu[b] - twu[a] || lex(a, b))
+            };
+        }
+        /* 照某個順序把交易插成前綴樹，會有幾個節點（不同的前綴有幾種） */
+        function prefixNodes(rows, order) {
+            const seen = new Set();
+            rows.forEach(t => {
+                const p = order.filter(i => has(t, i));
+                for (let k = 1; k <= p.length; k++) seen.add(p.slice(0, k).join('|'));
+            });
+            return seen.size;
+        }
+        /* 舊的商品彼此的先後有沒有變（新出現的商品不算） */
+        function relChanged(oldO, newO) {
+            const s = new Set(oldO);
+            return newO.filter(i => s.has(i)).join('|') !== oldO.join('|');
+        }
+
+        /* ---------- 對照用：同樣的資料從頭跑一次 Two-Phase（跟 Two-Phase 頁同一套做法） ---------- */
+        function twoPhaseCost(db, profit, mu) {
+            const tu = db.map(t => tuOf(t, profit));
+            const twuOf = set => sum(db.map((t, k) => (contains(t, set) ? tu[k] : 0)));
+            const twu = {};
+            db.forEach((t, k) => Object.keys(t).forEach(i => { twu[i] = (twu[i] || 0) + tu[k]; }));
+            let L = Object.keys(twu).filter(i => twu[i] >= mu).sort((a, b) => twu[a] - twu[b] || cmp(a, b)).map(i => [i]);
+            let cands = L.length;
+            let scans = 1;
+            for (let k = 2; L.length; k++) {
+                const prev = new Set(L.map(keyOf));
+                let C = [];
+                for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+                    const a = L[i], b = L[j];
+                    if (keyOf(a.slice(0, k - 2)) === keyOf(b.slice(0, k - 2))) C.push([...a, b[k - 2]]);
+                }
+                C = C.filter(c => c.every((_, x) => prev.has(keyOf(c.filter((__, y) => y !== x)))));
+                if (!C.length) break;
+                scans++;
+                L = C.filter(c => twuOf(c) >= mu);
+                cands += L.length;
+            }
+            scans++;
+            return { scans, cands };
+        }
+
+        /* ---------- 照著程式跑一次，記下每一步 ---------- */
+        function buildTrace(db, nInit, profit, minUtil, plan) {
+            const steps = [];
+            const stack = [];
+            const stats = {
+                mines: 0, inserts: 0, reorderTf: 0, reorderTwu: 0,
+                ihupScans: 0, ihupReads: 0, tpScans: 0, tpReads: 0, rbScans: 0, rbReads: 0, rbNodes: 0
+            };
+            let cands = [], result = [], phase = 0, minedAt = 0, lastTp = null, lastRb = 0;
+            let nextId = 1, ins = 0, nodes = 0, built = null;
+            const L = { id: 0, item: null, count: 0, twu: 0, children: new Map() };
+            const header = {};
+            const mines = [];        // 每次挖的結果（測試用）
+
+            const snapshot = root => {
+                const out = [];
+                (function walk(n) {
+                    for (const c of n.children.values()) {
+                        out.push({ id: c.id, item: c.item, count: c.count, twu: c.twu, parent: n.id });
+                        walk(c);
+                    }
+                })(root);
+                return out;
+            };
+            // 第 0 層：IHUP_L-Tree 本身（表頭照字典序）
+            const f0 = () => {
+                const count = {}, cnt = {};
+                Object.keys(header).forEach(i => {
+                    count[i] = sum(header[i].map(n => n.twu));
+                    cnt[i] = sum(header[i].map(n => n.count));
+                });
+                return { depth: 0, suffix: [], root: L, header, order: sortLex(Object.keys(header)), count, cnt, rows: null };
+            };
+
+            function push(kind, f, extra = {}) {
+                const sofar = db.slice(0, ins);
+                const oi = orderInfo(sofar, profit);
+                steps.push({
+                    kind, depth: f.depth, suffix: f.suffix, phase,
+                    crumbs: stack.map(x => x.suffix),
+                    tree: f.root ? snapshot(f.root) : [],
+                    header: f.header ? Object.fromEntries(Object.entries(f.header).map(([k, v]) => [k, v.map(n => n.id)])) : {},
+                    order: f.order.slice(),
+                    counts: { ...f.count }, cnt: f.cnt ? { ...f.cnt } : null,
+                    rows: f.rows ? f.rows.map(r => ({ ...r })) : null,
+                    ins, nodes, minedAt, mining: stack.length > 0 || !!extra.mining,
+                    tfOrder: oi.tf, twuOrder: oi.tw, itemTwu: oi.twu,
+                    tfNodes: prefixNodes(sofar, oi.tf), twuNodes: prefixNodes(sofar, oi.tw),
+                    cands: cands.map(c => ({ ...c })),
+                    result: result.map(r => ({ ...r })),
+                    stats: { ...stats }, lastTp, lastRb,
+                    ...extra
+                });
+            }
+
+            /* 條件模式基底之後：跟 FP-Growth 一樣，只是「次數」換成 TWU */
+            function grow(rows, suffix, depth) {
+                const f = { depth, suffix, root: null, header: null, order: [], count: {}, rows: rows.map(r => ({ items: r.items, u: r.u })) };
+                stack.push(f);
+                rows.forEach(r => r.items.forEach(i => { f.count[i] = (f.count[i] || 0) + r.u; }));
+                f.order = sortLex(Object.keys(f.count).filter(i => f.count[i] >= minUtil));
+                f.rows.forEach(r => { r.path = r.items.filter(i => f.order.includes(i)); });
+                push('count', f);
+                if (!f.order.length) { stack.pop(); return; }
+
+                f.root = { id: 0, item: null, count: 0, twu: 0, children: new Map() };
+                f.header = Object.fromEntries(f.order.map(i => [i, []]));
+                f.rows.forEach(r => {
+                    let node = f.root;
+                    r.path.forEach(item => {
+                        let child = node.children.get(item);
+                        if (!child) {
+                            child = { id: nextId++, item, count: 0, twu: 0, children: new Map(), parent: node };
+                            node.children.set(item, child);
+                            f.header[item].push(child);
+                        }
+                        child.twu += r.u;
+                        node = child;
+                    });
+                });
+                push('build', f);
+
+                for (let i = f.order.length - 1; i >= 0; i--) {
+                    const item = f.order[i];
+                    const pattern = [item, ...suffix];
+                    cands.push({ set: pattern, twu: f.count[item], fresh: true });
+                    const linkIds = f.header[item].map(n => n.id);
+                    push('pattern', f, { item, pattern, linkIds, nodeTwus: f.header[item].map(n => n.twu) });
+                    cands.forEach(c => { c.fresh = false; });
+                    const base = [], pathIds = [];
+                    f.header[item].forEach(node => {
+                        const path = [];
+                        for (let p = node.parent; p.item !== null; p = p.parent) { path.unshift(p.item); pathIds.push(p.id); }
+                        if (path.length) base.push({ items: path, u: node.twu });
+                    });
+                    push('base', f, { item, pattern, linkIds, pathIds, base });
+                    if (base.length) {
+                        grow(base, pattern, depth + 1);
+                        push('back', f, { item, pattern });
+                    }
+                }
+                stack.pop();
+            }
+
+            /* 在 IHUP_L-Tree 上挖：表頭照字典序，從最後面的商品開始 */
+            function mineL() {
+                cands = []; result = []; phase = 1;
+                const f = f0();
+                stack.push(f);
+                push('mine', f);
+                for (const item of f.order.slice().reverse()) {
+                    const tw = f.count[item];
+                    const linkIds = f.header[item].map(n => n.id), nodeTwus = f.header[item].map(n => n.twu);
+                    if (tw < minUtil) { push('skip', f, { item, linkIds, nodeTwus, tw }); continue; }
+                    const pattern = [item];
+                    cands.push({ set: pattern, twu: tw, fresh: true });
+                    push('pattern', f, { item, pattern, linkIds, nodeTwus });
+                    cands.forEach(c => { c.fresh = false; });
+                    const base = [], pathIds = [];
+                    f.header[item].forEach(node => {
+                        const path = [];
+                        for (let p = node.parent; p.item !== null; p = p.parent) { path.unshift(p.item); pathIds.push(p.id); }
+                        if (path.length) base.push({ items: path, u: node.twu });
+                    });
+                    push('base', f, { item, pattern, linkIds, pathIds, base });
+                    if (base.length) {
+                        grow(base, pattern, 1);
+                        push('back', f, { item, pattern });
+                    }
+                }
+                stack.pop();
+
+                // 第二階段：再掃一次資料庫（目前插進來的 ins 筆）
+                const sofar = db.slice(0, ins);
+                cands.forEach(c => { c.util = sum(sofar.map(t => (contains(t, c.set) ? sum(c.set.map(i => t[i] * profit[i])) : 0))); });
+                phase = 2;
+                stats.mines++;
+                stats.ihupScans++; stats.ihupReads += ins;
+                lastTp = twoPhaseCost(sofar, profit, minUtil);
+                stats.tpScans += lastTp.scans; stats.tpReads += lastTp.scans * ins;
+                const oi = orderInfo(sofar, profit);
+                lastRb = prefixNodes(sofar, oi.tw.filter(i => oi.twu[i] >= minUtil));
+                stats.rbScans += 3; stats.rbReads += 3 * ins; stats.rbNodes += lastRb;
+                minedAt = ins;
+                push('verify', f0(), { mining: true });
+                phase = 3;
+                cands.forEach(c => { c.hui = c.util >= minUtil; });
+                result = cands.filter(c => c.hui).map(c => ({ set: c.set, util: c.util }));
+                mines.push({ at: ins, result: result.map(r => [r.set, r.util]), cands: cands.map(c => [c.set, c.twu]) });
+                push('mined', f0(), { mining: true });
+            }
+
+            push('start', f0());
+            db.forEach((t, r) => {
+                const path = sortLex(Object.keys(t));
+                const tu = tuOf(t, profit);
+                let node = L;
+                const pathIds = [], newIds = [];
+                path.forEach(item => {
+                    let child = node.children.get(item);
+                    if (!child) {
+                        child = { id: nextId++, item, count: 0, twu: 0, children: new Map(), parent: node };
+                        node.children.set(item, child);
+                        (header[item] = header[item] || []).push(child);
+                        newIds.push(child.id);
+                        nodes++;
+                    }
+                    child.count++;
+                    child.twu += tu;
+                    pathIds.push(child.id);
+                    node = child;
+                });
+                ins++;
+                stats.inserts++; stats.ihupReads++;
+                let tfChanged = false, twuChanged = false, oldTf = null, oldTwu = null;
+                if (r >= nInit && built) {
+                    const oi = orderInfo(db.slice(0, ins), profit);
+                    if (relChanged(built.tf, oi.tf)) { tfChanged = true; oldTf = built.tf; stats.reorderTf++; }
+                    if (relChanged(built.tw, oi.tw)) { twuChanged = true; oldTwu = built.tw; stats.reorderTwu++; }
+                    built = { tf: oi.tf, tw: oi.tw };
+                }
+                phase = 0;
+                push('insert', f0(), { row: r, isNew: r >= nInit, path, pathIds, newIds, tu, tfChanged, twuChanged, oldTf, oldTwu });
+                if (r === nInit - 1) {
+                    const oi = orderInfo(db.slice(0, ins), profit);
+                    built = { tf: oi.tf, tw: oi.tw };
+                    push('ready', f0());
+                }
+                if (plan.includes(ins)) mineL();
+            });
+            phase = 0;
+            push('end', f0());
+            steps.mines = mines;
+            return steps;
+        }
+
+        /* 從快照算出每個節點的路徑（測試用：節點的次數、TWU 要等於以這條路徑開頭的交易筆數、TU 加總） */
+        function treePaths(s) {
+            const byId = {};
+            s.tree.forEach(n => { byId[n.id] = n; });
+            return s.tree.map(n => {
+                const p = [];
+                for (let x = n; x; x = byId[x.parent]) p.unshift(x.item);
+                return [p, n.count, n.twu];
+            });
+        }
+
+        /* ---------- 說明文字（用頁面上的資料） ---------- */
+        const label = r => (r < SAMPLE.length ? `T${r + 1}` : `+${r - SAMPLE.length + 1}`);
+        const qp = t => sortLex(Object.keys(t)).map(i => `${t[i]}×${PROFIT[i]}`).join(' + ');
+        const utilIn = (t, set) => sum(set.map(i => t[i] * PROFIT[i]));
+        const where = s => s.depth === 0 ? 'IHUP_L-Tree' : `後綴 ${fmt(s.suffix)} 的條件樹`;
+        const planText = () => { const p = minePlan(); return p.length ? `插完第 ${p.join('、')} 筆時各挖一次` : '這次不挖（可以在插入的步驟按「⛏ 插完這筆就挖」）'; };
+        const emoPath = arr => arr.map(i => `${EMOJI[i] || ''}${esc(i)}`).join(' → ');
+        function describe(s) {
+            const rows = allRows(), N = rows.length, nInit = SAMPLE.length;
+            switch (s.kind) {
+                case 'start':
+                    return `IHUP 的樹跟 FP-tree 一樣是前綴樹，差別有兩個：商品照<b>固定的字典序</b>「${arrowPath(ORDER)}」排（不用先掃一次算 TWU），` +
+                        `節點除了次數，還記 <b>TWU</b>：經過它的交易 TU 加起來。先插入 ${nInit} 筆初始交易，再插入 ${N - nInit} 筆新交易，${planText()}，最小效益門檻 <b>${minUtil}</b>。`;
+                case 'insert': {
+                    const lb = label(s.row), t = rows[s.row];
+                    const shared = s.path.length - s.newIds.length;
+                    let txt = (s.isNew ? `新交易 ${lb} 進來：` : `插入 ${lb}：`) +
+                        `先算 TU = ${qp(t)} = <b>${s.tu}</b>，照字典序排成「${arrowPath(s.path)}」。`;
+                    if (!s.newIds.length) txt += `整條路徑樹上都有了，沿路每個節點次數 +1、TWU +${s.tu}，<b>一個新節點都不用長</b>。`;
+                    else if (!shared) txt += `樹上沒有可以共用的前綴，從根長出新路徑，每個節點次數 1、TWU ${s.tu}。`;
+                    else txt += `「${arrowPath(s.path.slice(0, shared))}」已經有了，沿路次數 +1、TWU +${s.tu}；後面長出「${arrowPath(s.path.slice(shared))}」。`;
+                    if (!s.isNew) return txt;
+                    txt += `樹上其他節點<b>完全不動</b>。`;
+                    if (s.twuChanged || s.tfChanged) {
+                        txt += `可是照 ${s.twuChanged ? 'TWU' : ''}${s.twuChanged && s.tfChanged ? '、' : ''}${s.tfChanged ? '次數' : ''}排的順序<b>變了</b>，IHUP_${s.twuChanged ? 'TWU' : 'TF'}-Tree 得把節點換位置重新整理。`;
+                    } else txt += `這筆沒有改變 TF／TWU 的排名，三種樹都只要沿路徑插。`;
+                    return txt;
+                }
+                case 'ready':
+                    return `初始的 ${nInit} 筆插完了，IHUP_L-Tree 有 <b>${s.nodes}</b> 個節點，每筆交易都只讀了一次，TU 在插入當下就算好。` +
+                        `如果照 TWU 排（IHUP_TWU-Tree），要先掃一次資料庫才知道順序「${arrowPath(s.twuOrder)}」，樹會是 ${s.twuNodes} 個節點；照次數排（IHUP_TF）是 ${s.tfNodes} 個。` +
+                        `字典序的樹比較大，換到的是之後新交易進來永遠不用調整。`;
+                case 'mine': {
+                    const out = s.order.filter(i => s.counts[i] < minUtil);
+                    return `現在要挖（樹裡有 ${s.ins} 筆交易，門檻 <b>${minUtil}</b>）。每個商品的 TWU 就是它節點鏈上的 TWU 加起來，看右邊表頭就有，<b>不用再掃資料庫</b>。` +
+                        (out.length ? `${out.map(esc).join('、')} 的 TWU 不到 ${minUtil}，挖的時候跳過，但節點留在樹上（門檻改了、TWU 變大了還用得到）。` : '') +
+                        `跟 FP-Growth 一樣從表頭最後面的 ${esc(s.order[s.order.length - 1])} 開始往前挖。<b>第一階段</b>先找候選。`;
+                }
+                case 'skip':
+                    return `${esc(s.item)}：節點鏈上的 TWU 加起來 ${s.nodeTwus.length > 1 ? s.nodeTwus.join(' + ') + ' = ' : ''}${s.tw} < ${minUtil}。` +
+                        `TWU 是效益的上界，而且組合越大 TWU 只會越小，所以含 ${esc(s.item)} 的組合<b>都不可能</b>是高效益，整支跳過。`;
+                case 'count': {
+                    const out = Object.keys(s.counts).filter(i => s.counts[i] < minUtil);
+                    if (!s.order.length) return `在條件模式基底裡把每個商品的 TWU 加起來（每條路徑帶著自己的 TWU）：沒有商品達到 ${minUtil}，以 ${fmt(s.suffix)} 結尾的候選到此為止，回到上一層。`;
+                    return `在條件模式基底裡把每個商品的 TWU 加起來（每條路徑帶著自己的 TWU）：` +
+                        (out.length ? `${out.map(esc).join('、')} 不到 ${minUtil} 被丟掉，` : '') + `留下 <b>${arrowPath(s.order)}</b>。` +
+                        `這個加總就是「它加上 ${fmt(s.suffix)}」的 TWU。條件樹一樣照字典序排。`;
+                }
+                case 'build':
+                    return `把條件模式基底照字典序插進一棵新的小樹，這就是<b>${where(s)}</b>，共 ${s.tree.length} 個節點；節點一樣記 TWU（每條路徑插入時加上自己的 TWU）。`;
+                case 'pattern': {
+                    const add = s.nodeTwus.length > 1 ? `${s.nodeTwus.join(' + ')} = ${s.counts[s.item]}` : `${s.counts[s.item]}`;
+                    if (s.depth === 0) {
+                        return `挖 <b>${esc(s.item)}</b>：節點鏈（虛線）上的 TWU 加起來 ${add} ≥ ${minUtil}，${fmt(s.pattern)} 記成<b>候選</b>。` +
+                            `注意 TWU 只是上界，它是不是真的高效益要等第二階段才知道。`;
+                    }
+                    return `在${where(s)} 裡挖 <b>${esc(s.item)}</b>：TWU ${add} ≥ ${minUtil}，${fmt(s.pattern)} 記成<b>候選</b>。` +
+                        `這個數字就是有買這 ${s.pattern.length} 樣的交易 TU 加起來（交易表標黃的列）。`;
+                }
+                case 'base':
+                    if (!s.base.length) return `${esc(s.item)} 的節點往上直接就是根，沒有前綴路徑，以 ${fmt(s.pattern)} 結尾的不會再有更大的候選，換下一個商品。`;
+                    return `找 ${esc(s.item)} 的條件模式基底：沿著節點鏈找到樹上所有 ${esc(s.item)}，從每個往上走到根，路徑帶著那個 ${esc(s.item)} 節點的 TWU。共 ${s.base.length} 條：` +
+                        s.base.map(b => `${arrowPath(b.items)} ×${b.u}`).join('、') + `。接著用它們遞迴，找出以 ${fmt(s.pattern)} 結尾的候選。`;
+                case 'back':
+                    return `以 ${fmt(s.pattern)} 結尾的候選都找完了，回到${where(s)}，繼續挖下一個商品。`;
+                case 'verify': {
+                    const c = s.cands.reduce((x, y) => (!x || y.twu - y.util > x.twu - x.util ? y : x), null);
+                    if (!c) return `<b>第二階段</b>：沒有候選，不用驗證（程式還是會掃一次資料庫，只是什麼都不用加）。`;
+                    return `<b>第二階段</b>：第一階段找到 <b>${s.cands.length}</b> 個候選。樹上只有 TWU，算不出「只算組合裡那幾樣」的效益，所以要<b>再掃一次資料庫</b>（目前 ${s.ins} 筆），` +
+                        `每個候選只加組合裡那幾樣的數量 × 利潤。差最多的是 ${fmt(c.set)}：TWU ${c.twu}，真正效益只有 ${c.util}。`;
+                }
+                case 'mined': {
+                    const h = s.result.length, w = s.cands.length - h;
+                    return `效益 ≥ ${minUtil} 的 <b>${h}</b> 個是高效益樣式` + (w ? `，另外 ${w} 個候選效益不夠（劃線）` : '') + `。` +
+                        `這次 IHUP 只掃了 <b>1</b> 次資料庫（驗證）；同樣 ${s.ins} 筆從頭跑 Two-Phase 要掃 <b>${s.lastTp.scans}</b> 次，候選一樣是 ${s.lastTp.cands} 個。` +
+                        `挖的過程只是讀樹，<b>樹本身沒改</b>，` + (s.ins < N ? `接下來的 ${N - s.ins} 筆照樣直接插。` : `之後再有新交易，照樣直接插。`);
+                }
+                case 'end': {
+                    const st = s.stats;
+                    if (!st.mines) return `完成！${N} 筆交易都插進樹裡了，IHUP_L-Tree 有 <b>${s.nodes}</b> 個節點，這次沒有挖。在任何一個插入的步驟按「⛏ 插完這筆就挖」，就會在那個時間點挖。`;
+                    return `完成！${N} 筆交易、挖了 ${st.mines} 次：IHUP 總共讀了 <b>${st.ihupReads}</b> 筆次交易（插入各 1 次＋每次驗證掃一遍）；` +
+                        `每次都從頭跑 Two-Phase 要讀 <b>${st.tpReads}</b> 筆次、掃 ${st.tpScans} 次資料庫。新交易讓 IHUP_TWU-Tree 要調整 ${st.reorderTwu} 次，IHUP_L-Tree 0 次。`;
+                }
+            }
+            return '';
+        }
+
+        const CODE_TAGS = s => {
+            if (s.depth > 0) {
+                return ({
+                    count: ['count'], build: ['cbuild'], pattern: ['cloop', 'ccand'],
+                    base: s.base && s.base.length ? ['cbase', 'crecurse'] : ['cbase'], back: ['crecurse']
+                })[s.kind] || [];
+            }
+            return ({
+                start: ['order'], insert: ['insert'], ready: ['order'], mine: ['mine'], skip: ['check', 'skip'], pattern: ['check', 'cand'],
+                base: s.base && s.base.length ? ['base', 'recurse'] : ['base'], back: ['recurse'], verify: ['verify'], mined: ['end'], end: ['insert']
+            })[s.kind] || [];
+        };
+
+        /* ---------- 畫樹 ---------- */
+        function drawTree(s) {
+            const box = $('tree');
+            $('tree-title').textContent = s.depth === 0 ? 'IHUP_L-Tree' : `條件樹：後綴 ${fmtText(s.suffix)}`;
+            const crumbs = s.crumbs.length ? s.crumbs : [[]];
+            $('crumbs').innerHTML = (s.mining ? '遞迴層：' : '插入中：') + crumbs.map((c, i) =>
+                `<span class="crumb${i === crumbs.length - 1 ? ' cur' : ''}">${c.length ? fmt(c) : 'IHUP_L-Tree'}</span>`).join('<span class="arrow">›</span>');
+            if (!s.tree.length) {
+                box.innerHTML = `<div class="tree-empty">${s.kind === 'start' ? '樹還是空的，下一步開始一筆一筆插。' : s.kind === 'count' && !s.order.length ? '沒有 TWU 夠的商品，不用建樹。' : '樹還是空的。'}</div>`;
+                return;
+            }
+            const kids = { 0: [] };
+            s.tree.forEach(n => { kids[n.id] = []; });
+            s.tree.forEach(n => kids[n.parent].push(n));
+            const pos = {};
+            let leaf = 0, maxDepth = 0;
+            (function place(id, d) {
+                maxDepth = Math.max(maxDepth, d);
+                const ch = kids[id] || [];
+                if (!ch.length) { pos[id] = { x: leaf++, y: d }; return; }
+                ch.forEach(c => place(c.id, d + 1));
+                pos[id] = { x: (pos[ch[0].id].x + pos[ch[ch.length - 1].id].x) / 2, y: d };
+            })(0, 0);
+            const DX = 54, DY = 66, PAD = 30;
+            const X = p => PAD + p.x * DX, Y = p => 22 + p.y * DY;
+            const W = PAD * 2 + Math.max(0, leaf - 1) * DX, H = 22 + maxDepth * DY + 44;
+
+            const onIds = new Set(s.pathIds || []);
+            const newIds = new Set(s.newIds || []);
+            const linkIds = linkItem && s.header[linkItem] ? s.header[linkItem] : (s.linkIds || []);
+            const linked = new Set(linkIds);
+            let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" role="img" aria-label="${s.depth === 0 ? 'IHUP_L-Tree' : '條件樹'}">`;
+            s.tree.forEach(n => {
+                const a = pos[n.parent], b = pos[n.id];
+                const on = onIds.has(n.id) && (n.parent === 0 || onIds.has(n.parent) || linked.has(n.parent));
+                svg += `<line class="edge${on ? ' on' : ''}" x1="${X(a)}" y1="${Y(a)}" x2="${X(b)}" y2="${Y(b)}"/>`;
+            });
+            for (let i = 1; i < linkIds.length; i++) {
+                const a = pos[linkIds[i - 1]], b = pos[linkIds[i]];
+                if (!a || !b) continue;
+                const mx = (X(a) + X(b)) / 2, my = Math.max(Y(a), Y(b)) + 30;
+                svg += `<path class="link" d="M${X(a)} ${Y(a) + 18} Q${mx} ${my} ${X(b)} ${Y(b) + 18}"/>`;
+            }
+            svg += `<g class="root"><circle cx="${X(pos[0])}" cy="${Y(pos[0])}" r="11"/><text x="${X(pos[0])}" y="${Y(pos[0]) + 3}" text-anchor="middle">root</text></g>`;
+            s.tree.forEach(n => {
+                const p = pos[n.id];
+                const cls = ['node', onIds.has(n.id) ? 'on' : '', newIds.has(n.id) ? 'new' : '', linked.has(n.id) ? 'linked' : ''].join(' ');
+                svg += `<g class="${cls}"><title>${esc(n.item)}：${s.depth === 0 ? `次數 ${n.count}，` : ''}TWU ${n.twu}</title>` +
+                    `<circle class="body" cx="${X(p)}" cy="${Y(p)}" r="18"/>` +
+                    `<text class="emo" x="${X(p)}" y="${Y(p) + 6}" text-anchor="middle">${EMOJI[n.item] || esc(n.item[0])}</text>` +
+                    (s.depth === 0 ? `<circle class="badge" cx="${X(p) + 14}" cy="${Y(p) + 13}" r="8.5"/>` +
+                        `<text class="cnt" x="${X(p) + 14}" y="${Y(p) + 16.5}" text-anchor="middle">${n.count}</text>` : '') +
+                    `<text class="nu" x="${X(p)}" y="${Y(p) + 35}" text-anchor="middle">${n.twu}</text></g>`;
+            });
+            svg += '</svg>';
+            box.innerHTML = svg;
+        }
+
+        function drawHeader(s) {
+            const t = $('header');
+            const all = sortLex(Object.keys(s.counts));
+            if (!all.length) { t.innerHTML = ''; return; }
+            const active = linkItem && s.header[linkItem] ? linkItem : s.item;
+            const top0 = s.depth === 0;
+            t.innerHTML = `<caption>${top0 ? '表頭（字典序）' : '條件表頭（字典序）'}</caption><tr><th></th><th></th>${top0 ? '<th>次數</th>' : ''}<th>TWU</th></tr>` + all.map(i => {
+                const ok = !s.mining || s.counts[i] >= minUtil;
+                const clickable = !!s.header[i];
+                return `<tr class="${ok ? '' : 'out'}${clickable && i === active ? ' sel' : ''}"${clickable ? ` data-item="${esc(i)}"` : ''}><td>${EMOJI[i] || ''}</td><td class="nm">${esc(i)}</td>` +
+                    (top0 ? `<td class="c">${s.cnt[i]}</td>` : '') + `<td class="c nu">${s.counts[i]}</td></tr>`;
+            }).join('');
+        }
+        $('header').addEventListener('click', e => {
+            const tr = e.target.closest('tr[data-item]');
+            if (!tr) return;
+            linkItem = linkItem === tr.dataset.item ? null : tr.dataset.item;
+            const s = trace[cursor];
+            drawTree(s);
+            drawHeader(s);
+        });
+
+        /* 字典序 vs 照次數、照 TWU 的順序 */
+        function drawOrders(s) {
+            $('ord-l').innerHTML = emoPath(ORDER) + '（固定）';
+            const show = (id, arr, ref) => {
+                // 只比舊商品彼此的先後：同一個名次換了商品就標橘色
+                const refF = ref ? ref.filter(x => arr.includes(x)) : [], arrF = ref ? arr.filter(x => ref.includes(x)) : [];
+                $(id).innerHTML = arr.length
+                    ? arr.map(i => `<span class="${ref && ref.includes(i) && refF[arrF.indexOf(i)] !== i ? 'diff' : ''}">${EMOJI[i] || ''}${esc(i)}</span>`).join(' → ')
+                    : '<span style="color:var(--muted)">（還沒有交易）</span>';
+            };
+            const ins = s.kind === 'insert' && s.isNew;
+            show('ord-tf', s.tfOrder, ins && s.tfChanged ? s.oldTf : null);
+            show('ord-twu', s.twuOrder, ins && s.twuChanged ? s.oldTwu : null);
+            const w = $('ord-warn');
+            w.className = 'ord-warn';
+            let text;
+            if (ins) {
+                if (s.twuChanged || s.tfChanged) {
+                    w.classList.add('bad');
+                    text = `⚠ ${[s.tfChanged ? 'IHUP_TF' : '', s.twuChanged ? 'IHUP_TWU' : ''].filter(Boolean).join('、')} 的順序變了（橘色），要調整節點位置；IHUP_L 照插。`;
+                } else { w.classList.add('ok'); text = '✓ 排名沒變，三種樹都只要沿路徑插。'; }
+            } else if (s.kind === 'insert' || s.kind === 'ready' || s.kind === 'start') {
+                text = '初始資料：IHUP_L 不必先掃；TF、TWU 版要先掃一次才知道順序。';
+            } else if (s.depth > 0) {
+                text = `條件樹也照字典序：${s.order.join('→') || '（沒有）'}`;
+            } else {
+                text = `目前為止，新交易讓 IHUP_TF 調整 ${s.stats.reorderTf} 次、IHUP_TWU 調整 ${s.stats.reorderTwu} 次；IHUP_L 0 次。`;
+            }
+            w.textContent = text;
+        }
+
+        let dbDrawn = null;
+        function drawDB(s) {
+            const rows = allRows(), nInit = SAMPLE.length;
+            const hl = s.kind === 'pattern' ? s.pattern : null;
+            const items = new Set(hl || []);
+            let h = '<thead><tr><th class="tid-h"></th>' + ITEMS.map(i =>
+                `<th class="${items.has(i) ? 'sel' : ''}"><span class="emo">${EMOJI[i]}</span><span class="nm">${esc(i)}</span><span class="pf">$${PROFIT[i]}</span></th>`).join('') +
+                '<th class="tu-h">TU</th></tr></thead><tbody>';
+            rows.forEach((t, r) => {
+                if (r === nInit) h += `<tr class="sep"><td colspan="${ITEMS.length + 2}">＋ 新交易（${rows.length - nInit} 筆）</td></tr>`;
+                const inTree = r < s.ins;
+                const match = hl && inTree && contains(t, hl);
+                const cur = s.kind === 'insert' && s.row === r;
+                const cls = [r >= nInit ? 'nw' : '', !inTree ? 'todo' : '', match ? 'match' : '', cur ? 'cur' : ''].join(' ');
+                h += `<tr class="${cls}"><td class="tid">${label(r)}</td>` + ITEMS.map(i => {
+                    if (!has(t, i)) return '<td><div class="cell"></div></td>';
+                    const hit = match && items.has(i);
+                    return `<td><div class="cell has${hit ? ' hit' : ''}">${t[i]}${hit ? `<small>${t[i] * PROFIT[i]}</small>` : ''}</div></td>`;
+                }).join('') + `<td class="tu">${tuOf(t, PROFIT)}</td></tr>`;
+            });
+            if (rows.length === nInit) h += `<tr class="sep"><td colspan="${ITEMS.length + 2}">（還沒有新交易，在下面組幾筆）</td></tr>`;
+            h += '</tbody><tfoot><tr><td class="tid">TWU</td>' + ITEMS.map(i => `<td>${s.itemTwu[i] || ''}</td>`).join('') + '<td></td></tr></tfoot>';
+            if (h !== dbDrawn) { $('db').innerHTML = h; dbDrawn = h; }   // 跟上一步一模一樣就不重畫（量區塊高度時每一步都要畫，省時間）
+            $('db-sub').textContent = `已插入 ${s.ins} / ${rows.length} 筆`;
+        }
+
+        const chip = (i, cls = '', v = '') => `<span class="chip ${cls}">${esc(i)}${v !== '' ? `<span class="v">${v}</span>` : ''}</span>`;
+        function drawWork(s) {
+            const box = $('work');
+            let title = '計算過程', h = '';
+            const rows = allRows();
+            switch (s.kind) {
+                case 'start':
+                    h = '<div class="work-empty">這格會顯示每一步的計算：每筆交易的 TU、節點 TWU 加多少、條件模式基底、候選的真正效益，以及跟從頭重跑的比較。</div>';
+                    break;
+                case 'insert': {
+                    const t = rows[s.row];
+                    title = `插入 ${label(s.row)}：先算 TU`;
+                    h = '<table class="cmp"><thead><tr><th>商品（字典序）</th><th>數量 × 利潤</th><th>效益</th></tr></thead><tbody>' +
+                        s.path.map(i => `<tr><td>${EMOJI[i] || ''} ${esc(i)}</td><td>${t[i]}×${PROFIT[i]}</td><td>${t[i] * PROFIT[i]}</td></tr>`).join('') +
+                        `<tr class="sum"><td>TU</td><td></td><td>${s.tu}</td></tr></tbody></table>` +
+                        `<p class="work-note">路徑上每個節點：次數 +1、TWU +${s.tu}。${s.newIds.length ? `新長出 ${s.newIds.length} 個節點。` : '沒有新節點。'}樹上共 ${s.nodes} 個節點。</p>`;
+                    break;
+                }
+                case 'ready':
+                    title = '三種排法的樹一樣大嗎？';
+                    h = '<table class="cmp"><thead><tr><th>樹</th><th>要先掃一次？</th><th>節點數</th></tr></thead><tbody>' +
+                        `<tr><td>IHUP_L（字典序）</td><td class="ok">不用</td><td>${s.nodes}</td></tr>` +
+                        `<tr><td>IHUP_TF（照次數）</td><td class="no">要</td><td>${s.tfNodes}</td></tr>` +
+                        `<tr><td>IHUP_TWU（照 TWU）</td><td class="no">要</td><td>${s.twuNodes}</td></tr></tbody></table>` +
+                        '<p class="work-note">三棵樹存的資訊一樣多，挖出來的結果也一樣；差在樹的大小和新交易進來時要不要調整。</p>';
+                    break;
+                case 'mine': case 'skip': {
+                    title = s.kind === 'mine' ? '每個商品的 TWU（表頭）' : `${s.item} 的 TWU 不夠`;
+                    h = '<table class="cmp"><thead><tr><th>商品</th><th>節點 TWU</th><th>合計</th></tr></thead><tbody>' +
+                        s.order.slice().reverse().map(i => `<tr><td>${EMOJI[i] || ''} ${esc(i)}</td><td>${s.header[i].length} 個節點</td><td class="${s.counts[i] >= minUtil ? 'ok' : 'no'}">${s.counts[i]}</td></tr>`).join('') +
+                        '</tbody></table>' +
+                        `<p class="work-note">門檻 ${minUtil}：綠色的商品往下挖，紅色的整支跳過。由下往上（字典序最後面先挖）。</p>`;
+                    break;
+                }
+                case 'pattern': {
+                    title = `候選 ${fmtText(s.pattern)}`;
+                    const ts = rows.slice(0, s.ins).map((t, k) => k).filter(k => contains(rows[k], s.pattern));
+                    h = '<table class="cmp"><tbody>' +
+                        `<tr><td>${esc(s.item)} 節點的 TWU</td><td>${s.nodeTwus.join(' + ')}</td></tr>` +
+                        `<tr><td>有買 ${fmt(s.pattern)} 的交易</td><td>${ts.map(label).join(' ')}</td></tr>` +
+                        `<tr><td>它們的 TU 加起來</td><td>${ts.map(k => tuOf(rows[k], PROFIT)).join(' + ')}</td></tr>` +
+                        `<tr class="sum"><td>TWU（候選的上界）</td><td>${s.counts[s.item]}</td></tr></tbody></table>` +
+                        `<p class="work-note">兩種算法一樣，但樹上<b>不用回頭找交易</b>，節點鏈加起來就有。</p>`;
+                    break;
+                }
+                case 'base': {
+                    title = `條件模式基底：${fmtText(s.pattern)}`;
+                    if (!s.base.length) { h = '<div class="work-empty">沒有前綴路徑。</div>'; break; }
+                    h = '<table class="cmp"><thead><tr><th>路徑</th><th>帶著的 TWU</th></tr></thead><tbody>' +
+                        s.base.map(b => `<tr><td>${b.items.map(i => chip(i)).join('<span class="arrow"> → </span>')}</td><td>${b.u}</td></tr>`).join('') + '</tbody></table>';
+                    break;
+                }
+                case 'count': {
+                    title = `條件模式基底裡的 TWU：後綴 ${fmtText(s.suffix)}`;
+                    h = '<table class="cmp"><thead><tr><th>路徑（留下的）</th><th>TWU</th></tr></thead><tbody>' +
+                        s.rows.map(r => `<tr><td>${r.items.map(i => chip(i, s.order.includes(i) ? '' : 'out')).join('<span class="arrow"> → </span>')}</td><td>${r.u}</td></tr>`).join('') + '</tbody></table>' +
+                        `<p class="work-note">加總：${sortLex(Object.keys(s.counts)).map(i => chip(i, s.counts[i] >= minUtil ? 'ok' : 'out', s.counts[i])).join(' ')}</p>`;
+                    break;
+                }
+                case 'build':
+                    title = `建 ${fmtText(s.suffix)} 的條件樹`;
+                    h = '<table class="cmp"><thead><tr><th>插入的路徑</th><th>TWU</th></tr></thead><tbody>' +
+                        s.rows.filter(r => r.path.length).map(r => `<tr><td>${r.path.map(i => chip(i)).join('<span class="arrow"> → </span>')}</td><td>+${r.u}</td></tr>`).join('') + '</tbody></table>';
+                    break;
+                case 'back':
+                    title = '回到上一層';
+                    h = `<div class="work-empty">${fmt(s.pattern)} 這一支挖完了。</div>`;
+                    break;
+                case 'verify': case 'mined':
+                    title = s.kind === 'verify' ? '第二階段：掃一次資料庫' : `這次挖（插完第 ${s.ins} 筆）的花費`;
+                    h = '<table class="cmp"><thead><tr><th></th><th>IHUP</th><th>從頭 Two-Phase</th></tr></thead><tbody>' +
+                        `<tr><td>為了這次挖，掃資料庫</td><td class="ok">1 次</td><td class="no">${s.lastTp.scans} 次</td></tr>` +
+                        `<tr><td>讀過的交易（筆次）</td><td class="ok">${s.ins}</td><td class="no">${s.lastTp.scans * s.ins}</td></tr>` +
+                        `<tr><td>算 TWU、找候選</td><td>讀樹</td><td>一層一層掃</td></tr>` +
+                        `<tr><td>候選</td><td>${s.cands.length}</td><td>${s.lastTp.cands}</td></tr>` +
+                        `<tr><td>高效益樣式</td><td>${s.kind === 'mined' ? s.result.length : '…'}</td><td>${s.kind === 'mined' ? s.result.length : '…'}</td></tr></tbody></table>` +
+                        `<p class="work-note">IHUP 的每筆交易在插入時已經讀過一次；Two-Phase 每次都要重新從第 1 筆讀起。</p>`;
+                    break;
+                case 'end': {
+                    title = '全部做完';
+                    h = `<div class="work-empty">${rows.length} 筆交易都在樹上了，IHUP_L-Tree ${s.nodes} 個節點。累計的比較在「候選與高效益樣式」最下面。</div>`;
+                    break;
+                }
+            }
+            $('work-title').textContent = title;
+            box.innerHTML = h;
+        }
+
+        let resultDrawn = null, cmpDrawn = null;
+        function drawResult(s) {
+            const box = $('levels');
+            const N = allRows().length;
+            $('result-note').textContent = s.mining && s.phase === 1 ? `第一階段：在 ${s.ins} 筆交易的樹上找 TWU ≥ ${minUtil} 的候選`
+                : s.minedAt ? `插完第 ${s.minedAt} 筆時挖的結果（門檻 ${minUtil}）` + (s.ins > s.minedAt ? `；之後又插了 ${s.ins - s.minedAt} 筆，還沒重挖` : '')
+                : '';
+            // 候選清單跟上一步一模一樣就不重畫（量區塊高度時每一步都要畫，省時間）
+            const key = s.cands.length ? s.cands.map(c => [fmtText(c.set), c.hui, c.util, c.twu, c.fresh ? 1 : 0].join('|')).join(';') : null;
+            if (key === null || !resultDrawn || resultDrawn.key !== key || !box.contains(resultDrawn.node)) {
+                box.innerHTML = '';
+                drawResultList(s, box);
+                resultDrawn = key === null ? null : { key, node: box.firstChild };
+            }
+            $('st-l').textContent = s.nodes;
+            $('st-tf').textContent = s.tfNodes;
+            $('st-twu').textContent = s.twuNodes;
+            $('st-re').textContent = `${s.stats.reorderTf}／${s.stats.reorderTwu}`;
+            const st = s.stats;
+            const cmp = `<h3>累計到這一步（挖了 ${st.mines} 次）</h3>` +
+                '<table class="cmp"><thead><tr><th></th><th>IHUP（增量）</th><th>每次從頭 Two-Phase</th><th>每次重建 TWU 樹</th></tr></thead><tbody>' +
+                `<tr><td>掃整個資料庫（次）</td><td>${st.ihupScans}</td><td>${st.tpScans}</td><td>${st.rbScans}</td></tr>` +
+                `<tr><td>讀過的交易（筆次）</td><td>${st.ihupReads}</td><td>${st.tpReads}</td><td>${st.rbReads}</td></tr>` +
+                `<tr><td>建樹時新長的節點</td><td>${s.nodes}</td><td>不建樹</td><td>${st.rbNodes}</td></tr></tbody></table>` +
+                `<div style="margin-top:0.4rem">IHUP 的交易讀數 = 插入時各 1 次＋每次驗證掃一遍；「每次重建 TWU 樹」是每次挖都像 <a href="up-growth.html">UP-Growth</a> 一樣先掃一次算 TWU、再掃一次建樹（只放 TWU 夠的商品）、最後掃一次驗證。</div>`;
+            if (cmp !== cmpDrawn) { $('compare').innerHTML = cmp; cmpDrawn = cmp; }
+        }
+        function drawResultList(s, box) {
+            if (!s.cands.length) {
+                box.innerHTML = `<div class="empty">${s.minedAt || s.mining ? '沒有組合的 TWU 達到門檻，不可能有高效益樣式。' : `還沒挖。IHUP 平常只管插入，${minePlan().length ? `插完第 ${minePlan()[0]} 筆時才挖` : '要結果時才挖'}。`}</div>`;
+            }
+            const bySize = {};
+            s.cands.forEach(c => { (bySize[c.set.length] = bySize[c.set.length] || []).push(c); });
+            Object.keys(bySize).sort((a, b) => a - b).forEach(k => {
+                const row = document.createElement('div');
+                row.className = 'level';
+                row.innerHTML = `<span class="tag">${k} 個</span><div class="items"></div>`;
+                bySize[k].forEach(c => {
+                    const p = document.createElement('span');
+                    const done = c.hui !== undefined;
+                    p.className = 'pat' + (done ? (c.hui ? ' hui' : ' low') : '') + (c.fresh ? ' fresh' : '');
+                    p.innerHTML = `<span class="s"></span><span class="n"></span>`;
+                    p.firstChild.textContent = fmtText(c.set);
+                    p.lastChild.textContent = c.util !== undefined ? `${c.util}` : `${c.twu}`;
+                    p.title = `TWU ${c.twu}` + (c.util !== undefined ? `，真正效益 ${c.util}` : '');
+                    row.querySelector('.items').appendChild(p);
+                });
+                box.appendChild(row);
+            });
+        }
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this continue break'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue break'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z][a-z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tags) {
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/IHUP.java" download>IHUP.java</a>　執行 <code>javac IHUP.java && java IHUP</code>'
+                : '下載 <a href="code/ihup.py" download>ihup.py</a>　執行 <code>python3 ihup.py</code>';
+        }
+
+        /* ---------- 組新交易 ---------- */
+        function renderCompose() {
+            const box = $('picks');
+            box.innerHTML = '';
+            ITEMS.forEach(i => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'pick' + (draft[i] ? ' on' : '');
+                b.dataset.item = i;
+                b.textContent = `${EMOJI[i]} ${i}`;
+                const q = document.createElement('span');
+                q.className = 'q';
+                q.textContent = draft[i] ? `×${draft[i]}` : '';
+                b.appendChild(q);
+                b.setAttribute('aria-label', `${i}，數量 ${draft[i] || 0}`);
+                box.appendChild(b);
+            });
+            const add = document.createElement('button');
+            add.type = 'button';
+            add.className = 'btn small';
+            add.id = 'btn-add';
+            add.textContent = '＋ 加入';
+            add.disabled = !Object.keys(draft).length || batch.length >= MAX_BATCH;
+            box.appendChild(add);
+            [...$('presets').children].forEach((b, i) => b.classList.toggle('cur', i === presetUsed));
+            $('btn-clear').disabled = $('btn-undo').disabled = !batch.length;
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        function stepHead(s, i) {
+            const ph = s.phase === 1 ? '<span class="phase p1">第一階段</span>' : s.phase >= 2 ? '<span class="phase p2">第二階段</span>'
+                : s.kind === 'insert' ? '<span class="phase">插入</span>' : '';
+            return `<span class="step-no">步驟 ${i + 1} / ${trace.length}${ph}</span>`;
+        }
+        function showStep() {
+            const s = trace[cursor];
+            linkItem = null;
+            $('explain').innerHTML = stepHead(s, cursor) + describe(s);
+            drawOrders(s);
+            drawTree(s);
+            drawHeader(s);
+            drawWork(s);
+            drawDB(s);
+            drawResult(s);
+            renderCode(CODE_TAGS(s));
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0;
+            $('btn-next').disabled = cursor === trace.length - 1;
+            $('mu-val').textContent = minUtil;
+            $('mu-minus').disabled = minUtil <= MU_MIN;
+            $('mu-plus').disabled = minUtil >= MU_MAX;
+            const here = (s.kind === 'insert' || s.kind === 'ready') ? s.ins : 0;
+            const on = here && minePlan().includes(here);
+            $('btn-mine-here').disabled = !here;
+            $('btn-mine-here').textContent = on ? '✕ 這筆後不挖' : '⛏ 插完這筆就挖';
+            const p = minePlan();
+            $('mine-list').innerHTML = p.length ? `挖的時間點：插完第 <b>${p.join('、')}</b> 筆` : '挖的時間點：（沒有）';
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
+                }
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
+            };
+            chunk();
+        }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
+
+        /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = stepHead(s, i) + describe(s);
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            reserveBlockHeights(document, trace.length, i => { cursor = i; showStep(); }, () => cursor);
+        }
+
+        function rebuild(cursorTo) {
+            stopAuto();
+            trace = buildTrace(allRows(), SAMPLE.length, PROFIT, minUtil, minePlan());
+            const c = typeof cursorTo === 'function' ? cursorTo() : (cursorTo || 0);
+            cursor = Math.max(0, Math.min(c, trace.length - 1));
+            renderCompose();
+            showStep();
+            reserveExplainHeight();
+        }
+
+        /* ---------- 操作 ---------- */
+        function step(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 1900);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+        const firstMine = () => trace.findIndex(s => s.kind === 'mine');
+        const insertStep = row => trace.findIndex(s => s.kind === 'insert' && s.row === row);
+        // 門檻只影響「挖」：改了之後跳到第一次開始挖的那一步
+        function setMinUtil(v) {
+            v = Math.max(MU_MIN, Math.min(MU_MAX, v));
+            if (v === minUtil) return;
+            minUtil = v;
+            rebuild(firstMine);
+        }
+        $('mu-minus').addEventListener('click', () => setMinUtil(minUtil - MU_STEP));
+        $('mu-plus').addEventListener('click', () => setMinUtil(minUtil + MU_STEP));
+        $('btn-mine-here').addEventListener('click', () => {
+            const s = trace[cursor];
+            const at = s.ins, N = allRows().length;
+            const on = minePlan().includes(at);
+            if (at === N) mineEnd = !on;
+            else if (on) minePoints.delete(at); else minePoints.add(at);
+            rebuild(() => on ? insertStep(at - 1) : trace.findIndex(x => x.kind === 'mine' && x.ins === at));
+        });
+
+        $('picks').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.id === 'btn-add') {
+                if (!Object.keys(draft).length || batch.length >= MAX_BATCH) return;
+                batch.push({ ...draft });
+                draft = {};
+                presetUsed = -1;
+                rebuild(() => insertStep(allRows().length - 1));
+                return;
+            }
+            const item = b.dataset.item;
+            draft[item] = ((draft[item] || 0) + 1) % 6;
+            if (!draft[item]) delete draft[item];
+            renderCompose();
+        });
+        function trimPoints() {
+            const N = allRows().length;
+            minePoints = new Set([...minePoints].filter(p => p < N));
+        }
+        $('btn-undo').addEventListener('click', () => {
+            if (!batch.length) return;
+            batch.pop();
+            presetUsed = -1;
+            trimPoints();
+            rebuild(() => trace.findIndex(s => s.kind === 'ready'));
+        });
+        PRESETS.forEach((p, i) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn small';
+            b.textContent = p.label;
+            b.addEventListener('click', () => {
+                batch = p.rows.map(r => ({ ...r }));
+                presetUsed = i;
+                trimPoints();
+                rebuild(() => trace.findIndex(s => s.kind === 'ready'));
+            });
+            $('presets').appendChild(b);
+        });
+        $('btn-clear').addEventListener('click', () => { batch = []; presetUsed = -1; trimPoints(); rebuild(0); });
+        $('btn-reset').addEventListener('click', () => { reset(); });
+
+        function reset() {
+            batch = PRESETS[0].rows.map(r => ({ ...r }));
+            presetUsed = 0;
+            draft = {};
+            minUtil = 250;
+            minePoints = new Set([8]);
+            mineEnd = true;
+            rebuild(0);
+        }
+
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAGS(trace[cursor]));
+        });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(reserveExplainHeight, 150); });
+
+        reset();
+    </script>
+</body>
+
+</html>

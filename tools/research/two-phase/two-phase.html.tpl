@@ -851,7 +851,7 @@
         }
 
         function renderCode(tags) {
-            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
             const pre = $('code');
             pre.innerHTML = CODE[lang].map(([text, t], i) =>
                 `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
@@ -912,36 +912,87 @@
         /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
            先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
            區塊變長變短才不會把旁邊或下面的東西推來推去。
-           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
-        let measuringBlocks = false, blockJob = 0;
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
         function reserveBlockHeights(scope, count, showAt, current) {
             const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
             const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
-            if (!blocks.length || count < 2) return;
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
             const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
-            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
             const chunk = () => {
                 if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
                 const cur = current(), shown = blocks.map(b => b.style.minHeight);
-                const until = performance.now() + 25;
-                measuringBlocks = true;
-                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                while (pass < passes && performance.now() < until) {
-                    showAt(i);
-                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
-                    if (++i === count) {
-                        i = 0; pass++;
-                        base = tallest.map(h => h + 'px');
-                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                    }
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
                 }
-                measuringBlocks = false;
                 blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
-                showAt(cur);
-                if (pass < passes) setTimeout(chunk, 0);
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
             };
             chunk();
         }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
 
         /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
         function reserveExplainHeight() {

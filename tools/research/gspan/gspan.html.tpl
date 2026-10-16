@@ -693,6 +693,8 @@
         /* ---------- 畫圖 ---------- */
         /* g：{atoms, bonds, pos}；opt.m：樣式第 k 點 → 圖上的點；opt.code：要亮起來的樣式；opt.rm：最右路徑；opt.add：最後接上的邊要用橘色 */
         function svgGraph(g, opt = {}) {
+            // 量區塊高度時只要外框：每張圖都是同一個 viewBox、寬度由 CSS 決定，高度跟裡面畫什麼無關
+            if (measuringBlocks) return '<svg viewBox="-6 -6 132 102"></svg>';
             const m = opt.m || null, code = opt.code || [], rm = opt.rm || [];
             const at = new Map();
             if (m) m.forEach((v, k) => at.set(v, k));
@@ -925,32 +927,53 @@
         });
 
         /* ---------- 結果 ---------- */
+        /* 結果清單：一步一步往後走時，清單只會在後面多幾個，所以只補新的、改「剛找到」的外框，
+           不用每一步整排重畫（小圖多時重畫很慢，量區塊高度時也要畫每一步）。往回走或換資料才整排重畫。
+           量高度時小圖只畫外框（大小一樣），畫回來時一定整排重畫。 */
+        let resultDrawn = null;
         function drawResult(s) {
             const box = $('levels');
-            box.innerHTML = '';
-            if (!s.result.length) box.innerHTML = '<div class="empty">還沒有，開始長之後會出現在這裡。</div>';
-            const bySize = {};
-            s.result.forEach((r, i) => { (bySize[r.code.length] = bySize[r.code.length] || []).push([r, i]); });
-            Object.keys(bySize).sort((a, b) => a - b).forEach(k => {
-                const row = document.createElement('div');
-                row.className = 'level';
-                row.innerHTML = `<span class="tag">${k} 條邊</span><div class="found"></div>`;
-                bySize[k].forEach(([r, i]) => {
-                    const p = document.createElement('span');
-                    p.className = 'fp' + (r.fresh ? ' fresh' : '');
-                    p.title = r.code.map(tuple).join(' ');
-                    const pg = patternGraph(r.code, graphs[r.gid], r.m);
-                    p.innerHTML = svgGraph(pg, { label: '樣式 #' + (i + 1) }) + `<span class="lbl"><span class="no">#${i + 1}</span><span class="n">${r.sup} 張</span></span>`;
-                    row.querySelector('.found').appendChild(p);
-                });
-                box.appendChild(row);
-            });
+            const keys = s.result.map(r => [ckey(r.code), r.sup, r.gid, r.m.join(',')].join('|'));
+            const d = resultDrawn;
+            const grow = d && d.graphs === s.graphs && d.m === measuringBlocks && d.els.length && d.els.length <= keys.length &&
+                box.isConnected && d.keys.every((k, i) => k === keys[i]);
+            if (!grow) {
+                box.innerHTML = '';
+                if (!s.result.length) box.innerHTML = '<div class="empty">還沒有，開始長之後會出現在這裡。</div>';
+                resultDrawn = { graphs: s.graphs, m: measuringBlocks, keys: [], els: [], rows: {} };
+                if (bruteCache === null) bruteCache = bruteCount(s.graphs);
+                $('compare').innerHTML = `同一份資料如果用暴力法，要把每張圖所有連通的子圖都列出來（共 <b>${bruteCache}</b> 個），再兩兩判斷是不是<b>同構</b>（形狀和標籤都一樣）才能合併計數；` +
+                    `gSpan 把「是不是同一個子圖」換成「最小 DFS code 一不一樣」，而且只往最右路徑長，大部分重複的寫法根本不會產生。`;
+            }
+            const st = resultDrawn;
+            for (let i = st.els.length; i < s.result.length; i++) {
+                const r = s.result[i], k = r.code.length;
+                let row = st.rows[k];
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'level';
+                    row.dataset.n = k;
+                    row.innerHTML = `<span class="tag">${k} 條邊</span><div class="found"></div>`;
+                    const after = [...box.children].find(x => Number(x.dataset.n) > k);
+                    box.insertBefore(row, after || null);
+                    st.rows[k] = row;
+                }
+                const p = document.createElement('span');
+                p.className = 'fp';
+                p.title = r.code.map(tuple).join(' ');
+                const pg = patternGraph(r.code, graphs[r.gid], r.m);
+                p.innerHTML = svgGraph(pg, { label: '樣式 #' + (i + 1) }) + `<span class="lbl"><span class="no">#${i + 1}</span><span class="n">${r.sup} 張</span></span>`;
+                row.lastChild.appendChild(p);
+                st.els.push(p);
+                st.keys.push(keys[i]);
+            }
+            s.result.forEach((r, i) => st.els[i].classList.toggle('fresh', !!r.fresh));
+            drawStats(s);
+        }
+        function drawStats(s) {
             $('st-found').textContent = s.result.length;
             $('st-cands').textContent = s.stats.cands;
             $('st-pruned').textContent = s.stats.pruned;
-            if (bruteCache === null) bruteCache = bruteCount(s.graphs);
-            $('compare').innerHTML = `同一份資料如果用暴力法，要把每張圖所有連通的子圖都列出來（共 <b>${bruteCache}</b> 個），再兩兩判斷是不是<b>同構</b>（形狀和標籤都一樣）才能合併計數；` +
-                `gSpan 把「是不是同一個子圖」換成「最小 DFS code 一不一樣」，而且只往最右路徑長，大部分重複的寫法根本不會產生。`;
         }
 
         /* ---------- 程式碼 ---------- */
@@ -979,7 +1002,7 @@
         }
 
         function renderCode(tags) {
-            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
             const pre = $('code');
             pre.innerHTML = CODE[lang].map(([text, t], i) =>
                 `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
@@ -1027,36 +1050,87 @@
         /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
            先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
            區塊變長變短才不會把旁邊或下面的東西推來推去。
-           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
-        let measuringBlocks = false, blockJob = 0;
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
         function reserveBlockHeights(scope, count, showAt, current) {
             const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
             const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
-            if (!blocks.length || count < 2) return;
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
             const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
-            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
             const chunk = () => {
                 if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
                 const cur = current(), shown = blocks.map(b => b.style.minHeight);
-                const until = performance.now() + 25;
-                measuringBlocks = true;
-                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                while (pass < passes && performance.now() < until) {
-                    showAt(i);
-                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
-                    if (++i === count) {
-                        i = 0; pass++;
-                        base = tallest.map(h => h + 'px');
-                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                    }
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
                 }
-                measuringBlocks = false;
                 blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
-                showAt(cur);
-                if (pass < passes) setTimeout(chunk, 0);
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
             };
             chunk();
         }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
 
         function reserveExplainHeight() {
             const box = $('explain');

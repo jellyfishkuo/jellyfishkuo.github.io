@@ -499,7 +499,12 @@
         }
 
         /* 暴力法要比對的候選：每位顧客所有可能的子序列（不重複） */
+        const bruteMemo = new WeakMap();   // 同一份資料只算一次（每一步的說明和比較都會用到）
         function bruteCandidates(seqs) {
+            if (!bruteMemo.has(seqs)) bruteMemo.set(seqs, bruteCandidatesOf(seqs));
+            return bruteMemo.get(seqs);
+        }
+        function bruteCandidatesOf(seqs) {
             const all = new Set();
             seqs.forEach(seq => {
                 (function rec(k, cur) {
@@ -852,33 +857,48 @@
         });
 
         /* ---------- 結果 ---------- */
+        /* 結果清單：一步一步往後走時，清單只會在後面多幾個，所以只補新的、改「剛找到」的外框，
+           不用每一步整排重畫（樣式多時重畫很慢，量區塊高度時也要畫每一步）。往回走或換資料才整排重畫。 */
+        let resultDrawn = null;
         function drawResult(s) {
             const box = $('levels');
-            box.innerHTML = '';
-            if (!s.result.length) box.innerHTML = '<div class="empty">還沒有，開始挖之後會出現在這裡。</div>';
-            const bySize = {};
-            s.result.forEach(r => {
+            const keys = s.result.map(r => patText(r.pat) + '|' + r.sup);
+            const d = resultDrawn;
+            const grow = d && d.seqs === s.seqs && d.els.length && d.els.length <= keys.length && box.isConnected &&
+                d.keys.every((k, i) => k === keys[i]);
+            if (!grow) {
+                box.innerHTML = '';
+                if (!s.result.length) box.innerHTML = '<div class="empty">還沒有，開始挖之後會出現在這裡。</div>';
+                resultDrawn = { seqs: s.seqs, keys: [], els: [], rows: {} };
+                $('compare').innerHTML = `同一份資料如果用暴力法，要把每位顧客所有可能的子序列都列出來（共 <b>${bruteCandidates(s.seqs)}</b> 種不同的候選），每一種都拿去跟 ${s.seqs.length} 位顧客比對。`;
+            }
+            const st = resultDrawn;
+            for (let i = st.els.length; i < s.result.length; i++) {
+                const r = s.result[i];
                 const n = r.pat.reduce((a, e) => a + e.length, 0);
-                (bySize[n] = bySize[n] || []).push(r);
-            });
-            Object.keys(bySize).sort((a, b) => a - b).forEach(k => {
-                const row = document.createElement('div');
-                row.className = 'level';
-                row.innerHTML = `<span class="tag">${k} 個</span><div class="items"></div>`;
-                bySize[k].forEach(r => {
-                    const p = document.createElement('span');
-                    p.className = 'pat' + (r.fresh ? ' fresh' : '');
-                    p.innerHTML = `<span></span><span class="n">${r.sup}</span>`;
-                    p.firstChild.textContent = patText(r.pat);
-                    p.title = r.pat.map(e => e.join('+')).join(' → ');
-                    row.querySelector('.items').appendChild(p);
-                });
-                box.appendChild(row);
-            });
+                let row = st.rows[n];
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'level';
+                    row.dataset.n = n;
+                    row.innerHTML = `<span class="tag">${n} 個</span><div class="items"></div>`;
+                    const after = [...box.children].find(x => Number(x.dataset.n) > n);
+                    box.insertBefore(row, after || null);
+                    st.rows[n] = row;
+                }
+                const p = document.createElement('span');
+                p.className = 'pat';
+                p.innerHTML = `<span></span><span class="n">${r.sup}</span>`;
+                p.firstChild.textContent = patText(r.pat);
+                p.title = r.pat.map(e => e.join('+')).join(' → ');
+                row.lastChild.appendChild(p);
+                st.els.push(p);
+                st.keys.push(keys[i]);
+            }
+            s.result.forEach((r, i) => st.els[i].classList.toggle('fresh', !!r.fresh));
             $('st-proj').textContent = s.stats.projs;
             $('st-cells').textContent = s.stats.cells;
             $('st-depth').textContent = s.stats.depth;
-            $('compare').innerHTML = `同一份資料如果用暴力法，要把每位顧客所有可能的子序列都列出來（共 <b>${bruteCandidates(s.seqs)}</b> 種不同的候選），每一種都拿去跟 ${s.seqs.length} 位顧客比對。`;
         }
 
         /* ---------- 程式碼 ---------- */
@@ -907,7 +927,7 @@
         }
 
         function renderCode(tags) {
-            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
             const pre = $('code');
             pre.innerHTML = CODE[lang].map(([text, t], i) =>
                 `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
@@ -954,36 +974,87 @@
         /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
            先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
            區塊變長變短才不會把旁邊或下面的東西推來推去。
-           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
-        let measuringBlocks = false, blockJob = 0;
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
         function reserveBlockHeights(scope, count, showAt, current) {
             const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
             const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
-            if (!blocks.length || count < 2) return;
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
             const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
-            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
             const chunk = () => {
                 if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
                 const cur = current(), shown = blocks.map(b => b.style.minHeight);
-                const until = performance.now() + 25;
-                measuringBlocks = true;
-                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                while (pass < passes && performance.now() < until) {
-                    showAt(i);
-                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
-                    if (++i === count) {
-                        i = 0; pass++;
-                        base = tallest.map(h => h + 'px');
-                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                    }
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
                 }
-                measuringBlocks = false;
                 blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
-                showAt(cur);
-                if (pass < passes) setTimeout(chunk, 0);
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
             };
             chunk();
         }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
 
         function reserveExplainHeight() {
             const box = $('explain');

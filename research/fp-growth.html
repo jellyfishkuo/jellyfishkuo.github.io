@@ -224,6 +224,56 @@
         .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
         .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
         .notes b { color: var(--text); }
+
+        /* ── 練習模式（猜下一步）：題目疊在說明框的位置，不推動任何區塊 ── */
+        .quiz-bar { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.75rem; }
+        .quiz-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .quiz-toggle .sw { position: relative; flex: none; width: 30px; height: 17px; border-radius: 9px; background: #2a2a48; transition: background 0.15s; }
+        .quiz-toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+        .quiz-toggle.quiz-on { border-color: var(--accent); }
+        .quiz-toggle.quiz-on .sw { background: var(--accent); }
+        .quiz-toggle.quiz-on .sw::after { transform: translateX(13px); background: #fff; }
+        .quiz-toggle { flex: none; }
+        .quiz-score { font: 0.8rem 'Space Mono', monospace; color: var(--accent2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        .quiz-host { position: relative; display: grid; margin-top: 0.8rem; }
+        .quiz-host > .explain { margin-top: 0; min-width: 0; }
+        .quiz {
+            position: absolute; inset: 0; z-index: 2; overflow: auto;
+            display: flex; flex-direction: column; gap: 0.45rem;
+            background: var(--panel-2); border: 1px solid rgba(124, 58, 237, 0.5); border-left: 3px solid var(--accent);
+            border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.88rem; line-height: 1.5;
+        }
+        .quiz[hidden] { display: none; }
+        .quiz.nudge { animation: quiz-nudge 0.3s; }
+        @keyframes quiz-nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .quiz-head { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem 0.5rem; flex-wrap: wrap; }
+        .quiz-tag { font: 700 0.74rem 'Space Mono', monospace; color: #c4b5fd; }
+        /* 題目和解釋疊在同一格：答完換成解釋，高度取兩者較高的，不會跳 */
+        .quiz-body { display: grid; }
+        .quiz-body > * { grid-area: 1 / 1; min-width: 0; }
+        .quiz-choices { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .quiz-choices.half { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .quiz-choices.wide { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+        .quiz-choices.wide .quiz-choice { min-height: 32px; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
+        .quiz-choice {
+            min-height: 36px; min-width: 44px; padding: 0.25rem 0.7rem; border-radius: 8px;
+            border: 1px solid var(--border); background: #1c1c33; color: var(--text);
+            font: inherit; font-size: 0.86rem; line-height: 1.35; text-align: left; cursor: pointer; overflow-wrap: anywhere;
+        }
+        .quiz-choice:hover:not(:disabled) { border-color: var(--accent2); }
+        .quiz-choice:disabled { cursor: default; }
+        .quiz-choice.sel { border-color: var(--accent2); background: rgba(6, 182, 212, 0.14); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .quiz-choice.right { border-color: var(--good); background: rgba(34, 197, 94, 0.18); color: #bbf7d0; }
+        .quiz-choice.right.missed { border-style: dashed; background: rgba(34, 197, 94, 0.07); }   /* 複選題漏選的 */
+        .quiz-choice.wrong { border-color: var(--bad); background: rgba(248, 113, 113, 0.14); color: #fecaca; text-decoration: line-through; }
+        .quiz-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+        .quiz-actions .btn { padding: 0.2rem 0.65rem; font-size: 0.82rem; }
+        .quiz.done .quiz-ok { visibility: hidden; }
+        .quiz-why { visibility: hidden; font-size: 0.85rem; color: #c6c6d6; }
+        .quiz.done .quiz-why { visibility: visible; }
+        .quiz.done .quiz-text { visibility: hidden; }
+        .quiz-verdict { color: var(--good); margin-right: 0.3rem; }
+        .quiz.miss .quiz-verdict { color: var(--bad); }
     </style>
 </head>
 
@@ -252,7 +302,14 @@
                         <button class="btn stepper" id="sup-plus" aria-label="增加">+</button>
                     </div>
                 </div>
-                <div class="explain" id="explain"></div>
+                <div class="quiz-bar">
+                    <button class="btn quiz-toggle" id="quiz-toggle" aria-pressed="false" title="按下一步之前先猜猜看">🎯 練習模式<span class="sw" aria-hidden="true"></span></button>
+                    <span class="quiz-score" id="quiz-score" style="visibility:hidden">答對 0/0</span>
+                </div>
+                <div class="quiz-host" id="quiz-host">
+                    <div class="explain" id="explain"></div>
+                    <div class="quiz" id="quiz" role="group" aria-label="練習題" hidden></div>
+                </div>
             </div>
 
             <div class="card a-tree">
@@ -694,7 +751,7 @@
         }
 
         function renderCode(tags) {
-            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
             const pre = $('code');
             pre.innerHTML = CODE[lang].map(([text, t], i) =>
                 `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
@@ -740,38 +797,90 @@
         /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
            先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
            區塊變長變短才不會把旁邊或下面的東西推來推去。
-           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
-        let measuringBlocks = false, blockJob = 0;
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
         function reserveBlockHeights(scope, count, showAt, current) {
             const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
             const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
-            if (!blocks.length || count < 2) return;
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
             const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
-            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
             const chunk = () => {
                 if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
                 const cur = current(), shown = blocks.map(b => b.style.minHeight);
-                const until = performance.now() + 25;
-                measuringBlocks = true;
-                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                while (pass < passes && performance.now() < until) {
-                    showAt(i);
-                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
-                    if (++i === count) {
-                        i = 0; pass++;
-                        base = tallest.map(h => h + 'px');
-                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
-                    }
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
                 }
-                measuringBlocks = false;
                 blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
-                showAt(cur);
-                if (pass < passes) setTimeout(chunk, 0);
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
             };
             chunk();
         }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
 
         function reserveExplainHeight() {
+            quizReserve();   // 練習模式的題目框也要先預留高度，再量各區塊
             const box = $('explain');
             if (!box.offsetWidth) return;
             const probe = box.cloneNode(false);
@@ -796,7 +905,243 @@
             reserveExplainHeight();
         }
 
+        /* =========================================================
+           練習模式「猜下一步」（各 Demo 共用，規格見 tools/research/BRIEF.md）
+           打開後按「下一步」：如果下一步有題目（quizFor 不是 null），先在說明框的位置疊一層題目，
+           答完立刻顯示對錯和一句解釋，按「繼續」才真的前進。題目都從 trace 算出來，資料或門檻改了照樣能出題。
+           ========================================================= */
+        const QZ = { on: false, q: null, at: -1, picked: new Set(), answered: false, done: new Set(), right: 0, total: 0, trace: null };
+
+        /* 固定種子的亂數：同一步每次出的題目都一樣，預留高度時量到的才會跟真的顯示的一致 */
+        function quizRng(seed) {
+            let a = (seed * 2654435761) >>> 0 || 1;
+            return () => { a ^= a << 13; a >>>= 0; a ^= a >>> 17; a ^= a << 5; a >>>= 0; return a / 4294967296; };
+        }
+        const quizPick = (arr, rnd) => arr[Math.floor(rnd() * arr.length)];
+        function quizShuffle(arr, rnd) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+            return a;
+        }
+        /* 數字題：正確答案＋容易搞混的數字（traps）＋附近的數字，湊滿 4 個、由小到大排 */
+        function quizNums(ans, lo, hi, rnd, traps = []) {
+            const set = new Set([ans]);
+            traps.forEach(v => { if (set.size < 4 && v >= lo && v <= hi) set.add(v); });
+            for (let d = 1; set.size < 4 && d <= hi - lo; d++) {
+                quizShuffle([ans + d, ans - d], rnd).forEach(v => { if (set.size < 4 && v >= lo && v <= hi) set.add(v); });
+            }
+            const nums = [...set].sort((a, b) => a - b);
+            return { choices: nums.map(String), answer: nums.indexOf(ans) };
+        }
+        /* 文字選項：opts[0] 是正確的，其他是陷阱；去掉重複、打亂後回傳 choices 和正確的索引 */
+        function quizOptions(opts, rnd) {
+            const seen = new Set();
+            const list = quizShuffle(opts.filter(o => !seen.has(o.text) && seen.add(o.text)).map((o, k) => ({ ...o, ok: k === 0 })), rnd);
+            return { choices: list.map(o => o.text), answer: list.findIndex(o => o.ok) };
+        }
+
+        /* 複選題只剩一個選項時，改成「會／不會」二選一（q 是問句，例如「{咖啡, 牛奶} 會留下來嗎？」） */
+        function quizSingle(multiQ, q) {
+            return { ...multiQ, q, choices: ['會', '不會'], answer: multiQ.answer.length ? 0 : 1, multi: false, ask: { ...multiQ.ask, only: multiQ.choices } };
+        }
+
+        /* 把一題畫進 box（q、choices、why 都是純文字，一律用 textContent） */
+        function quizRender(box, q) {
+            box.innerHTML = '<div class="quiz-head"><span class="quiz-tag"></span><div class="quiz-actions">' +
+                '<button type="button" class="btn quiz-ok">確定</button><button type="button" class="btn quiz-go">跳過</button></div></div>' +
+                '<div class="quiz-body"><div class="quiz-text"></div><div class="quiz-why" aria-live="polite"><b class="quiz-verdict">✗ 不對喔</b><span></span></div></div>' +
+                '<div class="quiz-choices"></div>';
+            box.querySelector('.quiz-tag').textContent = q.multi ? '🎯 猜猜看（可複選）' : '🎯 猜猜看';
+            box.querySelector('.quiz-text').textContent = q.q;
+            const list = box.querySelector('.quiz-choices');
+            const longest = Math.max(...q.choices.map(c => c.length));
+            list.classList.add(longest > 12 ? 'wide' : longest > 4 ? 'half' : 'row');   // 長選項一行一個、短的兩欄、數字排一列
+            q.choices.forEach((c, k) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'quiz-choice';
+                b.dataset.k = k;
+                b.textContent = c;
+                list.appendChild(b);
+            });
+            box.querySelector('.quiz-why span').textContent = q.why;
+            box.querySelector('.quiz-ok').style.display = q.multi ? '' : 'none';
+        }
+        function quizOpen(q, at) {
+            Object.assign(QZ, { q, at, picked: new Set(), answered: false });
+            const box = $('quiz');
+            box.classList.remove('done', 'miss', 'nudge');
+            quizRender(box, q);
+            box.hidden = false;
+        }
+        function quizClose() {
+            QZ.q = null;
+            QZ.at = -1;
+            $('quiz').hidden = true;
+        }
+        function quizAnswer() {
+            const q = QZ.q, want = new Set(q.multi ? q.answer : [q.answer]);
+            const ok = want.size === QZ.picked.size && [...want].every(k => QZ.picked.has(k));
+            QZ.answered = true;
+            QZ.done.add(QZ.at);
+            QZ.total++;
+            if (ok) QZ.right++;
+            const box = $('quiz');
+            box.querySelectorAll('.quiz-choice').forEach(b => {
+                const k = Number(b.dataset.k);
+                b.classList.toggle('right', want.has(k));
+                b.classList.toggle('wrong', QZ.picked.has(k) && !want.has(k));
+                b.classList.toggle('missed', !!q.multi && want.has(k) && !QZ.picked.has(k));
+                b.disabled = true;
+            });
+            box.querySelector('.quiz-verdict').textContent = ok ? '✓ 答對了！' : '✗ 不對喔';
+            box.classList.add('done');
+            box.classList.toggle('miss', !ok);
+            box.querySelector('.quiz-go').textContent = '繼續 ▶';
+            quizScore();
+        }
+        function quizScore() {
+            $('quiz-score').textContent = `答對 ${QZ.right}/${QZ.total}`;
+            $('quiz-score').style.visibility = QZ.on ? 'visible' : 'hidden';
+            $('quiz-toggle').classList.toggle('quiz-on', QZ.on);
+            $('quiz-toggle').setAttribute('aria-pressed', String(QZ.on));
+        }
+
+        /* 接在 step(dir) 最前面：回傳 true 表示「先別前進，題目還沒答」 */
+        function quizGate(dir) {
+            if (dir < 0 || !QZ.on) { quizClose(); return false; }
+            if (QZ.q) {
+                if (QZ.answered || QZ.at !== cursor + 1) { quizClose(); return false; }
+                const box = $('quiz');
+                box.classList.remove('nudge');
+                void box.offsetWidth;          // 重新觸發動畫
+                box.classList.add('nudge');
+                return true;
+            }
+            const at = cursor + 1;
+            if (at >= trace.length || QZ.done.has(at)) return false;
+            const q = quizFor(trace[at], at);
+            if (!q) return false;
+            quizOpen(q, at);
+            return true;
+        }
+
+        /* 題目框的高度：把這一輪每一題都畫一次，用最高的那題固定（關掉練習模式時也一樣預留，開關才不會推動下面） */
+        function quizReserve() {
+            if (QZ.trace !== trace) { QZ.trace = trace; QZ.done.clear(); quizClose(); }   // 資料或門檻改了，重新出題
+            const host = $('quiz-host');
+            if (!host.offsetWidth) return;
+            const probe = document.createElement('div');
+            probe.className = 'quiz done';
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;top:0;right:auto;bottom:auto;width:${host.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                const q = quizFor(s, i);
+                if (!q) return;
+                quizRender(probe, q);
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            host.style.minHeight = tallest ? tallest + 'px' : '';
+        }
+
+        $('quiz').addEventListener('click', e => {
+            const q = QZ.q;
+            if (!q) return;
+            const c = e.target.closest('.quiz-choice');
+            if (c && !QZ.answered) {
+                const k = Number(c.dataset.k);
+                if (!q.multi) { QZ.picked = new Set([k]); quizAnswer(); return; }
+                if (QZ.picked.has(k)) QZ.picked.delete(k); else QZ.picked.add(k);
+                c.classList.toggle('sel', QZ.picked.has(k));
+                return;
+            }
+            if (e.target.closest('.quiz-ok') && !QZ.answered) { quizAnswer(); return; }
+            if (e.target.closest('.quiz-go')) {
+                if (!QZ.answered) QZ.done.add(QZ.at);   // 跳過：不計分，也不再問
+                quizClose();
+                $('btn-next').click();
+            }
+        });
+        $('quiz-toggle').addEventListener('click', () => {
+            QZ.on = !QZ.on;
+            if (!QZ.on) quizClose();
+            quizScore();
+        });
+        $('btn-first').addEventListener('click', quizClose);
+
+        /* 第 i 步（s = trace[i]）要出的題目：{ q, choices, answer, why, multi?, ask? } 或 null。
+           answer 是正確選項的索引（multi 時是索引陣列，可以是空的）；ask 只給 quiz_test.py 對答案用。 */
+        function quizFor(s, i) {
+            const rnd = quizRng(i + 1);
+            switch (s.kind) {
+                case 'count': {
+                    const items = quizShuffle(Object.keys(s.counts).sort(), rnd);
+                    if (!items.length || items.length > 6) return null;
+                    const keep = items.map((x, k) => k).filter(k => s.counts[items[k]] >= minSup);
+                    const mq = {
+                        q: (s.depth === 0 ? `第 1 次掃描：哪些商品` : `後綴 ${fmt(s.suffix)} 的條件模式基底裡（路徑要乘 ×次數），哪些商品`) +
+                            `至少 ${minSup} 次、會留下來？（都不會就直接按確定）`,
+                        choices: items, answer: keep, multi: true,
+                        why: `數出來是 ${items.slice().sort((a, b) => s.counts[b] - s.counts[a]).map(x => `${x} ${s.counts[x]}`).join('、')}，` +
+                            (keep.length ? `≥ ${minSup} 的留下。` : `都不到 ${minSup}。`),
+                        ask: { type: 'freq', rows: s.rows.map(r => [r.items, r.n]) }
+                    };
+                    return items.length > 1 ? mq : quizSingle(mq, (s.depth === 0 ? `第 1 次掃描：` : `後綴 ${fmt(s.suffix)} 的條件模式基底裡（路徑要乘 ×次數），`) +
+                        `${items[0]} 至少 ${minSup} 次、會留下來嗎？`);
+                }
+                case 'insert': {
+                    if (!s.path.length) return null;
+                    const label = `T${s.row + 1}`, path = arrowPath(s.path), shared = s.path.length - s.newIds.length;
+                    const paths = s.rows.slice(0, s.row + 1).map(r => r.path);
+                    if (i % 2) {
+                        return {
+                            q: `把 ${label} 排成「${path}」插進樹裡，要新長出幾個節點？`,
+                            ...quizNums(s.newIds.length, 0, s.path.length, rnd),
+                            why: !shared ? `樹上沒有可以共用的前綴，${s.path.length} 個都要新長。`
+                                : `前面的「${arrowPath(s.path.slice(0, shared))}」樹上已經有了，只要次數 +1；新長的是 ${s.newIds.length} 個。`,
+                            ask: { type: 'newNodes', paths }
+                        };
+                    }
+                    const last = s.path[s.path.length - 1];
+                    const node = s.tree.find(n => n.id === s.pathIds[s.pathIds.length - 1]);
+                    return {
+                        q: `把 ${label}（${path}）插進去之後，路徑最後那個「${last}」節點上的次數會變成多少？`,
+                        ...quizNums(node.count, 1, s.rows.length, rnd, [s.counts[last]]),
+                        why: node.count === 1 ? `這個 ${last} 節點是新長出來的，次數從 1 開始。`
+                            : `從根沿著「${path}」走到底的交易，連 ${label} 在內有 ${node.count} 筆，所以是 ${node.count}（不是 ${last} 的總次數 ${s.counts[last]}，那要把節點鏈上的全部加起來）。`,
+                        ask: { type: 'nodeCount', paths }
+                    };
+                }
+                case 'base': {
+                    const byId = new Map(s.tree.map(n => [n.id, n]));
+                    const up = id => { const out = []; for (let p = byId.get(id).parent; p !== 0; p = byId.get(p).parent) out.unshift(byId.get(p).item); return out; };
+                    const baseOf = (item, mode) => (s.header[item] || []).map(id => {
+                        const path = up(id), n = byId.get(id);
+                        if (mode === 'self') return { items: [...path, item], n: n.count };          // 常見錯誤：把自己也算進去
+                        if (!path.length) return null;
+                        return { items: path, n: mode === 'parent' ? byId.get(n.parent).count : n.count };   // 常見錯誤：用上面節點的次數
+                    }).filter(Boolean);
+                    const show = b => b.length ? b.map(x => `${x.items.join('→')} ×${x.n}`).join('、') : '（空的，沒有前綴路徑）';
+                    const others = s.order.filter(x => x !== s.item);
+                    const opts = [{ text: show(s.base) }, { text: show(baseOf(s.item, 'parent')) }, { text: show(baseOf(s.item, 'self')) }];
+                    if (others.length) opts.push({ text: show(baseOf(quizPick(others, rnd), 'base')) });
+                    const r = quizOptions(opts.filter((o, k) => k < 3 || new Set(opts.slice(0, 3).map(x => x.text)).size < 3), rnd);   // 最多 3 個選項，手機上才不會太高
+                    if (r.choices.length < 2) return null;
+                    return {
+                        q: `${s.item} 的條件模式基底是哪一個？（從每個 ${s.item} 節點往上走到根）`, ...r,
+                        why: s.base.length ? `路徑不含 ${s.item} 自己，次數用的是 ${s.item} 節點上的次數（不是上面節點的）：${show(s.base)}。`
+                            : `樹上的 ${s.item} 都直接接在根下面，往上沒有其他商品，所以是空的。`,
+                        ask: { type: 'base', item: s.item, rows: s.rows.map(r => [r.path, r.n]) }
+                    };
+                }
+            }
+            return null;
+        }
+
         function step(dir) {
+            if (quizGate(dir)) return false;   // 練習模式：下一步有題目時先答題
             const next = cursor + dir;
             if (next < 0 || next >= trace.length) return false;
             cursor = next;

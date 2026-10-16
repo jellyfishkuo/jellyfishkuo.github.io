@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/uspan.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/uspan-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/uspan-180.png">
+    <title>USpan 高效益序列樣式探勘</title>
+    <meta name="description" content="一步一步看 USpan 怎麼在有數量、有利潤的序列資料裡找出高效益序列樣式：序列效益怎麼算（多種對應取最大）、效益矩陣、I-接與 S-接、SWU 與 SPU 剪枝，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* 手機：一欄，依序 步驟 → 序列資料庫 → 這一步怎麼算 → 搜尋樹 → 效益矩陣 → 程式碼 → 結果
+           電腦：左欄 步驟／資料／計算／矩陣，右欄 搜尋樹／程式碼／結果 */
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; align-items: start; }
+        .col { display: contents; }
+        .layout .card { min-width: 0; }
+        .a-step { order: 1; }
+        .a-data { order: 2; }
+        .a-calc { order: 3; }
+        .a-tree { order: 4; }
+        .a-mat { order: 5; }
+        .a-code { order: 6; }
+        .a-result { order: 7; }
+        @media (min-width: 960px) {
+            .layout { grid-template-columns: 1fr 1fr; }
+            .col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .sub { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+        button.btn.small { padding: 0.25rem 0.55rem; font-size: 0.8rem; }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .mu { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; font-size: 0.88rem; margin-top: 0.75rem; }
+        .mu .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.2em; text-align: center; }
+        .mu input[type=range] { flex: 1 1 140px; min-width: 0; accent-color: var(--accent); }
+        .mu .pct { color: var(--muted); font-size: 0.78rem; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .pt { white-space: nowrap; font-weight: 600; color: var(--text); }
+
+        /* ── 序列資料庫 ── */
+        .presets { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
+        .presets .btn.cur { border-color: var(--accent2); color: var(--accent2); }
+        .profit { display: flex; flex-wrap: wrap; gap: 0.25rem 0.7rem; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.55rem; }
+        .profit b { font: 700 0.76rem 'Space Mono', monospace; color: #fcd34d; margin-left: 0.15rem; }
+        .seqs { display: grid; gap: 0.25rem; }
+        .srow { display: grid; grid-template-columns: 2.9em minmax(0, 1fr) auto; column-gap: 0.45rem; align-items: center; padding: 0.3rem 0.4rem; border-radius: 8px; }
+        .srow .who { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+        .srow.gone .visits, .srow.gone .who, .srow.gone .mark { opacity: 0.3; }
+        .srow .mark { font: 0.72rem 'Space Mono', monospace; color: var(--muted); white-space: nowrap; text-align: right; line-height: 1.3; }
+        .srow .mark b { color: var(--warn); font-weight: 700; display: block; }
+        .visits { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; min-width: 0; }
+        .arrow { color: #4a4a66; font-size: 0.75rem; }
+        .visit { display: inline-flex; align-items: center; gap: 0.05rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.05rem 0.25rem; background: #16162a; font-size: 1.02rem; line-height: 1.45; }
+        .visit.past { opacity: 0.3; }
+        .visit.end { border: 1.5px solid var(--accent); }
+        .visit.best { border: 1.5px solid var(--warn); }
+        .visit .acu { font: 700 0.66rem 'Space Mono', monospace; color: #c4b5fd; margin-left: 0.15rem; }
+        .visit.best .acu { color: var(--warn); }
+        .it { padding: 0 0.08rem; border-radius: 5px; white-space: nowrap; }
+        .it sub { font: 700 0.6rem 'Space Mono', monospace; color: #fcd34d; vertical-align: -0.1em; margin-left: 0.05rem; }
+        .it.off { opacity: 0.3; text-decoration: line-through; }
+        .it.anchor { box-shadow: 0 0 0 1.5px var(--accent); }
+        .visit.best .it.anchor { box-shadow: 0 0 0 1.5px var(--warn); }
+        .it.under { border-bottom: 2px dashed var(--accent2); border-radius: 0; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.6rem; }
+        .legend .sw { display: inline-block; width: 13px; height: 13px; border-radius: 4px; margin-right: 0.3rem; vertical-align: -2px; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+
+        /* 編輯 */
+        .db-foot { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+        .editing .visit { cursor: pointer; }
+        .editing .visit:hover { border-color: var(--accent2); }
+        .editing .visit.sel { border: 2px solid var(--accent2); background: rgba(6, 182, 212, 0.12); }
+        .editing .visit.empty { min-width: 2em; min-height: 1.6em; justify-content: center; color: var(--muted); font-size: 0.75rem; }
+        .addv, .delc { background: none; border: 1px dashed #3a3a5a; color: var(--muted); border-radius: 7px; width: 1.9em; height: 1.75em; cursor: pointer; font-size: 0.85rem; }
+        .addv:hover, .delc:hover { border-color: var(--accent2); color: var(--text); }
+        .delc { border-style: solid; }
+        .palette { margin-top: 0.6rem; padding: 0.55rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); font-size: 0.82rem; color: var(--muted); }
+        .palette .opts { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+        .palette .grp { display: inline-flex; gap: 0.15rem; align-items: center; }
+        .palette .opt { background: #1b1b30; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.2rem 0.45rem; font-size: 0.85rem; cursor: pointer; }
+        .palette .opt.on { border-color: var(--accent2); background: rgba(6, 182, 212, 0.18); }
+        .palette .opt.q { padding: 0.2rem 0.4rem; font-family: 'Space Mono', monospace; }
+        .palette .opt:disabled { opacity: 0.35; cursor: default; }
+
+        /* ── 這一步怎麼算（表格沿用 PrefixSpan 計數表） ── */
+        .calc-line { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+        .calc-line .pt { font-size: 0.95rem; }
+        .tbl-wrap { overflow-x: auto; }
+        table.cnt { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        table.cnt th { font-weight: 500; color: var(--muted); font-size: 0.76rem; text-align: center; padding: 0.25rem; border-bottom: 1px solid var(--border); line-height: 1.3; }
+        table.cnt th:first-child { text-align: left; }
+        table.cnt th small { display: block; font-size: 0.68rem; color: #6a6a85; }
+        table.cnt td { padding: 0.2rem 0.25rem; border-bottom: 1px solid var(--border); text-align: center; }
+        table.cnt td.nm { text-align: left; white-space: nowrap; }
+        table.cnt td.c { font: 700 0.85rem 'Space Mono', monospace; }
+        table.cnt td.l { text-align: left; font: 0.74rem 'Space Mono', monospace; color: var(--muted); }
+        table.cnt td.l b { color: var(--text); }
+        table.cnt td.l b.mx { color: var(--warn); }
+        table.cnt tr.tot td { border-bottom: none; font: 700 0.85rem 'Space Mono', monospace; color: var(--accent2); }
+        td.c span { display: inline-block; min-width: 2.4em; padding: 0.05rem 0.3rem; border-radius: 6px; border: 1px solid transparent; }
+        td.c.na span { color: #44445c; font-weight: 400; }
+        td.c.ok span { color: #86efac; border-color: rgba(34, 197, 94, 0.45); }
+        td.c.no span { color: #fca5a5; text-decoration: line-through; font-weight: 400; }
+        td.c.warn span { color: var(--warn); }
+        .chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+        .chip { font: 0.74rem 'Space Mono', monospace; border: 1px solid var(--border); border-radius: 7px; padding: 0.08rem 0.4rem; color: var(--muted); background: #0a0a14; }
+        .chip b { color: var(--text); }
+        .chip.mx { border-color: var(--warn); color: var(--warn); }
+        .chip.mx b { color: var(--warn); }
+        .calc-hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+        .calc-hint b { color: var(--text); font-weight: 600; }
+        .verdict { margin-top: 0.5rem; font-size: 0.85rem; display: grid; gap: 0.2rem; }
+        .verdict .ok { color: #86efac; }
+        .verdict .no { color: #fca5a5; }
+
+        /* ── 效益矩陣 ── */
+        .whos { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.6rem; }
+        .whos .btn.cur { border-color: var(--accent2); color: var(--accent2); }
+        .whos .btn.out { opacity: 0.5; }
+        table.mat { border-collapse: collapse; font: 0.78rem 'Space Mono', monospace; }
+        table.mat th { color: var(--muted); font-weight: 400; font-size: 0.72rem; padding: 0.2rem 0.4rem; text-align: center; white-space: nowrap; font-family: inherit; }
+        table.mat th.it-h { text-align: left; }
+        table.mat td { border: 1px solid var(--border); padding: 0.15rem 0.35rem; text-align: center; min-width: 3.4em; line-height: 1.25; }
+        table.mat td .u { display: block; font-weight: 700; color: var(--text); }
+        table.mat td .r { display: block; font-size: 0.64rem; color: var(--accent2); }
+        table.mat td { height: 2.4rem; width: 3.6rem; min-width: 3.6rem; }
+        table.mat td.none { color: #3a3a52; }
+        table.mat td.blank { border-color: transparent; }
+        table.mat td.off { opacity: 0.35; text-decoration: line-through; }
+        table.mat td.end { box-shadow: inset 0 0 0 2px var(--accent); }
+        table.mat td.best { box-shadow: inset 0 0 0 2px var(--warn); }
+        table.mat td.past { opacity: 0.4; }
+        .mat-note { font-size: 0.8rem; color: var(--muted); margin-top: 0.55rem; }
+        .mat-note b { color: var(--text); font-weight: 600; }
+
+        /* ── 搜尋樹（沿用 HUI-Miner 的樣式） ── */
+        .tree { position: relative; height: 440px; overflow: auto; background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.6rem; }
+        @media (max-width: 600px) { .tree { height: 380px; } }
+        .tree-empty { color: var(--muted); font-size: 0.85rem; padding: 1.5rem 0.5rem; text-align: center; }
+        .tr, .tr ul { list-style: none; }
+        .tr ul { margin-left: 0.6rem; }
+        .tr li { position: relative; }
+        .tr ul > li { padding-left: 1rem; }
+        .tr ul > li::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1.5px solid #34345a; }
+        .tr ul > li:last-child::before { bottom: auto; height: 1.05rem; }
+        .tr ul > li::after { content: ''; position: absolute; left: 0; top: 1.05rem; width: 0.85rem; border-top: 1.5px solid #34345a; }
+        .tn {
+            display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.45rem;
+            padding: 0.15rem 0.5rem; margin: 0.15rem 0; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--panel-2); font-size: 0.82rem; max-width: 100%;
+        }
+        .tn .k { font: 700 0.66rem 'Space Mono', monospace; border-radius: 4px; padding: 0 0.25rem; background: #23233d; color: #c4b5fd; }
+        .tn .k.s { color: #67e8f9; }
+        .tn .v { font: 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .tn .v b { color: var(--text); }
+        .tn .tag { font-size: 0.72rem; border-radius: 5px; padding: 0 0.35rem; background: #23233d; color: var(--muted); }
+        .tn.root { color: var(--muted); }
+        .tn.wait { border-style: dashed; }
+        .tn.wait .n { color: var(--muted); }
+        .tn.hui { border-color: rgba(34, 197, 94, 0.6); }
+        .tn.hui .tag { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+        .tn.go .tag { background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .tn.cut { border-color: rgba(248, 113, 113, 0.5); }
+        .tn.cut .tag { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+        .tn.cut.swu .n { text-decoration: line-through; color: var(--muted); }
+        .tn.cur { box-shadow: 0 0 0 2px var(--warn); }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        /* ── 結果 ── */
+        .levels { display: grid; gap: 0.45rem; }
+        .level { display: grid; grid-template-columns: 2.8em 1fr; gap: 0.5rem; align-items: start; }
+        .level .tag { font: 700 0.8rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.2rem; }
+        .level .items { display: flex; flex-wrap: wrap; gap: 0.35rem; min-width: 0; }
+        .pat { font-size: 0.85rem; border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 7px; padding: 0.1rem 0.45rem; white-space: nowrap; }
+        .pat .n { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.35rem; color: #86efac; }
+        .pat.fresh { box-shadow: 0 0 0 2px var(--warn); }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .compare { margin-top: 0.8rem; font-size: 0.85rem; color: var(--muted); }
+        .compare b { color: var(--text); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        .notes > * { min-width: 0; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · HIGH-UTILITY SEQUENTIAL PATTERN MINING</div>
+        <h1>USpan 高效益序列樣式探勘<small>看順序，也看賺多少：先買什麼、之後再買什麼，加起來最賺</small></h1>
+        <p class="intro">
+            <a href="prefixspan.html">PrefixSpan</a> 找的是很多人都有的「先…之後…」，只數<b>人數</b>；
+            <a href="high-utility.html">HUI-Miner</a> 看的是<b>數量 × 利潤</b>，但不管先後。
+            USpan（Yin 等人，KDD 2012）把兩個合起來：同樣是常客一次一次來店的序列，只是每次每樣東西都記了<b>買幾個</b>，利潤沿用 HUI-Miner 那頁的表。
+            麻煩的地方有兩個：同一個樣式在一位顧客身上可能有<b>好幾種對應方式</b>，要取最賺的那一種；而且效益沒有向下封閉性，不能看到不夠就剪。
+            USpan 替每位顧客建一張<b>效益矩陣</b>，在「字典序 q-序列樹」上用 <b>I-接</b>（同一次多買一樣）和 <b>S-接</b>（之後某次再買）一層一層長，
+            用 <b>SWU</b> 和 <b>SPU</b> 兩個上界剪枝。
+        </p>
+
+        <div class="layout">
+            <div class="col">
+                <div class="card a-step">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="mu">
+                        <span>最小效益門檻</span>
+                        <button class="btn stepper" id="mu-minus" aria-label="減少">−</button>
+                        <span class="val" id="mu-val">200</span>
+                        <button class="btn stepper" id="mu-plus" aria-label="增加">+</button>
+                        <input type="range" id="mu-range" min="10" max="900" step="10" value="200" aria-label="最小效益門檻">
+                        <span class="pct" id="mu-pct"></span>
+                    </div>
+                    <div class="explain" id="explain"></div>
+                </div>
+
+                <div class="card a-data" id="seq-card">
+                    <div class="card-head"><h2 id="seq-title">序列資料庫</h2><span class="sub" id="seq-sub"></span></div>
+                    <div class="presets" id="presets"></div>
+                    <div class="profit" id="profit"></div>
+                    <div class="seqs" id="seqs"></div>
+                    <div class="palette" id="palette" hidden></div>
+                    <div class="db-foot">
+                        <button class="btn small" id="btn-edit">✎ 編輯資料</button>
+                        <button class="btn small" id="btn-add-cust" hidden>＋ 新增顧客</button>
+                    </div>
+                    <div class="legend" id="legend">
+                        <span>☕<sub style="font:700 .6rem 'Space Mono',monospace;color:#fcd34d">2</sub>：咖啡買 2 個</span>
+                        <span><i style="border-color:var(--accent)"></i>樣式可以結束在這次（小字＝結束在這裡的最大效益）</span>
+                        <span><i style="border-color:var(--warn)"></i>這位顧客最賺的那個</span>
+                        <span><i class="sw" style="border-bottom:2px dashed var(--accent2);border-radius:0"></i>可以 I-接的商品</span>
+                    </div>
+                </div>
+
+                <div class="card a-calc">
+                    <div class="card-head"><h2>這一步怎麼算</h2><span class="sub" id="calc-sub"></span></div>
+                    <div id="calc"></div>
+                </div>
+
+                <div class="card a-mat">
+                    <div class="card-head"><h2>效益矩陣（utility matrix）</h2><span class="sub">一欄＝一次來店</span></div>
+                    <div class="whos" id="whos"></div>
+                    <div class="tbl-wrap"><table class="mat" id="mat"></table></div>
+                    <div class="mat-note" id="mat-note"></div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card a-tree">
+                    <div class="card-head"><h2>字典序 q-序列樹</h2><span class="sub">I＝同一次多買一樣、S＝之後某次再買</span></div>
+                    <div class="tree" id="tree"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn)"></i>這一步</span>
+                        <span><i style="border-color:var(--good)"></i>高效益，輸出</span>
+                        <span><i style="border-color:var(--bad)"></i>被剪掉（後面寫原因）</span>
+                        <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒檢查</span>
+                    </div>
+                </div>
+
+                <div class="card a-code">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+
+                <div class="card a-result">
+                    <h2>目前找到的高效益序列樣式</h2>
+                    <div class="levels" id="levels"></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-checked">0</div><div class="k">算過效益的樣式</div></div>
+                        <div class="stat"><div class="v" id="st-swu">0</div><div class="k">被 SWU 剪掉的候選</div></div>
+                        <div class="stat"><div class="v" id="st-spu">0</div><div class="k">被 SPU 剪掉的子樹</div></div>
+                        <div class="stat"><div class="v" id="st-found">0</div><div class="k">高效益序列樣式</div></div>
+                    </div>
+                    <div class="compare" id="compare"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>序列效益怎麼算？為什麼 SWU 和 SPU 可以拿來剪？</h2>
+                <p>一個樣式在一位顧客身上的<b>對應</b>，是替樣式的每一個括號挑一次來店（時間要往後走），那次要買齊括號裡的商品；這個對應的效益＝挑到的那幾次裡、樣式中商品的數量 × 利潤。
+                    同一個樣式可能有好幾種對應（例如咖啡買了兩次），USpan 規定<b>取最大的那個</b>當作這位顧客的效益，再把每位顧客加起來。
+                    這樣定義下效益沒有向下封閉性：預設資料裡 &lt;(☕)&gt; 是 240，接長的 &lt;(☕🍞)(🍙)&gt; 反而是 275，所以不能看到不夠就剪，要找<b>保證不會比真正效益小的上界</b>。</p>
+                <ul>
+                    <li><b>SWU：</b>一個樣式在一位顧客身上再怎麼對應，都不會超過他整個序列的總效益 su。所以「有這種接法的顧客，su 加起來」不到門檻，接上去之後連同更長的樣式都不可能達標，可以直接剪（第一步也用它把整個商品刪掉）。</li>
+                    <li><b>SPU：</b>任何往下長出來的樣式，在一位顧客身上的對應，前半段一定是目前樣式的某一種對應（結束在某一次 k），後半段只能用 k 之後的東西，最多就是剩餘效益 ru。
+                        所以子樹裡每個樣式都 ≤ Σ 每位顧客 max(結束在 k 的效益 + ru)。後面沒東西（ru = 0）的位置不可能再接，不算。這個不到門檻，整棵子樹都不用看。</li>
+                </ul>
+                <p style="margin-top:0.5rem">USpan 原論文的深度剪枝，後來有論文指出原本的寫法不一定是真正的上界、可能漏掉樣式（例如 HUS-Span 提出 PEU 來修正）。
+                    這頁的 SPU 用上面這個「每個結束位置都算、取最大」的版本，保證不會漏，也用暴力法（列出所有子序列、每位顧客取最大對應）對過幾百組隨機資料。</p>
+            </div>
+            <div class="card">
+                <h2>優缺點、跟前面方法的關係</h2>
+                <ul>
+                    <li><b>跟 <a href="prefixspan.html">PrefixSpan</a> 比：</b>一樣是深度優先、一樣分「同一次」和「下一次以後」兩種接法；但 PrefixSpan 每位顧客只要記第一個配對的位置，
+                        USpan 要記<b>每一個</b>可能的結束位置和它的最大效益，因為後面接什麼，哪個位置最賺可能會換人。</li>
+                    <li><b>跟 <a href="high-utility.html">HUI-Miner</a> 比：</b>TWU 換成 SWU、utility list 的 rutil 換成效益矩陣裡的 ru，想法幾乎一樣：先用寬鬆的上界刪商品，再用跟著樣式走的上界剪分支。</li>
+                    <li><b>代價：</b>一位顧客常常有很多結束位置，每接一個商品都要重算一次；SWU 又很寬鬆（整個序列的錢都算進去），候選常常剪不太掉。
+                        後來的 HUS-Span、ProUM 等方法就是在想更緊、而且確定正確的上界。</li>
+                    <li><b>跟實驗室研究的關係：</b>真實的購買紀錄會一直增加（顧客又來了一次、來了新顧客），增量／資料串流上的高效益序列樣式探勘，就是在處理資料變動時，怎麼只更新受影響的顧客和結束位置，不要每次都從頭挖。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           USpan 一步一步看
+           網頁裡用 JavaScript 照著同樣的流程跑一次，把每一步（含每一層遞迴）記下來；
+           右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = /*CODE_JSON*/null;
+
+        const ITEMS = ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'];
+        const EMOJI = { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' };
+        const PROFIT = { '咖啡': 30, '麵包': 15, '牛奶': 20, '飯糰': 10, '茶葉蛋': 5, '洋芋片': 25 };   // 跟 HUI-Miner 頁一樣
+        const NAMES = ['阿明', '小美', '阿傑', '小芳', '阿華', '小玉', '阿德', '小婷'];
+        const MAX_CUST = 8, MAX_VISITS = 5, MAX_ITEMS = 3, MAX_Q = 5;
+        const MU_MIN = 10, MU_STEP = 10;
+        const PRESETS = [
+            {
+                label: '早餐→午餐', mu: 200, db: [
+                    [{ '咖啡': 1, '麵包': 2 }, { '飯糰': 2, '茶葉蛋': 3 }, { '咖啡': 2, '洋芋片': 1 }],
+                    [{ '咖啡': 2 }, { '飯糰': 1, '茶葉蛋': 2 }, { '咖啡': 1, '麵包': 1 }],
+                    [{ '麵包': 3, '牛奶': 1 }, { '牛奶': 2 }, { '飯糰': 3 }],
+                    [{ '麵包': 1, '牛奶': 2 }, { '咖啡': 1, '麵包': 2 }, { '飯糰': 1, '洋芋片': 2 }],
+                    [{ '咖啡': 3, '麵包': 1, '茶葉蛋': 2 }, { '飯糰': 2, '茶葉蛋': 1 }],
+                    [{ '牛奶': 1 }, { '麵包': 2 }, { '洋芋片': 3 }]
+                ]
+            },
+            {
+                label: '一直回購', mu: 250, db: [
+                    [{ '咖啡': 1 }, { '麵包': 2 }, { '咖啡': 3 }, { '飯糰': 1 }],
+                    [{ '咖啡': 2, '飯糰': 1 }, { '咖啡': 1 }, { '洋芋片': 1 }, { '咖啡': 2 }],
+                    [{ '麵包': 1 }, { '咖啡': 1 }, { '麵包': 3 }, { '咖啡': 2, '茶葉蛋': 2 }],
+                    [{ '咖啡': 1 }, { '牛奶': 2 }, { '咖啡': 2, '麵包': 1 }, { '麵包': 2 }],
+                    [{ '飯糰': 2 }, { '咖啡': 3 }, { '飯糰': 1 }, { '咖啡': 1, '茶葉蛋': 1 }]
+                ]
+            }
+        ];
+
+        const $ = id => document.getElementById(id);
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);   // 跟 Java compareTo、Python 字串比較一樣：照字碼
+        const keysOf = e => Object.keys(e).sort(cmp);
+        const normSeq = seq => seq.filter(e => Object.keys(e).length).map(e => ({ ...e }));
+        let db = PRESETS[0].db.map(normSeq);
+        let preset = 0;
+        let minUtil = PRESETS[0].mu;
+        let lang = 'java';
+        let trace = [];
+        let cursor = 0;
+        let timer = null;
+        let editing = false;
+        let selVisit = null;      // 編輯時選到的那一次來店 [sid, k]
+        let matPick = null;
+        let editorDirty = true;    // 編輯畫面要不要重畫       // 效益矩陣：使用者自己點的顧客（null＝跟著步驟自動選）
+
+        const emo = x => EMOJI[x] || x;
+        const patText = pat => '<' + pat.map(e => '(' + e.map(emo).join('') + ')').join('') + '>';
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const pt = pat => `<span class="pt">${esc(patText(pat))}</span>`;
+        const keyOf = pat => pat.map(e => e.join(',')).join('|');
+        const nth = k => `第 ${k + 1} 次`;
+        const seqUtil = (seq, profit) => seq.reduce((a, e) => a + Object.keys(e).reduce((b, x) => b + e[x] * profit[x], 0), 0);
+
+        /* ---------- 照著程式跑一次，記下每一步 ---------- */
+        function buildTrace(dbIn, profit, minUtil) {
+            const seqs = dbIn.map(normSeq);
+            const steps = [], result = [], nodes = [];
+            const nodeById = new Map();
+            const stats = { checked: 0, swuCut: 0, spuCut: 0 };
+
+            // 1. SWU
+            const su = seqs.map(seq => seqUtil(seq, profit));
+            const swu = {}, swuWho = {};
+            seqs.forEach((seq, sid) => {
+                new Set(seq.flatMap(e => Object.keys(e))).forEach(x => {
+                    swu[x] = (swu[x] || 0) + su[sid];
+                    (swuWho[x] = swuWho[x] || []).push(sid);
+                });
+            });
+            const keep = new Set(Object.keys(swu).filter(x => swu[x] >= minUtil));
+            const removed = Object.keys(swu).filter(x => swu[x] < minUtil).sort(cmp);
+
+            // 2. 效益矩陣：每格 {x, u, ru}
+            const mats = seqs.map(seq => {
+                const cols = seq.map(e => keysOf(e).filter(x => keep.has(x)).map(x => [x, e[x] * profit[x]]));
+                const out = new Array(cols.length);
+                let rest = 0;
+                for (let k = cols.length - 1; k >= 0; k--) {
+                    const col = [];
+                    for (let j = cols[k].length - 1; j >= 0; j--) {
+                        const [x, u] = cols[k][j];
+                        col.unshift({ x, u, ru: rest });
+                        rest += u;
+                    }
+                    out[k] = col;
+                }
+                return out;
+            });
+            const ctx = { seqs, su, swu, swuWho, keep, removed, mats, profit, minUtil };
+            let phase = 0;
+            const addNode = n => { nodes.push(n); nodeById.set(n.id, n); return n; };
+            const push = (kind, extra = {}) => {
+                steps.push({ kind, ctx, phase, ...extra, stats: { ...stats }, result: result.map(r => ({ ...r })), nodes: nodes.map(n => ({ ...n })) });
+                result.forEach(r => { r.fresh = false; });
+            };
+
+            push('start');
+            phase = 1;
+            push('swu');
+            phase = 2;
+            push('matrix');
+
+            function check(c, prefix, parentProj, np) {
+                const last = c.x;
+                let util = 0, spu = 0;
+                const per = np.map(({ sid, ends }) => {
+                    let best = 0, bound = 0;
+                    const det = ends.map(e => {
+                        const cell = mats[sid][e.k].find(z => z.x === last);
+                        const b = cell.ru > 0 ? e.acu + cell.ru : 0;
+                        best = Math.max(best, e.acu);
+                        bound = Math.max(bound, b);
+                        return { ...e, u: cell.u, ru: cell.ru, b };
+                    });
+                    util += best;
+                    spu += bound;
+                    return { sid, ends: det, best, bound };
+                });
+                stats.checked++;
+                const hui = util >= minUtil, deep = spu >= minUtil;
+                if (hui) result.push({ pat: c.pat, util, fresh: true });
+                if (!deep && spu > 0) stats.spuCut++;
+                const node = nodeById.get(keyOf(c.pat));
+                Object.assign(node, { status: 'done', util, spu, hui, deep });
+                push('check', { c, prefix, parentProj, proj: np, per, util, spu, hui, deep, pattern: c.pat, cur: node.id });
+                if (deep) extend(c.pat, np, node.id);
+            }
+
+            function extend(prefix, proj, pid) {
+                const last = prefix.length ? prefix[prefix.length - 1][prefix[prefix.length - 1].length - 1] : null;
+                const iSwu = {}, sSwu = {};
+                for (const { sid, ends } of proj) {
+                    const mat = mats[sid], iI = new Set(), sI = new Set();
+                    for (const { k } of ends) if (last !== null && k >= 0) mat[k].forEach(c => { if (c.x > last) iI.add(c.x); });
+                    for (let k = ends[0].k + 1; k < mat.length; k++) mat[k].forEach(c => sI.add(c.x));
+                    iI.forEach(x => { iSwu[x] = (iSwu[x] || 0) + su[sid]; });
+                    sI.forEach(x => { sSwu[x] = (sSwu[x] || 0) + su[sid]; });
+                }
+                const cands = [
+                    ...Object.keys(iSwu).sort(cmp).map(x => ({ x, k: 'i', swu: iSwu[x] })),
+                    ...Object.keys(sSwu).sort(cmp).map(x => ({ x, k: 's', swu: sSwu[x] }))
+                ];
+                cands.forEach(c => {
+                    c.pat = c.k === 'i' ? [...prefix.slice(0, -1), [...prefix[prefix.length - 1], c.x]] : [...prefix, [c.x]];
+                    c.ok = c.swu >= minUtil;
+                    if (!c.ok) stats.swuCut++;
+                    addNode({ id: keyOf(c.pat), parent: pid, pat: c.pat, k: c.k, status: c.ok ? 'wait' : 'swu', swu: c.swu });
+                });
+                push('cands', { prefix, proj, cands, iSwu, sSwu, cur: pid, root: !prefix.length });
+                for (const c of cands) {
+                    if (!c.ok) continue;
+                    const np = [];
+                    for (const { sid, ends } of proj) {
+                        const e2 = [];
+                        if (c.k === 'i') {
+                            ends.forEach(({ k, acu }) => mats[sid][k].forEach(cell => { if (cell.x === c.x) e2.push({ k, acu: acu + cell.u, from: acu }); }));
+                        } else {
+                            let best = null, j = 0;
+                            mats[sid].forEach((col, k) => {
+                                while (j < ends.length && ends[j].k < k) { best = best === null ? ends[j].acu : Math.max(best, ends[j].acu); j++; }
+                                col.forEach(cell => { if (cell.x === c.x && best !== null) e2.push({ k, acu: best + cell.u, from: best }); });
+                            });
+                        }
+                        if (e2.length) np.push({ sid, ends: e2 });
+                    }
+                    check(c, prefix, proj, np);
+                }
+            }
+
+            addNode({ id: '', parent: null, pat: [], status: 'root' });
+            extend([], seqs.map((_, sid) => ({ sid, ends: [{ k: -1, acu: 0 }] })), '');
+            push('end');
+            return steps;
+        }
+
+        /* ---------- 對照用：一個樣式在一位顧客身上的所有對應 ---------- */
+        function matchesOf(pat, seq, profit) {
+            const out = [];
+            (function rec(i, k, ks, acc) {
+                if (i === pat.length) { out.push({ ks: ks.slice(), util: acc }); return; }
+                for (let j = k; j < seq.length; j++) {
+                    if (!pat[i].every(x => x in seq[j])) continue;
+                    ks.push(j);
+                    rec(i + 1, j + 1, ks, acc + pat[i].reduce((a, x) => a + seq[j][x] * profit[x], 0));
+                    ks.pop();
+                }
+            })(0, 0, [], 0);
+            return out;
+        }
+        /* 開頭的例子：找一個在某位顧客身上有好幾種對應、效益又不一樣的樣式 */
+        function findExample(seqs, profit) {
+            let one = null;
+            for (const len of [2, 1]) {
+                for (let sid = 0; sid < seqs.length; sid++) {
+                    const items = [...new Set(seqs[sid].flatMap(e => keysOf(e)))].sort(cmp);
+                    const pats = len === 1 ? items.map(a => [[a]]) : items.flatMap(a => items.map(b => [[a], [b]]));
+                    for (const pat of pats) {
+                        const ms = matchesOf(pat, seqs[sid], profit);
+                        if (ms.length >= 2 && ms.length <= 4 && new Set(ms.map(m => m.util)).size > 1) return { sid, pat, ms };
+                        if (!one && ms.length === 1) one = { sid, pat, ms };
+                    }
+                }
+            }
+            return one;
+        }
+        /* 暴力法要比對的候選：每位顧客所有可能的子序列（不重複） */
+        function bruteCandidates(seqs) {
+            const all = new Set();
+            seqs.forEach(seq => {
+                (function rec(k, cur) {
+                    if (k === seq.length) { if (cur) all.add(cur); return; }
+                    rec(k + 1, cur);
+                    const e = keysOf(seq[k]), n = e.length;
+                    for (let mask = 1; mask < (1 << n); mask++)
+                        rec(k + 1, cur + '(' + e.filter((_, j) => mask >> j & 1).join(',') + ')');
+                })(0, '');
+            });
+            return all.size;
+        }
+        const ctxCache = new WeakMap();
+        function extras(ctx) {
+            if (!ctxCache.has(ctx)) ctxCache.set(ctx, { example: findExample(ctx.seqs, ctx.profit), brute: bruteCandidates(ctx.seqs) });
+            return ctxCache.get(ctx);
+        }
+
+        /* ---------- 說明文字 ---------- */
+        const lastItem = pat => pat[pat.length - 1][pat[pat.length - 1].length - 1];
+        function describe(s) {
+            const { ctx } = s, mu = ctx.minUtil;
+            switch (s.kind) {
+                case 'start':
+                    return `每一列是一位常客，照時間排好每次來店買了什麼、<b>買幾個</b>（☕<sub>2</sub>＝咖啡 2 杯）。` +
+                        `一個序列樣式在一位顧客身上的<b>效益</b>＝對應到的那幾次裡，樣式中商品的數量 × 利潤加起來；` +
+                        `同一個樣式可能有<b>好幾種對應</b>，取<b>最大</b>的那個；總效益＝每位顧客加起來。` +
+                        `目標：找出總效益至少 <b>${mu}</b> 的所有序列樣式。「這一步怎麼算」裡有一個例子。`;
+                case 'swu':
+                    return `多接一個商品，可能多賺這個商品的錢，也可能對應得到的顧客變少，效益會變高也會變低，所以不能看到不夠就剪。` +
+                        `先算一個<b>上界</b>：每位顧客整個序列的總效益 su，樣式在他身上再怎麼對應都不會超過 su。` +
+                        `<b>SWU</b>（sequence-weighted utility）＝有買這個商品的顧客，su 加起來。` +
+                        (ctx.removed.length ? `${ctx.removed.map(x => emo(x) + x).join('、')} 的 SWU 不到 ${mu}，含它的樣式都不可能達標，整個刪掉。`
+                            : `每個商品的 SWU 都至少 ${mu}，這次一個都刪不掉。`);
+                case 'matrix':
+                    return `替每位顧客建一張<b>效益矩陣</b>：一欄是一次來店，每格上面是效益 u（數量 × 利潤），下面是<b>剩餘效益 ru</b>：` +
+                        `照「同一次裡照字碼排，再到下一次」的順序，排在這格<b>後面</b>的效益全部加起來（被 SWU 刪掉的不算）。` +
+                        `之後算效益、算上界都只查這張表，不用再回頭看原始資料。`;
+                case 'cands': {
+                    const ok = s.cands.filter(c => c.ok), cut = s.cands.filter(c => !c.ok);
+                    let t = s.root
+                        ? `從空的樣式開始：每個留下來的商品都可以當第一個（S-接在「什麼都沒有」後面）。`
+                        : `前綴 ${pt(s.prefix)} 還有 ${s.proj.length} 位顧客。找能接的商品：<b>I-接</b>＝結束位置那次、排在 ${emo(lastItem(s.prefix))} 後面的（底線）；` +
+                          `<b>S-接</b>＝最早的結束位置之後，任何一次買的。每個候選算 SWU（有這種接法的顧客 su 加總）。`;
+                    if (cut.length) t += `${cut.map(c => pt(c.pat)).join(' ')} 的 SWU 不到 ${mu}，<b>直接剪掉</b>。`;
+                    t += ok.length ? `要試的：${ok.map(c => pt(c.pat)).join(' ')}，照順序一個一個算。` : `沒有候選能試，回到上一層。`;
+                    return t;
+                }
+                case 'check': {
+                    const c = s.c, x = emo(c.x);
+                    let t;
+                    if (!s.prefix.length) t = `第一層 ${pt(s.pattern)}：每一次有買 ${x} 的來店都是一個<b>結束位置</b>，效益＝那次 ${x} 的數量 × 利潤。`;
+                    else if (c.k === 'i') t = `<b>I-接</b>（同一次）：把 ${x} 放進 ${pt(s.prefix)} 的最後一次 → ${pt(s.pattern)}。只看原本的結束位置：那一次也有買 ${x}，就加上 ${x} 的效益，位置不變。`;
+                    else t = `<b>S-接</b>（之後某次）：${pt(s.prefix)} 之後再買 ${x} → ${pt(s.pattern)}。每一次有 ${x} 的來店，往前找結束在它<b>之前</b>、效益最大的前綴，加上這次 ${x} 的效益。`;
+                    const multi = s.per.find(p => p.ends.length > 1);
+                    if (multi) t += `${NAMES[multi.sid]}有 ${multi.ends.length} 個結束位置（${multi.ends.map(e => e.acu).join('、')}），取最大的 ${multi.best}。`;
+                    t += `每位顧客取最大再加起來＝<b>${s.util}</b>，${s.hui ? `≥ ${mu}，是高效益序列樣式，記下來。` : `不到 ${mu}。`}`;
+                    if (s.deep) t += `SPU＝${s.spu} ≥ ${mu}，往下長還有機會，繼續。`;
+                    else if (s.spu > 0) t += `SPU＝${s.spu} < ${mu}：後面全部接上也不夠，<b>整棵子樹剪掉</b>。` + (s.spu < s.util ? `（SPU 只算後面還接得到東西的位置，所以可能比效益本身還小。）` : '');
+                    else t += `每個結束位置後面都沒東西了，不用再往下。`;
+                    return t;
+                }
+                case 'end': {
+                    return `完成！共找到 <b>${s.result.length}</b> 個高效益序列樣式。算過 ${s.stats.checked} 個樣式的效益，` +
+                        `SWU 剪掉 ${s.stats.swuCut} 個候選、SPU 剪掉 ${s.stats.spuCut} 棵子樹。` +
+                        `暴力法要把所有顧客可能的子序列（${extras(ctx).brute} 種）每一種都拿去跟每位顧客比對、找最大的對應。`;
+                }
+            }
+            return '';
+        }
+
+        const CODE_TAGS = s => ({
+            start: ['start'],
+            swu: ['swu'],
+            matrix: ['matrix'],
+            cands: s.cands && s.cands.some(c => !c.ok) ? ['scan', 'width'] : ['scan'],
+            check: s.c ? [s.c.k === 'i' ? 'iext' : 'sext', 'util', 'spu'] : [],
+            end: ['end']
+        })[s.kind] || [];
+
+        /* ---------- 序列資料庫 ---------- */
+        function drawProfit() {
+            $('profit').innerHTML = '利潤：' + ITEMS.map(x => `<span>${emo(x)}<b>${PROFIT[x]}</b></span>`).join('');
+        }
+
+        function endsOf(s) {
+            if (s.kind === 'check' || s.kind === 'cands') {
+                const m = {};
+                s.proj.forEach(p => { m[p.sid] = p; });
+                return m;
+            }
+            return null;
+        }
+
+        function drawSeqs(s) {
+            const { ctx } = s;
+            const box = $('seqs');
+            box.innerHTML = '';
+            const projOf = endsOf(s);
+            const pat = s.kind === 'check' ? s.pattern : s.kind === 'cands' && !s.root ? s.prefix : null;
+            const lastSet = pat ? pat[pat.length - 1] : [];
+            const last = pat ? lastItem(pat) : null;
+            $('seq-title').textContent = pat ? `樣式 ${patText(pat)} 的結束位置` : '序列資料庫';
+            $('seq-sub').textContent = s.kind === 'cands' && s.root ? '' : pat ? `還有 ${s.proj.length} 位顧客` : '';
+            ctx.seqs.forEach((seq, sid) => {
+                const pr = projOf && !(s.kind === 'cands' && s.root) ? projOf[sid] : undefined;
+                const row = document.createElement('div');
+                row.className = 'srow' + (pat && !pr ? ' gone' : '');
+                const who = document.createElement('span');
+                who.className = 'who';
+                who.textContent = NAMES[sid];
+                row.appendChild(who);
+                const vis = document.createElement('div');
+                vis.className = 'visits';
+                let bestK = -1;
+                const endAt = {};
+                if (pr) {
+                    let b = -1;
+                    pr.ends.forEach(e => { endAt[e.k] = e.acu; if (e.acu > b) { b = e.acu; bestK = e.k; } });
+                }
+                const firstEnd = pr ? pr.ends[0].k : -1;
+                seq.forEach((e, k) => {
+                    if (k) { const a = document.createElement('span'); a.className = 'arrow'; a.textContent = '›'; vis.appendChild(a); }
+                    const v = document.createElement('span');
+                    v.className = 'visit';
+                    const isEnd = pr && k in endAt;
+                    if (isEnd) v.classList.add(k === bestK && s.kind === 'check' ? 'best' : 'end');
+                    if (pr && s.kind === 'cands' && k < firstEnd) v.classList.add('past');
+                    keysOf(e).forEach(x => {
+                        const it = document.createElement('span');
+                        it.className = 'it';
+                        it.title = `${x} × ${e[x]}`;
+                        if (s.phase >= 1 && !ctx.keep.has(x)) it.classList.add('off');
+                        if (isEnd && lastSet.includes(x)) it.classList.add('anchor');
+                        if (isEnd && s.kind === 'cands' && ctx.keep.has(x) && x > last) it.classList.add('under');
+                        it.textContent = emo(x);
+                        const q = document.createElement('sub');
+                        q.textContent = e[x];
+                        it.appendChild(q);
+                        v.appendChild(it);
+                    });
+                    if (isEnd) {
+                        const a = document.createElement('span');
+                        a.className = 'acu';
+                        a.textContent = endAt[k];
+                        v.appendChild(a);
+                    }
+                    vis.appendChild(v);
+                });
+                if (!seq.length) { const n = document.createElement('span'); n.className = 'mark'; n.textContent = '（沒有來店紀錄）'; vis.appendChild(n); }
+                row.appendChild(vis);
+                const mark = document.createElement('span');
+                mark.className = 'mark';
+                mark.textContent = `su ${ctx.su[sid]}`;
+                if (pr && s.kind === 'check') {
+                    const b = document.createElement('b');
+                    b.textContent = `取 ${s.per.find(p => p.sid === sid).best}`;
+                    mark.appendChild(b);
+                }
+                row.appendChild(mark);
+                box.appendChild(row);
+            });
+        }
+
+        /* 編輯模式：點一次來店選起來，再用下面的按鈕增減商品和數量 */
+        function drawEditor() {
+            const box = $('seqs');
+            box.innerHTML = '';
+            $('seq-title').textContent = '編輯序列資料庫';
+            $('seq-sub').textContent = '';
+            db.forEach((seq, sid) => {
+                const row = document.createElement('div');
+                row.className = 'srow';
+                const who = document.createElement('span');
+                who.className = 'who';
+                who.textContent = NAMES[sid];
+                row.appendChild(who);
+                const vis = document.createElement('div');
+                vis.className = 'visits';
+                seq.forEach((e, k) => {
+                    if (k) { const a = document.createElement('span'); a.className = 'arrow'; a.textContent = '›'; vis.appendChild(a); }
+                    const v = document.createElement('span');
+                    const ks = keysOf(e);
+                    v.className = 'visit' + (selVisit && selVisit[0] === sid && selVisit[1] === k ? ' sel' : '') + (ks.length ? '' : ' empty');
+                    v.dataset.sid = sid;
+                    v.dataset.k = k;
+                    if (!ks.length) v.textContent = '空';
+                    ks.forEach(x => {
+                        const it = document.createElement('span');
+                        it.className = 'it';
+                        it.textContent = emo(x);
+                        const q = document.createElement('sub');
+                        q.textContent = e[x];
+                        it.appendChild(q);
+                        v.appendChild(it);
+                    });
+                    vis.appendChild(v);
+                });
+                if (seq.length < MAX_VISITS) {
+                    const add = document.createElement('button');
+                    add.className = 'addv';
+                    add.dataset.add = sid;
+                    add.title = '加一次來店';
+                    add.setAttribute('aria-label', `${NAMES[sid]} 加一次來店`);
+                    add.textContent = '＋';
+                    vis.appendChild(add);
+                }
+                row.appendChild(vis);
+                const del = document.createElement('button');
+                del.className = 'delc';
+                del.dataset.del = sid;
+                del.title = '刪除這位顧客';
+                del.setAttribute('aria-label', `刪除${NAMES[sid]}`);
+                del.textContent = '✕';
+                row.appendChild(del);
+                box.appendChild(row);
+            });
+            const pal = $('palette');
+            pal.innerHTML = '';
+            if (!selVisit || !db[selVisit[0]] || !db[selVisit[0]][selVisit[1]]) {
+                pal.textContent = '點一個框（一次來店）來改裡面的商品和數量；按 ＋ 幫那位顧客多加一次來店。';
+                return;
+            }
+            const e = db[selVisit[0]][selVisit[1]];
+            const tip = document.createElement('div');
+            tip.textContent = `${NAMES[selVisit[0]]} 第 ${selVisit[1] + 1} 次來店買了（最多 ${MAX_ITEMS} 樣，每樣 1～${MAX_Q} 個）：`;
+            pal.appendChild(tip);
+            const opts = document.createElement('div');
+            opts.className = 'opts';
+            ITEMS.forEach(x => {
+                const g = document.createElement('span');
+                g.className = 'grp';
+                const b = document.createElement('button');
+                const on = x in e;
+                b.className = 'opt' + (on ? ' on' : '');
+                b.dataset.item = x;
+                b.disabled = !on && Object.keys(e).length >= MAX_ITEMS;
+                b.textContent = on ? `${emo(x)} ${x} × ${e[x]}` : `${emo(x)} ${x}`;
+                g.appendChild(b);
+                if (on) {
+                    [['−', -1], ['+', 1]].forEach(([lab, d]) => {
+                        const q = document.createElement('button');
+                        q.className = 'opt q';
+                        q.dataset.item = x;
+                        q.dataset.dq = d;
+                        q.textContent = lab;
+                        q.disabled = d < 0 ? e[x] <= 1 : e[x] >= MAX_Q;
+                        q.setAttribute('aria-label', `${x} ${d < 0 ? '少' : '多'}一個`);
+                        g.appendChild(q);
+                    });
+                }
+                opts.appendChild(g);
+            });
+            const rm = document.createElement('button');
+            rm.className = 'opt';
+            rm.dataset.rmv = '1';
+            rm.textContent = '🗑 刪掉這次';
+            opts.appendChild(rm);
+            pal.appendChild(opts);
+        }
+
+        function cleanDb() { db = db.map(seq => normSeq(seq)); }
+
+        function setEditing(on) {
+            editing = on;
+            selVisit = null;
+            if (!on) cleanDb();
+            $('seq-card').classList.toggle('editing', on);
+            $('palette').hidden = !on;
+            $('btn-add-cust').hidden = !on;
+            $('btn-edit').textContent = on ? '✓ 編輯完成' : '✎ 編輯資料';
+            $('legend').hidden = on;
+            rebuild();
+        }
+        function dataChanged() {
+            preset = -1;
+            rebuild();
+        }
+
+        $('seqs').addEventListener('click', ev => {
+            if (!editing) return;
+            const v = ev.target.closest('.visit[data-sid]');
+            const add = ev.target.closest('[data-add]');
+            const del = ev.target.closest('[data-del]');
+            if (v) {
+                const sid = Number(v.dataset.sid);
+                let k = Number(v.dataset.k);
+                // 換選別的框時，剛剛那個如果還是空的就拿掉
+                if (selVisit && !(selVisit[0] === sid && selVisit[1] === k) && db[selVisit[0]] && db[selVisit[0]][selVisit[1]] && !Object.keys(db[selVisit[0]][selVisit[1]]).length) {
+                    db[selVisit[0]].splice(selVisit[1], 1);
+                    if (selVisit[0] === sid && selVisit[1] < k) k--;
+                }
+                selVisit = [sid, k];
+                drawEditor();
+            } else if (add) {
+                const sid = Number(add.dataset.add);
+                db[sid] = db[sid].filter(e => Object.keys(e).length);
+                db[sid].push({});
+                selVisit = [sid, db[sid].length - 1];
+                dataChanged();
+            } else if (del) {
+                db.splice(Number(del.dataset.del), 1);
+                selVisit = null;
+                dataChanged();
+            }
+        });
+        $('palette').addEventListener('click', ev => {
+            const b = ev.target.closest('button');
+            if (!b || !selVisit) return;
+            const [sid, k] = selVisit;
+            if (b.dataset.rmv) {
+                db[sid].splice(k, 1);
+                selVisit = null;
+            } else {
+                const e = { ...db[sid][k] };
+                const x = b.dataset.item;
+                if (b.dataset.dq) e[x] = Math.max(1, Math.min(MAX_Q, e[x] + Number(b.dataset.dq)));
+                else if (x in e) delete e[x];
+                else e[x] = 1;
+                db[sid][k] = e;
+            }
+            dataChanged();
+        });
+        $('btn-edit').addEventListener('click', () => setEditing(!editing));
+        $('btn-add-cust').addEventListener('click', () => {
+            if (db.length >= MAX_CUST) return;
+            db.push([{ [ITEMS[0]]: 1 }]);
+            selVisit = [db.length - 1, 0];
+            dataChanged();
+        });
+
+        /* 按鈕只建一次，之後只換 class：量高度時會一直重畫，按鈕若每次重建，使用者正要點的那顆就被換掉了 */
+        function drawPresets() {
+            const box = $('presets');
+            if (box.children.length) {
+                [...box.children].forEach((b, i) => b.classList.toggle('cur', i === preset));
+                return;
+            }
+            PRESETS.forEach((p, i) => {
+                const b = document.createElement('button');
+                b.className = 'btn small' + (i === preset ? ' cur' : '');
+                b.textContent = p.label;
+                b.addEventListener('click', () => {
+                    preset = i;
+                    db = p.db.map(normSeq);
+                    minUtil = p.mu;
+                    matPick = null;
+                    if (editing) setEditing(false); else rebuild();
+                });
+                box.appendChild(b);
+            });
+            const r = document.createElement('button');
+            r.className = 'btn small';
+            r.textContent = '🎲 隨機';
+            r.addEventListener('click', () => {
+                preset = -1;
+                const n = 5 + Math.floor(Math.random() * 2);
+                db = Array.from({ length: n }, () => Array.from({ length: 2 + Math.floor(Math.random() * 3) }, () => {
+                    const pool = ITEMS.slice(), e = {};
+                    const m = 1 + Math.floor(Math.random() * 3);
+                    for (let i = 0; i < m; i++) e[pool.splice(Math.floor(Math.random() * pool.length), 1)[0]] = 1 + Math.floor(Math.random() * 4);
+                    return e;
+                }));
+                const total = db.reduce((a, seq) => a + seqUtil(seq, PROFIT), 0);
+                minUtil = Math.max(MU_MIN, Math.round(total * 0.25 / MU_STEP) * MU_STEP);
+                matPick = null;
+                if (editing) setEditing(false); else rebuild();
+            });
+            box.appendChild(r);
+        }
+
+        /* ---------- 這一步怎麼算 ---------- */
+        function drawCalc(s) {
+            const { ctx } = s, mu = ctx.minUtil;
+            const box = $('calc'), sub = $('calc-sub');
+            sub.textContent = '';
+            if (s.kind === 'start') {
+                const ex = extras(ctx).example;
+                sub.textContent = '序列效益的定義';
+                if (!ex) { box.innerHTML = '<div class="calc-line">資料是空的，沒有例子可以看。</div>'; return; }
+                const seq = ctx.seqs[ex.sid];
+                const best = Math.max(...ex.ms.map(m => m.util));
+                box.innerHTML = `<div class="calc-line">例子：${pt(ex.pat)} 在<b style="color:var(--text)">${NAMES[ex.sid]}</b>的紀錄裡有 ${ex.ms.length} 種對應：</div>` +
+                    `<div class="tbl-wrap"><table class="cnt"><thead><tr><th>對應到</th><th>效益（數量 × 利潤）</th></tr></thead><tbody>` +
+                    ex.ms.map(m => {
+                        const parts = m.ks.map((k, i) => ex.pat[i].map(x => `${seq[k][x]}×${ctx.profit[x]}`).join('+'));
+                        return `<tr><td class="nm">${m.ks.map((k, i) => nth(k) + ex.pat[i].map(emo).join('')).join(' → ')}</td>` +
+                            `<td class="c${m.util === best ? ' warn' : ''}"><span>${parts.join(' + ')} = ${m.util}</span></td></tr>`;
+                    }).join('') + `</tbody></table></div>` +
+                    `<div class="calc-hint">${ex.ms.length > 1 ? `取最大的 <b>${best}</b>，就是 ${esc(patText(ex.pat))} 在${NAMES[ex.sid]}身上的效益。` : `只有一種對應，效益就是 <b>${best}</b>。`}` +
+                    `每位顧客都這樣算，再全部加起來就是總效益。商品利潤跟 <a href="high-utility.html" style="color:var(--accent2)">HUI-Miner</a> 那頁一樣。</div>`;
+                return;
+            }
+            if (s.kind === 'swu') {
+                sub.textContent = `門檻 ${mu}`;
+                const items = Object.keys(ctx.swu).sort(cmp);
+                box.innerHTML = `<div class="tbl-wrap"><table class="cnt"><thead><tr><th>商品</th><th>有買的顧客</th><th>SWU</th></tr></thead><tbody>` +
+                    items.map(x => `<tr><td class="nm">${emo(x)} ${x}</td><td class="l">${ctx.swuWho[x].map(i => NAMES[i]).join('、')}</td>` +
+                        `<td class="c ${ctx.keep.has(x) ? 'ok' : 'no'}"><span>${ctx.swu[x]}</span></td></tr>`).join('') +
+                    `</tbody></table></div><div class="calc-hint">SWU＝這些顧客的 su（資料庫右邊那欄）加起來。綠框留下，紅色刪除線整個刪掉。</div>`;
+                return;
+            }
+            if (s.kind === 'matrix') {
+                const sid = s.ctx.seqs.length ? 0 : null;     // 固定看第一位顧客：右邊矩陣換人看時，這一格不跟著變
+                sub.textContent = sid === null ? '' : `${NAMES[sid]}的 ru 怎麼算`;
+                if (sid === null) { box.innerHTML = ''; return; }
+                const cells = ctx.mats[sid].flatMap((col, k) => col.map(c => ({ ...c, k })));
+                box.innerHTML = `<div class="calc-line">把${NAMES[sid]}的商品排成一排（同一次照字碼排，再到下一次），ru＝排在它右邊的 u 全部加起來：</div>` +
+                    `<div class="chips">${cells.map(c => `<span class="chip">${nth(c.k)} ${emo(c.x)} u <b>${c.u}</b> · ru <b>${c.ru}</b></span>`).join('')}</div>` +
+                    `<div class="calc-hint">最後一格的 ru 一定是 0；第一格的 u + ru 就是這位顧客（扣掉被刪的商品後）的總效益。效益矩陣那張卡可以點名字換人看。</div>`;
+                return;
+            }
+            if (s.kind === 'cands') {
+                sub.textContent = s.root ? '第一層' : `前綴 ${patText(s.prefix)}`;
+                const cell = (x, k) => {
+                    const v = k === 'i' ? s.iSwu[x] : s.sSwu[x];
+                    if (v === undefined) return '<td class="c na"><span>—</span></td>';
+                    return `<td class="c ${v >= mu ? 'ok' : 'no'}"><span>${v}</span></td>`;
+                };
+                box.innerHTML = `<div class="tbl-wrap"><table class="cnt"><thead><tr><th>商品</th><th>I-接（同一次）<small>候選的 SWU</small></th><th>S-接（之後某次）<small>候選的 SWU</small></th></tr></thead><tbody>` +
+                    ITEMS.slice().sort(cmp).map(x => `<tr><td class="nm">${emo(x)} ${x}</td>${cell(x, 'i')}${cell(x, 's')}</tr>`).join('') +
+                    `</tbody></table></div><div class="calc-hint">綠框＝SWU ≥ ${mu}，要試；紅色刪除線＝SWU 不到，直接剪；「—」＝接不上（或 I-接只能接字碼比 ${s.root ? '前一個' : emo(lastItem(s.prefix))} 大的）。</div>`;
+                return;
+            }
+            if (s.kind === 'check') {
+                sub.textContent = patText(s.pattern);
+                const rows = s.per.map(p => {
+                    const ends = p.ends.map(e => `<b class="${e.acu === p.best ? 'mx' : ''}">${nth(e.k)} ${e.acu}</b>${e.ru > 0 ? `+${e.ru}` : ''}`).join('，');
+                    return `<tr><td class="nm">${NAMES[p.sid]}</td><td class="l">${ends}</td><td class="c"><span>${p.best}</span></td><td class="c"><span>${p.bound}</span></td></tr>`;
+                }).join('');
+                box.innerHTML = `<div class="tbl-wrap"><table class="cnt"><thead><tr><th>顧客</th><th style="text-align:left">結束位置 效益<small>+ 後面的剩餘效益 ru</small></th><th>取最大<small>效益</small></th><th>SPU<small>max(效益+ru)</small></th></tr></thead><tbody>` +
+                    (rows || '<tr><td colspan="4" class="l">沒有顧客有這個樣式</td></tr>') +
+                    `<tr class="tot"><td>合計</td><td></td><td class="c ${s.hui ? 'ok' : ''}"><span>${s.util}</span></td><td class="c ${s.deep ? 'ok' : 'no'}"><span>${s.spu}</span></td></tr></tbody></table></div>` +
+                    `<div class="verdict"><span class="${s.hui ? 'ok' : 'no'}">${s.hui ? '✓' : '✗'} 效益 ${s.util} ${s.hui ? '≥' : '<'} ${mu}${s.hui ? '：高效益，輸出' : '：不輸出'}</span>` +
+                    `<span class="${s.deep ? 'ok' : 'no'}">${s.deep ? '→' : '✂'} SPU ${s.spu} ${s.deep ? '≥' : '<'} ${mu}${s.deep ? '：繼續往下長' : '：子樹不用看'}</span></div>`;
+                return;
+            }
+            sub.textContent = '';
+            box.innerHTML = `<div class="calc-line">全部做完了。總共算過 <b style="color:var(--text)">${s.stats.checked}</b> 個樣式的效益，找到 ${s.result.length} 個。` +
+                `按「上一步」可以回頭看每個樣式是怎麼接出來、怎麼算的。</div>`;
+        }
+
+        /* ---------- 效益矩陣 ---------- */
+        function matSid(s) {
+            const n = s.ctx.seqs.length;
+            if (!n) return null;
+            if (matPick !== null && matPick < n) return matPick;
+            if ((s.kind === 'check' || s.kind === 'cands') && !s.root && s.proj.length) return s.proj[0].sid;
+            if (s.kind === 'start') { const ex = extras(s.ctx).example; if (ex) return ex.sid; }
+            return 0;
+        }
+        function drawMatrix(s) {
+            const { ctx } = s;
+            const sid = matSid(s);
+            const whos = $('whos');
+            const inProj = (s.kind === 'check' || s.kind === 'cands') && !s.root ? new Set(s.proj.map(p => p.sid)) : null;
+            if (whos.children.length !== ctx.seqs.length) {
+                whos.innerHTML = '';
+                ctx.seqs.forEach((_, i) => {
+                    const b = document.createElement('button');
+                    b.className = 'btn small';
+                    b.textContent = NAMES[i];
+                    b.dataset.sid = i;
+                    whos.appendChild(b);
+                });
+            }
+            [...whos.children].forEach((b, i) => {
+                b.classList.toggle('cur', i === sid);
+                b.classList.toggle('out', !!inProj && !inProj.has(i));
+            });
+            const t = $('mat'), note = $('mat-note');
+            if (sid === null) { t.innerHTML = ''; note.textContent = ''; return; }
+            const seq = ctx.seqs[sid], mat = ctx.mats[sid];
+            const pr = inProj && inProj.has(sid) ? s.proj.find(p => p.sid === sid) : null;
+            const pat = s.kind === 'check' ? s.pattern : s.kind === 'cands' && !s.root ? s.prefix : null;
+            const last = pat ? lastItem(pat) : null;
+            const endAt = {};
+            let bestK = -1, bv = -1;
+            if (pr) pr.ends.forEach(e => { endAt[e.k] = e.acu; if (e.acu > bv) { bv = e.acu; bestK = e.k; } });
+            // 欄數一律用「來店最多次的顧客」，每列高度固定：換看哪位顧客，表格大小都一樣，不會推動下面的區塊
+            const cols = Math.max(1, ...ctx.seqs.map(q => q.length));
+            const pad = '<td class="blank"></td>'.repeat(cols - seq.length);
+            let html = `<thead><tr><th class="it-h">商品</th>${seq.map((_, k) => `<th>${nth(k)}</th>`).join('')}${'<th></th>'.repeat(cols - seq.length)}</tr></thead><tbody>`;
+            ITEMS.slice().sort(cmp).forEach(x => {
+                html += `<tr><th class="it-h">${emo(x)} ${x}</th>`;
+                seq.forEach((e, k) => {
+                    if (!(x in e)) { html += '<td class="none">·</td>'; return; }
+                    const u = e[x] * ctx.profit[x];
+                    if (s.phase < 2 || !ctx.keep.has(x)) {
+                        const off = s.phase >= 1 && !ctx.keep.has(x);
+                        html += `<td class="${off ? 'off' : ''}"><span class="u">${u}</span><span class="r">${off ? '刪掉' : '&nbsp;'}</span></td>`;
+                        return;
+                    }
+                    const c = mat[k].find(z => z.x === x);
+                    let cls = '';
+                    if (pr && x === last && k in endAt) cls = k === bestK && s.kind === 'check' ? 'best' : 'end';
+                    else if (pr && s.kind === 'cands' && k < pr.ends[0].k) cls = 'past';
+                    html += `<td class="${cls}"><span class="u">${c.u}</span><span class="r">ru ${c.ru}</span></td>`;
+                });
+                html += pad + '</tr>';
+            });
+            t.innerHTML = html + '</tbody>';
+            note.innerHTML = matNote(s, sid);
+        }
+
+        /* 效益矩陣下面那段說明：每一步、每位顧客都不一樣長 */
+        function matNote(s, sid) {
+            const { ctx } = s;
+            const mat = ctx.mats[sid];
+            const inProj = (s.kind === 'check' || s.kind === 'cands') && !s.root ? new Set(s.proj.map(p => p.sid)) : null;
+            const pr = inProj && inProj.has(sid) ? s.proj.find(p => p.sid === sid) : null;
+            const pat = s.kind === 'check' ? s.pattern : s.kind === 'cands' && !s.root ? s.prefix : null;
+            const last = pat ? lastItem(pat) : null;
+            const name = `<b>${NAMES[sid]}</b>`;
+            if (s.phase < 2) {
+                return `格子裡是效益 u＝數量 × 利潤（${name} su＝${ctx.su[sid]}）。${s.phase < 1 ? '' : '刪除線是被 SWU 刪掉的商品。'}下一步才算剩餘效益 ru。`;
+            } else if (pat && !pr) {
+                return `${name}的紀錄裡沒有 ${esc(patText(pat))}，這一步用不到他。`;
+            } else if (s.kind === 'check') {
+                const p = s.per.find(q => q.sid === sid);
+                return `${esc(patText(pat))} 在${name}可以結束在 ${p.ends.map(e => nth(e.k)).join('、')}（框起來的 ${emo(last)} 格）。` +
+                    `效益取最大：max(${p.ends.map(e => e.acu).join(', ')}) = <b>${p.best}</b>；` +
+                    `SPU 這份：max(${p.ends.map(e => e.ru > 0 ? `${e.acu}+${e.ru}` : `${e.acu}+0（後面沒東西，不算）`).join(', ')}) = <b>${p.bound}</b>。`;
+            } else if (s.kind === 'cands' && pr) {
+                return `框起來的是 ${esc(patText(pat))} 的結束位置；淡掉的是最早結束位置之前，後面接什麼都用不到。`;
+            } else {
+                return `${name}：每格上面是 u，下面是 ru（排在後面的效益加總）。第一格的 u + ru = ${mat.flat().length ? mat.flat()[0].u + mat.flat()[0].ru : 0}。`;
+            }
+        }
+        $('whos').addEventListener('click', ev => {
+            const b = ev.target.closest('button[data-sid]');
+            if (!b) return;
+            matPick = Number(b.dataset.sid);
+            const s = trace[cursor];
+            drawMatrix(s);
+        });
+
+        /* 說明的高度固定成「所有步驟 × 所有顧客」裡最高的那段，點哪位顧客都不會變高變矮 */
+        function reserveMatNoteHeight() {
+            const box = $('mat-note');
+            box.style.minHeight = '';
+            if (!box.offsetWidth || !trace.length) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            const seen = new Set();   // 一模一樣的說明只量一次（同寬同內容，高度一定一樣），步驟多時快很多
+            trace.forEach(s => s.ctx.seqs.forEach((_, sid) => {
+                const h = matNote(s, sid);
+                if (seen.has(h)) return;
+                seen.add(h);
+                probe.innerHTML = h;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            }));
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+        }
+
+        /* ---------- 搜尋樹 ---------- */
+        function nodeView(n, s) {
+            const mu = s.ctx.minUtil;
+            let cls = n.status, tag = '', vals = '';
+            switch (n.status) {
+                case 'wait': tag = '待檢查'; break;
+                case 'swu': cls = 'cut swu'; tag = `✂ SWU ${n.swu} < ${mu}`; break;
+                case 'done':
+                    vals = `<span class="v">效益 <b>${n.util}</b> · SPU ${n.spu}</span>`;
+                    if (n.hui) { cls = 'hui'; tag = n.deep ? '✓ 高效益' : '✓ 高效益，不再往下'; }
+                    else if (n.deep) { cls = 'go'; tag = '不夠，但 SPU 夠，往下找'; }
+                    else if (n.spu > 0) { cls = 'cut'; tag = `✂ SPU ${n.spu} < ${mu}`; }
+                    else { cls = 'low'; tag = '不夠，後面也沒東西'; }
+                    break;
+            }
+            if (n.id === s.cur) cls += ' cur';
+            return `<div class="tn ${cls}" data-id="${esc(n.id)}"><span class="k ${n.k}">${n.k === 'i' ? 'I' : 'S'}</span><span class="n">${esc(patText(n.pat))}</span>${vals}<span class="tag">${tag}</span></div>`;
+        }
+        /* 樹：一步一步往後走時，節點只會在後面多幾個、有幾個節點換狀態，所以只改有變的節點、把新節點接上去，
+           不用每一步整棵重畫（樹大時很慢，量區塊高度時也要畫每一步）。往回走或換資料才整棵重畫。 */
+        let treeDrawn = null;
+        function drawTree(s) {
+            const box = $('tree');
+            if (s.kind === 'start' || s.kind === 'swu' || s.kind === 'matrix') {
+                box.innerHTML = '<div class="tree-empty">建好效益矩陣之後，從空的樣式開始，這裡會一層一層長出 q-序列樹。</div>';
+                treeDrawn = null;
+                return;
+            }
+            const shown = s.nodes.filter(n => n.parent !== null);
+            const d = treeDrawn;
+            if (d && d.ctx === s.ctx && box.contains(d.rootLi) && d.ids.length <= shown.length && d.ids.every((id, i) => id === shown[i].id)) {
+                d.rootLi.firstElementChild.className = 'tn root' + (s.cur === '' ? ' cur' : '');
+                shown.forEach((n, i) => {
+                    const html = nodeView(n, s);
+                    if (i < d.ids.length) {
+                        const e = d.map.get(n.id);
+                        if (e.html !== html) { e.li.firstElementChild.outerHTML = html; e.html = html; }
+                        return;
+                    }
+                    const li = document.createElement('li');
+                    li.innerHTML = html;
+                    const up = n.parent === '' ? d.rootLi : d.map.get(n.parent).li;
+                    let ul = up.children[1];
+                    if (!ul) { ul = document.createElement('ul'); up.appendChild(ul); }
+                    ul.appendChild(li);
+                    d.map.set(n.id, { li, html });
+                    d.ids.push(n.id);
+                });
+            } else {
+                const kids = {};
+                shown.forEach(n => { (kids[n.parent] = kids[n.parent] || []).push(n); });
+                const li = n => `<li>${nodeView(n, s)}${kids[n.id] ? `<ul>${kids[n.id].map(li).join('')}</ul>` : ''}</li>`;
+                box.innerHTML = `<ul class="tr"><li><div class="tn root${s.cur === '' ? ' cur' : ''}">∅ 空的樣式</div><ul>${(kids[''] || []).map(li).join('')}</ul></li></ul>`;
+                const map = new Map();
+                const liOf = new Map([...box.querySelectorAll('.tn[data-id]')].map(el => [el.dataset.id, el.parentNode]));
+                shown.forEach(n => map.set(n.id, { li: liOf.get(n.id), html: nodeView(n, s) }));
+                treeDrawn = { ctx: s.ctx, rootLi: box.querySelector('.tn.root').parentNode, ids: shown.map(n => n.id), map };
+            }
+            if (measuringBlocks) return;
+            // 只捲樹的框，讓這一步的節點留在看得到的地方
+            const el = box.querySelector('.tn.cur');
+            if (el) {
+                const y = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+                if (y < box.scrollTop + 10 || y + el.offsetHeight > box.scrollTop + box.clientHeight - 10) {
+                    box.scrollTo({ top: Math.max(0, y - box.clientHeight / 2), behavior: 'smooth' });
+                }
+            }
+        }
+
+        /* ---------- 結果 ---------- */
+        /* 結果清單：往後走時只會在後面多幾個，只補新的、改「剛找到」的外框，不用每一步整排重畫 */
+        let resultDrawn = null;
+        function drawResult(s) {
+            const box = $('levels');
+            const keys = s.result.map(r => patText(r.pat) + '|' + r.util);
+            const d = resultDrawn;
+            const grow = d && d.ctx === s.ctx && d.els.length && d.els.length <= keys.length && box.isConnected &&
+                d.keys.every((k, i) => k === keys[i]);
+            if (!grow) {
+                box.innerHTML = '';
+                if (!s.result.length) box.innerHTML = `<div class="empty">${s.kind === 'end' ? '沒有找到。把門檻調低一點試試看。' : '還沒有，開始長樹之後會出現在這裡。'}</div>`;
+                resultDrawn = { ctx: s.ctx, keys: [], els: [], rows: {} };
+            }
+            const st = resultDrawn;
+            for (let i = st.els.length; i < s.result.length; i++) {
+                const r = s.result[i];
+                const n = r.pat.reduce((a, e) => a + e.length, 0);
+                let row = st.rows[n];
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'level';
+                    row.dataset.n = n;
+                    row.innerHTML = `<span class="tag">${n} 個</span><div class="items"></div>`;
+                    const after = [...box.children].find(x => Number(x.dataset.n) > n);
+                    box.insertBefore(row, after || null);
+                    st.rows[n] = row;
+                }
+                const p = document.createElement('span');
+                p.className = 'pat';
+                p.innerHTML = `<span></span><span class="n">${r.util}</span>`;
+                p.firstChild.textContent = patText(r.pat);
+                p.title = r.pat.map(e => e.join('+')).join(' → ');
+                row.lastChild.appendChild(p);
+                st.els.push(p);
+                st.keys.push(keys[i]);
+            }
+            s.result.forEach((r, i) => st.els[i].classList.toggle('fresh', !!r.fresh));
+            $('st-checked').textContent = s.stats.checked;
+            $('st-swu').textContent = s.stats.swuCut;
+            $('st-spu').textContent = s.stats.spuCut;
+            $('st-found').textContent = s.result.length;
+            $('compare').innerHTML = `同一份資料如果用暴力法，要把每位顧客所有可能的子序列都列出來（共 <b>${extras(s.ctx).brute}</b> 種），` +
+                `每一種都拿去跟 ${s.ctx.seqs.length} 位顧客比對、列出所有對應再取最大。`;
+        }
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this continue break record var'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue break'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tags) {
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/USpan.java" download>USpan.java</a>　執行 <code>javac USpan.java && java USpan</code>'
+                : '下載 <a href="code/uspan.py" download>uspan.py</a>　執行 <code>python3 uspan.py</code>';
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        const muMax = () => Math.max(MU_MIN, Math.ceil(db.reduce((a, seq) => a + seqUtil(seq, PROFIT), 0) / MU_STEP) * MU_STEP);
+        function showStep() {
+            const s = trace[cursor];
+            $('explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${trace.length}</span>${describe(s)}`;
+            drawPresets();
+            // 編輯畫面跟步驟無關：只在資料變了才重畫，量高度時才不會一直換掉使用者正要點的按鈕
+            if (editing) { if (editorDirty) { editorDirty = false; drawEditor(); } } else drawSeqs(s);
+            drawCalc(s);
+            drawMatrix(s);
+            drawTree(s);
+            drawResult(s);
+            renderCode(CODE_TAGS(s));
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0 || editing;
+            $('btn-next').disabled = cursor === trace.length - 1 || editing;
+            $('btn-play').disabled = editing;
+            const max = muMax();
+            $('mu-val').textContent = minUtil;
+            $('mu-range').max = max;
+            $('mu-range').value = minUtil;
+            $('mu-minus').disabled = minUtil <= MU_MIN;
+            $('mu-plus').disabled = minUtil >= max;
+            const total = s.ctx.su.reduce((a, b) => a + b, 0);
+            $('mu-pct').textContent = total ? `（全部顧客總效益 ${total} 的 ${Math.round(minUtil / total * 100)}%）` : '';
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
+                }
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
+            };
+            chunk();
+        }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
+
+        /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${trace.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            reserveMatNoteHeight();
+            reserveBlockHeights(document, trace.length, i => { cursor = i; showStep(); }, () => cursor);
+        }
+
+        function rebuild() {
+            stopAuto();
+            minUtil = Math.max(MU_MIN, Math.min(minUtil, muMax()));
+            trace = buildTrace(db, PROFIT, minUtil);
+            editorDirty = true;
+            cursor = 0;
+            showStep();
+            reserveExplainHeight();
+        }
+
+        function step(dir) {
+            if (editing) return false;
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        function setMinUtil(v) {
+            v = Math.max(MU_MIN, Math.min(muMax(), v));
+            if (v === minUtil) return;
+            minUtil = v;
+            rebuild();
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 2200);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT') return;      // 在滑桿上按左右鍵是調門檻
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+        $('mu-minus').addEventListener('click', () => setMinUtil(minUtil - MU_STEP));
+        $('mu-plus').addEventListener('click', () => setMinUtil(minUtil + MU_STEP));
+        $('mu-range').addEventListener('input', e => setMinUtil(Number(e.target.value)));
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAGS(trace[cursor]));
+        });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(reserveExplainHeight, 150); });
+
+        drawProfit();
+        rebuild();
+    </script>
+</body>
+
+</html>

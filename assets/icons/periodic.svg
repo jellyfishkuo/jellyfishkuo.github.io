@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 時間軸上規律出現的點，上面的弧線是相鄰兩次出現的間隔 -->
+  <path d="M14 38 Q20.5 22 27 38 M27 38 Q33.5 22 40 38 M40 38 Q46.5 22 53 38" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="9" y1="38" x2="56" y2="38" stroke="#4a4a6a" stroke-width="2.4" stroke-linecap="round"/>
+  <g fill="#22d3ee"><circle cx="14" cy="38" r="4.5"/><circle cx="27" cy="38" r="4.5"/><circle cx="40" cy="38" r="4.5"/><circle cx="53" cy="38" r="4.5"/></g>
+  <path d="M14 47 V50 H53 V47" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linejoin="round"/>
+</svg>

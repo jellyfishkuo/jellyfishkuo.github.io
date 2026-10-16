@@ -26,18 +26,18 @@ esc = html.escape
 # ── 分組（圖上的一條一條橫帶） ───────────────────────────────
 # id, 名稱, 顏色, 帶子的 (x, y, 寬, 高)
 GROUPS = [
-    ('inc',     '增量資料庫',  '#22c55e', (4, 6, 572, 82)),
+    ('inc',     '增量資料庫',  '#22c55e', (4, 6, 892, 82)),
     ('freq',    '頻繁樣式',    '#8b5cf6', (4, 98, 572, 142)),
     ('rule',    '規則與序列',  '#c084fc', (4, 250, 572, 142)),
     ('graph',   '圖形',        '#f472b6', (586, 250, 310, 142)),
-    ('hui',     '高效益樣式',  '#f59e0b', (4, 402, 892, 126)),
-    ('stream',  '資料串流',    '#06b6d4', (4, 538, 892, 92)),
-    ('spatial', '空間資料',    '#60a5fa', (4, 640, 892, 92)),
+    ('hui',     '高效益樣式',  '#f59e0b', (4, 402, 892, 186)),
+    ('stream',  '資料串流',    '#06b6d4', (4, 598, 892, 92)),
+    ('spatial', '空間資料',    '#60a5fa', (4, 700, 892, 158)),
 ]
 GMAP = {g[0]: g for g in GROUPS}
 # 清單和比較表用的順序（圖上的排法是為了箭頭好畫，跟這個不同）
 LIST_ORDER = [GMAP[g] for g in ('freq', 'rule', 'graph', 'hui', 'inc', 'stream', 'spatial')]
-SVG_W, SVG_H = 900, 738
+SVG_W, SVG_H = 900, 864
 
 # 欄的中心 x
 A, B, C, D, E = 78, 262, 472, 648, 818
@@ -149,54 +149,86 @@ NODES = [
          struct='CanTree（存所有商品）', fit='資料一直新增、門檻常常改',
          short='固定順序的 FP-tree，新交易來了直接插。',
          frm=[('fp', 'solid', 'FP-tree 改成固定順序，挖法照搬')]),
+    dict(id='pfp', name='PFP-tree', sub='週期性', year='2009', page='periodic', group='freq', x=C, y=138,
+         idea='除了支持度，再看相鄰兩次出現的最大間隔（週期）；週期也有向下封閉性，建樹前和建條件樹前都能直接刪',
+         scans='2 次（算 tid、支持度和週期＋建樹）', cand='不會（跟 FP-Growth 一樣在樹上長）',
+         struct='PF-tree（尾節點記 tid 清單）、條件樹', fit='照時間排好的交易，想找「固定一陣子就會出現」的組合',
+         short='不只要常出現，還要出現得規律：樹上記 tid 才算得出週期。',
+         frm=[('fp', 'solid', '建樹、條件模式基底照 FP-Growth，節點改記 tid 清單')]),
+    dict(id='uspan', name='USpan', sub='高效益序列', year='2012', page='uspan', group='hui', x=D, y=545,
+         idea='序列裡同一個樣式可能有好幾種對應，取最賺的；每位顧客一張效益矩陣，在 q-序列樹上用 I-接、S-接長，SWU 剪候選、SPU 剪子樹',
+         scans='原始資料 1 次（算 SWU、建效益矩陣），之後只查矩陣', cand='不會（樣式成長）',
+         struct='效益矩陣（每格 u、ru）', fit='購買有先後順序、又想看賺多少（回購、套餐升級路徑）',
+         short='序列樣式加上數量 × 利潤，多種對應取最大。',
+         frm=[('prefixspan', 'solid', '一樣的 I-接、S-接深度優先，只是次數換成效益'),
+              ('huiminer', 'solid', 'TWU → SWU、剩餘效益 → ru')]),
+    dict(id='ihup', name='IHUP', year='2009', page='ihup', group='inc', x=D, y=48,
+         idea='交易照固定的字典序插進樹、節點記 TWU，新交易只沿一條路徑加上自己的 TU；要結果時用 TWU 像 FP-Growth 一樣挖候選，再掃一次驗證',
+         scans='新交易插入時讀 1 次＋每次挖掃 1 次驗證（範例挖 2 次共 2 次；每次從頭跑 Two-Phase 要 8 次）',
+         cand='會（TWU ≥ 門檻的組合，跟 Two-Phase 一樣多）',
+         struct='IHUP-tree（存所有商品）、條件樹，另外保留交易供驗證', fit='交易一直新增、要常常拿高效益結果',
+         short='CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。',
+         frm=[('cantree', 'solid', '一樣用固定順序的樹，新交易直接插')]),
     # 串流
-    dict(id='sw', name='滑動視窗', year='', page='sliding-window', group='stream', x=A, y=592,
+    dict(id='sw', name='滑動視窗', year='', page='sliding-window', group='stream', x=A, y=652,
          idea='只看最近 W 筆：進來那筆的子集合 +1、離開那筆的 −1，其他組合不用動',
          scans='單趟：每筆進來、離開各處理一次', cand='不會',
          struct='計數表（視窗裡出現過的組合）', fit='只在乎最近的資料、商品種類少',
          short='只看最近 W 筆，一進一出即時更新頻繁樣式。'),
-    dict(id='lossy', name='Lossy Counting', name2='Space-Saving', year='2002·2005', page='stream-counting', group='stream', x=B, y=592,
+    dict(id='lossy', name='Lossy Counting', name2='Space-Saving', year='2002·2005', page='stream-counting', group='stream', x=B, y=652,
          idea='Lossy Counting 分桶清掉次數太少的（只少算、最多 εN）；Space-Saving 只用 k 格計數器（只多算、最多 N/k）',
          scans='單趟', cand='不會',
          struct='帶誤差的計數表／k 格計數器', fit='記憶體不夠記每個商品，要找熱門商品、即時排行',
          short='記憶體不夠時近似計數，誤差有上限。'),
-    dict(id='cms', name='Count-Min', sub='Sketch', year='2005', page='count-min', group='stream', x=C, y=592,
+    dict(id='cms', name='Count-Min', sub='Sketch', year='2005', page='count-min', group='stream', x=C, y=652,
          idea='d 列 × w 欄的格子，每列用雜湊算出一格 +1，查詢取 d 格的最小值，只會多算',
          scans='單趟', cand='不會',
          struct='d × w 計數表、d 個雜湊函數', fit='任何商品都要能查、分店的表要能相加',
          short='不記名稱、只記格子，任何商品都查得到。',
          frm=[('bloom', 'dash', '一樣把東西用好幾個雜湊撒進格子，只是格子改成計數')]),
-    dict(id='bloom', name='Bloom Filter', year='1970', page='bloom-filter', group='stream', x=D, y=592,
+    dict(id='bloom', name='Bloom Filter', year='1970', page='bloom-filter', group='stream', x=D, y=652,
          idea='m 格位元、k 個雜湊；登錄時把 k 格設成 1，查詢時 k 格都是 1 才說「可能在」，有 0 就一定不在',
          scans='單趟', cand='不會',
          struct='m 格位元陣列、k 個雜湊函數', fit='快速判斷「看過沒有」，可以接受偶爾誤判成「可能在」',
          short='用很少的位元判斷「有沒有看過」，只會誤判成可能在。'),
+    dict(id='hll', name='HyperLogLog', year='2007', page='hyperloglog', group='stream', x=E, y=652,
+         idea='雜湊成 32 位元，前 p 位選暫存器、剩下開頭幾個 0 記成 ρ，每格留最大值；用調和平均估計有幾個不同的，人少時改用 linear counting',
+         scans='單趟', cand='不會',
+         struct='m = 2^p 個小暫存器、一個雜湊函數', fit='只要知道「有幾個不同的」，或要把各分店的結果合併',
+         short='幾百個位元組估計有幾個不同的，誤差約 1.04/√m。',
+         frm=[('bloom', 'dash', '一樣把東西雜湊進格子，改問「有幾個不同的」')]),
     # 空間
-    dict(id='quad', name='四元樹', year='1974', page='spatial', group='spatial', x=A, y=694,
+    dict(id='quad', name='四元樹', year='1974', page='spatial', group='spatial', x=A, y=754,
          idea='依空間從中線切成四塊，點多的地方切細，範圍查詢時整塊跳過不相干的格子',
          scans='—（不是交易資料；建樹時每個點插入一次）', cand='—',
          struct='四元樹', fit='點分布不平均、要做範圍查詢',
          short='把地圖依密度切格子，範圍查詢整塊跳過。'),
-    dict(id='coloc', name='共位樣式', year='2004', page='spatial', group='spatial', x=B, y=694,
+    dict(id='coloc', name='共位樣式', year='2004', page='spatial', group='spatial', x=B, y=754,
          idea='用「距離 ≤ r」取代交易，算參與指數 PI，照 Apriori 一層一層剪',
          scans='—（每一層找一次列實例）', cand='會（跟 Apriori 一樣合併＋剪枝）',
          struct='鄰近關係、列實例', fit='想知道哪幾種店總是開在彼此附近',
          short='頻繁樣式搬到地圖上：哪幾種店總是開在一起。'),
-    dict(id='rtree', name='R-tree', year='1984', page='rtree', group='spatial', x=C, y=694,
+    dict(id='rtree', name='R-tree', year='1984', page='rtree', group='spatial', x=C, y=754,
          idea='用剛好包住一群點的框（MBR）建平衡樹；kNN 用優先佇列依距離一路打開最近的框',
          scans='—（建樹時每個點插入一次）', cand='—',
          struct='R-tree、優先佇列', fit='資料庫裡的地圖資料、找最近的 k 個',
          short='依資料包框的平衡樹，最近 k 家店一下就找到。'),
-    dict(id='dbscan', name='DBSCAN', year='1996', page='dbscan', group='spatial', x=D, y=694,
+    dict(id='dbscan', name='DBSCAN', year='1996', page='dbscan', group='spatial', x=D, y=754,
          idea='圈裡鄰居夠多的是核心點，沿著核心點把鄰居一圈一圈拉進來長成一群',
          scans='—（每個點做 1 次 ε 範圍查詢）', cand='—',
          struct='佇列（可再加四元樹、R-tree 加速找鄰居）', fit='不知道要分幾群、群的形狀奇怪、有雜訊',
          short='依密度分群，不用先說幾群，還會標出雜訊。'),
-    dict(id='skyline', name='Skyline', sub='BNL・SFS', year='2001·2003', page='skyline', group='spatial', x=E, y=694,
+    dict(id='skyline', name='Skyline', sub='BNL・SFS', year='2001·2003', page='skyline', group='spatial', x=E, y=754,
          idea='找出沒有被任何一家「每一項都不輸、至少一項更好」打敗的點；BNL 用視窗兩兩比較，SFS 先排序讓視窗只進不出',
          scans='視窗放得下就 1 輪；放不下要再讀暫存檔', cand='—',
          struct='視窗（目前還沒被打敗的點）、暫存檔', fit='多個條件一起挑（又便宜又近），不想自己訂權重',
          short='又便宜又近：找出不被任何一家全面打敗的店。'),
+    dict(id='irtree', name='IR-tree', sub='關鍵字', year='2009', page='ir-tree', group='spatial', x=C, y=826,
+         idea='R-tree 的每個節點多記一份倒排表；查詢時關鍵字湊不齊的子樹整個跳過，湊得齊的依距離進優先佇列',
+         scans='—（只打開距離近、關鍵字齊的節點）', cand='—',
+         struct='R-tree＋每個節點的倒排表、優先佇列', fit='找「最近、而且有這些關鍵字」的 k 個地點',
+         short='R-tree 掛上倒排表，關鍵字湊不齊的框整個跳過。',
+         frm=[('rtree', 'solid', 'R-tree 每個節點多掛一份倒排表'),]),
 ]
 NMAP = {n['id']: n for n in NODES}
 for n in NODES:
@@ -233,9 +265,9 @@ ROUTES = [
     ]),
 ]
 ROUTE_EXTRA = {  # 路線走完可以接著看的
-    '串流與空間路線': ['bloom', 'skyline'],
-    '入門路線': ['gsp', 'spade', 'gspan'],
-    '高效益路線': ['fup', 'cantree'],
+    '串流與空間路線': ['bloom', 'hll', 'skyline', 'irtree'],
+    '入門路線': ['gsp', 'spade', 'gspan', 'pfp'],
+    '高效益路線': ['uspan', 'fup', 'cantree', 'ihup'],
 }
 
 # ── 產生 HTML 片段 ──────────────────────────────────────────
@@ -291,12 +323,20 @@ def svg_graph():
     out.append('<g class="edges">')
     hw = NODE_W / 2
     for s, t, kind, why in edges:
+        cls = 'e dash' if kind == 'dash' else 'e'
+        mk = 'ar2' if kind == 'dash' else 'ar'
+        if t['x'] == s['x']:      # 同一欄：從下緣直直往下（或往上）
+            sgn = 1 if t['y'] > s['y'] else -1
+            y1, y2 = s['y'] + sgn * NODE_H / 2, t['y'] - sgn * (NODE_H / 2 + 2)
+            out.append(f'<path class="{cls}" data-s="{s["id"]}" data-t="{t["id"]}" d="M{s["x"]:.0f},{y1:.1f} L{t["x"]:.0f},{y2:.1f}" marker-end="url(#{mk})">'
+                       f'<title>{esc(node_label(s))} → {esc(node_label(t))}：{esc(why)}</title></path>')
+            continue
         if t['x'] < s['x']:       # 往左
             x1, x2 = s['x'] - hw, t['x'] + hw
         else:
             x1, x2 = s['x'] + hw, t['x'] - hw
         y1, y2 = s['y'], t['y']
-        sibs = [e for e in edges if e[0] is s and (e[1]['x'] < s['x']) == (t['x'] < s['x'])]
+        sibs = [e for e in edges if e[0] is s and e[1]['x'] != s['x'] and (e[1]['x'] < s['x']) == (t['x'] < s['x'])]
         if len(sibs) > 1:
             sibs.sort(key=lambda e: e[1]['y'])
             i = sibs.index((s, t, kind, why))

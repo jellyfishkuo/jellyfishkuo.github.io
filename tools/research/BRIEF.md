@@ -23,7 +23,11 @@
 - 繁體中文（台灣用語），語氣跟現有兩頁一樣：白話、具體、像在教學弟妹。標題區有 `RESEARCH DEMO · ...` kicker、h1 + small 副標、intro 段落（提到並連結相關的前一頁）。
 - 返回連結 `../index.html#research`，head 裡的 icon 連結指向你的圖示。
 - 「一步一步看」：上一步 / 下一步 / 回到開頭 / 自動播放、鍵盤左右鍵；每一步一段說明（`.explain`），**用最長說明的高度固定說明框**（照抄 reserveExplainHeight），否則下面的東西會跳。
-- **區塊不能互相推擠**：每個 `.card` 都要用 `reserveBlockHeights()`（照抄現有 Demo，在 reserveExplainHeight 結尾呼叫）固定成所有步驟裡最高的高度；驗證時從頭按到尾，每個 `.card` 的位置都不能變。
+- **區塊不能互相推擠**：每個 `.card` 都要用 `reserveBlockHeights()`（照抄 apriori 的整段：`let measuringBlocks…` 那行到 `document.fonts` 那行，在 reserveExplainHeight 結尾呼叫）固定成所有步驟裡最高的高度；驗證時從頭按到尾，每個 `.card` 的位置都不能變。這段程式會：
+  - 分段量（每段約 45ms，用 MessageChannel 接下一段），每段量完畫回目前這一步；量完之前按的上一步／下一步／播放／左右鍵會先排隊，量完才照順序做（所以按鈕 id 要叫 `xx-first`、`xx-prev`、`xx-next`、`xx-play`、`xx-last` 或 `btn-…`）；網路字型載完會自動重量一次。
+  - `renderCode()` 第一行要是 `if (measuringBlocks || restoringBlocks) return;`（量的時候和量完畫回來時都不用重畫程式碼）。只在畫面上捲動、不影響高度的動作用 `if (!measuringBlocks)` 包起來。
+  - **量完要快**：每一步都會被畫一次再排版一次，一步的成本 × 步數就是量完的時間（目標：預設設定 0.5 秒內、最極端的設定 2 秒內）。常見的省法：結果清單只在後面多幾個時只補新的（不要每一步 `innerHTML = ''` 整排重畫，見 prefixspan / gspan 的 `drawResult`）；內容跟上一步一模一樣就不要重設 `innerHTML`（見 ihup 的 `drawDB`）；量高度時（`measuringBlocks` 為真）可以省略不影響大小的細節，例如固定 viewBox 的 SVG 只畫外框（見 gspan 的 `svgGraph`）、格子數不變的色塊不重畫（見 hyperloglog 的 `renderRegs`）。不確定會不會影響高度的就不要省。
+  - 驗證：載入後**馬上**每 30ms 按一次下一步直到最後一步，量完之後每個 `.card` 位置都不能再變；也量一下最極端的參數（門檻調到最低）量完要多久。
 - CSS 開頭要有 `html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }`（手機才不會把程式碼的字放大得忽大忽小），放在字型 `@import` 後面。
 - 程式碼框：Java / Python 切換；每一步高亮正在執行的那幾行（用模板裡的 «tag» 標記，build.py 產生 JSON 嵌進頁面）；**只捲程式碼框本身（pre.scrollTo），絕對不要 scrollIntoView 去捲整頁**；下方有下載連結和執行指令。網頁上顯示的程式碼和下載的檔案必須同源（都由 .tpl 產生）。
 - 網頁裡用 JavaScript 照同樣的演算法跑一次產生步驟紀錄（trace），上一步/下一步只是在紀錄裡移動。
@@ -42,6 +46,40 @@
 - 從頭按到尾每一步：沒有 pageerror、說明框高度固定、程式碼高亮行合理。
 - 手機 375×760 與電腦 1280×900 截圖，自己用 Read 工具看過，修正版面問題。
 - 本機伺服器：`cd <repo> && python3 -m http.server <你的埠> >/dev/null 2>&1 &`（每個 shell 呼叫可能會被收掉，必要時在同一個指令裡重開）。
+
+## 練習模式「猜下一步」（照 apriori / fp-growth / high-utility 做）
+
+開關「🎯 練習模式」打開後，按「下一步」（按鈕、→ 鍵、自動播放都一樣）時，如果**下一步**有題目，先在說明框的位置疊一層題目；答完立刻顯示對錯和一句解釋，按「繼續 ▶」才前進（說明框照常顯示）。記分「答對 x/y」。可以「跳過」（不計分）。上一步、⏮、關掉開關都會收起題目；改資料或門檻後重新出題。關掉時行為跟原本完全一樣。
+
+**照抄的部分**（三頁一模一樣，直接複製）：
+- CSS：`/* ── 練習模式（猜下一步）…── */` 整段，放在 `</style>` 前面。class：`.quiz-bar` `.quiz-toggle`（`.quiz-on`、`.sw` 開關）`.quiz-score` `.quiz-host` `.quiz`（`.done` 已作答、`.miss` 答錯、`.nudge` 沒作答就按下一步時抖一下）`.quiz-head` `.quiz-tag` `.quiz-actions`（`.quiz-ok` 確定、`.quiz-go` 跳過／繼續）`.quiz-body`（`.quiz-text` 題目、`.quiz-why` 解釋疊在同一格）`.quiz-choices`（`.row` 數字一列、`.half` 短選項兩欄、`.wide` 長選項一行一個）`.quiz-choice`（`.sel` `.right` `.wrong` `.missed`）。
+- HTML：把 `<div class="explain" id="explain"></div>` 換成
+  ```html
+  <div class="quiz-bar">
+      <button class="btn quiz-toggle" id="quiz-toggle" aria-pressed="false" title="按下一步之前先猜猜看">🎯 練習模式<span class="sw" aria-hidden="true"></span></button>
+      <span class="quiz-score" id="quiz-score" style="visibility:hidden">答對 0/0</span>
+  </div>
+  <div class="quiz-host" id="quiz-host">
+      <div class="explain" id="explain"></div>
+      <div class="quiz" id="quiz" role="group" aria-label="練習題" hidden></div>
+  </div>
+  ```
+- JS：`練習模式「猜下一步」（各 Demo 共用…）` 那段整段（`QZ`、`quizRng`、`quizPick`、`quizShuffle`、`quizNums`、`quizOptions`、`quizSingle`、`quizRender`、`quizOpen/Close/Answer/Score`、`quizGate`、`quizReserve` 和事件），放在 `function step(dir)` 前面。需要頁面上有 `$`、`trace`、`cursor`、`#btn-next`、`#btn-first`。
+- 接兩行：`step(dir)` 的第一行 `if (quizGate(dir)) return false;`；`reserveExplainHeight()` 的第一行 `quizReserve();`（先替題目框預留高度，再讓 `reserveBlockHeights()` 量各區塊）。
+
+**每頁自己寫的只有 `quizFor(s, i)`**：第 i 步（`s = trace[i]`）要出的題目，沒有就回傳 `null`。
+```js
+{ q: '題目', choices: ['選項', ...], answer: 2,          // 單選：正確選項的索引
+  multi: true, answer: [0, 3],                            // 複選：索引陣列，可以是空的（「都不會就直接按確定」）
+  why: '一句解釋（答完才顯示）', ask: { type: '...', ... } }  // ask 只給 quiz_test.py 對答案
+```
+- **答案一定從 `s`（頁面自己算出來的 trace）取**，不能寫死；題目也只能用 trace 和目前的資料／門檻組出來，使用者改資料後照樣能出題。
+- q / choices / why 都是**純文字**（`quizRender` 用 textContent 放），不要放 HTML；頁面的 `fmt()` 如果有跳脫（例如 high-utility），要另外用沒跳脫的版本。
+- 亂數一律用 `const rnd = quizRng(i + 1)`，同一步每次出的題目才會一樣（預留高度時量的和真的顯示的一致）。
+- 工具：`quizNums(ans, lo, hi, rnd, traps)` 數字題（正確答案＋容易搞混的數字＋附近的數，湊 4 個）；`quizOptions([{ text: 正確 }, { text: 陷阱 }...], rnd)` 文字題（去重、打亂）；複選只剩一個選項時用 `quizSingle(mq, '…會留下來嗎？')` 改成會／不會。
+- 出題原則：只在有重點的步驟出（剪枝會不會剪、支持度／效益是多少、哪些留下、插入後節點次數、條件模式基底、上界夠不夠…），太多重複的步驟可以隔幾步問一次；陷阱選項用**常見的錯誤想法**算出來（忘了扣 P、把自己算進前綴、用上面節點的次數、把上界當效益…）；why 一句話講為什麼，引用實際數字。
+- 題目框要短：選項最多 4 個、長選項（像路徑清單）最多 3 個；手機 375px 時題目框高度最好不要比最長的說明多太多（關掉練習模式也會預留這個高度）。
+- 驗證：寫 `quiz_test.py`（照 apriori 的），至少 100 組隨機資料，每一題用 Python 自己算（或暴力法）對答案，並檢查選項不重複、至少 2 個；再用 playwright 在 375 / 1280 把練習模式打開、隨機作答從頭走到尾：每個 `.card` 位置不變（包括開關練習模式、題目打開、作答後）、沒有 pageerror、`scrollWidth` 等於視窗寬。
 
 ## 回報
 
