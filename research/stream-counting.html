@@ -286,6 +286,55 @@
             .bar { grid-template-columns: 7.4em 1fr 2.8em; }
             .stat .v { font-size: 1.05rem; }
         }
+        /* ── 練習模式（猜下一步）：題目疊在說明框的位置，不推動任何區塊 ── */
+        .quiz-bar { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.75rem; }
+        .quiz-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .quiz-toggle .sw { position: relative; flex: none; width: 30px; height: 17px; border-radius: 9px; background: #2a2a48; transition: background 0.15s; }
+        .quiz-toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+        .quiz-toggle.quiz-on { border-color: var(--accent); }
+        .quiz-toggle.quiz-on .sw { background: var(--accent); }
+        .quiz-toggle.quiz-on .sw::after { transform: translateX(13px); background: #fff; }
+        .quiz-toggle { flex: none; }
+        .quiz-score { font: 0.8rem 'Space Mono', monospace; color: var(--accent2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        .quiz-host { position: relative; display: grid; margin-top: 0.8rem; }
+        .quiz-host > .explain { margin-top: 0; min-width: 0; }
+        .quiz {
+            position: absolute; inset: 0; z-index: 2; overflow: auto;
+            display: flex; flex-direction: column; gap: 0.45rem;
+            background: var(--panel-2); border: 1px solid rgba(124, 58, 237, 0.5); border-left: 3px solid var(--accent);
+            border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.88rem; line-height: 1.5;
+        }
+        .quiz[hidden] { display: none; }
+        .quiz.nudge { animation: quiz-nudge 0.3s; }
+        @keyframes quiz-nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .quiz-head { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem 0.5rem; flex-wrap: wrap; }
+        .quiz-tag { font: 700 0.74rem 'Space Mono', monospace; color: #c4b5fd; }
+        /* 題目和解釋疊在同一格：答完換成解釋，高度取兩者較高的，不會跳 */
+        .quiz-body { display: grid; }
+        .quiz-body > * { grid-area: 1 / 1; min-width: 0; }
+        .quiz-choices { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .quiz-choices.half { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .quiz-choices.wide { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+        .quiz-choices.wide .quiz-choice { min-height: 32px; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
+        .quiz-choice {
+            min-height: 36px; min-width: 44px; padding: 0.25rem 0.7rem; border-radius: 8px;
+            border: 1px solid var(--border); background: #1c1c33; color: var(--text);
+            font: inherit; font-size: 0.86rem; line-height: 1.35; text-align: left; cursor: pointer; overflow-wrap: anywhere;
+        }
+        .quiz-choice:hover:not(:disabled) { border-color: var(--accent2); }
+        .quiz-choice:disabled { cursor: default; }
+        .quiz-choice.sel { border-color: var(--accent2); background: rgba(6, 182, 212, 0.14); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .quiz-choice.right { border-color: var(--good); background: rgba(34, 197, 94, 0.18); color: #bbf7d0; }
+        .quiz-choice.right.missed { border-style: dashed; background: rgba(34, 197, 94, 0.07); }   /* 複選題漏選的 */
+        .quiz-choice.wrong { border-color: var(--bad); background: rgba(248, 113, 113, 0.14); color: #fecaca; text-decoration: line-through; }
+        .quiz-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+        .quiz-actions .btn { padding: 0.2rem 0.65rem; font-size: 0.82rem; }
+        .quiz.done .quiz-ok { visibility: hidden; }
+        .quiz-why { visibility: hidden; font-size: 0.85rem; color: #c6c6d6; }
+        .quiz.done .quiz-why { visibility: visible; }
+        .quiz.done .quiz-text { visibility: hidden; }
+        .quiz-verdict { color: var(--good); margin-right: 0.3rem; }
+        .quiz.miss .quiz-verdict { color: var(--bad); }
     </style>
 </head>
 
@@ -334,7 +383,14 @@
                                 <button class="btn stepper" id="lcs-plus" aria-label="s 變大">+</button>
                             </div>
                         </div>
-                        <div class="explain" id="lc-explain"></div>
+                        <div class="quiz-bar">
+                            <button class="btn quiz-toggle" id="lc-quiz-toggle" aria-pressed="false" title="按下一步之前先猜猜看">🎯 練習模式<span class="sw" aria-hidden="true"></span></button>
+                            <span class="quiz-score" id="lc-quiz-score" style="visibility:hidden">答對 0/0</span>
+                        </div>
+                        <div class="quiz-host" id="lc-quiz-host">
+                            <div class="explain" id="lc-explain"></div>
+                            <div class="quiz" id="lc-quiz" role="group" aria-label="練習題" hidden></div>
+                        </div>
                     </div>
 
                     <div class="card">
@@ -438,7 +494,14 @@
                                 <button class="btn stepper" id="sss-plus" aria-label="s 變大">+</button>
                             </div>
                         </div>
-                        <div class="explain" id="ss-explain"></div>
+                        <div class="quiz-bar">
+                            <button class="btn quiz-toggle" id="ss-quiz-toggle" aria-pressed="false" title="按下一步之前先猜猜看">🎯 練習模式<span class="sw" aria-hidden="true"></span></button>
+                            <span class="quiz-score" id="ss-quiz-score" style="visibility:hidden">答對 0/0</span>
+                        </div>
+                        <div class="quiz-host" id="ss-quiz-host">
+                            <div class="explain" id="ss-explain"></div>
+                            <div class="quiz" id="ss-quiz" role="group" aria-label="練習題" hidden></div>
+                        </div>
                     </div>
 
                     <div class="card">
@@ -1011,6 +1074,7 @@
 
         /* 說明框用最長那段文字的高度固定住，下面的東西才不會跳來跳去 */
         function reserveExplainHeight(group) {
+            quizReserve(group);   // 練習模式的題目框也要先預留高度，再量各區塊
             const box = $(group + '-explain');
             if (!box.offsetWidth) return;
             const probe = box.cloneNode(false);
@@ -1095,7 +1159,255 @@
         }
 
         /* =================== 播放控制 =================== */
+        /* =========================================================
+           練習模式「猜下一步」（各 Demo 共用，規格見 tools/research/BRIEF.md）
+           打開後按「下一步」：如果下一步有題目（quizFor 不是 null），先在說明框的位置疊一層題目，
+           答完立刻顯示對錯和一句解釋，按「繼續」才真的前進。題目都從 trace 算出來，資料或門檻改了照樣能出題。
+           ========================================================= */
+        // 兩個分頁各自一份：開關、記分、出過的題目都分開
+        const QZS = Object.fromEntries(['lc', 'ss'].map(g => [g, { on: false, q: null, at: -1, picked: new Set(), answered: false, done: new Set(), right: 0, total: 0, trace: null }]));
+
+        /* 固定種子的亂數：同一步每次出的題目都一樣，預留高度時量到的才會跟真的顯示的一致 */
+        function quizRng(seed) {
+            let a = (seed * 2654435761) >>> 0 || 1;
+            return () => { a ^= a << 13; a >>>= 0; a ^= a >>> 17; a ^= a << 5; a >>>= 0; return a / 4294967296; };
+        }
+        const quizPick = (arr, rnd) => arr[Math.floor(rnd() * arr.length)];
+        function quizShuffle(arr, rnd) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+            return a;
+        }
+        /* 數字題：正確答案＋容易搞混的數字（traps）＋附近的數字，湊滿 4 個、由小到大排 */
+        function quizNums(ans, lo, hi, rnd, traps = []) {
+            const set = new Set([ans]);
+            traps.forEach(v => { if (set.size < 4 && v >= lo && v <= hi) set.add(v); });
+            for (let d = 1; set.size < 4 && d <= hi - lo; d++) {
+                quizShuffle([ans + d, ans - d], rnd).forEach(v => { if (set.size < 4 && v >= lo && v <= hi) set.add(v); });
+            }
+            const nums = [...set].sort((a, b) => a - b);
+            return { choices: nums.map(String), answer: nums.indexOf(ans) };
+        }
+        /* 文字選項：opts[0] 是正確的，其他是陷阱；去掉重複、打亂後回傳 choices 和正確的索引 */
+        function quizOptions(opts, rnd) {
+            const seen = new Set();
+            const list = quizShuffle(opts.filter(o => !seen.has(o.text) && seen.add(o.text)).map((o, k) => ({ ...o, ok: k === 0 })), rnd);
+            return { choices: list.map(o => o.text), answer: list.findIndex(o => o.ok) };
+        }
+
+        /* 複選題只剩一個選項時，改成「會／不會」二選一（q 是問句，例如「{咖啡, 牛奶} 會留下來嗎？」） */
+        function quizSingle(multiQ, q) {
+            return { ...multiQ, q, choices: ['會', '不會'], answer: multiQ.answer.length ? 0 : 1, multi: false, ask: { ...multiQ.ask, only: multiQ.choices } };
+        }
+
+        /* 把一題畫進 box（q、choices、why 都是純文字，一律用 textContent） */
+        function quizRender(box, q) {
+            box.innerHTML = '<div class="quiz-head"><span class="quiz-tag"></span><div class="quiz-actions">' +
+                '<button type="button" class="btn quiz-ok">確定</button><button type="button" class="btn quiz-go">跳過</button></div></div>' +
+                '<div class="quiz-body"><div class="quiz-text"></div><div class="quiz-why" aria-live="polite"><b class="quiz-verdict">✗ 不對喔</b><span></span></div></div>' +
+                '<div class="quiz-choices"></div>';
+            box.querySelector('.quiz-tag').textContent = q.multi ? '🎯 猜猜看（可複選）' : '🎯 猜猜看';
+            box.querySelector('.quiz-text').textContent = q.q;
+            const list = box.querySelector('.quiz-choices');
+            const longest = Math.max(...q.choices.map(c => c.length));
+            list.classList.add(longest > 12 ? 'wide' : longest > 4 ? 'half' : 'row');   // 長選項一行一個、短的兩欄、數字排一列
+            q.choices.forEach((c, k) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'quiz-choice';
+                b.dataset.k = k;
+                b.textContent = c;
+                list.appendChild(b);
+            });
+            box.querySelector('.quiz-why span').textContent = q.why;
+            box.querySelector('.quiz-ok').style.display = q.multi ? '' : 'none';
+        }
+        function quizOpen(g, q, at) {
+            const QZ = QZS[g];
+            Object.assign(QZ, { q, at, picked: new Set(), answered: false });
+            const box = $(g + '-quiz');
+            box.classList.remove('done', 'miss', 'nudge');
+            quizRender(box, q);
+            box.hidden = false;
+        }
+        function quizClose(g) {
+            const QZ = QZS[g];
+            QZ.q = null;
+            QZ.at = -1;
+            $(g + '-quiz').hidden = true;
+        }
+        function quizAnswer(g) {
+            const QZ = QZS[g];
+            const q = QZ.q, want = new Set(q.multi ? q.answer : [q.answer]);
+            const ok = want.size === QZ.picked.size && [...want].every(k => QZ.picked.has(k));
+            QZ.answered = true;
+            QZ.done.add(QZ.at);
+            QZ.total++;
+            if (ok) QZ.right++;
+            const box = $(g + '-quiz');
+            box.querySelectorAll('.quiz-choice').forEach(b => {
+                const k = Number(b.dataset.k);
+                b.classList.toggle('right', want.has(k));
+                b.classList.toggle('wrong', QZ.picked.has(k) && !want.has(k));
+                b.classList.toggle('missed', !!q.multi && want.has(k) && !QZ.picked.has(k));
+                b.disabled = true;
+            });
+            box.querySelector('.quiz-verdict').textContent = ok ? '✓ 答對了！' : '✗ 不對喔';
+            box.classList.add('done');
+            box.classList.toggle('miss', !ok);
+            box.querySelector('.quiz-go').textContent = '繼續 ▶';
+            quizScore(g);
+        }
+        function quizScore(g) {
+            const QZ = QZS[g];
+            $(g + '-quiz-score').textContent = `答對 ${QZ.right}/${QZ.total}`;
+            $(g + '-quiz-score').style.visibility = QZ.on ? 'visible' : 'hidden';
+            $(g + '-quiz-toggle').classList.toggle('quiz-on', QZ.on);
+            $(g + '-quiz-toggle').setAttribute('aria-pressed', String(QZ.on));
+        }
+
+        /* 接在 step(dir) 最前面：回傳 true 表示「先別前進，題目還沒答」 */
+        function quizGate(g, dir) {
+            const QZ = QZS[g], trace = stepsOf(g), cursor = cursors[g];
+            if (dir < 0 || !QZ.on) { quizClose(g); return false; }
+            if (QZ.q) {
+                if (QZ.answered || QZ.at !== cursor + 1) { quizClose(g); return false; }
+                const box = $(g + '-quiz');
+                box.classList.remove('nudge');
+                void box.offsetWidth;          // 重新觸發動畫
+                box.classList.add('nudge');
+                return true;
+            }
+            const at = cursor + 1;
+            if (at >= trace.length || QZ.done.has(at)) return false;
+            const q = quizFor(g, trace[at], at);
+            if (!q) return false;
+            quizOpen(g, q, at);
+            return true;
+        }
+
+        /* 題目框的高度：把這一輪每一題都畫一次，用最高的那題固定（關掉練習模式時也一樣預留，開關才不會推動下面） */
+        function quizReserve(g) {
+            const QZ = QZS[g], trace = stepsOf(g);
+            if (QZ.trace !== trace) { QZ.trace = trace; QZ.done.clear(); quizClose(g); }   // 資料或門檻改了，重新出題
+            const host = $(g + '-quiz-host');
+            if (!host.offsetWidth) return;
+            const probe = document.createElement('div');
+            probe.className = 'quiz done';
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;top:0;right:auto;bottom:auto;width:${host.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                const q = quizFor(g, s, i);
+                if (!q) return;
+                quizRender(probe, q);
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            host.style.minHeight = tallest ? tallest + 'px' : '';
+        }
+
+        ['lc', 'ss'].forEach(g => {
+            const QZ = QZS[g];
+            $(g + '-quiz').addEventListener('click', e => {
+                const q = QZ.q;
+                if (!q) return;
+                const c = e.target.closest('.quiz-choice');
+                if (c && !QZ.answered) {
+                    const k = Number(c.dataset.k);
+                    if (!q.multi) { QZ.picked = new Set([k]); quizAnswer(g); return; }
+                    if (QZ.picked.has(k)) QZ.picked.delete(k); else QZ.picked.add(k);
+                    c.classList.toggle('sel', QZ.picked.has(k));
+                    return;
+                }
+                if (e.target.closest('.quiz-ok') && !QZ.answered) { quizAnswer(g); return; }
+                if (e.target.closest('.quiz-go')) {
+                    if (!QZ.answered) QZ.done.add(QZ.at);   // 跳過：不計分，也不再問
+                    quizClose(g);
+                    $(g + '-next').click();
+                }
+            });
+            $(g + '-quiz-toggle').addEventListener('click', () => {
+                QZ.on = !QZ.on;
+                if (!QZ.on) quizClose(g);
+                quizScore(g);
+            });
+            $(g + '-first').addEventListener('click', () => quizClose(g));
+            $(g + '-last').addEventListener('click', () => quizClose(g));
+        });
+
+        /* 第 i 步（s = stepsOf(g)[i]）要出的題目：{ q, choices, answer, why, multi?, ask? } 或 null（ask 只給 quiz_test.py 對答案用） */
+        function quizFor(g, s, i) {
+            const rnd = quizRng(i + 1);
+            const truth = new Map(s.truth);
+            switch (s.kind) {
+                case 'l-new': {
+                    if (s.b === 1) return null;            // 第 1 桶的新商品 Δ 一定是 0，不問
+                    return {
+                        q: `第 ${s.n} 筆（第 ${s.b} 桶）：${s.item} 不在表裡，新增一列 f = 1。它的 Δ 是多少？`,
+                        ...quizNums(s.b - 1, 0, s.b + 2, rnd, [0, s.b, s.seenBefore]),
+                        why: `Δ = b − 1 = ${s.b - 1}：它可能在前 ${s.b - 1} 桶出現過、被大掃除忘掉，最多漏算 ${s.b - 1} 次` +
+                            (s.seenBefore ? `（真的漏了 ${s.seenBefore} 次，沒超過）。` : `（其實它是第一次出現，但演算法分不出來）。`),
+                        ask: { type: 'delta', n: s.n, item: s.item }
+                    };
+                }
+                case 'l-prune': {
+                    const all = [...s.removed.map(r => [...r, true]), ...s.table.map(r => [...r, false])];
+                    const pick = quizShuffle(all, rnd).slice(0, 4);
+                    if (!pick.length) return null;
+                    const mq = {
+                        q: `第 ${s.b} 桶結束（N = ${s.n}），大掃除：哪些商品會被刪掉？`,
+                        choices: pick.map(([x, f, d]) => `${x} f=${f} Δ=${d}`),
+                        answer: pick.map((r, k) => r[3] ? k : -1).filter(k => k >= 0), multi: true,
+                        why: `規則是 f + Δ ≤ b = ${s.b} 就刪：` + pick.map(([x, f, d, gone]) => `${x} ${f}+${d}=${f + d}${gone ? '，刪' : '，留'}`).join('；') + '。',
+                        ask: { type: 'prune', n: s.n, items: pick.map(r => r[0]) }
+                    };
+                    return pick.length === 1 ? quizSingle(mq, `第 ${s.b} 桶結束，${mq.choices[0]} 會被刪掉嗎？`) : mq;
+                }
+                case 'l-end': {
+                    const sNc = s.table.filter(([, f]) => f >= s.sN - TOL).length;
+                    return {
+                        q: `串流結束，N = ${s.n}、s = ${lcS()}、ε = ${eps()}。表裡會回報幾個商品（f ≥ (s − ε)N = ${num(s.limit)}）？`,
+                        ...quizNums(s.report.length, 0, Math.max(3, s.table.length), rnd, [sNc, s.table.length]),
+                        why: `門檻放寬成 (s − ε)N = ${num(s.limit)}（不是 sN = ${num(s.sN)}），f 夠大的有 ${s.report.length} 個；放寬是為了真的頻繁的一個都不漏。`,
+                        ask: { type: 'lcReport', eps: eps(), s: lcS() }
+                    };
+                }
+                case 's-replace': {
+                    const [vx, c] = s.victim;
+                    const before = s.slots.map((x, k) => k === s.slot ? s.victim : x);
+                    if (s.n % 2 && s.k > 1) {          // 輪流問「搶哪一格」和「接手後幾次」
+                        const others = quizShuffle(before.map((x, k) => [x, k]).filter(([, k]) => k !== s.slot), rnd).slice(0, 3);
+                        return {
+                            q: `第 ${s.n} 筆 ${s.item} 沒在記，${s.k} 格都滿了。它會搶走哪一格？（一樣小取最前面）`,
+                            ...quizOptions([[s.victim, s.slot], ...others].map(([x, k]) => ({ text: `第 ${k + 1} 格 ${x[0]}（${x[1]}）` })), rnd),
+                            why: `搶次數最小的那格：第 ${s.slot + 1} 格 ${vx} 只有 ${c} 次${s.ties > 1 ? `（有 ${s.ties} 格一樣小，取最前面）` : ''}。`,
+                            ask: { type: 'victim', n: s.n }
+                        };
+                    }
+                    const t = truth.get(s.item);
+                    return {
+                        q: `第 ${s.n} 筆 ${s.item} 搶走了 ${vx} 那格（${vx} 原本 ${c} 次）。${s.item} 接手後的次數是多少？`,
+                        ...quizNums(c + 1, 1, s.n, rnd, [1, c, t]),
+                        why: `繼承原本的 ${c} 次再 +1 = ${c + 1}，誤差記 ${c}；它真實出現 ${t} 次，所以只會多算、不會少算。`,
+                        ask: { type: 'ssCount', n: s.n, slot: s.slot }
+                    };
+                }
+                case 's-end': {
+                    const sure = s.report.filter(([, c, e]) => c - e >= s.sN - TOL).length;
+                    return {
+                        q: `串流結束，N = ${s.n}、s = ${ssS()}。會回報幾格（次數 ≥ sN = ${num(s.sN)}）？`,
+                        ...quizNums(s.report.length, 0, Math.max(3, s.slots.length), rnd, [sure, s.slots.length]),
+                        why: `次數 ≥ ${num(s.sN)} 的有 ${s.report.length} 格；其中「次數 − 誤差」也夠的 ${sure} 個是保證真的頻繁。`,
+                        ask: { type: 'ssReport', s: ssS() }
+                    };
+                }
+            }
+            return null;
+        }
+
         function go(group, dir) {
+            if (quizGate(group, dir)) return false;
             const next = cursors[group] + dir;
             if (next < 0 || next >= stepsOf(group).length) return false;
             cursors[group] = next;
