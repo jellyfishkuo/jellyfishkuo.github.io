@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- skyline：左下角的階梯（綠點），右上方被支配的點比較暗 -->
+  <path d="M12 12 V52 H52" fill="none" stroke="#3a3a5a" stroke-width="2" stroke-linecap="round"/>
+  <path d="M18 14 V24 H24 V34 H34 V42 H50" fill="none" stroke="#22c55e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="32" cy="18" r="2.6" fill="#7d8db8" opacity="0.6"/>
+  <circle cx="44" cy="24" r="2.6" fill="#7d8db8" opacity="0.6"/>
+  <circle cx="40" cy="34" r="2.6" fill="#7c3aed"/>
+  <circle cx="30" cy="27" r="2.6" fill="#7d8db8" opacity="0.6"/>
+  <circle cx="18" cy="24" r="3.2" fill="#22c55e"/>
+  <circle cx="24" cy="34" r="3.2" fill="#22c55e"/>
+  <circle cx="34" cy="42" r="3.2" fill="#22c55e"/>
+</svg>

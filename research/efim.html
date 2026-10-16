@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/efim.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/efim-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/efim-180.png">
+    <title>EFIM 高效益樣式探勘</title>
+    <meta name="description" content="一步一步看 EFIM 怎麼在越來越小的投影資料庫上找高效益樣式：TWU 刪商品、反向字典序排序、交易合併、用 utility-bin 一次算出 sub-tree utility 與 local utility 兩個上界，Java 與 Python 程式碼逐行對照，並和 Two-Phase、UP-Growth、HUI-Miner 比較花費。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* 手機：一欄，依序 步驟 → 交易 → 投影資料庫 → 搜尋樹 → 程式碼 → 結果
+           電腦：左欄 步驟／交易／投影資料庫，右欄 搜尋樹／程式碼／結果 */
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; align-items: start; }
+        .col { display: contents; }
+        .layout .card { min-width: 0; }
+        .a-step { order: 1; }
+        .a-data { order: 2; }
+        .a-lists { order: 3; }
+        .a-tree { order: 4; }
+        .a-code { order: 5; }
+        .a-result { order: 6; }
+        @media (min-width: 960px) {
+            .layout { grid-template-columns: 1fr 1.05fr; }
+            .col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .sub { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .mu { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; font-size: 0.88rem; margin-top: 0.75rem; }
+        .mu .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.2em; text-align: center; }
+        .mu input[type=range] { flex: 1 1 140px; min-width: 0; accent-color: var(--accent); }
+        .mu .pct { color: var(--muted); font-size: 0.78rem; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+
+        /* ── 交易資料庫 ── */
+        .db { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 3px; }
+        /* 欄寬固定：商品欄平分，不會因為「茶葉蛋」「洋芋片」三個字就比較寬 */
+        .db th.tid-h { width: 2rem; }
+        .db th.tu-h { width: 2.4rem; }
+        .db th { font-weight: 400; color: var(--muted); font-size: clamp(0.6rem, 3vw, 0.72rem); white-space: nowrap; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
+        .db th .emo { display: block; font-size: 1.2rem; }
+        .db th .pf { display: block; font: 700 0.7rem 'Space Mono', monospace; color: #fcd34d; margin-top: 0.1rem; }
+        .db th.sel { color: var(--warn); }
+        .db th.off, .db td.twu.out { opacity: 0.4; }
+        .db th.off .nm { text-decoration: line-through; }
+        .db td { text-align: center; padding: 0; }
+        .db td.tid { font: 0.76rem 'Space Mono', monospace; color: var(--muted); text-align: left; width: 2.4em; padding-left: 0.3rem; }
+        .db td.tu { font: 700 0.78rem 'Space Mono', monospace; color: var(--accent2); width: 2.8em; }
+        .db td.tu.sel, .db th.tu-h.sel { color: var(--warn); }
+        .db tr.cur td, .db tr.match td { background: rgba(245, 158, 11, 0.12); }
+        .db tr.cur td:first-child, .db tr.match td:first-child { border-radius: 8px 0 0 8px; color: var(--warn); }
+        .db tr.cur td:last-child, .db tr.match td:last-child { border-radius: 0 8px 8px 0; }
+        .db tr.later { opacity: 0.55; }
+        .db tfoot td { font: 700 0.72rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.35rem; border-top: 1px dashed var(--border); }
+        .db tfoot td.tid { color: var(--muted); }
+        .db tfoot td.twu.out { color: var(--bad); text-decoration: line-through; opacity: 1; }
+        .cell {
+            width: 30px;
+            min-height: 30px;
+            margin: 0 auto;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font: 700 0.85rem/1.1 'Space Mono', monospace;
+        }
+        .cell.has { background: #2a2a48; }
+        .cell.off { opacity: 0.35; text-decoration: line-through; }
+        .cell.hit { background: rgba(245, 158, 11, 0.38); }
+        .cell small { font-size: 0.62rem; font-weight: 400; color: #fcd34d; }
+        .db-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+
+        /* ── utility list ── */
+        .uls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; min-height: 120px; }
+        .uls-empty { color: var(--muted); font-size: 0.85rem; align-self: center; }
+        .ul { background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; padding: 0.4rem 0.5rem 0.45rem; min-width: 112px; }
+        .ul.res { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .ul.focus { border-color: var(--warn); }
+        .ul-h { display: flex; align-items: baseline; gap: 0.35rem; font-size: 0.8rem; margin-bottom: 0.2rem; }
+        .ul-h .role { font: 700 0.7rem 'Space Mono', monospace; color: var(--accent2); }
+        .ul table { border-collapse: collapse; font: 0.74rem 'Space Mono', monospace; width: 100%; }
+        .ul th { color: var(--muted); font-weight: 400; text-align: right; padding: 0 0.3rem; font-size: 0.68rem; }
+        .ul th:first-child, .ul td:first-child { text-align: left; }
+        .ul td { padding: 0.05rem 0.3rem; text-align: right; }
+        .ul tr.dim td { opacity: 0.3; }
+        .ul tr.new td { background: rgba(34, 197, 94, 0.18); }
+        .ul tr.ex td { background: rgba(245, 158, 11, 0.22); color: #fde68a; }
+        .ul tr.sum td { border-top: 1px solid var(--border); font-weight: 700; color: var(--accent2); }
+        .ul-f { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+        .ul-f b { font-family: 'Space Mono', monospace; color: var(--text); }
+        .ul-f b.ok { color: #86efac; }
+        .ul-f b.no { color: #fca5a5; }
+        .op { align-self: center; color: var(--muted); font: 700 1rem 'Space Mono', monospace; }
+
+        /* ── 搜尋樹 ── */
+        .tree { position: relative; max-height: 540px; overflow: auto; background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.6rem; min-height: 140px; }
+        .tree-empty { color: var(--muted); font-size: 0.85rem; padding: 1.5rem 0.5rem; text-align: center; }
+        .tr, .tr ul { list-style: none; }
+        .tr ul { margin-left: 0.6rem; }
+        .tr li { position: relative; }
+        .tr ul > li { padding-left: 1rem; }
+        .tr ul > li::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1.5px solid #34345a; }
+        .tr ul > li:last-child::before { bottom: auto; height: 1.05rem; }
+        .tr ul > li::after { content: ''; position: absolute; left: 0; top: 1.05rem; width: 0.85rem; border-top: 1.5px solid #34345a; }
+        .tn {
+            display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.5rem;
+            padding: 0.15rem 0.5rem; margin: 0.15rem 0; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--panel-2); font-size: 0.82rem; max-width: 100%;
+        }
+        .tn .v { font: 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .tn .v b { color: var(--text); }
+        .tn .tag { font-size: 0.72rem; border-radius: 5px; padding: 0 0.35rem; background: #23233d; color: var(--muted); }
+        .tn.root { color: var(--muted); }
+        .tn.wait, .tn.built { border-style: dashed; }
+        .tn.wait .n { color: var(--muted); }
+        .tn.hui { border-color: rgba(34, 197, 94, 0.6); }
+        .tn.hui .tag { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+        .tn.go .tag { background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .tn.cut { border-color: rgba(248, 113, 113, 0.5); }
+        .tn.cut .tag { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+        .tn.cut .n, .tn.empty .n { text-decoration: line-through; color: var(--muted); }
+        .tn.empty { opacity: 0.6; border-style: dashed; }
+        .tn.cur { box-shadow: 0 0 0 2px var(--warn); }
+        .tn.src { box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.7); }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.55rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        /* ── 結果 ── */
+        .levels { display: grid; gap: 0.45rem; }
+        .level { display: grid; grid-template-columns: 2.8em 1fr; gap: 0.5rem; align-items: start; }
+        .level .tag { font: 700 0.8rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.2rem; }
+        .level .items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .pat { font-size: 0.82rem; border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 7px; padding: 0.12rem 0.5rem; }
+        .pat .n { font: 700 0.74rem 'Space Mono', monospace; margin-left: 0.35rem; color: #86efac; }
+        .pat.fresh { box-shadow: 0 0 0 2px var(--warn); }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .compare { margin-top: 0.9rem; font-size: 0.85rem; color: var(--muted); }
+        .compare h3 { font-size: 0.9rem; color: var(--text); margin-bottom: 0.45rem; }
+        .compare a { color: var(--accent2); }
+        .cmp-wrap { overflow-x: auto; }
+        .cmp { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
+        .cmp th, .cmp td { border-bottom: 1px solid var(--border); padding: 0.3rem 0.35rem; text-align: right; white-space: nowrap; }
+        .cmp th:first-child, .cmp td:first-child { text-align: left; }
+        .cmp th { color: var(--muted); font-weight: 400; }
+        .cmp td { color: var(--text); font-family: 'Space Mono', monospace; }
+        .cmp td:first-child { font-family: inherit; color: var(--muted); }
+        .cmp th.me, .cmp td.me { color: var(--warn); }
+
+        /* ── 投影資料庫與 utility-bin（沿用 utility list 的小表格樣式） ── */
+        .ul.wide { flex: 1 1 100%; min-width: 0; }
+        .ul td.its { text-align: left; white-space: normal; }
+        .it { display: inline-block; white-space: nowrap; margin-right: 0.3rem; }
+        .it.off { opacity: 0.35; text-decoration: line-through; }
+        .it.sel { color: #fde68a; }
+        .ul td.lbl { white-space: nowrap; }
+        .ul .note { color: var(--muted); font-size: 0.66rem; }
+        .ul td.ok { color: #86efac; }
+        .ul td.no { color: #fca5a5; }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · EFFICIENT HIGH-UTILITY ITEMSET MINING</div>
+        <h1>EFIM 高效益樣式探勘<small>不建 list，直接在越縮越小的資料庫上挖</small></h1>
+        <p class="intro">
+            一樣是同一間超商的 8 筆交易、一樣的數量和單位利潤，找效益至少達到門檻的商品組合。
+            <a href="high-utility.html">HUI-Miner</a> 替每個組合建一張 utility list，list 一多，合併就很花時間和記憶體。
+            <b>EFIM</b>（Zida 等人，2015）是目前最快的一類做法之一：它<b>不建 utility list</b>，而是直接在<b>投影資料庫</b>上做——
+            每往下多加一個商品，每筆交易就只留下「排在它後面」的部分，資料庫越挖越小；剩下部分一模一樣的交易還會<b>合併成一筆</b>。
+            剪枝用兩個比 TWU 更緊的上界：<b>sub-tree utility（su）</b>決定要不要往下挖、<b>local utility（lu）</b>決定哪些商品還留在下一層，
+            兩個都用 <b>utility-bin</b> 掃一次投影資料庫就算好。
+            想看更早的做法，可以對照 <a href="two-phase.html">Two-Phase</a> 和 <a href="up-growth.html">UP-Growth</a>。
+        </p>
+
+        <div class="layout">
+            <div class="col">
+                <div class="card a-step">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="mu">
+                        <span>最小效益門檻</span>
+                        <button class="btn stepper" id="mu-minus" aria-label="減少">−</button>
+                        <span class="val" id="mu-val">250</span>
+                        <button class="btn stepper" id="mu-plus" aria-label="增加">+</button>
+                        <input type="range" id="mu-range" min="100" max="500" step="10" value="250" aria-label="最小效益門檻">
+                        <span class="pct" id="mu-pct"></span>
+                    </div>
+                    <div class="explain" id="explain"></div>
+                </div>
+
+                <div class="card a-data">
+                    <div class="card-head"><h2>交易資料庫</h2><span class="sub" id="db-sub"></span></div>
+                    <table class="db" id="db"></table>
+                    <p class="db-note">格子裡是購買數量，商品下面是單位利潤；TU 是這筆交易的總效益，TWU 是有買這個商品的交易 TU 加起來。</p>
+                </div>
+
+                <div class="card a-lists">
+                    <div class="card-head"><h2>投影資料庫與 utility-bin</h2><span class="sub" id="ul-sub"></span></div>
+                    <div class="uls" id="uls"></div>
+                    <p class="db-note">商品後面的數字是它在那筆交易的效益（數量 × 利潤）；劃掉的商品已經不在名單上，算 su 時跳過。</p>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card a-tree">
+                    <div class="card-head"><h2>搜尋樹（集合列舉樹）</h2><span class="sub">每往下一層多加一個商品</span></div>
+                    <div class="tree" id="tree"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn)"></i>這一步</span>
+                        <span><i style="border-color:var(--good)"></i>高效益，輸出</span>
+                        <span><i style="border-color:var(--bad)"></i>被剪掉（後面寫原因）</span>
+                        <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒投影</span>
+                    </div>
+                    <p class="legend" style="margin-top:0.3rem">su 不夠：這個組合和它下面整棵子樹都不用挖；lu 不夠：這個商品連名單都不用留</p>
+                </div>
+
+                <div class="card a-code">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+
+                <div class="card a-result">
+                    <h2>目前找到的高效益樣式</h2>
+                    <div class="levels" id="levels"></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-scan">0</div><div class="k">掃描資料庫次數</div></div>
+                        <div class="stat"><div class="v" id="st-proj">0</div><div class="k">建出的投影資料庫</div></div>
+                        <div class="stat"><div class="v" id="st-merge">0</div><div class="k">交易合併省下的筆數</div></div>
+                        <div class="stat"><div class="v" id="st-prune">0</div><div class="k">su 不夠、不用挖的組合</div></div>
+                    </div>
+                    <div class="compare" id="compare"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼 su、lu 可以拿來剪？合併為什麼不會算錯？</h2>
+                <p>效益沒有向下封閉性，只能拿「保證不比真正效益小」的上界來剪。EFIM 在前綴 β 的投影資料庫裡，替排在後面的每個商品 z 算兩個上界：</p>
+                <ul>
+                    <li><b>lu（local utility）：</b>有 z 的那幾筆，把「前綴效益 + 這筆剩下的全部效益」加起來。任何同時含 β 和 z 的組合，在一筆交易裡的效益不可能超過這筆剩下的全部，
+                        出現的交易也只會更少，所以 lu 不夠，z 就不可能出現在 β 底下任何一個高效益樣式裡，<b>直接從名單刪掉</b>，之後的投影都不用管它。它的角色跟 TWU 一樣，只是只看剩下的部分，緊很多。</li>
+                    <li><b>su（sub-tree utility）：</b>有 z 的那幾筆，只加「前綴效益 + z + 排在 z 後面、還在名單上的商品」。β 加上 z 之後，往下只會再加排在 z 後面的商品，所以 su 是 β∪{z} 整棵子樹的上界；
+                        su 不夠，<b>這棵子樹整個不用挖</b>。su 比 lu 更緊，但它只管「以 z 接在 β 後面」這一棵，z 還可能接在別的商品後面出現，所以 su 不夠的商品仍然留在名單上。</li>
+                    <li><b>utility-bin：</b>每個商品一個格子（就是一個陣列）。每筆投影交易從最後面往前走一次，邊走邊累加，就能把每個商品的 su、lu 同時加好，只要線性時間、不用建任何結構。</li>
+                    <li><b>交易合併：</b>投影之後，之後的計算只會用到「前綴效益」和「剩下的商品各值多少」。兩筆剩下的商品一模一樣，就是把同樣的加法做兩次；合成一筆、數字逐項相加，算出來的效益和上界完全不變。
+                        一開始照反向字典序排過，一樣的會排在隔壁，只要跟上一筆比就好。</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h2>跟 HUI-Miner、FHM 比，以及實驗室在做的事</h2>
+                <ul>
+                    <li><b><a href="high-utility.html">HUI-Miner</a>：</b>每個組合一張 utility list，合併兩張 list 才知道新組合的效益。list 的數量隨組合數暴增，合併也要一筆一筆對 tid。
+                        EFIM 不建 list，資料庫越投影越小、還會合併重複的交易，剪枝的上界也更緊。</li>
+                    <li><b>FHM（Fournier-Viger 等人，2014）：</b>HUI-Miner 的改良版。第一次掃描時順便把<b>每兩個商品一起出現時的 TWU</b> 記在一張表裡（EUCS），
+                        要合併 {…x} 和 {…y} 的 list 之前先查表：{x, y} 的 TWU 不到門檻，含它們的組合都不可能夠，這次合併直接省掉。
+                        它剪掉的是「合併」這個動作，但 list 還是要建，表也要額外的記憶體（商品很多時兩兩組合非常多）。EFIM 的 su、lu 則是在每個投影資料庫上即時算的，不用預先記兩兩的值。</li>
+                    <li><b>實驗結果與代價：</b>EFIM 論文的實驗裡，在交易很像的密集資料上，常常比 HUI-Miner、FHM 快上百倍以上，記憶體也省很多；
+                        但交易彼此很不一樣的稀疏資料，能合併的交易少，優勢就小一些。另外每一層都要複製出新的投影資料庫，商品很長的交易複製起來也要成本。</li>
+                    <li><b>資料會一直變：</b>投影資料庫是針對「這一份資料」做出來的，交易一新增或修改就得重做。實驗室學長姐研究的增量／動態高效益樣式探勘，
+                        常用樹或 list 這類可以局部更新的結構，就是在權衡「挖一次很快」和「資料變動時好不好更新」。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           EFIM 一步一步看
+           網頁裡用 JavaScript 照著同樣的流程跑一次，把每一步（含每一層遞迴）記下來；
+           右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = {"java": [["/** 一筆（投影過的）交易：剩下的商品編號、各自的效益，以及前綴在這筆的效益 */", []], ["static class Trans {", []], ["    int[] items, utils;", []], ["    int pu;", []], ["    Trans(int[] items, int[] utils, int pu) { this.items = items; this.utils = utils; this.pu = pu; }", []], ["}", []], ["", []], ["public static Map<List<String>, Integer> efim(List<Map<String, Integer>> db, Map<String, Integer> profit, int minUtil) {", ["start"]], ["    // 1. 第 1 次掃描：算每筆交易的效益 TU，加進它裡面每個商品的 TWU", ["tu"]], ["    Map<String, Integer> twu = new HashMap<>();", ["tu"]], ["    for (Map<String, Integer> t : db) {", ["tu"]], ["        int tu = 0;", ["tu"]], ["        for (String item : t.keySet()) tu += t.get(item) * profit.get(item);", ["tu"]], ["        for (String item : t.keySet()) twu.merge(item, tu, Integer::sum);", ["tu"]], ["    }", ["tu"]], ["    // TWU 不到門檻的商品整個刪掉，剩下的照 TWU 由小到大排，編號 0, 1, 2, ...", ["twu"]], ["    List<String> order = new ArrayList<>();", ["twu"]], ["    for (String item : twu.keySet()) if (twu.get(item) >= minUtil) order.add(item);", ["twu"]], ["    order.sort((a, b) -> twu.get(a).equals(twu.get(b)) ? a.compareTo(b) : twu.get(a) - twu.get(b));", ["twu"]], ["", []], ["    // 2. 第 2 次掃描：每筆交易只留下這些商品、照順序排好", ["sort"]], ["    List<Trans> trans = new ArrayList<>();", ["sort"]], ["    for (Map<String, Integer> t : db) {", ["sort"]], ["        List<Integer> ks = new ArrayList<>();", ["sort"]], ["        for (int k = 0; k < order.size(); k++) if (t.containsKey(order.get(k))) ks.add(k);", ["sort"]], ["        if (ks.isEmpty()) continue;", ["sort"]], ["        int[] items = new int[ks.size()], utils = new int[ks.size()];", ["sort"]], ["        for (int x = 0; x < items.length; x++) {", ["sort"]], ["            items[x] = ks.get(x);", ["sort"]], ["            utils[x] = t.get(order.get(items[x])) * profit.get(order.get(items[x]));", ["sort"]], ["        }", ["sort"]], ["        trans.add(new Trans(items, utils, 0));", ["sort"]], ["    }", ["sort"]], ["    // 整份交易照「反向字典序」排（從最後一個商品往前比），投影後一樣的交易會排在一起", ["sort"]], ["    trans.sort(EFIM::reverseLex);", ["sort"]], ["", []], ["    // 3. 用 utility-bin 掃一次，算每個商品的 su；su 夠的才當成第一層要展開的商品", ["bins0"]], ["    List<Integer> secondary = new ArrayList<>(), primary = new ArrayList<>();", ["bins0"]], ["    for (int k = 0; k < order.size(); k++) secondary.add(k);", ["bins0"]], ["    int[][] bins = utilityBins(trans, secondary, order.size());", ["bins0"]], ["    for (int z : secondary) if (bins[0][z] >= minUtil) primary.add(z);", ["bins0"]], ["    Map<List<String>, Integer> result = new LinkedHashMap<>();", ["search0"]], ["    search(new ArrayList<>(), trans, primary, secondary, order, minUtil, result);", ["search0"]], ["    return result;", ["end"]], ["}", []], ["", []], ["static void search(List<String> prefix, List<Trans> pdb, List<Integer> primary, List<Integer> secondary,", []], ["                   List<String> order, int minUtil, Map<List<String>, Integer> result) {", []], ["    for (int i : primary) {                          // β = prefix 加上 i", ["project"]], ["        // 投影：有 i 的交易只留下 i 後面的部分，i 的效益加進前綴效益", ["project"]], ["        int util = 0;", ["project"]], ["        List<Trans> proj = new ArrayList<>();", ["project"]], ["        for (Trans t : pdb) {", ["project"]], ["            int k = indexOf(t.items, i);", ["project"]], ["            if (k < 0) continue;", ["project"]], ["            util += t.pu + t.utils[k];               // β 在這筆交易的效益", ["project"]], ["            if (k + 1 == t.items.length) continue;   // i 後面沒有商品了，不用留", ["project"]], ["            Trans p = new Trans(Arrays.copyOfRange(t.items, k + 1, t.items.length),", ["project"]], ["                                Arrays.copyOfRange(t.utils, k + 1, t.utils.length), t.pu + t.utils[k]);", ["project"]], ["            Trans last = proj.isEmpty() ? null : proj.get(proj.size() - 1);", ["merge"]], ["            if (last != null && Arrays.equals(last.items, p.items)) {   // 交易合併：跟上一筆剩下的商品完全一樣", ["merge"]], ["                for (int x = 0; x < p.utils.length; x++) last.utils[x] += p.utils[x];", ["merge"]], ["                last.pu += p.pu;", ["merge"]], ["            } else proj.add(p);", ["project"]], ["        }", ["project"]], ["        List<String> beta = new ArrayList<>(prefix);", ["output"]], ["        beta.add(order.get(i));", ["output"]], ["        if (util >= minUtil) result.put(beta, util);  // 高效益，輸出", ["output"]], ["        // 掃一次 β 的投影資料庫，算 i 後面每個商品 z 的 su、lu", ["bins"]], ["        List<Integer> keep = new ArrayList<>();", ["bins"]], ["        for (int z : secondary) if (z > i) keep.add(z);", ["bins"]], ["        int[][] bins = utilityBins(proj, keep, order.size());", ["bins"]], ["        List<Integer> newSecondary = new ArrayList<>(), newPrimary = new ArrayList<>();", ["next"]], ["        for (int z : keep) if (bins[1][z] >= minUtil) newSecondary.add(z);       // lu 不夠：下一層整個不考慮 z", ["next"]], ["        for (int z : newSecondary) if (bins[0][z] >= minUtil) newPrimary.add(z); // su 不夠：β+z 不用展開", ["next"]], ["        search(beta, proj, newPrimary, newSecondary, order, minUtil, result);", ["recurse"]], ["    }", []], ["}", []], ["", []], ["/** utility-bin：每個商品一個格子，掃一次投影資料庫就把 su（bins[0]）、lu（bins[1]）都加好 */", []], ["static int[][] utilityBins(List<Trans> pdb, List<Integer> keep, int n) {", ["binsfn"]], ["    int[][] bins = new int[2][n];", ["binsfn"]], ["    boolean[] in = new boolean[n];", ["binsfn"]], ["    for (int z : keep) in[z] = true;", ["binsfn"]], ["    for (Trans t : pdb) {", ["binsfn"]], ["        int rest = 0;                                // 這筆剩下的效益全部加起來", ["binsfn"]], ["        for (int u : t.utils) rest += u;", ["binsfn"]], ["        int after = 0;                               // 從最後面往前走：z 和排在 z 後面（還在名單上）的效益", ["binsfn"]], ["        for (int k = t.items.length - 1; k >= 0; k--) {", ["binsfn"]], ["            int z = t.items[k];", ["binsfn"]], ["            if (!in[z]) continue;", ["binsfn"]], ["            after += t.utils[k];", ["binsfn"]], ["            bins[0][z] += t.pu + after;              // sub-tree utility", ["binsfn"]], ["            bins[1][z] += t.pu + rest;               // local utility", ["binsfn"]], ["        }", ["binsfn"]], ["    }", ["binsfn"]], ["    return bins;", ["binsfn"]], ["}", ["binsfn"]]], "py": [["def efim(db, profit, min_util):", ["start"]], ["    # 1. 第 1 次掃描：算每筆交易的效益 TU，加進它裡面每個商品的 TWU", ["tu"]], ["    twu = {}", ["tu"]], ["    for t in db:", ["tu"]], ["        tu = sum(q * profit[item] for item, q in t.items())", ["tu"]], ["        for item in t:", ["tu"]], ["            twu[item] = twu.get(item, 0) + tu", ["tu"]], ["    # TWU 不到門檻的商品整個刪掉，剩下的照 TWU 由小到大排，編號 0, 1, 2, ...", ["twu"]], ["    order = [item for item in twu if twu[item] >= min_util]", ["twu"]], ["    order.sort(key=lambda item: (twu[item], item))", ["twu"]], ["    rank = {item: k for k, item in enumerate(order)}", ["twu"]], ["", []], ["    # 2. 第 2 次掃描：每筆交易只留下這些商品、照順序排好", ["sort"]], ["    trans = []                         # 每筆交易：(商品編號, 各商品的效益, 前綴效益)", ["sort"]], ["    for t in db:", ["sort"]], ["        items = sorted(rank[i] for i in t if i in rank)", ["sort"]], ["        if items:", ["sort"]], ["            trans.append((items, [t[order[k]] * profit[order[k]] for k in items], 0))", ["sort"]], ["    # 整份交易照「反向字典序」排（從最後一個商品往前比），投影後一樣的交易會排在一起", ["sort"]], ["    trans.sort(key=lambda tr: tr[0][::-1])", ["sort"]], ["", []], ["    # 3. 用 utility-bin 掃一次，算每個商品的 su；su 夠的才當成第一層要展開的商品", ["bins0"]], ["    secondary = list(range(len(order)))", ["bins0"]], ["    su, _ = utility_bins(trans, secondary)", ["bins0"]], ["    primary = [z for z in secondary if su[z] >= min_util]", ["bins0"]], ["    result = {}", ["search0"]], ["    search([], trans, primary, secondary, order, min_util, result)", ["search0"]], ["    return result", ["end"]], ["", []], ["", []], ["def search(prefix, pdb, primary, secondary, order, min_util, result):", []], ["    for i in primary:                  # β = prefix 加上 i", ["project"]], ["        # 投影：有 i 的交易只留下 i 後面的部分，i 的效益加進前綴效益", ["project"]], ["        util = 0", ["project"]], ["        proj = []", ["project"]], ["        for items, utils, pu in pdb:", ["project"]], ["            if i not in items:", ["project"]], ["                continue", ["project"]], ["            k = items.index(i)", ["project"]], ["            util += pu + utils[k]      # β 在這筆交易的效益", ["project"]], ["            if k + 1 == len(items):    # i 後面沒有商品了，不用留", ["project"]], ["                continue", ["project"]], ["            t = (items[k + 1:], utils[k + 1:], pu + utils[k])", ["project"]], ["            if proj and proj[-1][0] == t[0]:   # 交易合併：跟上一筆剩下的商品完全一樣", ["merge"]], ["                last = proj[-1]", ["merge"]], ["                proj[-1] = (last[0], [a + b for a, b in zip(last[1], t[1])], last[2] + t[2])", ["merge"]], ["            else:", ["project"]], ["                proj.append(t)", ["project"]], ["        beta = prefix + [order[i]]", ["output"]], ["        if util >= min_util:           # 高效益，輸出", ["output"]], ["            result[tuple(beta)] = util", ["output"]], ["        # 掃一次 β 的投影資料庫，算 i 後面每個商品 z 的 su、lu", ["bins"]], ["        keep = [z for z in secondary if z > i]", ["bins"]], ["        su, lu = utility_bins(proj, keep)", ["bins"]], ["        new_secondary = [z for z in keep if lu[z] >= min_util]       # lu 不夠：下一層整個不考慮 z", ["next"]], ["        new_primary = [z for z in new_secondary if su[z] >= min_util] # su 不夠：β+z 不用展開", ["next"]], ["        search(beta, proj, new_primary, new_secondary, order, min_util, result)", ["recurse"]], ["", []], ["", []], ["def utility_bins(pdb, keep):", ["binsfn"]], ["    \"\"\"utility-bin：每個商品一個格子，掃一次投影資料庫就把 su、lu 都加好\"\"\"", ["binsfn"]], ["    su = {z: 0 for z in keep}", ["binsfn"]], ["    lu = {z: 0 for z in keep}", ["binsfn"]], ["    for items, utils, pu in pdb:", ["binsfn"]], ["        rest = sum(utils)              # 這筆剩下的效益全部加起來", ["binsfn"]], ["        after = 0                      # 從最後面往前走：z 和排在 z 後面（還在名單上）的效益", ["binsfn"]], ["        for k in reversed(range(len(items))):", ["binsfn"]], ["            z = items[k]", ["binsfn"]], ["            if z in su:", ["binsfn"]], ["                after += utils[k]", ["binsfn"]], ["                su[z] += pu + after    # sub-tree utility", ["binsfn"]], ["                lu[z] += pu + rest     # local utility", ["binsfn"]], ["    return su, lu", ["binsfn"]]]};
+
+        const ITEMS = ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'];
+        const EMOJI = { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' };
+        const PROFIT = { '咖啡': 30, '麵包': 15, '牛奶': 20, '飯糰': 10, '茶葉蛋': 5, '洋芋片': 25 };
+        /* 跟 HUI-Miner、Two-Phase、UP-Growth 頁同樣的 8 筆交易（Apriori 頁的交易加上購買數量） */
+        const DB = [
+            { '咖啡': 4, '麵包': 2, '牛奶': 2 },
+            { '咖啡': 3, '麵包': 5, '茶葉蛋': 4 },
+            { '咖啡': 1, '麵包': 1, '牛奶': 2, '飯糰': 2 },
+            { '麵包': 3, '牛奶': 4, '洋芋片': 5 },
+            { '咖啡': 3, '牛奶': 2, '茶葉蛋': 2 },
+            { '咖啡': 1, '麵包': 2, '牛奶': 1, '茶葉蛋': 1 },
+            { '飯糰': 1, '茶葉蛋': 2, '洋芋片': 2 },
+            { '咖啡': 1, '麵包': 2, '飯糰': 1 }
+        ];
+        const MU_MIN = 100, MU_MAX = 500, MU_STEP = 10;
+
+        const $ = id => document.getElementById(id);
+        let minUtil = 250;
+        let lang = 'java';
+        let trace = [];
+        let cursor = 0;
+        let timer = null;
+        let costs = null;                  // 同樣門檻下其他做法的花費（結束時對照用）
+
+        /* 跟 Java 的 compareTo、Python 的字串比較同一個順序（依字碼） */
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const fmtText = set => '{' + set.join(', ') + '}';
+        const fmt = set => esc(fmtText(set));
+        const arrowPath = items => esc(items.join(' → '));
+        const tName = tid => 'T' + (tid + 1);
+        const tLabel = tids => tids.slice().sort((a, b) => a - b).map(tName).join('+');
+        const keyOf = items => items.join('|');
+        const has = (t, item) => Object.prototype.hasOwnProperty.call(t, item);
+        const contains = (t, set) => set.every(i => has(t, i));
+        const sum = arr => arr.reduce((a, b) => a + b, 0);
+
+        /* 反向字典序：從最後一個商品往前比（跟 Java 的 reverseLex、Python 的 tr[0][::-1] 一樣） */
+        function revLex(a, b) {
+            for (let x = a.items.length - 1, y = b.items.length - 1; x >= 0 && y >= 0; x--, y--) {
+                if (a.items[x] !== b.items[y]) return a.items[x] - b.items[y];
+            }
+            return a.items.length - b.items.length;
+        }
+
+        /* utility-bin：掃一次投影資料庫，算 keep 裡每個商品的 su、lu；順便記下每筆加了多少（說明用） */
+        function utilityBins(pdb, keep) {
+            const su = {}, lu = {}, parts = {};
+            keep.forEach(z => { su[z] = 0; lu[z] = 0; parts[z] = []; });
+            pdb.forEach(r => {
+                const rest = sum(r.utils);
+                let after = 0;
+                for (let k = r.items.length - 1; k >= 0; k--) {
+                    const z = r.items[k];
+                    if (!(z in su)) continue;
+                    after += r.utils[k];
+                    su[z] += r.pu + after;
+                    lu[z] += r.pu + rest;
+                    parts[z].unshift({ tids: r.tids, pu: r.pu, after, rest });
+                }
+            });
+            return { su, lu, parts };
+        }
+
+        /* ---------- 照著程式跑一次，記下每一步 ---------- */
+        function buildTrace(db, profit, minUtil) {
+            const steps = [];
+            const result = [];
+            const nodes = [];                  // 搜尋樹的節點（照建立的順序）
+            const nodeById = new Map();
+            const stats = { scans: 0, proj: 0, merged: 0, twuOut: 0, pruned: 0 };
+            const st = { tu: [], twu: {}, order: [], removed: [], twuCalc: false, twuDone: false };
+
+            const addNode = (items, parent, extra) => {
+                const n = { id: keyOf(items), items, parent, ...extra };
+                nodes.push(n);
+                nodeById.set(n.id, n);
+                return n;
+            };
+            const push = (kind, extra = {}) => {
+                steps.push({
+                    kind, ...extra,
+                    stats: { ...stats },
+                    result: result.map(r => ({ ...r })),
+                    nodes: nodes.map(n => ({ ...n })),
+                    tu: st.tu.slice(), twu: { ...st.twu }, order: st.order.slice(), removed: st.removed.slice(), twuCalc: st.twuCalc, twuDone: st.twuDone
+                });
+                result.forEach(r => { r.fresh = false; });
+            };
+
+            push('start');
+
+            // 1. 第 1 次掃描：TU 與 TWU
+            stats.scans++;
+            st.tu = db.map(t => sum(Object.keys(t).map(i => t[i] * profit[i])));
+            push('tu');
+            db.forEach((t, k) => Object.keys(t).forEach(i => { st.twu[i] = (st.twu[i] || 0) + st.tu[k]; }));
+            st.twuCalc = true;
+            push('twu');
+            const byTwu = (a, b) => st.twu[a] - st.twu[b] || cmp(a, b);
+            st.order = Object.keys(st.twu).filter(i => st.twu[i] >= minUtil).sort(byTwu);
+            st.removed = Object.keys(st.twu).filter(i => st.twu[i] < minUtil).sort(byTwu);
+            st.twuDone = true;
+            stats.twuOut = st.removed.length;
+            st.order.forEach(i => addNode([i], '', { status: 'pend' }));
+            st.removed.forEach(i => addNode([i], '', { status: 'twu', twu: st.twu[i] }));
+            push('cut');
+
+            // 2. 第 2 次掃描：每筆交易只留下這些商品、照順序排；整份交易依反向字典序排
+            const order = st.order;
+            const view = rows => rows.map(r => ({ tids: r.tids.slice(), pu: r.pu, items: r.items.map(z => order[z]), utils: r.utils.slice() }));
+            stats.scans++;
+            const trans = [];
+            db.forEach((t, tid) => {
+                const items = order.map((_, k) => k).filter(k => has(t, order[k]));
+                if (items.length) trans.push({ items, utils: items.map(k => t[order[k]] * profit[order[k]]), pu: 0, tids: [tid] });
+            });
+            const before = view(trans);
+            trans.sort(revLex);
+            push('sort', { rows: view(trans), before, gone: db.map((_, tid) => tid).filter(tid => !trans.some(r => r.tids[0] === tid)) });
+
+            // 3. utility-bin 算每個商品的 su，決定第一層要展開哪些
+            const secondary = order.map((_, k) => k);
+            const b0 = utilityBins(trans, secondary);
+            const primary = secondary.filter(z => b0.su[z] >= minUtil);
+            secondary.forEach(z => Object.assign(nodeById.get(order[z]), { status: b0.su[z] >= minUtil ? 'wait' : 'nosu', su: b0.su[z], lu: st.twu[order[z]] }));
+            stats.pruned += secondary.length - primary.length;
+            push('bins0', {
+                rows: view(trans), keepNames: order.slice(),
+                bins: secondary.map(z => ({ item: order[z], su: b0.su[z], lu: st.twu[order[z]], parts: b0.parts[z] }))
+            });
+
+            // 4. 深度優先：每個前綴 β 投影、合併、算效益、用 utility-bin 算 su 與 lu
+            let first = true;
+            function search(prefix, pdb, prim, sec) {
+                for (const i of prim) {
+                    const beta = [...prefix, order[i]];
+                    const id = keyOf(beta);
+                    const node = nodeById.get(id);
+                    let util = 0, merges = 0;
+                    const proj = [], src = [];
+                    for (const r of pdb) {
+                        const k = r.items.indexOf(i);
+                        if (k < 0) continue;
+                        const c = r.pu + r.utils[k];
+                        util += c;
+                        const e = { tids: r.tids.slice(), pu: r.pu, ui: r.utils[k], c, rem: null, merge: false };
+                        src.push(e);
+                        if (k + 1 === r.items.length) continue;              // i 後面沒有商品了，不用留
+                        const t = { items: r.items.slice(k + 1), utils: r.utils.slice(k + 1), pu: c, tids: r.tids.slice() };
+                        e.rem = { items: t.items.map(z => order[z]), utils: t.utils.slice() };
+                        const last = proj[proj.length - 1];
+                        if (last && keyOf(last.items) === keyOf(t.items)) {   // 交易合併
+                            last.utils = last.utils.map((u, x) => u + t.utils[x]);
+                            last.pu += t.pu;
+                            last.tids.push(...t.tids);
+                            e.merge = true;
+                            merges++;
+                        } else {
+                            proj.push(t);
+                        }
+                    }
+                    stats.proj++;
+                    stats.merged += merges;
+                    const hui = util >= minUtil;
+                    if (hui) result.push({ set: beta, util, fresh: true });
+                    const keep = sec.filter(z => z > i);
+                    const keepNames = keep.map(z => order[z]);
+                    const leaf = !keep.length || !proj.length;
+                    Object.assign(node, { status: 'done', util, hui, leaf });
+                    const focus = [...new Set(src.flatMap(e => e.tids))];
+                    push('project', { alpha: prefix, beta, item: order[i], src, util, hui, leaf, keepNames, merges, first, cur: id, focus });
+                    first = false;
+                    if (leaf) continue;
+                    if (merges) push('merge', { alpha: prefix, beta, item: order[i], rows: view(proj), keepNames, cur: id, focus });
+                    const b = utilityBins(proj, keep);
+                    const newSec = keep.filter(z => b.lu[z] >= minUtil);
+                    const newPri = newSec.filter(z => b.su[z] >= minUtil);
+                    keep.forEach(z => addNode([...beta, order[z]], id, {
+                        status: b.lu[z] < minUtil ? 'nolu' : b.su[z] < minUtil ? 'nosu' : 'wait', su: b.su[z], lu: b.lu[z]
+                    }));
+                    stats.pruned += keep.length - newPri.length;
+                    push('bins', {
+                        alpha: prefix, beta, item: order[i], rows: view(proj), keepNames, cur: id, focus,
+                        bins: keep.map(z => ({ item: order[z], su: b.su[z], lu: b.lu[z], parts: b.parts[z] }))
+                    });
+                    search(beta, proj, newPri, newSec);
+                }
+            }
+            search([], trans, primary, secondary);
+            push('end');
+            return steps;
+        }
+
+        /* ---------- 對照用：同樣條件下 Two-Phase、UP-Growth、HUI-Miner 的花費（跟那三頁同一套做法） ---------- */
+        const utilOfIn = (db, profit, set) => sum(db.map(t => (contains(t, set) ? sum(set.map(i => t[i] * profit[i])) : 0)));
+        function twoPhaseCost(db, profit, mu) {
+            const tu = db.map(t => sum(Object.keys(t).map(i => t[i] * profit[i])));
+            const twuOf = set => sum(db.map((t, k) => (contains(t, set) ? tu[k] : 0)));
+            const twu = {};
+            db.forEach((t, k) => Object.keys(t).forEach(i => { twu[i] = (twu[i] || 0) + tu[k]; }));
+            let L = Object.keys(twu).filter(i => twu[i] >= mu).sort((a, b) => twu[a] - twu[b] || cmp(a, b)).map(i => [i]);
+            const cands = L.slice();
+            let scans = 1;
+            for (let k = 2; L.length; k++) {
+                const prev = new Set(L.map(keyOf));
+                let C = [];
+                for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+                    const a = L[i], b = L[j];
+                    if (keyOf(a.slice(0, k - 2)) === keyOf(b.slice(0, k - 2))) C.push([...a, b[k - 2]]);
+                }
+                C = C.filter(c => c.every((_, x) => prev.has(keyOf(c.filter((__, y) => y !== x)))));
+                if (!C.length) break;
+                scans++;
+                L = C.filter(c => twuOf(c) >= mu);
+                cands.push(...L);
+            }
+            scans++;
+            return { scans, cands: cands.length };
+        }
+        function upGrowthCost(db, profit, mu) {
+            const tu = db.map(t => sum(Object.keys(t).map(i => t[i] * profit[i])));
+            const twu = {}, miu = {};
+            db.forEach((t, k) => Object.keys(t).forEach(i => {
+                twu[i] = (twu[i] || 0) + tu[k];
+                const u = t[i] * profit[i];
+                miu[i] = i in miu ? Math.min(miu[i], u) : u;
+            }));
+            const order = Object.keys(twu).filter(i => twu[i] >= mu).sort((a, b) => twu[b] - twu[a] || cmp(a, b));
+            const mk = ord => ({ root: { item: null, count: 0, nu: 0, children: new Map(), parent: null }, order: ord, links: Object.fromEntries(ord.map(i => [i, []])) });
+            const add = (tree, path, nus, count) => {
+                let node = tree.root;
+                path.forEach((item, k) => {
+                    let c = node.children.get(item);
+                    if (!c) {
+                        c = { item, count: 0, nu: 0, children: new Map(), parent: node };
+                        node.children.set(item, c);
+                        tree.links[item].push(c);
+                    }
+                    node = c;
+                    node.count += count;
+                    node.nu += nus[k];
+                });
+            };
+            const g = mk(order);
+            db.forEach(t => {
+                const path = order.filter(i => has(t, i));
+                let acc = 0;
+                add(g, path, path.map(i => (acc += t[i] * profit[i])), 1);
+            });
+            let trees = 0, cands = 0;
+            const mine = (tree, suffix) => {
+                for (let x = tree.order.length - 1; x >= 0; x--) {
+                    const item = tree.order[x], nodes = tree.links[item];
+                    if (sum(nodes.map(n => n.nu)) < mu) continue;
+                    const pattern = [item, ...suffix];
+                    cands++;
+                    const lu = {};
+                    const base = nodes.map(n => {
+                        const path = [];
+                        for (let p = n.parent; p.item !== null; p = p.parent) { path.unshift(p.item); lu[p.item] = (lu[p.item] || 0) + n.nu; }
+                        return { path, pu: n.nu, pc: n.count };
+                    });
+                    const localOrder = tree.order.filter(i => (lu[i] || 0) >= mu);
+                    if (!base.some(b => b.path.length) || !localOrder.length) continue;
+                    trees++;
+                    const local = mk(localOrder);
+                    base.forEach(b => {
+                        const keep = b.path.filter(i => lu[i] >= mu), drop = b.path.filter(i => lu[i] < mu);
+                        const rpu = b.pu - sum(drop.map(i => miu[i] * b.pc));
+                        let rest = sum(keep.map(i => miu[i] * b.pc));
+                        add(local, keep, keep.map(i => { rest -= miu[i] * b.pc; return rpu - rest; }), b.pc);
+                    });
+                    mine(local, pattern);
+                }
+            };
+            mine(g, []);
+            return { scans: 3, trees, cands };
+        }
+        function huiMinerLists(db, profit, mu) {
+            const tu = db.map(t => Object.keys(t).reduce((a, i) => a + t[i] * profit[i], 0));
+            const twu = {};
+            db.forEach((t, k) => Object.keys(t).forEach(i => { twu[i] = (twu[i] || 0) + tu[k]; }));
+            const order = Object.keys(twu).filter(i => twu[i] >= mu).sort((a, b) => twu[a] - twu[b] || cmp(a, b));
+            const lists = order.map(() => ({ rows: new Map(), iu: 0, ru: 0 }));
+            db.forEach((t, tid) => {
+                let r = 0;
+                for (let k = order.length - 1; k >= 0; k--) {
+                    if (!has(t, order[k])) continue;
+                    const u = t[order[k]] * profit[order[k]];
+                    lists[k].rows.set(tid, [u, r]); lists[k].iu += u; lists[k].ru += r; r += u;
+                }
+            });
+            let built = lists.length;
+            const search = (p, uls) => uls.forEach((x, i) => {
+                if (x.iu + x.ru < mu) return;
+                const ext = [];
+                uls.slice(i + 1).forEach(y => {
+                    const xy = { rows: new Map(), iu: 0, ru: 0 };
+                    x.rows.forEach(([iuX], tid) => {
+                        const ry = y.rows.get(tid);
+                        if (!ry) return;
+                        const iu = iuX + ry[0] - (p ? p.rows.get(tid)[0] : 0);
+                        xy.rows.set(tid, [iu, ry[1]]); xy.iu += iu; xy.ru += ry[1];
+                    });
+                    if (xy.rows.size) { built++; ext.push(xy); }
+                });
+                search(x, ext);
+            });
+            search(null, lists);
+            return built;
+        }
+
+        /* ---------- 說明文字 ---------- */
+        const qp = (t, items) => items.map(i => `${t[i]}×${PROFIT[i]}`).join(' + ');
+        const betaText = s => s.alpha.length
+            ? `前綴 α = ${fmt(s.alpha)} 加上 ${esc(s.item)}，變成 β = ${fmt(s.beta)}`
+            : `從空集合開始，β = ${fmt(s.beta)}`;
+        function describe(s) {
+            switch (s.kind) {
+                case 'start': {
+                    const t0 = DB[0], its = Object.keys(t0).slice(0, 2);
+                    return `每筆交易記的是<b>每樣買了幾個</b>，每個商品有固定的<b>單位利潤</b>。一個組合在某筆交易裡的效益 = 數量 × 利潤加起來，` +
+                        `例如 T1 裡的 ${fmt(its)} = ${qp(t0, its)} = ${its.reduce((a, i) => a + t0[i] * PROFIT[i], 0)}；` +
+                        `把它出現過的每筆交易加起來，就是它的效益。目標：找出效益至少 <b>${minUtil}</b> 的所有組合。EFIM 前兩步跟 HUI-Miner 一樣，先用 TWU 刪商品。`;
+                }
+                case 'tu': {
+                    const k = s.tu.indexOf(Math.max(...s.tu));
+                    return `第 1 次掃描資料庫：先算每筆交易的總效益 <b>TU</b>（表格最右邊那欄）。例如 ${tName(k)} = ${qp(DB[k], Object.keys(DB[k]))} = ${s.tu[k]}，是最賺的一筆。`;
+                }
+                case 'twu': {
+                    const i = Object.keys(s.twu).sort((a, b) => s.twu[a] - s.twu[b] || cmp(a, b))[0];
+                    const ks = DB.map((t, k) => k).filter(k => has(DB[k], i));
+                    return `同一次掃描順便算每個商品的 <b>TWU</b>：有買它的交易 TU 加起來（表格最下面那列）。例如 ${esc(i)} 出現在 ${ks.map(tName).join('、')}：` +
+                        `${ks.map(k => s.tu[k]).join(' + ')} = ${s.twu[i]}。含這個商品的任何組合，在每筆交易裡的效益都不會超過那筆的 TU，所以 TWU 是它們效益的<b>上界</b>。`;
+                }
+                case 'cut': {
+                    let t = '';
+                    if (s.removed.length) t += s.removed.map(i => `${esc(i)} 的 TWU 只有 ${s.twu[i]}`).join('、') + ` < ${minUtil}，含它的組合都不可能達標，<b>整個刪掉</b>。`;
+                    else t += `每個商品的 TWU 都至少 ${minUtil}，這次沒有商品被刪掉。`;
+                    t += s.order.length
+                        ? `${s.removed.length ? '剩下的' : '全部'}照 TWU 由小到大排成 <b>${arrowPath(s.order)}</b>。之後每筆交易都照這個順序排，一個組合只會往<b>排在後面</b>的商品延伸，不會重複。`
+                        : `沒有商品留下來，不可能有高效益樣式。`;
+                    return t;
+                }
+                case 'sort': {
+                    const gone = s.gone.length ? `（${s.gone.map(tName).join('、')} 刪完沒有商品了，直接拿掉）` : '';
+                    if (!s.rows.length) return `第 2 次掃描：沒有留下任何商品，資料庫是空的${gone}。`;
+                    const pair = s.rows.findIndex((r, k) => k > 0 && r.items[r.items.length - 1] === s.rows[k - 1].items[s.rows[k - 1].items.length - 1]);
+                    const ex = pair > 0
+                        ? `例如 ${tLabel(s.rows[pair - 1].tids)} 和 ${tLabel(s.rows[pair].tids)} 都以 ${esc(s.rows[pair].items[s.rows[pair].items.length - 1])} 結尾，就排在一起。`
+                        : '';
+                    return `第 2 次掃描：每筆交易刪掉被刪的商品、照剛剛的順序排好${gone}，成為最一開始的資料庫（下面「投影資料庫」那張表）。` +
+                        `接著整份交易照<b>反向字典序</b>排：先比每筆的<b>最後一個</b>商品，排在順序後面的放後面；一樣就比倒數第二個，依此類推。${ex}` +
+                        `這樣之後投影時，剩下部分一模一樣的交易會<b>排在隔壁</b>，要合併只要跟上一筆比。`;
+                }
+                case 'bins0': {
+                    const cut = s.bins.filter(b => b.su < minUtil).map(b => b.item);
+                    const b = s.bins.find(x => x.parts.length > 1) || s.bins[0];
+                    const ex = b ? `例如 ${esc(b.item)} 出現在 ${b.parts.map(p => tLabel(p.tids)).join('、')}，每筆加「它 + 排在它後面的」：${b.parts.map(p => p.after).join(' + ')} = ${b.su}。` : '';
+                    return `用 <b>utility-bin</b> 掃一次：每個商品一個格子，每筆交易從最後面往前走，把「這個商品 + 排在它後面的商品」的效益加進它的格子，得到 <b>su</b>（sub-tree utility）。${ex}` +
+                        `以 z 開頭的組合往下只會再加排在 z 後面的商品，所以 su 是它們效益的上界。` +
+                        (cut.length ? `${esc(cut.join('、'))} 的 su 不到 ${minUtil}，<b>不用從它開始挖</b>；但它還留在名單上，可以接在前面的商品後面。` : `每個商品的 su 都夠，全部都要從它開始挖。`);
+                }
+                case 'project': {
+                    let t = `${betaText(s)}。在${s.alpha.length ? ' α 的' : ''}投影資料庫裡找有 ${esc(s.item)} 的交易（${s.src.length} 筆），每筆 β 的效益 = 前綴效益 + ${esc(s.item)} 的效益`;
+                    const e = s.src.find(x => x.pu > 0) || s.src[0];
+                    if (e) t += `，例如 ${tLabel(e.tids)}：${e.pu} + ${e.ui} = ${e.c}`;
+                    t += `。加起來 u(β) = <b>${s.util}</b>` + (s.hui ? ` ≥ ${minUtil}，<b>是高效益樣式，輸出</b>。` : ` < ${minUtil}，本身不夠。`);
+                    if (!s.keepNames.length) return t + `名單上沒有排在 ${esc(s.item)} 後面的商品可以再加，這個分支到此為止。`;
+                    const kept = s.src.filter(x => x.rem).length;
+                    if (!kept) return t + `每筆裡 ${esc(s.item)} 都是最後一個，投影完是空的，到此為止。`;
+                    t += `接著<b>投影</b>：每筆只留下 ${esc(s.item)} <b>後面</b>的部分，前綴效益改成剛剛算的數字，得到 β 的投影資料庫（${kept} 筆）`;
+                    const ends = s.src.filter(x => !x.rem);
+                    if (ends.length) t += `；${ends.map(x => tLabel(x.tids)).join('、')} 裡 ${esc(s.item)} 已經是最後一個，算完效益就不用留`;
+                    t += '。';
+                    if (s.merges) t += `其中有 ${s.merges} 筆剩下的商品跟上一筆一模一樣（標成黃色），下一步合併。`;
+                    else if (!s.hui) t += `<b>不能因為 β 不夠就丟掉</b>：加上後面的商品，效益可能反而變大。`;
+                    return t;
+                }
+                case 'merge': {
+                    const m = s.rows.filter(r => r.tids.length > 1);
+                    const r = m[0];
+                    return `<b>交易合併</b>：${m.map(x => x.tids.slice().sort((a, b) => a - b).map(tName).join('、')).join('；')} 投影後剩下的商品一模一樣，合成一筆。` +
+                        `例如 ${tLabel(r.tids)} 剩下 ${esc(r.items.join('、'))}，前綴效益和每個商品的效益都<b>逐項相加</b>（前綴效益合起來是 ${r.pu}）。` +
+                        `之後往下挖只會用到這些數字的總和，所以合併後算出來的效益、上界都一樣，但要處理的交易少了 ${s.rows.length ? m.reduce((a, x) => a + x.tids.length - 1, 0) : 0} 筆。` +
+                        `因為一開始照反向字典序排過，一樣的會排在隔壁，只要跟上一筆比。`;
+                }
+                case 'bins': {
+                    const go = s.bins.filter(b => b.su >= minUtil).map(b => b.item);
+                    const stay = s.bins.filter(b => b.su < minUtil && b.lu >= minUtil).map(b => b.item);
+                    const out = s.bins.filter(b => b.lu < minUtil).map(b => b.item);
+                    const b = s.bins.find(x => x.su < minUtil && x.lu >= minUtil) || s.bins.find(x => x.parts.length) || s.bins[0];
+                    let t = `掃一次 β 的投影資料庫，用 utility-bin 替排在後面的每個商品 z 算兩個上界：<b>su</b> 加「前綴效益 + z + z 後面的」，<b>lu</b> 加「前綴效益 + 這筆剩下的全部」。`;
+                    const terms = (arr, total) => (arr.length > 1 ? `${arr.join(' + ')} = ${total}` : `${total}`);
+                    if (b.parts.length) t += `例如 ${esc(b.item)}${b.parts.length > 1 ? `（在 ${b.parts.map(p => tLabel(p.tids)).join('、')}）` : `（在 ${tLabel(b.parts[0].tids)}）`}：` +
+                        `su = ${terms(b.parts.map(p => p.pu + p.after), b.su)}，lu = ${terms(b.parts.map(p => p.pu + p.rest), b.lu)}。`;
+                    else t += `例如 ${esc(b.item)} 不在任何一筆裡，su = lu = 0。`;
+                    t += (go.length ? `su 夠的 ${esc(go.join('、'))}：<b>往下挖</b>。` : `沒有商品的 su 夠，β 底下不用再挖。`) +
+                        (stay.length ? `${esc(stay.join('、'))} 的 su 不夠，β 加它的子樹不用挖，但 lu 夠，<b>留在下一層的名單</b>。` : '') +
+                        (out.length ? `${esc(out.join('、'))} 連 lu 都不夠，<b>從名單刪掉</b>，下一層算都不用算。` : '');
+                    return t;
+                }
+                case 'end': {
+                    const n = s.result.length;
+                    return (n ? `完成！找到 <b>${n}</b> 個高效益樣式。` : `完成！沒有任何組合的效益達到 ${minUtil}。`) +
+                        `整個過程掃描資料庫 ${s.stats.scans} 次、建了 ${s.stats.proj} 個投影資料庫（交易合併省下 ${s.stats.merged} 筆），一張 utility list 都沒建；` +
+                        `TWU 刪掉 ${s.stats.twuOut} 個商品，su 讓 ${s.stats.pruned} 個組合整棵子樹不用挖。結果區最下面有跟其他三種做法的對照。`;
+                }
+            }
+            return '';
+        }
+
+        const CODE_TAGS = s => {
+            switch (s.kind) {
+                case 'twu': return ['tu'];
+                case 'cut': return ['twu'];
+                case 'bins0': return ['bins0', 'binsfn'];
+                case 'project': return ['project'].concat(s.hui ? ['output'] : [], s.first ? ['search0'] : []);
+                case 'bins': return ['bins', 'binsfn', 'next', 'recurse'];
+                default: return [s.kind];        // start / tu / sort / merge / end
+            }
+        };
+
+        /* ---------- 畫面 ---------- */
+        function focusOf(s) {
+            if (s.focus) return { tids: new Set(s.focus), items: new Set(s.beta) };
+            return { tids: new Set(), items: new Set() };
+        }
+
+        function drawDB(s) {
+            const cols = s.twuDone ? [...s.order, ...s.removed, ...ITEMS.filter(i => !(i in s.twu))] : ITEMS;
+            const f = focusOf(s);
+            const off = i => s.removed.includes(i);
+            let h = '<thead><tr><th class="tid-h"></th>' + cols.map(i =>
+                `<th class="${off(i) ? 'off' : ''}${f.items.has(i) ? ' sel' : ''}"><span class="emo">${EMOJI[i]}</span><span class="nm">${esc(i)}</span><span class="pf">$${PROFIT[i]}</span></th>`).join('') +
+                `<th class="tu-h${s.kind === 'tu' ? ' sel' : ''}">TU</th></tr></thead><tbody>`;
+            DB.forEach((t, r) => {
+                const match = f.tids.has(r);
+                h += `<tr class="${match ? 'match' : ''}"><td class="tid">${tName(r)}</td>` + cols.map(i => {
+                    if (!has(t, i)) return '<td><div class="cell"></div></td>';
+                    return `<td><div class="cell has${off(i) ? ' off' : ''}${match && f.items.has(i) ? ' hit' : ''}">${t[i]}</div></td>`;
+                }).join('') + `<td class="tu${s.kind === 'tu' ? ' sel' : ''}">${s.tu.length ? s.tu[r] : ''}</td></tr>`;
+            });
+            h += '</tbody>';
+            if (s.twuCalc) h += '<tfoot><tr><td class="tid">TWU</td>' + cols.map(i => `<td class="twu${off(i) ? ' out' : ''}">${i in s.twu ? s.twu[i] : ''}</td>`).join('') + '<td></td></tr></tfoot>';
+            $('db').innerHTML = h;
+            $('db-sub').textContent = s.focus ? `標出含 ${fmtText(s.beta)} 的交易` : s.twuDone ? '欄已照 TWU 由小到大排' : '';
+        }
+
+        /* 一筆交易剩下的商品：emoji + 效益；不在名單上的劃掉 */
+        const chips = (items, utils, keep, sel) => items.map((it, k) =>
+            `<span class="it${keep && !keep.has(it) ? ' off' : ''}${sel === it ? ' sel' : ''}" title="${esc(it)}">${EMOJI[it]}${utils[k]}</span>`).join('');
+
+        function rowsBox(title, rows, { keep = null, pu = true, merged = false } = {}) {
+            const body = rows.map(r => `<tr class="${merged && r.tids.length > 1 ? 'new' : ''}"><td class="lbl">${tLabel(r.tids)}</td>` +
+                (pu ? `<td>${r.pu}</td>` : '') + `<td class="its">${chips(r.items, r.utils, keep)}</td></tr>`).join('');
+            return `<div class="ul wide"><div class="ul-h"><span class="role">${title}</span></div><table>` +
+                `<tr><th>交易</th>${pu ? '<th>前綴效益</th>' : ''}<th style="text-align:left">剩下的商品</th></tr>` +
+                (body || `<tr><td colspan="3" style="color:var(--muted)">（空）</td></tr>`) + `</table></div>`;
+        }
+
+        function binsBox(s, root) {
+            const rows = s.bins.map(b => {
+                const go = b.su >= minUtil, stay = b.lu >= minUtil;
+                const verdict = root ? (go ? '從它開始挖' : '不用從它開始') : go ? '往下挖' : stay ? '留在名單' : '刪掉';
+                return `<tr><td>${EMOJI[b.item]}${esc(b.item)}</td><td class="${go ? 'ok' : 'no'}">${b.su}</td><td class="${stay ? 'ok' : 'no'}">${b.lu}</td>` +
+                    `<td class="${go ? 'ok' : stay && !root ? '' : 'no'}" style="text-align:left">${verdict}</td></tr>`;
+            }).join('');
+            return `<div class="ul wide"><div class="ul-h"><span class="role">utility-bin</span><span>門檻 ${minUtil}</span></div><table>` +
+                `<tr><th>商品 z</th><th>su</th><th>${root ? 'TWU' : 'lu'}</th><th style="text-align:left">結果</th></tr>${rows}</table></div>`;
+        }
+
+        function drawLists(s) {
+            const box = $('uls');
+            const sub = $('ul-sub');
+            const keepOf = s => new Set(s.keepNames || []);
+            if (s.kind === 'sort') {
+                sub.textContent = 'α = ∅：整理、排序好的交易';
+                box.innerHTML = s.rows.length ? rowsBox('反向字典序排好', s.rows, { pu: false }) : '<div class="uls-empty">沒有留下任何交易。</div>';
+            } else if (s.kind === 'bins0') {
+                sub.textContent = 'α = ∅：算每個商品的 su';
+                box.innerHTML = rowsBox('α = ∅ 的資料庫', s.rows, { pu: false }) + binsBox(s, true);
+            } else if (s.kind === 'project') {
+                sub.textContent = 'β = ' + fmtText(s.beta);
+                const keep = keepOf(s);
+                const body = s.src.map(e => `<tr class="${e.merge ? 'ex' : ''}"><td class="lbl">${tLabel(e.tids)}</td><td>${e.pu} + ${e.ui} = ${e.c}</td>` +
+                    `<td class="its">${e.rem ? chips(e.rem.items, e.rem.utils, keep) : '<span class="note">後面沒東西，不留</span>'}${e.merge ? ' <span class="note">↑ 跟上一筆一樣</span>' : ''}</td></tr>`).join('');
+                box.innerHTML = `<div class="ul wide focus"><div class="ul-h"><span class="role">投影</span><span>${fmt(s.beta)}</span></div><table>` +
+                    `<tr><th>交易</th><th>前綴 + ${esc(s.item)}</th><th style="text-align:left">剩下的商品</th></tr>${body}` +
+                    `<tr class="sum"><td>Σ</td><td>${s.util}</td><td></td></tr></table>` +
+                    `<div class="ul-f">u(β) <b class="${s.hui ? 'ok' : 'no'}">${s.util}</b> ${s.hui ? '≥' : '<'} ${minUtil}</div></div>`;
+            } else if (s.kind === 'merge') {
+                sub.textContent = 'β = ' + fmtText(s.beta) + '：交易合併';
+                box.innerHTML = rowsBox('合併後的投影資料庫', s.rows, { keep: keepOf(s), merged: true });
+            } else if (s.kind === 'bins') {
+                sub.textContent = 'β = ' + fmtText(s.beta) + '：算 su 與 lu';
+                box.innerHTML = rowsBox(`${fmtText(s.beta)} 的投影資料庫`, s.rows, { keep: keepOf(s) }) + binsBox(s, false);
+            } else if (s.kind === 'end') {
+                sub.textContent = '';
+                box.innerHTML = '<div class="uls-empty">搜尋結束。按「上一步」可以回頭看每一個投影資料庫。</div>';
+            } else {
+                sub.textContent = '';
+                box.innerHTML = `<div class="uls-empty">${s.kind === 'cut' ? '下一步第 2 次掃描，把交易整理好、排好順序。' : '第 1 次掃描算完 TWU 之後，第 2 次掃描才整理交易。'}</div>`;
+            }
+        }
+
+        function nodeView(n, s) {
+            const last = n.items[n.items.length - 1];
+            let cls = n.status, tag = '', vals = '';
+            switch (n.status) {
+                case 'pend': tag = '等算 su'; break;
+                case 'wait': cls = 'built'; tag = 'su 夠，待投影'; vals = `su <b>${n.su}</b>`; break;
+                case 'nosu': cls = 'cut'; tag = `✂ su ${n.su} < ${minUtil}`; vals = n.items.length > 1 ? `lu ${n.lu}` : ''; break;
+                case 'nolu': cls = 'cut'; tag = `✂ lu ${n.lu} < ${minUtil}，刪出名單`; break;
+                case 'twu': cls = 'cut'; tag = `✂ TWU ${n.twu} < ${minUtil}`; break;
+                case 'done':
+                    vals = `效益 <b>${n.util}</b>`;
+                    if (n.hui) { cls = 'hui'; tag = '✓ 高效益'; }
+                    else if (n.leaf) { cls = 'low'; tag = '不夠，後面也沒商品'; }
+                    else { cls = 'go'; tag = '不夠，看後面的商品'; }
+                    break;
+            }
+            if (n.id === s.cur) cls += ' cur';
+            return `<div class="tn ${cls}" data-id="${esc(n.id)}" title="${esc(fmtText(n.items))}"><span class="n">${n.items.length > 1 ? '＋' : ''}${EMOJI[last] || ''}${esc(last)}</span>` +
+                (vals ? `<span class="v">${vals}</span>` : '') + `<span class="tag">${tag}</span></div>`;
+        }
+
+        function drawTree(s) {
+            const box = $('tree');
+            if (!s.twuDone) {
+                box.innerHTML = '<div class="tree-empty">算完 TWU、決定好商品的順序之後，這裡會長出搜尋樹。</div>';
+                return;
+            }
+            const kids = {};
+            s.nodes.forEach(n => { (kids[n.parent] = kids[n.parent] || []).push(n); });
+            const li = n => `<li>${nodeView(n, s)}${kids[n.id] ? `<ul>${kids[n.id].map(li).join('')}</ul>` : ''}</li>`;
+            box.innerHTML = `<ul class="tr"><li><div class="tn root">∅ 從空集合開始</div><ul>${(kids[''] || []).map(li).join('')}</ul></li></ul>`;
+            // 只捲樹的框，讓這一步的節點留在看得到的地方
+            const el = box.querySelector('.tn.cur');
+            if (el && !measuringBlocks) {
+                const y = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+                if (y < box.scrollTop + 10 || y + el.offsetHeight > box.scrollTop + box.clientHeight - 10) {
+                    box.scrollTo({ top: Math.max(0, y - box.clientHeight / 2), behavior: 'smooth' });
+                }
+            }
+        }
+
+        function drawResult(s) {
+            const box = $('levels');
+            box.innerHTML = '';
+            if (!s.result.length) box.innerHTML = `<div class="empty">${s.kind === 'end' ? '沒有找到。把門檻調低一點試試看。' : '還沒有，開始搜尋之後會出現在這裡。'}</div>`;
+            const bySize = {};
+            s.result.forEach(r => { (bySize[r.set.length] = bySize[r.set.length] || []).push(r); });
+            Object.keys(bySize).sort().forEach(k => {
+                const row = document.createElement('div');
+                row.className = 'level';
+                row.innerHTML = `<span class="tag">${k} 個</span><div class="items"></div>`;
+                bySize[k].forEach(r => {
+                    const p = document.createElement('span');
+                    p.className = 'pat' + (r.fresh ? ' fresh' : '');
+                    p.innerHTML = `<span></span><span class="n">${r.util}</span>`;
+                    p.firstChild.textContent = fmtText(r.set);
+                    row.querySelector('.items').appendChild(p);
+                });
+                box.appendChild(row);
+            });
+            $('st-scan').textContent = s.stats.scans;
+            $('st-proj').textContent = s.stats.proj;
+            $('st-merge').textContent = s.stats.merged;
+            $('st-prune').textContent = s.stats.pruned;
+            drawCompare(s);
+        }
+
+        /* 跟 Two-Phase、UP-Growth、HUI-Miner（同樣的資料和門檻）對照 */
+        function drawCompare(s) {
+            const box = $('compare');
+            if (s.kind !== 'end') {
+                box.innerHTML = `全部做完之後，這裡會跟 <a href="two-phase.html">Two-Phase</a>、<a href="up-growth.html">UP-Growth</a>、<a href="high-utility.html">HUI-Miner</a>（同樣的資料、同樣的門檻）對照。`;
+                return;
+            }
+            const { tp, ug, lists } = costs;
+            box.innerHTML = `<h3>四種做法對照（門檻 ${minUtil}）</h3>` +
+                `<div>四個方法找到的高效益樣式完全一樣，差在過程花了多少力氣。</div>` +
+                `<div class="cmp-wrap"><table class="cmp"><thead><tr><th></th><th>Two-Phase</th><th>UP-Growth</th><th>HUI-Miner</th><th class="me">EFIM</th></tr></thead><tbody>` +
+                `<tr><td>做法</td><td>逐層</td><td>樹</td><td>list</td><td class="me">投影</td></tr>` +
+                `<tr><td>掃描資料庫</td><td>${tp.scans} 次</td><td>${ug.scans} 次</td><td>2 次</td><td class="me">${s.stats.scans} 次</td></tr>` +
+                `<tr><td>候選（要回頭驗證）</td><td>${tp.cands}</td><td>${ug.cands}</td><td>不用</td><td class="me">不用</td></tr>` +
+                `<tr><td>建出的結構</td><td>—</td><td>${ug.trees} 棵條件樹</td><td>${lists} 張 list</td><td class="me">${s.stats.proj} 個投影資料庫</td></tr>` +
+                `</tbody></table></div>`;
+        }
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this continue'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tags) {
+            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/EFIM.java" download>EFIM.java</a>　執行 <code>javac EFIM.java && java EFIM</code>'
+                : '下載 <a href="code/efim.py" download>efim.py</a>　執行 <code>python3 efim.py</code>';
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        function showStep() {
+            const s = trace[cursor];
+            $('explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${trace.length}</span>${describe(s)}`;
+            drawDB(s);
+            drawLists(s);
+            drawTree(s);
+            drawResult(s);
+            renderCode(CODE_TAGS(s));
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0;
+            $('btn-next').disabled = cursor === trace.length - 1;
+            $('mu-val').textContent = minUtil;
+            $('mu-range').value = minUtil;
+            $('mu-minus').disabled = minUtil <= MU_MIN;
+            $('mu-plus').disabled = minUtil >= MU_MAX;
+            const total = DB.reduce((a, t) => a + Object.keys(t).reduce((b, i) => b + t[i] * PROFIT[i], 0), 0);
+            $('mu-pct').textContent = `（全部交易總效益 ${total} 的 ${Math.round(minUtil / total * 100)}%）`;
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
+        let measuringBlocks = false, blockJob = 0;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            if (!blocks.length || count < 2) return;
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                const until = performance.now() + 25;
+                measuringBlocks = true;
+                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                while (pass < passes && performance.now() < until) {
+                    showAt(i);
+                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                    if (++i === count) {
+                        i = 0; pass++;
+                        base = tallest.map(h => h + 'px');
+                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    }
+                }
+                measuringBlocks = false;
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                showAt(cur);
+                if (pass < passes) setTimeout(chunk, 0);
+            };
+            chunk();
+        }
+
+        /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${trace.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            reserveBlockHeights(document, trace.length, i => { cursor = i; showStep(); }, () => cursor);
+        }
+
+        function rebuild() {
+            stopAuto();
+            trace = buildTrace(DB, PROFIT, minUtil);
+            costs = { tp: twoPhaseCost(DB, PROFIT, minUtil), ug: upGrowthCost(DB, PROFIT, minUtil), lists: huiMinerLists(DB, PROFIT, minUtil) };
+            cursor = 0;
+            showStep();
+            reserveExplainHeight();
+        }
+
+        function step(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        function setMinUtil(v) {
+            v = Math.max(MU_MIN, Math.min(MU_MAX, v));
+            if (v === minUtil) return;
+            minUtil = v;
+            rebuild();
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 1900);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT') return;      // 在滑桿上按左右鍵是調門檻
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+        $('mu-minus').addEventListener('click', () => setMinUtil(minUtil - MU_STEP));
+        $('mu-plus').addEventListener('click', () => setMinUtil(minUtil + MU_STEP));
+        $('mu-range').addEventListener('input', e => setMinUtil(Number(e.target.value)));
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAGS(trace[cursor]));
+        });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(reserveExplainHeight, 150); });
+
+        rebuild();
+    </script>
+</body>
+
+</html>

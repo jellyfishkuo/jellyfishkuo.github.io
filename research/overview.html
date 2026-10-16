@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/overview.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/overview-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/overview-180.png">
+    <title>Research 總覽</title>
+    <meta name="description" content="把所有研究 Demo 串起來的地圖：演算法之間誰改良自誰、建議的閱讀順序，以及掃描次數、候選、額外結構的比較表。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，表格裡就會一格大一格小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 760px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        a { color: var(--accent2); }
+
+        .sec-label { font: 0.75rem 'Space Mono', monospace; color: var(--muted); letter-spacing: 0.1em; margin: 2rem 0 0.6rem; }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+            min-width: 0;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .hint { color: var(--muted); font-size: 0.8rem; }
+
+        /* ── 關係圖：圖本身固定寬度，窄螢幕時只在框內左右捲，不撐寬整頁 ── */
+        .graph-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 10px;
+            background: #0a0a12;
+            border: 1px solid var(--border);
+        }
+        .graph { display: block; margin: 0 auto; width: 900px; max-width: none; height: auto; }
+        @media (min-width: 1000px) { .graph { width: 100%; max-width: 1060px; } }
+        .scroll-hint { display: none; }
+        @media (max-width: 940px) { .scroll-hint { display: inline; } }
+        .graph .band-t { font: 700 12px 'Space Mono', monospace; letter-spacing: 0.06em; }
+        .graph .nt { font: 700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif; fill: var(--text); text-anchor: middle; }
+        .graph .nt2 { font-size: 11.5px; }
+        .graph .ny { font: 10px 'Space Mono', monospace; fill: var(--muted); text-anchor: middle; }
+        .graph .lg { font-size: 12px; fill: #c6c6d6; }
+        .graph .e { fill: none; stroke: #a78bfa; stroke-width: 1.6; stroke-opacity: 0.75; transition: stroke-opacity 0.15s, stroke-width 0.15s; }
+        .graph .e.dash { stroke: #22d3ee; stroke-dasharray: 5 4; }
+        .graph .node rect { stroke-width: 1.6; transition: fill 0.15s; }
+        .graph a.node { cursor: pointer; }
+        .graph a.node:hover rect, .graph a.node:focus rect { fill: #24243f; }
+        .graph a.node:focus { outline: none; }
+        .graph a.node:focus-visible rect { stroke: #fff; stroke-width: 2.4; }
+        .graph .node.soon rect { fill: none; stroke-dasharray: 4 3; stroke-opacity: 0.8; }
+        .graph .node.soon .nt { fill: var(--muted); }
+        .graph .node.soon .ny { fill: var(--warn); }
+        .graph g.node, .graph a.node { transition: opacity 0.15s; }
+        /* 指到一個節點：它的祖先和後代亮起來，其他變淡 */
+        .graph.focus .node, .graph.focus .e { opacity: 0.18; }
+        .graph.focus .node.hl, .graph.focus .e.hl { opacity: 1; }
+        .graph.focus .e.hl { stroke-width: 2.4; stroke-opacity: 1; }
+
+        /* ── 依類別的清單（手機的主要看法，電腦上當成索引） ── */
+        .groups { display: grid; gap: 0.8rem; margin-top: 1rem; }
+        @media (min-width: 640px) { .groups { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1000px) { .groups { grid-template-columns: 1fr 1fr 1fr; } }
+        .grp { background: var(--panel-2); border-radius: 12px; padding: 0.8rem 0.9rem; border-left: 3px solid var(--gc); min-width: 0; }
+        .grp h3 { font: 700 0.82rem 'Space Mono', monospace; color: var(--gc); letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+        .grp ul { list-style: none; display: grid; gap: 0.55rem; }
+        .grp li p { color: #c6c6d6; font-size: 0.86rem; line-height: 1.5; }
+        .nm { font-weight: 700; text-decoration: none; color: var(--text); overflow-wrap: anywhere; }
+        a.nm { color: var(--accent2); }
+        a.nm:hover { text-decoration: underline; }
+        .nm.soon { color: var(--muted); }
+        .yr { font: 0.72rem 'Space Mono', monospace; color: var(--muted); margin-left: 0.45rem; }
+        .soon-tag { display: inline-block; font-size: 0.68rem; color: var(--warn); border: 1px solid rgba(245, 158, 11, 0.5); border-radius: 999px; padding: 0 0.45rem; margin-left: 0.45rem; vertical-align: 1px; white-space: nowrap; }
+        .froms { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; }
+        .from { font-size: 0.72rem; color: #c4b5fd; background: rgba(124, 58, 237, 0.14); border-radius: 6px; padding: 0.05rem 0.4rem; }
+        .from.dash { color: #67e8f9; background: rgba(6, 182, 212, 0.12); }
+
+        /* ── 閱讀路線 ── */
+        .routes { display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .routes { grid-template-columns: repeat(3, 1fr); } }
+        .route { border-top: 3px solid var(--rc); }
+        .route-sub { color: var(--muted); font-size: 0.85rem; margin: -0.35rem 0 0.7rem; }
+        .route ol { list-style: none; counter-reset: st; display: grid; gap: 0.15rem; }
+        .route li { counter-increment: st; position: relative; padding: 0 0 0.65rem 2.3rem; }
+        .route li::before {
+            content: counter(st);
+            position: absolute; left: 0; top: 0.05rem;
+            width: 1.6rem; height: 1.6rem; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font: 700 0.8rem 'Space Mono', monospace;
+            background: var(--panel-2); border: 2px solid var(--rc); color: var(--text);
+        }
+        /* 站與站之間的連線 */
+        .route li:not(:last-child)::after {
+            content: ''; position: absolute; left: calc(0.8rem - 1px); top: 1.75rem; bottom: 0.05rem;
+            width: 2px; background: var(--rc); opacity: 0.35;
+        }
+        .route li p { color: #c6c6d6; font-size: 0.86rem; line-height: 1.5; }
+        .route-next { color: var(--muted); font-size: 0.82rem; border-top: 1px dashed var(--border); padding-top: 0.6rem; margin-top: 0.2rem; }
+        .route-next .ex { font-weight: 400; }
+        .route-next a.ex { color: var(--accent2); }
+
+        /* ── 比較表：在自己的框內左右捲，第一欄固定 ── */
+        .tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 10px; }
+        .cmp { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1040px; font-size: 0.84rem; }
+        .cmp th, .cmp td { padding: 0.55rem 0.65rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); line-height: 1.5; }
+        .cmp thead th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); font-weight: 400; font-size: 0.78rem; white-space: nowrap; }
+        .cmp tbody th { position: sticky; left: 0; background: var(--panel); min-width: 8.5rem; max-width: 9.5rem; z-index: 1; border-right: 1px solid var(--border); }
+        .cmp thead th:first-child { position: sticky; left: 0; z-index: 2; border-right: 1px solid var(--border); }
+        .cmp tbody tr:hover td, .cmp tbody tr:hover th { background: #14142a; }
+        .cmp td { color: #c6c6d6; }
+        .cmp td:nth-child(3) { min-width: 15rem; }
+        .cmp td:nth-child(4) { min-width: 10rem; }
+        .cmp td:nth-child(5) { min-width: 9rem; }
+        .cmp td.mono { font-family: 'Space Mono', monospace; font-size: 0.78rem; color: var(--text); }
+        .cmp td.c-yes { color: #fca5a5; }
+        .cmp td.c-no { color: #86efac; }
+        .cmp td.c-na { color: var(--muted); }
+        .cmp .soon-tag { display: block; width: max-content; margin: 0.2rem 0 0; }
+        .gtag { display: inline-block; white-space: nowrap; font-size: 0.72rem; color: var(--gc); border: 1px solid var(--gc); border-radius: 999px; padding: 0 0.45rem; }
+
+        .bench { display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 1rem; border-left: 3px solid var(--warn); }
+        .bench p { color: #c6c6d6; font-size: 0.9rem; flex: 1 1 300px; min-width: 0; }
+        .btn-link { display: inline-block; text-decoration: none; color: #fff; background: var(--accent); border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.9rem; white-space: nowrap; }
+        .btn-link:hover { filter: brightness(1.15); }
+        .btn-link.soon { background: var(--panel-2); color: var(--muted); border: 1px dashed var(--border); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+        .notes b { color: var(--text); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · OVERVIEW</div>
+        <h1>Research 總覽<small>把所有研究 Demo 串起來的地圖：誰改良自誰、從哪裡開始看</small></h1>
+        <p class="intro">
+            這裡的 Demo 看起來主題很多，其實大部分都從同一個起點長出來：<b>Apriori</b> 的「不頻繁的組合，包含它的更大組合也一定不頻繁」。
+            之後的方法有的換資料結構（樹、垂直格式、清單），有的換問題（看順序、看利潤、資料一直進來、資料有位置）。
+            下面的圖把 25 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
+            想一次比較，最下面有<b>比較表</b>。大部分 Demo 用的都是同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），換頁時可以直接對照數字。
+        </p>
+
+        <div class="sec-label">// 演算法關係圖</div>
+        <div class="card" id="graph-card">
+            <div class="card-head">
+                <h2>誰改良自誰</h2>
+                <span class="hint"><span class="scroll-hint">圖可以在框裡左右滑動。</span>滑鼠移到方框上，會亮出它的來源和後續。</span>
+            </div>
+            <div class="graph-scroll" id="graph-scroll">
+<svg class="graph" viewBox="0 0 900 738" width="900" height="738" role="img" aria-label="演算法關係圖：箭頭代表改良自或延伸自">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#a78bfa"/></marker><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#22d3ee"/></marker><marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#fbbf24"/></marker></defs>
+<g class="band"><rect x="4" y="6" width="572" height="82" rx="12" fill="#22c55e" fill-opacity="0.07" stroke="#22c55e" stroke-opacity="0.35"/><text x="16" y="25" fill="#22c55e" class="band-t">增量資料庫</text></g>
+<g class="band"><rect x="4" y="98" width="572" height="142" rx="12" fill="#8b5cf6" fill-opacity="0.07" stroke="#8b5cf6" stroke-opacity="0.35"/><text x="16" y="117" fill="#8b5cf6" class="band-t">頻繁樣式</text></g>
+<g class="band"><rect x="4" y="250" width="572" height="142" rx="12" fill="#c084fc" fill-opacity="0.07" stroke="#c084fc" stroke-opacity="0.35"/><text x="16" y="269" fill="#c084fc" class="band-t">規則與序列</text></g>
+<g class="band"><rect x="586" y="250" width="310" height="142" rx="12" fill="#f472b6" fill-opacity="0.07" stroke="#f472b6" stroke-opacity="0.35"/><text x="598" y="269" fill="#f472b6" class="band-t">圖形</text></g>
+<g class="band"><rect x="4" y="402" width="892" height="126" rx="12" fill="#f59e0b" fill-opacity="0.07" stroke="#f59e0b" stroke-opacity="0.35"/><text x="16" y="421" fill="#f59e0b" class="band-t">高效益樣式</text></g>
+<g class="band"><rect x="4" y="538" width="892" height="92" rx="12" fill="#06b6d4" fill-opacity="0.07" stroke="#06b6d4" stroke-opacity="0.35"/><text x="16" y="557" fill="#06b6d4" class="band-t">資料串流</text></g>
+<g class="band"><rect x="4" y="640" width="892" height="92" rx="12" fill="#60a5fa" fill-opacity="0.07" stroke="#60a5fa" stroke-opacity="0.35"/><text x="16" y="659" fill="#60a5fa" class="band-t">空間資料</text></g>
+<g class="legend"><rect x="590" y="98" width="306" height="94" rx="12" fill="#0b0b14" stroke="#262640"/><path class="e" d="M600,120 L640,120" marker-end="url(#ar)"/><text x="652" y="124" class="lg">改良自／延伸自</text><path class="e dash" d="M600,146 L640,146" marker-end="url(#ar2)"/><text x="652" y="150" class="lg">借用同一個想法</text><rect x="600" y="162" width="40" height="20" rx="5" fill="#151527" stroke="#8b5cf6"/><text x="652" y="176" class="lg">點方框進入那個 Demo</text></g>
+<g class="edges">
+<path class="e" data-s="apriori" data-t="fp" d="M146,162.2 C172,162.2 168,138.0 192,138.0" marker-end="url(#ar)"><title>Apriori → FP-Growth：不再一層一層猜候選，改成在樹上長</title></path>
+<path class="e" data-s="apriori" data-t="eclat" d="M146,167.4 C172,167.4 168,202.0 192,202.0" marker-end="url(#ar)"><title>Apriori → Eclat：一樣靠向下封閉性，但改用垂直格式、深度優先</title></path>
+<path class="e" data-s="eclat" data-t="charm" d="M330,199.0 C371,199.0 363,202.0 402,202.0" marker-end="url(#ar)"><title>Eclat → CHARM 封閉樣式：建在 Eclat 的垂直格式上</title></path>
+<path class="e" data-s="apriori" data-t="rules" d="M146,172.6 C172,172.6 168,290.0 192,290.0" marker-end="url(#ar)"><title>Apriori → 關聯規則：Apriori 論文的第二步：從頻繁樣式產生規則</title></path>
+<path class="e" data-s="apriori" data-t="gsp" d="M146,177.8 C172,177.8 168,354.0 192,354.0" marker-end="url(#ar)"><title>Apriori → GSP 序列：把 Apriori 搬到有先後順序的序列上</title></path>
+<path class="e" data-s="fp" data-t="prefixspan" d="M330,138.0 C371,138.0 363,290.0 402,290.0" marker-end="url(#ar)"><title>FP-Growth → PrefixSpan：跟 FP-Growth 一樣是分而治之的樣式成長</title></path>
+<path class="e" data-s="eclat" data-t="spade" d="M330,205.0 C371,205.0 363,354.0 402,354.0" marker-end="url(#ar)"><title>Eclat → SPADE 序列：把 Eclat 的垂直格式搬到序列上</title></path>
+<path class="e dash" data-s="prefixspan" data-t="gspan" d="M540,290.0 C584,290.0 576,322.0 618,322.0" marker-end="url(#ar2)"><title>PrefixSpan → gSpan 圖形樣式：一樣是深度優先的樣式成長：集合 → 序列 → 圖</title></path>
+<path class="e" data-s="apriori" data-t="twophase" d="M146,183.0 C172,183.0 168,465.0 192,465.0" marker-end="url(#ar)"><title>Apriori → Two-Phase：第一階段完全照 Apriori 的方式，只是用 TWU 剪</title></path>
+<path class="e" data-s="twophase" data-t="upgrowth" d="M330,465.0 L402,465.0" marker-end="url(#ar)"><title>Two-Phase → UP-Growth：一樣兩階段，但上界比 TWU 緊</title></path>
+<path class="e" data-s="fp" data-t="upgrowth" d="M330,144.0 C371,144.0 363,465.0 402,465.0" marker-end="url(#ar)"><title>FP-Growth → UP-Growth：UP-Tree 的建法跟 FP-tree 一樣</title></path>
+<path class="e" data-s="upgrowth" data-t="huiminer" d="M540,465.0 L578,465.0" marker-end="url(#ar)"><title>UP-Growth → HUI-Miner：不再兩階段：不用候選、不用回頭驗證</title></path>
+<path class="e" data-s="huiminer" data-t="efim" d="M716,462.0 C735,462.0 731,436.0 748,436.0" marker-end="url(#ar)"><title>HUI-Miner → EFIM：不再為每個組合建 list，改用投影資料庫和更緊的上界</title></path>
+<path class="e" data-s="huiminer" data-t="topk" d="M716,468.0 C735,468.0 731,496.0 748,496.0" marker-end="url(#ar)"><title>HUI-Miner → Top-k TKO：一樣用 utility list，加上會往上調的門檻</title></path>
+<path class="e" data-s="apriori" data-t="fup" d="M146,157.0 C172,157.0 168,48.0 192,48.0" marker-end="url(#ar)"><title>Apriori → FUP：把 Apriori 改成只處理新增的那幾筆</title></path>
+<path class="e" data-s="fp" data-t="cantree" d="M330,132.0 C371,132.0 363,48.0 402,48.0" marker-end="url(#ar)"><title>FP-Growth → CanTree：FP-tree 改成固定順序，挖法照搬</title></path>
+<path class="e dash" data-s="bloom" data-t="cms" d="M580,592.0 L542,592.0" marker-end="url(#ar2)"><title>Bloom Filter → Count-Min Sketch：一樣把東西用好幾個雜湊撒進格子，只是格子改成計數</title></path>
+</g>
+<a class="node" href="apriori.html" data-id="apriori" aria-label="Apriori"><title>Apriori：一層一層合併、剪枝、計數，後面幾乎每個方法都從它出發。</title><rect x="10" y="149" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="78" y="171" class="nt">Apriori</text><text x="78" y="186" class="ny">1994</text></a>
+<a class="node" href="fp-growth.html" data-id="fp" aria-label="FP-Growth"><title>FP-Growth：把交易壓成一棵樹，只掃兩次、不產生候選。</title><rect x="194" y="117" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="262" y="139" class="nt">FP-Growth</text><text x="262" y="154" class="ny">2000</text></a>
+<a class="node" href="eclat.html" data-id="eclat" aria-label="Eclat"><title>Eclat：把資料轉成「每個商品出現在哪幾筆」，用交集算支持度。</title><rect x="194" y="181" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="262" y="203" class="nt">Eclat</text><text x="262" y="218" class="ny">1997</text></a>
+<a class="node" href="closed-patterns.html" data-id="charm" aria-label="CHARM"><title>CHARM：頻繁樣式太多時，只留封閉樣式，次數一個都不少。</title><rect x="404" y="181" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="472" y="203" class="nt">CHARM 封閉樣式</text><text x="472" y="218" class="ny">2002</text></a>
+<a class="node" href="association-rules.html" data-id="rules" aria-label="關聯規則"><title>關聯規則：從頻繁樣式切出規則，看信賴度和提升度。</title><rect x="194" y="269" width="136" height="42" rx="9" fill="#151527" stroke="#c084fc"/><text x="262" y="291" class="nt">關聯規則</text><text x="262" y="306" class="ny">1994</text></a>
+<a class="node" href="gsp-spade.html" data-id="gsp" aria-label="GSP"><title>GSP：序列版的 Apriori，一層一層產生候選序列。</title><rect x="194" y="333" width="136" height="42" rx="9" fill="#151527" stroke="#c084fc"/><text x="262" y="355" class="nt">GSP 序列</text><text x="262" y="370" class="ny">1996</text></a>
+<a class="node" href="prefixspan.html" data-id="prefixspan" aria-label="PrefixSpan"><title>PrefixSpan：用前綴投影資料庫，分「同一次」和「下一次」兩種延伸。</title><rect x="404" y="269" width="136" height="42" rx="9" fill="#151527" stroke="#c084fc"/><text x="472" y="291" class="nt">PrefixSpan</text><text x="472" y="306" class="ny">2001</text></a>
+<a class="node" href="gsp-spade.html" data-id="spade" aria-label="SPADE"><title>SPADE：序列版的 Eclat，用 (sid, eid) 清單連接。</title><rect x="404" y="333" width="136" height="42" rx="9" fill="#151527" stroke="#c084fc"/><text x="472" y="355" class="nt">SPADE 序列</text><text x="472" y="370" class="ny">2001</text></a>
+<a class="node" href="gspan.html" data-id="gspan" aria-label="gSpan"><title>gSpan：從集合、序列再到圖：找很多張圖裡共同出現的子圖。</title><rect x="620" y="301" width="136" height="42" rx="9" fill="#151527" stroke="#f472b6"/><text x="688" y="323" class="nt">gSpan 圖形樣式</text><text x="688" y="338" class="ny">2002</text></a>
+<a class="node" href="two-phase.html" data-id="twophase" aria-label="Two-Phase"><title>Two-Phase：用 TWU 當上界照 Apriori 挑候選，再掃一次算真效益。</title><rect x="194" y="444" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="262" y="466" class="nt">Two-Phase</text><text x="262" y="481" class="ny">2005</text></a>
+<a class="node" href="up-growth.html" data-id="upgrowth" aria-label="UP-Growth"><title>UP-Growth：用樹當結構、上界比 TWU 緊，候選少很多。</title><rect x="404" y="444" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="472" y="466" class="nt">UP-Growth</text><text x="472" y="481" class="ny">2010</text></a>
+<a class="node" href="high-utility.html" data-id="huiminer" aria-label="HUI-Miner"><title>HUI-Miner：utility list 合併直接算出效益，不需要候選。</title><rect x="580" y="444" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="648" y="466" class="nt">HUI-Miner</text><text x="648" y="481" class="ny">2012</text></a>
+<a class="node" href="efim.html" data-id="efim" aria-label="EFIM"><title>EFIM：投影＋合併交易，上界更緊、記憶體更省。</title><rect x="750" y="415" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="818" y="437" class="nt">EFIM</text><text x="818" y="452" class="ny">2015</text></a>
+<a class="node" href="top-k-hui.html" data-id="topk" aria-label="Top-k"><title>Top-k：不用猜門檻，排行榜裝滿後門檻自動往上升。</title><rect x="750" y="475" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="818" y="497" class="nt">Top-k TKO</text><text x="818" y="512" class="ny">2016</text></a>
+<a class="node" href="incremental.html" data-id="fup" aria-label="FUP"><title>FUP：新交易進來時只更新受影響的部分，結果跟重算一樣。</title><rect x="194" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="262" y="49" class="nt">FUP</text><text x="262" y="64" class="ny">1996</text></a>
+<a class="node" href="cantree.html" data-id="cantree" aria-label="CanTree"><title>CanTree：固定順序的 FP-tree，新交易來了直接插。</title><rect x="404" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="472" y="49" class="nt">CanTree</text><text x="472" y="64" class="ny">2007</text></a>
+<a class="node" href="sliding-window.html" data-id="sw" aria-label="滑動視窗"><title>滑動視窗：只看最近 W 筆，一進一出即時更新頻繁樣式。</title><rect x="10" y="571" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="78" y="593" class="nt">滑動視窗</text></a>
+<a class="node" href="stream-counting.html" data-id="lossy" aria-label="Lossy Counting／Space-Saving"><title>Lossy Counting／Space-Saving：記憶體不夠時近似計數，誤差有上限。</title><rect x="194" y="571" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="262" y="585" class="nt nt2">Lossy Counting</text><text x="262" y="598" class="nt nt2">Space-Saving</text><text x="262" y="609" class="ny">2002·2005</text></a>
+<a class="node" href="count-min.html" data-id="cms" aria-label="Count-Min"><title>Count-Min：不記名稱、只記格子，任何商品都查得到。</title><rect x="404" y="571" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="472" y="593" class="nt">Count-Min Sketch</text><text x="472" y="608" class="ny">2005</text></a>
+<a class="node" href="bloom-filter.html" data-id="bloom" aria-label="Bloom Filter"><title>Bloom Filter：用很少的位元判斷「有沒有看過」，只會誤判成可能在。</title><rect x="580" y="571" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="648" y="593" class="nt">Bloom Filter</text><text x="648" y="608" class="ny">1970</text></a>
+<a class="node" href="spatial.html" data-id="quad" aria-label="四元樹"><title>四元樹：把地圖依密度切格子，範圍查詢整塊跳過。</title><rect x="10" y="673" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="78" y="695" class="nt">四元樹</text><text x="78" y="710" class="ny">1974</text></a>
+<a class="node" href="spatial.html" data-id="coloc" aria-label="共位樣式"><title>共位樣式：頻繁樣式搬到地圖上：哪幾種店總是開在一起。</title><rect x="194" y="673" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="262" y="695" class="nt">共位樣式</text><text x="262" y="710" class="ny">2004</text></a>
+<a class="node" href="rtree.html" data-id="rtree" aria-label="R-tree"><title>R-tree：依資料包框的平衡樹，最近 k 家店一下就找到。</title><rect x="404" y="673" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="472" y="695" class="nt">R-tree</text><text x="472" y="710" class="ny">1984</text></a>
+<a class="node" href="dbscan.html" data-id="dbscan" aria-label="DBSCAN"><title>DBSCAN：依密度分群，不用先說幾群，還會標出雜訊。</title><rect x="580" y="673" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="648" y="695" class="nt">DBSCAN</text><text x="648" y="710" class="ny">1996</text></a>
+<a class="node" href="skyline.html" data-id="skyline" aria-label="Skyline"><title>Skyline：又便宜又近：找出不被任何一家全面打敗的店。</title><rect x="750" y="673" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="818" y="695" class="nt">Skyline BNL・SFS</text><text x="818" y="710" class="ny">2001·2003</text></a>
+</svg>
+            </div>
+            <div class="groups" id="groups">
+<section class="grp" style="--gc:#8b5cf6"><h3>頻繁樣式</h3><ul>
+<li><a class="nm" href="apriori.html">Apriori</a><span class="yr">1994</span><p>一層一層合併、剪枝、計數，後面幾乎每個方法都從它出發。</p></li>
+<li><a class="nm" href="fp-growth.html">FP-Growth</a><span class="yr">2000</span><p>把交易壓成一棵樹，只掃兩次、不產生候選。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
+<li><a class="nm" href="eclat.html">Eclat</a><span class="yr">1997</span><p>把資料轉成「每個商品出現在哪幾筆」，用交集算支持度。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
+<li><a class="nm" href="closed-patterns.html">CHARM 封閉樣式</a><span class="yr">2002</span><p>頻繁樣式太多時，只留封閉樣式，次數一個都不少。</p><div class="froms"><span class="from ">改良自 Eclat</span></div></li>
+</ul></section>
+<section class="grp" style="--gc:#c084fc"><h3>規則與序列</h3><ul>
+<li><a class="nm" href="association-rules.html">關聯規則</a><span class="yr">1994</span><p>從頻繁樣式切出規則，看信賴度和提升度。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
+<li><a class="nm" href="gsp-spade.html">GSP 序列</a><span class="yr">1996</span><p>序列版的 Apriori，一層一層產生候選序列。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
+<li><a class="nm" href="prefixspan.html">PrefixSpan</a><span class="yr">2001</span><p>用前綴投影資料庫，分「同一次」和「下一次」兩種延伸。</p><div class="froms"><span class="from ">改良自 FP-Growth</span></div></li>
+<li><a class="nm" href="gsp-spade.html">SPADE 序列</a><span class="yr">2001</span><p>序列版的 Eclat，用 (sid, eid) 清單連接。</p><div class="froms"><span class="from ">改良自 Eclat</span></div></li>
+</ul></section>
+<section class="grp" style="--gc:#f472b6"><h3>圖形</h3><ul>
+<li><a class="nm" href="gspan.html">gSpan 圖形樣式</a><span class="yr">2002</span><p>從集合、序列再到圖：找很多張圖裡共同出現的子圖。</p><div class="froms"><span class="from dash">借用 PrefixSpan</span></div></li>
+</ul></section>
+<section class="grp" style="--gc:#f59e0b"><h3>高效益樣式</h3><ul>
+<li><a class="nm" href="two-phase.html">Two-Phase</a><span class="yr">2005</span><p>用 TWU 當上界照 Apriori 挑候選，再掃一次算真效益。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
+<li><a class="nm" href="up-growth.html">UP-Growth</a><span class="yr">2010</span><p>用樹當結構、上界比 TWU 緊，候選少很多。</p><div class="froms"><span class="from ">改良自 Two-Phase</span><span class="from ">改良自 FP-Growth</span></div></li>
+<li><a class="nm" href="high-utility.html">HUI-Miner</a><span class="yr">2012</span><p>utility list 合併直接算出效益，不需要候選。</p><div class="froms"><span class="from ">改良自 UP-Growth</span></div></li>
+<li><a class="nm" href="efim.html">EFIM</a><span class="yr">2015</span><p>投影＋合併交易，上界更緊、記憶體更省。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
+<li><a class="nm" href="top-k-hui.html">Top-k TKO</a><span class="yr">2016</span><p>不用猜門檻，排行榜裝滿後門檻自動往上升。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
+</ul></section>
+<section class="grp" style="--gc:#22c55e"><h3>增量資料庫</h3><ul>
+<li><a class="nm" href="incremental.html">FUP</a><span class="yr">1996</span><p>新交易進來時只更新受影響的部分，結果跟重算一樣。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
+<li><a class="nm" href="cantree.html">CanTree</a><span class="yr">2007</span><p>固定順序的 FP-tree，新交易來了直接插。</p><div class="froms"><span class="from ">改良自 FP-Growth</span></div></li>
+</ul></section>
+<section class="grp" style="--gc:#06b6d4"><h3>資料串流</h3><ul>
+<li><a class="nm" href="sliding-window.html">滑動視窗</a><p>只看最近 W 筆，一進一出即時更新頻繁樣式。</p></li>
+<li><a class="nm" href="stream-counting.html">Lossy Counting・Space-Saving</a><span class="yr">2002·2005</span><p>記憶體不夠時近似計數，誤差有上限。</p></li>
+<li><a class="nm" href="count-min.html">Count-Min Sketch</a><span class="yr">2005</span><p>不記名稱、只記格子，任何商品都查得到。</p><div class="froms"><span class="from dash">借用 Bloom Filter</span></div></li>
+<li><a class="nm" href="bloom-filter.html">Bloom Filter</a><span class="yr">1970</span><p>用很少的位元判斷「有沒有看過」，只會誤判成可能在。</p></li>
+</ul></section>
+<section class="grp" style="--gc:#60a5fa"><h3>空間資料</h3><ul>
+<li><a class="nm" href="spatial.html">四元樹</a><span class="yr">1974</span><p>把地圖依密度切格子，範圍查詢整塊跳過。</p></li>
+<li><a class="nm" href="spatial.html">共位樣式</a><span class="yr">2004</span><p>頻繁樣式搬到地圖上：哪幾種店總是開在一起。</p></li>
+<li><a class="nm" href="rtree.html">R-tree</a><span class="yr">1984</span><p>依資料包框的平衡樹，最近 k 家店一下就找到。</p></li>
+<li><a class="nm" href="dbscan.html">DBSCAN</a><span class="yr">1996</span><p>依密度分群，不用先說幾群，還會標出雜訊。</p></li>
+<li><a class="nm" href="skyline.html">Skyline BNL・SFS</a><span class="yr">2001·2003</span><p>又便宜又近：找出不被任何一家全面打敗的店。</p></li>
+</ul></section>
+            </div>
+        </div>
+
+        <div class="sec-label">// 建議閱讀順序</div>
+        <div class="routes" id="routes">
+<div class="card route" style="--rc:#8b5cf6"><h2>入門路線</h2><p class="route-sub">頻繁樣式的三種基本做法，再往外延伸</p><ol>
+<li><a class="nm" href="apriori.html">Apriori</a><p>先懂支持度、向下封閉性，這是每一頁的共同語言。</p></li>
+<li><a class="nm" href="fp-growth.html">FP-Growth</a><p>同一份資料改用樹：只掃兩次、不產生候選。</p></li>
+<li><a class="nm" href="eclat.html">Eclat</a><p>第三種做法：垂直格式和交集。</p></li>
+<li><a class="nm" href="closed-patterns.html">CHARM 封閉樣式</a><p>答案太多怎麼辦？只留封閉樣式。</p></li>
+<li><a class="nm" href="association-rules.html">關聯規則</a><p>把頻繁樣式變成「買 X 也買 Y」的規則。</p></li>
+<li><a class="nm" href="prefixspan.html">PrefixSpan</a><p>加上時間順序，變成序列樣式。</p></li>
+</ol>
+<p class="route-next">走完可以接著看：<a class="ex" href="gsp-spade.html">GSP 序列</a>、<a class="ex" href="gsp-spade.html">SPADE 序列</a>、<a class="ex" href="gspan.html">gSpan 圖形樣式</a></p>
+</div>
+<div class="card route" style="--rc:#f59e0b"><h2>高效益路線</h2><p class="route-sub">不只看買幾次，還看賺多少</p><ol>
+<li><a class="nm" href="apriori.html">Apriori</a><p>先確定向下封閉性懂了，才看得出效益為什麼不能直接剪。</p></li>
+<li><a class="nm" href="two-phase.html">Two-Phase</a><p>用 TWU 當上界，照 Apriori 挑候選、再驗證。</p></li>
+<li><a class="nm" href="up-growth.html">UP-Growth</a><p>換成樹，上界收得更緊、候選更少。</p></li>
+<li><a class="nm" href="high-utility.html">HUI-Miner</a><p>utility list：不要候選，合併就算出效益。</p></li>
+<li><a class="nm" href="efim.html">EFIM</a><p>投影資料庫加更緊的上界，現在常用的快方法。</p></li>
+<li><a class="nm" href="top-k-hui.html">Top-k TKO</a><p>不知道門檻設多少時，直接要前 k 名。</p></li>
+</ol>
+<p class="route-next">走完可以接著看：<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a></p>
+</div>
+<div class="card route" style="--rc:#06b6d4"><h2>串流與空間路線</h2><p class="route-sub">資料停不下來，或資料有位置</p><ol>
+<li><a class="nm" href="sliding-window.html">滑動視窗</a><p>只看最近 W 筆，一進一出怎麼更新。</p></li>
+<li><a class="nm" href="stream-counting.html">Lossy Counting・Space-Saving</a><p>記憶體不夠時近似計數，誤差有上限。</p></li>
+<li><a class="nm" href="count-min.html">Count-Min Sketch</a><p>只記格子不記名稱的計數草稿。</p></li>
+<li><a class="nm" href="spatial.html">四元樹</a><p>換到地圖：四元樹切格子、共位樣式找一起出現的店。</p></li>
+<li><a class="nm" href="rtree.html">R-tree</a><p>依資料包框的索引，找最近的 k 家店。</p></li>
+<li><a class="nm" href="dbscan.html">DBSCAN</a><p>用密度把地圖上的點分群。</p></li>
+</ol>
+<p class="route-next">走完可以接著看：<a class="ex" href="bloom-filter.html">Bloom Filter</a>、<a class="ex" href="skyline.html">Skyline BNL・SFS</a></p>
+</div>
+        </div>
+
+        <div class="sec-label">// 比較表</div>
+        <div class="card" id="table-card">
+            <div class="card-head">
+                <h2>每個演算法一列</h2>
+                <span class="hint">表格可以在框裡左右滑動，第一欄固定。</span>
+            </div>
+            <div class="tbl-scroll">
+<table class="cmp"><thead><tr><th>演算法</th><th>類別</th><th>核心想法</th><th>掃描資料庫</th><th>產生候選？</th><th>需要的額外結構</th><th>適合的情況</th></tr></thead><tbody>
+<tr><th scope="row"><a class="nm" href="apriori.html">Apriori</a></th><td><span class="gtag" style="--gc:#8b5cf6">頻繁樣式</span></td><td>不頻繁的組合，包含它的更大組合也一定不頻繁；從 1 個商品開始一層一層往上長</td><td class="mono">每一層 1 次（範例資料 4 次）</td><td class="c-yes">會：合併＋剪枝產生候選，再掃資料庫數</td><td>只有候選清單</td><td>資料不大、樣式不長；最好懂，也是所有方法比較的基準</td></tr>
+<tr><th scope="row"><a class="nm" href="fp-growth.html">FP-Growth</a></th><td><span class="gtag" style="--gc:#8b5cf6">頻繁樣式</span></td><td>把交易壓成一棵 FP-tree，沿條件模式基底建條件樹、遞迴挖</td><td class="mono">2 次（數次數＋建樹）</td><td class="c-no">不會：只在樹上長出真的出現過的組合</td><td>FP-tree、條件樹</td><td>交易的共同前綴多、樹放得進記憶體</td></tr>
+<tr><th scope="row"><a class="nm" href="eclat.html">Eclat</a></th><td><span class="gtag" style="--gc:#8b5cf6">頻繁樣式</span></td><td>轉成垂直格式，每個商品記 TID 集合，兩兩取交集就是支持度</td><td class="mono">1 次（建垂直表）</td><td class="c-yes">會：同一等價類兩兩配對，但交集直接得到次數，不回頭掃</td><td>TID 集合（垂直表）</td><td>稀疏資料；很密的資料改用 dEclat 的 diffset</td></tr>
+<tr><th scope="row"><a class="nm" href="closed-patterns.html">CHARM 封閉樣式</a></th><td><span class="gtag" style="--gc:#8b5cf6">頻繁樣式</span></td><td>比較兩個樣式的 tidset 是相等、包含還是互不包含，用四條性質合併、吸收，直接找出封閉樣式</td><td class="mono">1 次（建 tidset）</td><td class="c-yes">會，但四條性質會提早合併或刪掉，最後再做子集合檢查</td><td>tidset、已找到的封閉樣式（做子集合檢查）</td><td>頻繁樣式多到看不完、又要保留所有次數（無損壓縮）</td></tr>
+<tr><th scope="row"><a class="nm" href="association-rules.html">關聯規則</a></th><td><span class="gtag" style="--gc:#c084fc">規則與序列</span></td><td>把頻繁樣式切成 X → Y，算信賴度和提升度；同一個樣式後件越大，信賴度只會越低</td><td class="mono">0 次（直接用頻繁樣式和次數）</td><td class="c-yes">會：後件逐層合併＋剪枝</td><td>頻繁樣式和它們的次數</td><td>想得到「買了 X 的人也會買 Y」這種可以拿來用的結論</td></tr>
+<tr><th scope="row"><a class="nm" href="gsp-spade.html">GSP 序列</a></th><td><span class="gtag" style="--gc:#c084fc">規則與序列</span></td><td>序列版的 Apriori：候選序列一層一層猜，再掃資料庫數有幾位顧客包含它</td><td class="mono">每一層 1 次</td><td class="c-yes">會</td><td>候選序列</td><td>序列短、想先看懂序列探勘在數什麼</td></tr>
+<tr><th scope="row"><a class="nm" href="prefixspan.html">PrefixSpan</a></th><td><span class="gtag" style="--gc:#c084fc">規則與序列</span></td><td>用頻繁的前綴把資料庫投影成越來越小的後綴，只接真的出現過的商品</td><td class="mono">原始資料 1 次，之後掃越來越小的投影資料庫</td><td class="c-no">不會（樣式成長）</td><td>投影資料庫（偽投影只記位置）</td><td>序列長、資料量大</td></tr>
+<tr><th scope="row"><a class="nm" href="gsp-spade.html">SPADE 序列</a></th><td><span class="gtag" style="--gc:#c084fc">規則與序列</span></td><td>序列版的 Eclat：每個樣式記它出現在哪些 (顧客, 第幾次)，用時間先後的連接算次數</td><td class="mono">1 次（建垂直 id-list）</td><td class="c-yes">會：同前綴兩兩連接，但連接完就知道次數</td><td>垂直 id-list (sid, eid)</td><td>序列資料放得進記憶體，想少掃資料庫</td></tr>
+<tr><th scope="row"><a class="nm" href="gspan.html">gSpan 圖形樣式</a></th><td><span class="gtag" style="--gc:#f472b6">圖形</span></td><td>用 DFS code 給每個子圖一個最小的寫法，只從最右路徑長一條邊，不重複也不漏</td><td class="mono">每次延伸只看目前樣式的嵌入（出現位置）</td><td class="c-no">不會（樣式成長）</td><td>DFS code、每張圖裡的嵌入清單</td><td>化學分子、程式呼叫圖這類「東西之間有連線」的資料</td></tr>
+<tr><th scope="row"><a class="nm" href="two-phase.html">Two-Phase</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>效益沒有向下封閉性，改用有向下封閉性的上界 TWU 照 Apriori 剪，最後再算一次真的效益</td><td class="mono">第一階段每一層 1 次＋第二階段 1 次（範例資料 4 次）</td><td class="c-yes">會（範例 15 個候選，8 個白算）</td><td>候選清單</td><td>第一次學「用上界剪枝」；TWU 至今仍是幾乎每個方法的第一步</td></tr>
+<tr><th scope="row"><a class="nm" href="up-growth.html">UP-Growth</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>把交易壓成 UP-Tree，節點只記到自己為止的效益，用 DGU、DGN、DLU、DLN 收緊上界</td><td class="mono">3 次（算 TWU、建樹、驗證候選）</td><td class="c-yes">會，但比 Two-Phase 少（範例 12 個，Two-Phase 15 個）</td><td>UP-Tree、條件樹</td><td>資料一直增加、想用樹一筆一筆插入的情況</td></tr>
+<tr><th scope="row"><a class="nm" href="high-utility.html">HUI-Miner</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>每個組合一張 utility list（iutil、rutil），合併就得到真正的效益，用 Σiutil＋Σrutil 剪</td><td class="mono">2 次（算 TWU、建 utility list）</td><td class="c-no">不會（one-phase）</td><td>utility list</td><td>一般情況的高效益基準方法，好懂又好改</td></tr>
+<tr><th scope="row"><a class="nm" href="efim.html">EFIM</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>投影資料庫並合併相同的交易，用子樹效益、局部效益兩個更緊的上界，靠 utility-bin 陣列一次算完</td><td class="mono">原始資料 2 次，之後掃越來越小的投影資料庫</td><td class="c-no">不會</td><td>投影資料庫、utility-bin 陣列</td><td>資料大、要又快又省記憶體</td></tr>
+<tr><th scope="row"><a class="nm" href="top-k-hui.html">Top-k TKO</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>不給門檻，直接要前 k 名：最小堆積裝目前的前 k 名，門檻邊挖邊往上調</td><td class="mono">2 次（跟 HUI-Miner 一樣）</td><td class="c-no">不會</td><td>utility list、最小堆積</td><td>不知道門檻該設多少</td></tr>
+<tr><th scope="row"><a class="nm" href="incremental.html">FUP</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>舊樣式只數新進來的交易；新冒出的候選先用引理篩，只有少數要回頭掃舊資料</td><td class="mono">每一層掃新資料 1 次，有新候選通過引理時才回頭掃舊資料（範例：新資料 3 次、舊資料 1 次）</td><td class="c-yes">會（照 Apriori 產生，再用引理篩）</td><td>上次的結果：頻繁樣式和次數</td><td>一批一批新增、新資料跟舊資料長得差不多</td></tr>
+<tr><th scope="row"><a class="nm" href="cantree.html">CanTree</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>商品照事先定好的固定順序插進樹，新交易直接沿一條路徑加次數，不用重排重建</td><td class="mono">每筆交易只讀 1 次（不用先數次數）</td><td class="c-no">不會（挖的時候跟 FP-Growth 一樣）</td><td>CanTree（存所有商品）</td><td>資料一直新增、門檻常常改</td></tr>
+<tr><th scope="row"><a class="nm" href="sliding-window.html">滑動視窗</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>只看最近 W 筆：進來那筆的子集合 +1、離開那筆的 −1，其他組合不用動</td><td class="mono">單趟：每筆進來、離開各處理一次</td><td class="c-no">不會</td><td>計數表（視窗裡出現過的組合）</td><td>只在乎最近的資料、商品種類少</td></tr>
+<tr><th scope="row"><a class="nm" href="stream-counting.html">Lossy Counting・Space-Saving</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>Lossy Counting 分桶清掉次數太少的（只少算、最多 εN）；Space-Saving 只用 k 格計數器（只多算、最多 N/k）</td><td class="mono">單趟</td><td class="c-no">不會</td><td>帶誤差的計數表／k 格計數器</td><td>記憶體不夠記每個商品，要找熱門商品、即時排行</td></tr>
+<tr><th scope="row"><a class="nm" href="count-min.html">Count-Min Sketch</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>d 列 × w 欄的格子，每列用雜湊算出一格 +1，查詢取 d 格的最小值，只會多算</td><td class="mono">單趟</td><td class="c-no">不會</td><td>d × w 計數表、d 個雜湊函數</td><td>任何商品都要能查、分店的表要能相加</td></tr>
+<tr><th scope="row"><a class="nm" href="bloom-filter.html">Bloom Filter</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>m 格位元、k 個雜湊；登錄時把 k 格設成 1，查詢時 k 格都是 1 才說「可能在」，有 0 就一定不在</td><td class="mono">單趟</td><td class="c-no">不會</td><td>m 格位元陣列、k 個雜湊函數</td><td>快速判斷「看過沒有」，可以接受偶爾誤判成「可能在」</td></tr>
+<tr><th scope="row"><a class="nm" href="spatial.html">四元樹</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>依空間從中線切成四塊，點多的地方切細，範圍查詢時整塊跳過不相干的格子</td><td class="mono">—（不是交易資料；建樹時每個點插入一次）</td><td class="c-na">—</td><td>四元樹</td><td>點分布不平均、要做範圍查詢</td></tr>
+<tr><th scope="row"><a class="nm" href="spatial.html">共位樣式</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>用「距離 ≤ r」取代交易，算參與指數 PI，照 Apriori 一層一層剪</td><td class="mono">—（每一層找一次列實例）</td><td class="c-yes">會（跟 Apriori 一樣合併＋剪枝）</td><td>鄰近關係、列實例</td><td>想知道哪幾種店總是開在彼此附近</td></tr>
+<tr><th scope="row"><a class="nm" href="rtree.html">R-tree</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>用剛好包住一群點的框（MBR）建平衡樹；kNN 用優先佇列依距離一路打開最近的框</td><td class="mono">—（建樹時每個點插入一次）</td><td class="c-na">—</td><td>R-tree、優先佇列</td><td>資料庫裡的地圖資料、找最近的 k 個</td></tr>
+<tr><th scope="row"><a class="nm" href="dbscan.html">DBSCAN</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>圈裡鄰居夠多的是核心點，沿著核心點把鄰居一圈一圈拉進來長成一群</td><td class="mono">—（每個點做 1 次 ε 範圍查詢）</td><td class="c-na">—</td><td>佇列（可再加四元樹、R-tree 加速找鄰居）</td><td>不知道要分幾群、群的形狀奇怪、有雜訊</td></tr>
+<tr><th scope="row"><a class="nm" href="skyline.html">Skyline BNL・SFS</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>找出沒有被任何一家「每一項都不輸、至少一項更好」打敗的點；BNL 用視窗兩兩比較，SFS 先排序讓視窗只進不出</td><td class="mono">視窗放得下就 1 輪；放不下要再讀暫存檔</td><td class="c-na">—</td><td>視窗（目前還沒被打敗的點）、暫存檔</td><td>多個條件一起挑（又便宜又近），不想自己訂權重</td></tr>
+</tbody></table>
+            </div>
+            <p class="hint" style="margin-top:0.6rem">「範例資料」的次數是各 Demo 頁用預設資料、預設門檻跑到最後的結果；改了資料或門檻，數字會跟著變。
+                「單趟」表示資料只會依序讀一次、讀完就丟（串流本來就不能回頭）。</p>
+        </div>
+
+        <div class="card bench">
+            <p><b>想知道「實際上誰比較快」？</b>效能比賽場把同一份資料交給好幾個演算法跑，比較花的時間和處理的組合數。
+                比較表裡「掃描幾次」「會不會產生候選」的差別，資料一變大就會變成看得見的時間差。</p>
+<a class="btn-link" href="benchmark.html">進入效能比賽場 →</a>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>箭頭是什麼意思？</h2>
+                <p><b>實線</b>是論文或做法上明確的「改良自／延伸自」：例如 FP-Growth 不再像 Apriori 一層一層猜候選，CHARM 直接建在 Eclat 的垂直格式上，
+                    HUI-Miner 拿掉了 Two-Phase、UP-Growth 都需要的「回頭驗證候選」。<b>虛線</b>是借用同一個想法、但不算直接改良：
+                    gSpan 跟 PrefixSpan 一樣是深度優先的樣式成長（集合 → 序列 → 圖）；Count-Min 跟 Bloom Filter 一樣用好幾個雜湊把東西撒進格子。</p>
+                <p style="margin-top:0.5rem">串流和空間那兩排沒有連到 Apriori，因為它們解決的是不同的問題（記憶體不夠、資料有位置）；
+                    但想法常常相通，例如<b>共位樣式</b>的剪枝就是 Apriori 的向下封閉性搬到地圖上，<b>HUI-Miner</b> 的 utility list 則像在 Eclat 的 TID 集合上多記效益。</p>
+            </div>
+            <div class="card">
+                <h2>這些方法在比什麼？</h2>
+                <ul>
+                    <li><b>少掃資料庫：</b>資料在硬碟上時，掃一次就很花時間。Apriori 每一層掃一次；FP-Growth 2 次、Eclat 1 次，之後都在記憶體裡的結構上做。</li>
+                    <li><b>不產生候選：</b>「先猜再數」會白數很多最後不夠的組合。樣式成長（FP-Growth、PrefixSpan、HUI-Miner…）只長出真的出現過的組合。</li>
+                    <li><b>上界要緊：</b>效益沒有向下封閉性，只能用上界剪。TWU → UP-Growth 的節點效益 → Σiutil + Σrutil → EFIM 的子樹效益，一路越來越緊。</li>
+                    <li><b>資料會變：</b>增量（FUP、CanTree）和串流（滑動視窗、近似計數、sketch）都在想同一件事：<b>新資料進來時，哪些結果一定沒變、哪些要重算</b>，這也是實驗室研究的主軸。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 圖上每條箭頭 [來源, 目標]，由 build.py 產生
+        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["bloom", "cms"]];
+
+        (function setupGraphFocus() {
+            const svg = document.querySelector('svg.graph');
+            if (!svg) return;
+            const up = {}, down = {};
+            for (const [s, t] of EDGES) {
+                (down[s] = down[s] || []).push(t);
+                (up[t] = up[t] || []).push(s);
+            }
+            function walk(start, next) {
+                const seen = new Set([start]), stack = [start];
+                while (stack.length) {
+                    const x = stack.pop();
+                    for (const y of next[x] || []) if (!seen.has(y)) { seen.add(y); stack.push(y); }
+                }
+                return seen;
+            }
+            function focusOn(id) {
+                const keep = new Set([...walk(id, up), ...walk(id, down)]);
+                svg.classList.add('focus');
+                svg.querySelectorAll('.node').forEach(n => n.classList.toggle('hl', keep.has(n.dataset.id)));
+                const anc = walk(id, up), des = walk(id, down);
+                svg.querySelectorAll('.e[data-s]').forEach(e => {
+                    const s = e.dataset.s, t = e.dataset.t;
+                    // 只亮「祖先鏈」和「後代鏈」上的箭頭
+                    e.classList.toggle('hl', (anc.has(s) && anc.has(t)) || (des.has(s) && des.has(t)));
+                });
+            }
+            function clear() {
+                svg.classList.remove('focus');
+                svg.querySelectorAll('.hl').forEach(n => n.classList.remove('hl'));
+            }
+            svg.querySelectorAll('.node').forEach(n => {
+                n.addEventListener('mouseenter', () => focusOn(n.dataset.id));
+                n.addEventListener('mouseleave', clear);
+                n.addEventListener('focus', () => focusOn(n.dataset.id));
+                n.addEventListener('blur', clear);
+            });
+        })();
+    </script>
+</body>
+
+</html>

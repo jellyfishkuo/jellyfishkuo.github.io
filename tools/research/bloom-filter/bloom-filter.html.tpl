@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/bloom-filter.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/bloom-filter-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/bloom-filter-180.png">
+    <title>Bloom Filter：這張發票登錄過了嗎</title>
+    <meta name="description" content="只用 m 個位元和 k 個雜湊函數判斷「有沒有看過」：一步一步看發票怎麼被登錄進位元陣列、查詢時為什麼看到第一個 0 就能停、誤判是怎麼來的、最佳 k 怎麼算，以及可以刪除的 Counting Bloom Filter，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        [hidden] { display: none !important; }
+
+        .layout { display: grid; gap: 1rem; margin-top: 1.3rem; }
+        .layout > * { min-width: 0; display: grid; gap: 1rem; align-content: start; }
+        .layout > * > * { min-width: 0; }
+        @media (min-width: 960px) { .layout { grid-template-columns: 1fr 1.02fr; } }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .card-head .unit { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+        button.btn.small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .params { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin-top: 0.75rem; font-size: 0.88rem; }
+        .param { display: flex; align-items: center; gap: 0.4rem; }
+        .param .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.6em; text-align: center; }
+        .param .unit { color: var(--muted); font-size: 0.8rem; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .explain .ok { color: #86efac; font-weight: 600; }
+        .explain .no { color: #fca5a5; font-weight: 600; }
+        .explain .k, .sk-note .k { font: 0.85em 'Space Mono', monospace; color: var(--text); white-space: nowrap; }
+        .toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+
+        /* ── 操作輸送帶 ── */
+        .belt {
+            overflow-x: auto;
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 8px;
+        }
+        .belt-inner { display: flex; gap: 6px; width: max-content; }
+        .op {
+            flex: none;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: var(--panel-2);
+            padding: 2px 7px 3px;
+            text-align: center;
+            transition: opacity 0.3s, border-color 0.3s;
+        }
+        .op .kind { display: block; font-size: 0.68rem; line-height: 1.3; }
+        .op .kind.add { color: #86efac; }
+        .op .kind.query { color: #67e8f9; }
+        .op .kind.del { color: #fca5a5; }
+        .op .key { display: block; font: 0.7rem/1.35 'Space Mono', monospace; white-space: nowrap; }
+        .op .idx { font: 0.56rem 'Space Mono', monospace; color: var(--muted); margin-right: 0.25rem; }
+        .op.future { opacity: 0.4; border-style: dashed; background: transparent; }
+        .op.cur { border-color: var(--good); box-shadow: 0 0 0 1px var(--good); }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 0.3rem; vertical-align: -1px; border: 2px solid; }
+        .composer { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); font-size: 0.85rem; }
+        .composer .lab { color: var(--muted); font-size: 0.8rem; flex-basis: 100%; }
+        .key-in {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 0.25rem 0.5rem;
+            font: 16px 'Space Mono', monospace;   /* 16px：iPhone 點進輸入框才不會自動放大整頁 */
+            width: 9.6em;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .key-in:focus { outline: none; border-color: var(--accent2); }
+        .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.3em; }
+        .hint.warn { color: var(--warn); }
+
+        /* ── 位元陣列 ── */
+        .bits { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+        @media (min-width: 600px) { .bits { grid-template-columns: repeat(12, minmax(0, 1fr)); } }
+        .bit {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            text-align: center;
+            padding: 1px 0 2px;
+            min-width: 0;
+            transition: border-color 0.25s, background 0.25s;
+        }
+        .bit .i { display: block; font: 0.58rem/1.2 'Space Mono', monospace; color: #5a5a78; }
+        .bit .v { display: block; font: 700 1rem/1.25 'Space Mono', monospace; }
+        .bit .v.zero { color: #4a4a66; font-weight: 400; }
+        .bit.one { background: rgba(6, 182, 212, 0.13); }
+        .bit.one .v { color: #67e8f9; }
+        .bit .dv { display: block; font: 0.56rem/1.25 'Space Mono', monospace; color: var(--good); visibility: hidden; white-space: nowrap; overflow: hidden; }
+        .bit .dv.on { visibility: visible; }
+        .bit .dv.keep { color: var(--muted); }
+        .bit .dv.bad { color: var(--bad); }
+        .bit.hit { border-color: var(--good); box-shadow: 0 0 0 1px var(--good) inset; }
+        .bit.ask { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .bit.seen { border-color: rgba(6, 182, 212, 0.55); }
+        .bit.later { border-style: dashed; border-color: #4a4a6a; }
+        .bit.zhit { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad) inset; background: rgba(248, 113, 113, 0.14); }
+        .bit.shared { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; background: rgba(245, 158, 11, 0.14); }
+        .sk-note { margin-top: 0.6rem; font-size: 0.8rem; color: var(--muted); }
+        .sk-note b { color: var(--text); font: 700 0.8rem 'Space Mono', monospace; }
+
+        /* ── 雜湊表 ── */
+        .formula { font: 0.78rem/1.7 'Space Mono', monospace; color: #c6c6d6; background: var(--panel-2); border-radius: 8px; padding: 0.45rem 0.6rem; margin-bottom: 0.6rem; overflow-x: auto; }
+        .formula div { white-space: nowrap; }
+        .rows { display: grid; gap: 0.3rem; }
+        .row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 4.4em;
+            gap: 0.4rem;
+            align-items: center;
+            padding: 0.3rem 0.55rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            font-size: 0.84rem;
+        }
+        .row.head { background: none; border-color: transparent; color: var(--muted); font-size: 0.72rem; padding-top: 0; padding-bottom: 0; }
+        .row .it { min-width: 0; overflow: hidden; }
+        .row .it .key { display: block; font: 0.76rem 'Space Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row .it .tag { display: block; font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+        .row .it .tag.in { color: #86efac; }
+        .row .it .tag.gone { color: #fca5a5; }
+        .row .chips { display: flex; flex-wrap: wrap; gap: 3px; }
+        .row .chip { font: 700 0.7rem/1.5 'Space Mono', monospace; min-width: 1.9em; text-align: center; border-radius: 5px; border: 1px dashed #4a4a6a; color: var(--muted); }
+        .row .chip.one { border: 1px solid rgba(6, 182, 212, 0.6); background: rgba(6, 182, 212, 0.16); color: #67e8f9; }
+        .row .chip.z { border-color: var(--bad); color: #fca5a5; }
+        .row .ans { font-size: 0.76rem; text-align: right; white-space: nowrap; }
+        .row .ans.maybe { color: #67e8f9; }
+        .row .ans.no { color: var(--muted); }
+        .row .ans.fp { color: var(--warn); font-weight: 600; }
+        .row.cur { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .row.out .it .key { color: var(--muted); }
+        .row.fp { background: rgba(245, 158, 11, 0.1); }
+
+        /* ── 數字與曲線 ── */
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.15rem 'Space Mono', monospace; white-space: nowrap; }
+        .stat .v small { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        @media (max-width: 400px) { .stat .v { font-size: 0.98rem; } }
+        .chart-wrap { margin-top: 0.8rem; }
+        .chart-wrap svg { display: block; width: 100%; height: auto; }
+        .chart-cap { color: var(--muted); font-size: 0.8rem; margin-top: 0.4rem; }
+        .chart-cap b { color: var(--text); }
+        svg .grid { stroke: #1e1e36; stroke-width: 1; }
+        svg .axis-t { font: 10px 'Space Mono', monospace; fill: #6a6a85; }
+        svg .curve { fill: none; stroke: var(--accent2); stroke-width: 2; }
+        svg .meas { fill: var(--warn); }
+        svg .opt-line { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 3; }
+        svg .opt-t { font: 10px 'Space Mono', monospace; fill: #86efac; }
+        svg .now { fill: none; stroke: #fff; stroke-width: 2; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+            position: relative;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · DATA STREAM MINING</div>
+        <h1>Bloom Filter<small>只用 m 個位元回答「看過沒有」：說「一定沒看過」絕對準，說「可能看過」偶爾會錯</small></h1>
+        <p class="intro">
+            超商集點活動規定<b>每張發票只能登錄一次</b>。登錄過的發票有幾百萬張，每來一張都去資料庫查一次太慢。
+            Bloom Filter（Burton Bloom，1970）在前面先擋一下：準備 <b>m 個位元</b>（一開始全是 0）和 <b>k 個雜湊函數</b>，
+            登錄一張發票就把它算出來的 k 格設成 1；查詢時 k 格<b>只要有一格是 0，就一定沒登錄過</b>，直接收下；k 格都是 1 才回答「可能登錄過」，再去資料庫確認。
+            它跟 <a href="count-min.html">Count-Min Sketch</a> 一樣用雜湊把東西撒到格子裡，只是不數次數、只問「有沒有」，所以每格 1 個位元就夠。
+            代價是格子會被別的發票設成 1，偶爾把沒登錄過的說成「可能在」（誤判），但<b>絕對不會把登錄過的說成沒登錄過</b>。
+            下面可以自己輸入發票號碼加入、查詢，看誤判率怎麼隨 m、k 變化；最後打開<b>計數版</b>（Counting Bloom Filter）看怎麼做到刪除。
+        </p>
+
+        <div class="layout" id="main">
+            <div>
+                <div class="card">
+                    <div class="card-head"><h2>一步一步看</h2></div>
+                    <div class="player">
+                        <button class="btn" id="bf-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="bf-prev">◀ 上一步</button>
+                        <button class="btn primary" id="bf-next">下一步 ▶</button>
+                        <button class="btn" id="bf-play">▶ 自動播放</button>
+                        <button class="btn" id="bf-last">⏭ 直接看結果</button>
+                    </div>
+                    <div class="params">
+                        <div class="param">
+                            <span>格數 m</span>
+                            <button class="btn stepper" id="m-minus" aria-label="m 變小">−</button>
+                            <span class="val" id="m-val">24</span>
+                            <button class="btn stepper" id="m-plus" aria-label="m 變大">+</button>
+                        </div>
+                        <div class="param">
+                            <span>雜湊數 k</span>
+                            <button class="btn stepper" id="k-minus" aria-label="k 變小">−</button>
+                            <span class="val" id="k-val">3</span>
+                            <button class="btn stepper" id="k-plus" aria-label="k 變大">+</button>
+                            <span class="unit" id="k-unit">最佳 ≈ 2.08</span>
+                        </div>
+                        <div class="param">
+                            <button class="btn small toggle" id="cnt-toggle" aria-pressed="false">計數版：關</button>
+                        </div>
+                    </div>
+                    <div class="explain" id="bf-explain"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2>操作順序</h2><span class="unit" id="op-count"></span></div>
+                    <div class="belt" id="bf-belt"><div class="belt-inner" id="bf-belt-inner"></div></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--good)"></i>正在做的這一個</span>
+                        <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒做</span>
+                    </div>
+                    <div class="composer">
+                        <span class="lab">自己輸入發票號碼（任何字串都可以，大小寫算不同）：</span>
+                        <input class="key-in" id="key-in" type="text" maxlength="20" placeholder="AB-12345678" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="發票號碼">
+                        <button class="btn small" id="do-add">＋ 加入</button>
+                        <button class="btn small" id="do-query">？ 查詢</button>
+                        <button class="btn small" id="do-del">－ 刪除</button>
+                    </div>
+                    <div class="composer">
+                        <button class="btn small" id="do-random">🎲 隨機發票</button>
+                        <button class="btn small" id="do-reset">恢復範例</button>
+                    </div>
+                    <div class="hint" id="bf-hint"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2 id="bits-title">位元陣列</h2><span class="unit" id="bits-unit">m = 24 格</span></div>
+                    <div class="bits" id="bits"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--good)"></i>這次設定的格子</span>
+                        <span><i style="border-color:var(--accent2)"></i>查詢正在看的格子</span>
+                        <span><i style="border-color:var(--bad);background:rgba(248,113,113,0.2)"></i>查到 0，停</span>
+                        <span><i style="border-color:var(--warn);background:rgba(245,158,11,0.3)"></i>別的發票也用這格</span>
+                    </div>
+                    <div class="sk-note" id="bits-note"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="card-head"><h2>雜湊：每張發票落在哪幾格</h2><span class="unit">用「現在」的格子回答</span></div>
+                    <div class="formula">
+                        <div>h1 = FNV-1a(號碼, 起始值 2166136261)</div>
+                        <div>h2 = FNV-1a(號碼, 起始值 374761393)</div>
+                        <div>第 i 格 = (h1 mod m + i·step) mod m</div>
+                        <div>step = 1 + h2 mod (m − 1)，i = 0 … k−1</div>
+                    </div>
+                    <div class="rows" id="h-rows"></div>
+                    <div class="legend">
+                        <span><i style="border-color:rgba(6,182,212,0.6);background:rgba(6,182,212,0.3)"></i>這格目前不是 0</span>
+                        <span><i style="border-color:#4a4a6a;border-style:dashed"></i>這格是 0</span>
+                        <span><i style="border-color:var(--warn);background:rgba(245,158,11,0.3)"></i>誤判：沒登錄卻說可能在</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h2>誤判率</h2><span class="unit" id="fp-unit">n = 0 張</span></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-fill">0%</div><div class="k" id="st-fill-k">填滿比例</div></div>
+                        <div class="stat"><div class="v" id="st-theory">0%</div><div class="k">理論誤判率</div></div>
+                        <div class="stat"><div class="v" id="st-meas">0</div><div class="k">實測：查 1000 張沒登錄的</div></div>
+                    </div>
+                    <div class="chart-wrap" id="chart-wrap"><svg id="chart" role="img" aria-label="誤判率隨雜湊數 k 的變化"></svg></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--accent2);background:var(--accent2)"></i>理論誤判率</span>
+                        <span><i style="border-color:var(--warn);background:var(--warn);border-radius:50%"></i>實測（同一批發票、換不同的 k）</span>
+                        <span><i style="border-color:var(--good);border-style:dashed"></i>最佳 k = (m/n)·ln 2</span>
+                    </div>
+                    <div class="chart-cap" id="chart-cap"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="bf-code"></pre>
+                    <div class="downloads" id="bf-downloads"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼「一定不在」絕對準？誤判率又是怎麼算的？</h2>
+                <p>登錄一張發票時，它的 k 格都被設成 1，之後<b>一般版沒有任何操作會把格子改回 0</b>。所以登錄過的發票，查詢時 k 格一定全是 1、一定回答「可能在」——不會有偽陰性。
+                    反過來，只要看到一格是 0，就證明它從來沒被登錄過，後面的格子不用再看。</p>
+                <p style="margin-top:0.5rem">誤判是因為 k 格剛好都被<b>別的發票</b>設成 1。假設雜湊很平均：登錄 n 張、每張設 k 格，某一格一直沒被設到的機率是 (1 − 1/m)<sup>kn</sup> ≈ e<sup>−kn/m</sup>，
+                    所以一格是 1 的機率約 p = 1 − e<sup>−kn/m</sup>（就是上面的「理論填滿比例」）。沒登錄過的發票 k 格都是 1 的機率約 <b>p<sup>k</sup> = (1 − e<sup>−kn/m</sup>)<sup>k</sup></b>。</p>
+                <p style="margin-top:0.5rem">k 太小，每張只看幾格，容易剛好都是 1；k 太大，每張設太多格，整個陣列很快被填滿。對 k 微分可以得到<b>最佳 k = (m/n)·ln 2</b>，這時候大約一半的格子是 1，
+                    誤判率約 0.6185<sup>m/n</sup>：每張發票分到 10 個位元就能壓到 1% 以下。這裡的 k 個雜湊是用兩個 FNV-1a 的值湊出來的（Kirsch 與 Mitzenmacher 證明這樣做誤判率跟真的用 k 個獨立雜湊差不多），
+                    所以實測點會在曲線附近跳動。這個公式假設每一格是不是 1 互相獨立，是近似值；m、n 都很小時，實測通常會比曲線高一點。</p>
+            </div>
+            <div class="card">
+                <h2>計數版、跟 Count-Min 比較，以及跟實驗室研究的關係</h2>
+                <ul>
+                    <li><b>為什麼一般版不能刪：</b>一格可能同時屬於好幾張發票。把要刪的那張的 k 格改回 0，共用格子的其他發票就會被說成「一定不在」，破壞了最重要的保證。</li>
+                    <li><b>計數版（Counting Bloom Filter，Fan 等人，2000）：</b>每格改成計數器，加入 +1、刪除 −1，「不是 0」就當成 1。代價是每格要好幾個位元（論文用 4 位元，溢位機率已經很小），記憶體大約變 4 倍。而且<b>只能刪真的加過的</b>，刪錯一樣會扣到別人。</li>
+                    <li><b>跟 <a href="count-min.html">Count-Min Sketch</a> 的關係：</b>計數版只有 1 列、k 個雜湊撒在同一列，Count-Min 是 d 列各一個雜湊；都只會高估。把計數版的 k 格取最小值，其實也能估計次數（Spectral Bloom Filter 的想法）。</li>
+                    <li><b>實際用在哪：</b>資料庫和 key-value 儲存（LevelDB、RocksDB、Cassandra）每個檔案配一個 Bloom Filter，查詢前先問「這個 key 可能在這個檔案嗎」，大部分不用的讀檔就省掉了；瀏覽器檢查惡意網址、爬蟲判斷網址爬過沒，也是同樣的想法。</li>
+                    <li><b>跟實驗室的關係：</b>串流和增量探勘常要問「這個組合以前出現過嗎」「這筆交易已經處理過了嗎」，資料多到不能全部記下來時，Bloom Filter 是很省的第一道過濾；誤判只會讓我們多做一次精確檢查，不會漏掉答案。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           Bloom Filter 一步一步看
+           網頁裡用 JavaScript 照著同樣的演算法跑一次，把每一步記下來；
+           上一步／下一步只是在這些紀錄之間移動。右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = /*CODE_JSON*/null;
+
+        const INVOICES = ['TR-50227071', 'GP-02708508', 'QP-97769865', 'GY-91586091',
+            'CC-85488622', 'HK-50362354', 'GP-49874681', 'UX-92068559'];   // 已經登錄過的發票（跟 Java / Python 的範例一樣）
+        const DEFAULT_OPS = [
+            ...INVOICES.map(key => ({ op: 'add', key })),
+            { op: 'query', key: 'QP-97769865' },   // 有登錄過
+            { op: 'query', key: 'QW-58160533' },   // 沒登錄過 → 一定不在
+            { op: 'query', key: 'MN-14419200' },   // 沒登錄過，卻 3 格都是 1 → 誤判
+            { op: 'del', key: 'HK-50362354' },     // 取消登錄（只有計數版做得到）
+            { op: 'query', key: 'HK-50362354' },
+            { op: 'query', key: 'CC-85488622' }    // 跟它共用格子的發票，刪除後還是要「可能在」
+        ];
+        // 雜湊函數的參數：跟 Java / Python 版一模一樣，三邊算出來的格子才會相同
+        const SEED1 = 2166136261, SEED2 = 374761393;
+        const M_MIN = 8, M_MAX = 64, M_STEP = 4, K_MIN = 1, K_MAX = 8, K_CHART = 12;
+        const MAX_OPS = 40, TRIALS = 1000;
+        const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXY';
+
+        const $ = id => document.getElementById(id);
+        let ops = DEFAULT_OPS.slice();
+        let bfM = 24, bfK = 3, counting = false;
+        let lang = 'java';
+        let steps = [];
+        let cursor = 0;
+        let timer = null;
+
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const kk = x => `<span class="k">${esc(x)}</span>`;
+        const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+        const num = v => String(+v.toFixed(2));
+        const OPNAME = { add: '加入', query: '查詢', del: '刪除' };
+        const OPMARK = { add: '＋', query: '？', del: '－' };
+
+        /* =================== 雜湊：FNV-1a 32 位元 + double hashing =================== */
+        const encoder = new TextEncoder();
+        function fnv1a(s, seed) {
+            let h = seed >>> 0;
+            for (const b of encoder.encode(s)) h = Math.imul(h ^ b, 16777619) >>> 0;   // XOR 再乘質數，只留 32 位元
+            return h;
+        }
+        const hashCache = new Map();
+        function hashInfo(key, m) {
+            const ck = key + '\u0000' + m;
+            if (!hashCache.has(ck)) {
+                const h1 = fnv1a(key, SEED1), h2 = fnv1a(key, SEED2);
+                hashCache.set(ck, { h1, h2, start: h1 % m, step: 1 + h2 % (m - 1) });
+            }
+            return hashCache.get(ck);
+        }
+        function positions(key, m, k) {
+            const { start, step } = hashInfo(key, m);
+            return Array.from({ length: k }, (_, i) => (start + i * step) % m);
+        }
+
+        /* =================== 實測誤判率：拿 1000 張沒登錄過的發票去查 =================== */
+        const testKey = i => 'ZZ-' + String(i * 2654435761 % 100000000).padStart(8, '0');
+        const TEST_KEYS = Array.from({ length: TRIALS + MAX_OPS + 10 }, (_, i) => testKey(i + 1));
+        const testPosCache = new Map();
+        function testPositions(m, k) {
+            const ck = m + ',' + k;
+            if (!testPosCache.has(ck)) testPosCache.set(ck, TEST_KEYS.map(x => positions(x, m, k)));
+            return testPosCache.get(ck);
+        }
+        // cells 裡「不是 0」就算 1；present = 目前在集合裡的發票（不拿它們來測）
+        function measure(cells, present, m, k) {
+            const P = testPositions(m, k);
+            let wrong = 0, tried = 0;
+            for (let i = 0; i < TEST_KEYS.length && tried < TRIALS; i++) {
+                if (present.has(TEST_KEYS[i])) continue;
+                tried++;
+                if (P[i].every(c => cells[c] !== 0)) wrong++;
+            }
+            return wrong;
+        }
+        const theory = (m, k, n) => Math.pow(1 - Math.exp(-k * n / m), k);
+        const bestK = (m, n) => m / n * Math.LN2;
+
+        /* =================== Bloom Filter：照著程式跑一次 =================== */
+        function bfTrace(list, m, k, cnt) {
+            const cells = new Array(m).fill(0);
+            const truth = new Map();          // 每張發票目前加了幾次（只給畫面對照用，Bloom Filter 本身不知道）
+            const out = [];
+            const push = (kind, extra = {}) => out.push({ kind, m, k, cnt, cells: cells.slice(), truth: [...truth].filter(([, c]) => c > 0), ...extra });
+            push('b-start');
+            list.forEach((o, oi) => {
+                const pos = positions(o.key, m, k);
+                const inSet = (truth.get(o.key) || 0) > 0;
+                if (o.op === 'add') {
+                    const info = pos.map(c => {
+                        const before = cells[c];
+                        if (cnt) cells[c]++; else cells[c] = 1;
+                        return { c, before, after: cells[c] };
+                    });
+                    truth.set(o.key, (truth.get(o.key) || 0) + 1);
+                    push('b-add', { oi, key: o.key, pos, info, again: inSet });
+                } else if (o.op === 'query') {
+                    for (let j = 0; j < k; j++) {
+                        const v = cells[pos[j]];
+                        const last = v === 0 || j === k - 1;
+                        push('b-check', { oi, key: o.key, pos, j, v, last, verdict: last ? v !== 0 : null, inSet });
+                        if (v === 0) break;
+                    }
+                } else if (!cnt) {
+                    push('b-nodel', { oi, key: o.key, pos, inSet });
+                } else if (!inSet) {
+                    push('b-delskip', { oi, key: o.key, pos, inSet });
+                } else {
+                    const info = pos.map(c => { const before = cells[c]; cells[c]--; return { c, before, after: cells[c] }; });
+                    truth.set(o.key, truth.get(o.key) - 1);
+                    push('b-del', { oi, key: o.key, pos, info });
+                }
+            });
+            push('b-end');
+            return out;
+        }
+
+        /* =================== 每一步的小工具 =================== */
+        const presentOf = s => new Set(s.truth.map(([key]) => key));
+        const onesOf = s => s.cells.filter(c => c !== 0).length;
+        function measOf(s) {
+            if (s.meas === undefined) s.meas = measure(s.cells, presentOf(s), s.m, s.k);
+            return s.meas;
+        }
+        // 目前在集合裡、除了 self 以外、有用到第 c 格的發票
+        function usersOf(s, c, self) {
+            return s.truth.map(([key]) => key).filter(key => key !== self && positions(key, s.m, s.k).includes(c));
+        }
+        const uniq = a => [...new Set(a)];
+        const listKeys = (a, max = 2) => a.slice(0, max).map(kk).join('、') + (a.length > max ? ` 等 ${a.length} 張` : '');
+        const cellList = a => uniq(a).map(c => `第 ${c} 格`).join('、');
+
+        /* =================== 說明文字 =================== */
+        function describe(s) {
+            const ones = onesOf(s), n = s.truth.length;
+            const cellWord = s.cnt ? '計數器' : '位元';
+            switch (s.kind) {
+                case 'b-start': {
+                    const ex = ops.length ? ops[0].key : INVOICES[0];
+                    const hi = hashInfo(ex, s.m), p = positions(ex, s.m, s.k);
+                    return `準備 <b>m = ${s.m} 格${cellWord}</b>，一開始全是 0；每張發票用 <b>k = ${s.k} 個雜湊函數</b>算出 ${s.k} 個格子（右邊的雜湊表）。` +
+                        `做法是先用 FNV-1a 算出兩個數字 h1、h2，第 i 格 = (h1 mod m + i·step) mod m。例如 ${kk(ex)}：h1 mod ${s.m} = ${hi.start}、step = ${hi.step}，所以是${cellList(p)}。` +
+                        `表裡<b>不記發票號碼</b>，只有${s.cnt ? '計數' : ' 0 和 1'}。` +
+                        (s.cnt ? `這次打開了<b>計數版</b>：每格是計數器，加入 +1、刪除 −1。` : `接下來照順序做 ${ops.length} 個操作。`);
+                }
+                case 'b-add': {
+                    const u = uniq(s.pos);
+                    let h = `登錄 ${kk(s.key)}：${s.k} 個雜湊算出${cellList(s.pos)}` + (u.length < s.pos.length ? `（有兩個雜湊撞到同一格，實際只用 ${u.length} 格）` : '') + '，';
+                    if (!s.cnt) {
+                        const fresh = u.filter(c => s.info.find(x => x.c === c).before === 0);
+                        const old = u.filter(c => !fresh.includes(c));
+                        h += `<b>把這幾格設成 1</b>：` + (fresh.length ? `${cellList(fresh)}從 0 變 1` : '') + (fresh.length && old.length ? '；' : '') +
+                            (old.length ? `${cellList(old)}本來就是 1（${listKeys(uniq(old.flatMap(c => usersOf(s, c, s.key))))}設過的），不變` : '') + '。';
+                    } else {
+                        h += `<b>這幾格各 +1</b>：` + s.info.map(x => `第 ${x.c} 格 ${x.before}→${x.after}`).join('、') + '。';
+                    }
+                    if (s.again) h += `這張之前已經加過了${s.cnt ? '，計數版會再 +1，之後要刪兩次才會消失' : '，一般版位元完全不變'}。`;
+                    return h + `現在 ${s.m} 格裡有 ${ones} 格不是 0（填滿 ${pct(ones / s.m, 0)}）。`;
+                }
+                case 'b-check': {
+                    const c = s.pos[s.j];
+                    let h = s.j === 0 ? `查詢 ${kk(s.key)}：算出${cellList(s.pos)}，一格一格檢查。` : `查詢 ${kk(s.key)}，`;
+                    h += `第 ${s.j + 1} 個雜湊 → 第 ${c} 格是 <b>${s.v}</b>`;
+                    if (s.v === 0) {
+                        h += `，<b>看到 0 就確定一定不在</b>` + (s.j < s.k - 1 ? `，後面 ${s.k - s.j - 1} 格不用看了` : '') + '。' +
+                            `如果它登錄過，這格一定已經被設過，不可能是 0。發票${s.inSet ? '' : '確實沒登錄過，'}直接收下，<b>不用查資料庫</b>。`;
+                        return h;
+                    }
+                    if (!s.last) return h + `，還不能下結論，繼續看下一格。`;
+                    h += `，${s.k} 格都不是 0 → <b>可能在</b>，要去資料庫確認一次。`;
+                    if (s.inSet) return h + `它確實登錄過 <span class="ok">✓</span>，加過的發票一定會回答「可能在」，不會漏掉。`;
+                    const who = uniq(s.pos).map(cc => [cc, usersOf(s, cc, s.key)]);
+                    return h + `<span class="no">但它其實沒登錄過，這就是誤判（假陽性）</span>：` +
+                        who.map(([cc, w]) => `第 ${cc} 格是 ${listKeys(w, 1)}設的`).join('、') + '。剛好每一格都被別人設過。';
+                }
+                case 'b-nodel': {
+                    const u = uniq(s.pos);
+                    const shared = u.map(c => [c, usersOf(s, c, s.key)]).filter(([, w]) => w.length);
+                    return `想取消 ${kk(s.key)} 的登錄，但<b>一般版不能刪</b>。如果把${cellList(u)}改回 0，` +
+                        (shared.length
+                            ? `共用格子的 ${listKeys(uniq(shared.flatMap(([, w]) => w)))}也會被說成「一定不在」，明明登錄過卻說沒有（偽陰性），這是 Bloom Filter 絕對不能發生的。`
+                            : `這次剛好沒有別人共用這幾格，但 Bloom Filter 不記得誰設過哪格，沒辦法知道能不能改。`) +
+                        `所以這一步什麼都不做（它還是「可能在」）；要能刪，打開<b>計數版</b>。`;
+                }
+                case 'b-delskip':
+                    return `${kk(s.key)} 現在不在集合裡，<b>不能刪</b>：硬把它的格子 −1，會扣掉別張發票的計數，讓登錄過的發票被說成「一定不在」。所以程式只刪真的加過的（實務上先查資料庫確認）。`;
+                case 'b-del': {
+                    const zero = s.info.filter(x => x.after === 0).map(x => x.c);
+                    const keep = uniq(s.pos).filter(c => !zero.includes(c));
+                    return `取消 ${kk(s.key)} 的登錄：計數版把${cellList(s.pos)}<b>各 −1</b>（` + s.info.map(x => `${x.before}→${x.after}`).join('、') + '）。' +
+                        (keep.length ? `${cellList(keep)}還有 ${listKeys(uniq(keep.flatMap(c => usersOf(s, c, s.key))))}的份，不會變 0，所以<b>其他發票照樣「可能在」</b>。` : '') +
+                        (zero.length ? `${cellList(zero)}變回 0，再查它就會回答「一定不在」。` : `可惜它的格子都還被別人用著，再查它還是「可能在」（變成誤判）。`);
+                }
+                case 'b-end': {
+                    const th = theory(s.m, s.k, n), me = measOf(s);
+                    if (!n) return `全部做完，集合裡沒有發票，每格都是 0，查什麼都回答「一定不在」。`;
+                    const bk = bestK(s.m, n), kr = Math.min(K_MAX, Math.max(1, Math.round(bk)));
+                    const ok = s.truth.every(([key]) => positions(key, s.m, s.k).every(c => s.cells[c] !== 0));
+                    return `全部做完。集合裡有 <b>n = ${n}</b> 張，${s.m} 格裡 ${ones} 格不是 0（填滿 ${pct(ones / s.m, 0)}）。` +
+                        `理論誤判率 (1 − e<sup>−kn/m</sup>)<sup>k</sup> = <b>${pct(th)}</b>；拿 ${TRIALS} 張沒登錄過的發票實測，<b>${me} 張</b>被誤判成「可能在」（${pct(me / TRIALS)}）。` +
+                        (ok ? `在集合裡的 ${n} 張全部回答「可能在」<span class="ok">✓</span>，沒有偽陰性。` : '') +
+                        `最佳 k = (m/n)·ln 2 ≈ ${num(bk)}，` +
+                        (kr === s.k ? `現在的 k = ${s.k} 就是最好的整數。` : `把 k 改成 ${kr}，理論誤判率會${theory(s.m, kr, n) < th ? '降' : '變'}到 ${pct(theory(s.m, kr, n))}。`);
+                }
+            }
+            return '';
+        }
+
+        function tagsOf(s) {
+            switch (s.kind) {
+                case 'b-start': return ['start', 'hash'];
+                case 'b-add': return ['add'];
+                case 'b-check': return s.v === 0 ? ['check', 'miss'] : s.last ? ['check', 'hit'] : ['check'];
+                case 'b-nodel': return ['nodel'];
+                case 'b-delskip': case 'b-del': return ['del'];
+                case 'b-end': return ['check', 'hit', 'miss'];
+            }
+            return [];
+        }
+
+        /* =================== 操作輸送帶 =================== */
+        function renderBelt(s) {
+            const inner = $('bf-belt-inner');
+            const cur = s.oi !== undefined ? s.oi : -1;
+            const done = s.kind === 'b-end' ? ops.length : cur;
+            inner.innerHTML = ops.map((o, j) => {
+                let cls = 'op';
+                if (j === cur) cls += ' cur';
+                else if (j > done || (cur < 0 && s.kind === 'b-start')) cls += ' future';
+                return `<div class="${cls}"><span class="kind ${o.op}"><span class="idx">${j + 1}</span>${OPMARK[o.op]} ${OPNAME[o.op]}</span><span class="key">${esc(o.key)}</span></div>`;
+            }).join('');
+            $('op-count').textContent = `共 ${ops.length} 個操作`;
+            if (measuringBlocks) return;
+            // 只捲輸送帶本身，讓正在做的那一個留在中間
+            const belt = $('bf-belt');
+            const target = cur >= 0 ? inner.children[cur] : null;
+            if (target && belt.clientWidth) {
+                const br = belt.getBoundingClientRect(), tr = target.getBoundingClientRect();
+                belt.scrollTo({ left: Math.max(0, belt.scrollLeft + tr.left - br.left - belt.clientWidth / 2 + tr.width / 2), behavior: 'smooth' });
+            } else if (belt.clientWidth && s.kind === 'b-start') belt.scrollTo({ left: 0 });
+        }
+
+        /* =================== 位元陣列 =================== */
+        function renderBits(s) {
+            const info = new Map((s.info || []).map(x => [x.c, x]));
+            const firstOf = new Map();
+            (s.info || []).forEach(x => { if (!firstOf.has(x.c)) firstOf.set(x.c, x.before); });
+            const posSet = new Set(s.pos || []);
+            let h = '';
+            s.cells.forEach((v, c) => {
+                let cls = 'bit' + (v ? ' one' : ''), dv = '·', dcls = 'dv';
+                const users = s.truth.map(([key]) => key).filter(key => positions(key, s.m, s.k).includes(c));
+                if ((s.kind === 'b-add' || s.kind === 'b-del') && info.has(c)) {
+                    cls += ' hit'; dcls += ' on';
+                    const a = firstOf.get(c), b = info.get(c).after;
+                    if (!s.cnt) { if (a === b) { dv = '已是 1'; dcls += ' keep'; } else dv = '0→1'; }
+                    else dv = `${a}→${b}`;
+                } else if (s.kind === 'b-check' && posSet.has(c)) {
+                    if (c === s.pos[s.j]) {
+                        if (s.v === 0) { cls += ' zhit'; dv = '0 停'; dcls += ' on bad'; }
+                        else { cls += ' ask'; dv = '≠ 0'; dcls += ' on'; }
+                    } else if (s.pos.slice(0, s.j).includes(c)) { cls += ' seen'; dv = '✓'; dcls += ' on keep'; }
+                    else { cls += ' later'; dv = s.v === 0 ? '不用看' : '待查'; dcls += ' on keep'; }
+                } else if (s.kind === 'b-nodel' && posSet.has(c)) {
+                    const others = users.filter(key => key !== s.key);
+                    if (others.length) { cls += ' shared'; dv = `共用 ${others.length}`; dcls += ' on keep'; }
+                    else { cls += ' later'; dv = '只有它'; dcls += ' on keep'; }
+                }
+                const tip = users.length ? `第 ${c} 格：${users.join('、')}` : `第 ${c} 格：沒有發票用到`;
+                h += `<div class="${cls}" title="${esc(tip)}"><span class="i">${c}</span><span class="v${v ? '' : ' zero'}">${v}</span><span class="${dcls}">${esc(dv)}</span></div>`;
+            });
+            $('bits').innerHTML = h;
+            $('bits-title').textContent = s.cnt ? '計數器陣列' : '位元陣列';
+            $('bits-unit').textContent = s.cnt ? `m = ${s.m} 個計數器` : `m = ${s.m} 個位元`;
+            const ones = onesOf(s);
+            $('bits-note').innerHTML = `不是 0 的格子：<b>${ones} / ${s.m}</b>（${pct(ones / s.m, 0)}）。` +
+                (s.cnt ? `計數版每格要好幾個位元，但可以刪除；「不是 0」就當成 1 來查。` : `一般版每格只要 1 個位元：${s.m} 格就是 ${s.m / 8} 個位元組。`) +
+                `把滑鼠移到格子上可以看是哪幾張發票設的。`;
+        }
+
+        /* =================== 雜湊表 =================== */
+        function renderHash(s) {
+            const present = presentOf(s);
+            const keys = uniq(ops.map(o => o.key));
+            const everAdded = new Set(ops.slice(0, s.kind === 'b-end' ? ops.length : (s.oi === undefined ? 0 : s.oi + 1)).filter(o => o.op === 'add').map(o => o.key));
+            let h = `<div class="row head"><span>發票號碼</span><span>k = ${s.k} 格</span><span style="text-align:right">現在查</span></div>`;
+            keys.forEach(key => {
+                const p = positions(key, s.m, s.k);
+                const inSet = present.has(key);
+                const maybe = p.every(c => s.cells[c] !== 0);
+                const fp = maybe && !inSet;
+                const tag = inSet ? '<span class="tag in">已登錄</span>' : everAdded.has(key) ? '<span class="tag gone">已刪除</span>' : '<span class="tag">沒登錄</span>';
+                let cls = 'row';
+                if (!inSet) cls += ' out';
+                if (fp) cls += ' fp';
+                if (s.key === key && s.kind !== 'b-start' && s.kind !== 'b-end') cls += ' cur';
+                h += `<div class="${cls}"><span class="it"><span class="key">${esc(key)}</span>${tag}</span>` +
+                    `<span class="chips">${p.map(c => `<span class="chip${s.cells[c] !== 0 ? ' one' : ''}">${c}</span>`).join('')}</span>` +
+                    `<span class="ans ${fp ? 'fp' : maybe ? 'maybe' : 'no'}">${fp ? '可能在 ✗' : maybe ? '可能在' : '一定不在'}</span></div>`;
+            });
+            $('h-rows').innerHTML = h;
+        }
+
+        /* =================== 誤判率與曲線 =================== */
+        const curveCache = new Map();
+        function measuredCurve(m, present) {
+            const ck = m + '|' + [...present].sort().join(',');
+            if (!curveCache.has(ck)) {
+                const arr = [];
+                for (let k = 1; k <= K_CHART; k++) {
+                    const cells = new Array(m).fill(0);
+                    present.forEach(key => positions(key, m, k).forEach(c => { cells[c] = 1; }));
+                    arr.push(measure(cells, present, m, k) / TRIALS);
+                }
+                curveCache.set(ck, arr);
+            }
+            return curveCache.get(ck);
+        }
+        function renderStats(s) {
+            const n = s.truth.length, ones = onesOf(s), me = measOf(s), th = theory(s.m, s.k, n);
+            $('st-fill').innerHTML = `${pct(ones / s.m, 0)}<small> ${ones}/${s.m}</small>`;
+            $('st-fill-k').textContent = `填滿比例（理論 ${pct(1 - Math.exp(-s.k * n / s.m), 0)}）`;
+            $('st-theory').textContent = pct(th);
+            $('st-meas').innerHTML = `${me}<small> 張 ${pct(me / TRIALS)}</small>`;
+            $('fp-unit').textContent = `n = ${n} 張、每張 ${n ? num(s.m / n) : '—'} 格`;
+            renderChart(s);
+        }
+        function renderChart(s) {
+            const svg = $('chart');
+            const n = s.truth.length;
+            const Wd = Math.max(260, Math.round($('chart-wrap').clientWidth || 480));
+            const Hd = 170;
+            const L = 38, R = 14, T = 16, B = 24;
+            const present = presentOf(s);
+            const th = Array.from({ length: K_CHART }, (_, i) => theory(s.m, i + 1, n));
+            const me = n ? measuredCurve(s.m, present) : th.map(() => 0);
+            const peak = Math.max(0.05, ...th, ...me);
+            const yMax = peak <= 0.1 ? Math.ceil(peak * 50) / 50 : Math.ceil(peak * 10) / 10;
+            const x = k => L + (k - 1) / (K_CHART - 1) * (Wd - L - R);
+            const y = v => T + (1 - v / yMax) * (Hd - T - B);
+            let g = '';
+            for (let i = 0; i <= 4; i++) {
+                const v = yMax * i / 4;
+                g += `<line class="grid" x1="${L}" x2="${Wd - R}" y1="${y(v)}" y2="${y(v)}"/>`;
+                g += `<text class="axis-t" x="${L - 5}" y="${y(v) + 3.5}" text-anchor="end">${Math.round(v * 1000) / 10}%</text>`;
+            }
+            for (let k = 1; k <= K_CHART; k++) g += `<text class="axis-t" x="${x(k)}" y="${Hd - 8}" text-anchor="middle">${k}</text>`;
+            g += `<text class="axis-t" x="${L - 5}" y="${Hd - 8}" text-anchor="end">k</text>`;
+            let cap;
+            if (n) {
+                const bk = bestK(s.m, n);
+                if (bk <= K_CHART) {
+                    g += `<line class="opt-line" x1="${x(Math.max(1, bk))}" x2="${x(Math.max(1, bk))}" y1="${T}" y2="${Hd - B}"/>`;
+                    g += `<text class="opt-t" x="${x(Math.max(1, bk)) + (bk > K_CHART - 3 ? -4 : 4)}" y="${T + 10}" text-anchor="${bk > K_CHART - 3 ? 'end' : 'start'}">最佳 ${num(bk)}</text>`;
+                }
+                g += `<polyline class="curve" points="${th.map((v, i) => `${x(i + 1)},${y(v)}`).join(' ')}"/>`;
+                me.forEach((v, i) => { g += `<circle class="meas" cx="${x(i + 1)}" cy="${y(v)}" r="3.2"><title>k = ${i + 1}：實測 ${pct(v)}</title></circle>`; });
+                g += `<circle class="now" cx="${x(s.k)}" cy="${y(th[s.k - 1])}" r="6"/>`;
+                cap = `m = ${s.m}、n = ${n} 時，k 從 1 到 ${K_CHART} 的誤判率。白圈是現在的 k = ${s.k}（理論 <b>${pct(th[s.k - 1])}</b>）。` +
+                    `最佳 k = (m/n)·ln 2 ≈ <b>${num(bk)}</b>` + (bk > K_CHART ? '（超出圖的範圍）' : '') + `，k 太小或太大誤判率都會上升。`;
+            } else {
+                cap = '還沒有登錄任何發票，所有格子都是 0，誤判率是 0。';
+            }
+            svg.setAttribute('viewBox', `0 0 ${Wd} ${Hd}`);
+            svg.innerHTML = g;
+            $('chart-cap').innerHTML = cap;
+        }
+
+        /* =================== 程式碼 =================== */
+        const KW = {
+            java: new Set('public static final for if return new boolean int long byte void class import while else null this double throw true false continue'.split(' ')),
+            py: new Set('def for in if else return not and or while import from as True False None class is lambda continue raise'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+(?:\.\d+)?(?:e-?\d+)?L?\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, numb, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (numb) return `<span class="num">${numb}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word) && !/^[A-Z_0-9]+$/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        const FILES = { java: ['BloomFilter.java', 'javac BloomFilter.java && java BloomFilter'], py: ['bloom_filter.py', 'python3 bloom_filter.py'] };
+        function renderCode(tags) {
+            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            const pre = $('bf-code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length && pre.clientHeight) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            const [file, cmd] = FILES[lang];
+            $('bf-downloads').innerHTML = `下載 <a href="code/${file}" download>${file}</a>　執行 <code>${cmd}</code>`;
+        }
+
+        /* =================== 顯示某一步 =================== */
+        function show() {
+            const s = steps[cursor];
+            $('bf-explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${steps.length}</span>${describe(s)}`;
+            renderBelt(s);
+            renderBits(s);
+            renderHash(s);
+            renderStats(s);
+            renderCode(tagsOf(s));
+            $('bf-prev').disabled = $('bf-first').disabled = cursor === 0;
+            $('bf-next').disabled = $('bf-last').disabled = cursor === steps.length - 1;
+            $('m-val').textContent = bfM;
+            $('k-val').textContent = bfK;
+            const nEnd = steps[steps.length - 1].truth.length;
+            $('k-unit').textContent = nEnd ? `最佳 ≈ ${num(bestK(bfM, nEnd))}` : '最佳 —';
+            $('m-minus').disabled = bfM <= M_MIN;
+            $('m-plus').disabled = bfM >= M_MAX;
+            $('k-minus').disabled = bfK <= K_MIN;
+            $('k-plus').disabled = bfK >= K_MAX;
+            $('cnt-toggle').textContent = `計數版：${counting ? '開' : '關'}`;
+            $('cnt-toggle').setAttribute('aria-pressed', counting);
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
+        let measuringBlocks = false, blockJob = 0;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            if (!blocks.length || count < 2) return;
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                const until = performance.now() + 25;
+                measuringBlocks = true;
+                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                while (pass < passes && performance.now() < until) {
+                    showAt(i);
+                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                    if (++i === count) {
+                        i = 0; pass++;
+                        base = tallest.map(h => h + 'px');
+                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    }
+                }
+                measuringBlocks = false;
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                showAt(cur);
+                if (pass < passes) setTimeout(chunk, 0);
+            };
+            chunk();
+        }
+
+        /* 說明框用最長那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            const box = $('bf-explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            steps.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${steps.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            reserveBlockHeights($('main'), steps.length, i => { cursor = i; show(); }, () => cursor);
+        }
+
+        /* =================== 資料或參數改變：重算 trace =================== */
+        function rebuild() { steps = bfTrace(ops, bfM, bfK, counting); }
+        // 參數變了：盡量停在同一個操作
+        function cursorLike(old) {
+            if (old.kind === 'b-start') return 0;
+            if (old.kind === 'b-end') return steps.length - 1;
+            const same = steps.filter(s => s.oi === old.oi);
+            const pick = same.find(s => s.j === old.j) || same[same.length - 1];
+            return Math.max(0, steps.indexOf(pick));
+        }
+        function paramChanged() {
+            stopAuto();
+            const old = steps[cursor];
+            rebuild();
+            cursor = cursorLike(old);
+            show();
+            reserveExplainHeight();
+        }
+        function opsChanged(jumpToLast) {
+            stopAuto();
+            rebuild();
+            cursor = jumpToLast ? steps.findIndex(s => s.oi === ops.length - 1) : 0;
+            show();
+            reserveExplainHeight();
+        }
+        function setHint(text, warn = false) { $('bf-hint').textContent = text; $('bf-hint').classList.toggle('warn', warn); }
+
+        function randomInvoice() {
+            const pick = () => LETTERS[Math.floor(Math.random() * LETTERS.length)];
+            return pick() + pick() + '-' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
+        }
+        function randomOps() {
+            const n = 6 + Math.floor(Math.random() * 7);
+            const keys = Array.from({ length: n }, randomInvoice);
+            const others = Array.from({ length: 4 }, randomInvoice);
+            const gone = keys[Math.floor(Math.random() * n)];
+            const stay = keys.find(x => x !== gone);
+            return [...keys.map(key => ({ op: 'add', key })),
+                { op: 'query', key: keys[Math.floor(Math.random() * n)] },
+                ...others.map(key => ({ op: 'query', key })),
+                { op: 'del', key: gone }, { op: 'query', key: gone }, { op: 'query', key: stay }];
+        }
+        // 最後一步時，集合裡有哪些發票（決定能不能刪）
+        function presentAtEnd() { return presentOf(steps[steps.length - 1]); }
+
+        function userOp(kind) {
+            const key = $('key-in').value.trim();
+            if (!key) { setHint('先在框裡輸入一個發票號碼（或任何字串）。', true); $('key-in').focus(); return; }
+            if (ops.length >= MAX_OPS) { setHint(`最多 ${MAX_OPS} 個操作，先按「恢復範例」或「隨機發票」重來。`, true); return; }
+            if (kind === 'del' && counting && !presentAtEnd().has(key)) {
+                setHint(`${key} 現在不在集合裡，不能刪：計數版只能刪真的加過的，不然會扣到別人的計數。`, true);
+                return;
+            }
+            ops.push({ op: kind, key });
+            opsChanged(true);
+            setHint(kind === 'add' ? `加入 ${key}，直接跳到這一步。` : kind === 'query' ? `查詢 ${key}，按「下一步」一格一格看。`
+                : counting ? `刪除 ${key}，看哪幾格 −1。` : `一般版不能刪，看看為什麼；打開計數版就能真的刪。`);
+        }
+        $('do-add').addEventListener('click', () => userOp('add'));
+        $('do-query').addEventListener('click', () => userOp('query'));
+        $('do-del').addEventListener('click', () => userOp('del'));
+        $('key-in').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); userOp('query'); } });
+        $('do-random').addEventListener('click', () => {
+            ops = randomOps();
+            opsChanged(false);
+            setHint(`隨機產生 ${ops.filter(o => o.op === 'add').length} 張發票，再查 5 張、刪 1 張。`);
+        });
+        $('do-reset').addEventListener('click', () => {
+            ops = DEFAULT_OPS.slice();
+            opsChanged(false);
+            setHint('恢復成範例：登錄 8 張發票，查 3 張，刪 1 張再查。');
+        });
+
+        /* =================== 播放控制 =================== */
+        function go(dir) {
+            const next = cursor + dir;
+            if (next < 0 || next >= steps.length) return false;
+            cursor = next;
+            show();
+            return cursor < steps.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('bf-play').textContent = '▶ 自動播放';
+        }
+        $('bf-next').addEventListener('click', () => { stopAuto(); go(1); });
+        $('bf-prev').addEventListener('click', () => { stopAuto(); go(-1); });
+        $('bf-first').addEventListener('click', () => { stopAuto(); cursor = 0; show(); });
+        $('bf-last').addEventListener('click', () => { stopAuto(); cursor = steps.length - 1; show(); });
+        $('bf-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === steps.length - 1) { cursor = 0; show(); }
+            $('bf-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!go(1)) stopAuto(); }, 1300);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            if (e.key === 'ArrowRight') { stopAuto(); go(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); go(-1); }
+        });
+
+        $('m-minus').addEventListener('click', () => { if (bfM > M_MIN) { bfM -= M_STEP; paramChanged(); } });
+        $('m-plus').addEventListener('click', () => { if (bfM < M_MAX) { bfM += M_STEP; paramChanged(); } });
+        $('k-minus').addEventListener('click', () => { if (bfK > K_MIN) { bfK--; paramChanged(); } });
+        $('k-plus').addEventListener('click', () => { if (bfK < K_MAX) { bfK++; paramChanged(); } });
+        $('cnt-toggle').addEventListener('click', () => {
+            counting = !counting;
+            paramChanged();
+            setHint(counting ? '計數版打開了：每格是計數器，加入 +1、刪除 −1，就能真的刪除。' : '計數版關掉了：每格只有 0 和 1，刪除那一步只能跳過。');
+        });
+
+        document.querySelectorAll('.lang').forEach(box => box.addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            document.querySelectorAll('.lang button').forEach(x => x.classList.toggle('active', x.dataset.lang === lang));
+            show();
+        }));
+
+        let resizeTimer = null;
+        let lastWidth = window.innerWidth;
+        window.addEventListener('resize', () => {
+            if (window.innerWidth === lastWidth) return;   // 手機捲動時網址列伸縮也會觸發 resize，寬度沒變就不用重量
+            lastWidth = window.innerWidth;
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { show(); reserveExplainHeight(); }, 150);
+        });
+
+        rebuild();
+        show();
+        reserveExplainHeight();
+    </script>
+</body>
+
+</html>

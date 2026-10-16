@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 上面一張發票，三條雜湊線指到下面一排位元；三格都亮（青色）＝「可能在」 -->
+  <rect x="24" y="9" width="16" height="17" rx="2.5" fill="#e6e6f0"/>
+  <path d="M27 14 H37 M27 18 H37 M27 22 H33" stroke="#12121c" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M28 27 L15.75 39 M32 27 L31.25 39 M36 27 L46.75 39" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/>
+  <rect x="5" y="41" width="6" height="12" rx="1.5" fill="#1e1e36"/>
+  <rect x="12.75" y="41" width="6" height="12" rx="1.5" fill="#22d3ee"/>
+  <rect x="20.5" y="41" width="6" height="12" rx="1.5" fill="#1e1e36"/>
+  <rect x="28.25" y="41" width="6" height="12" rx="1.5" fill="#22d3ee"/>
+  <rect x="36" y="41" width="6" height="12" rx="1.5" fill="#1e1e36"/>
+  <rect x="43.75" y="41" width="6" height="12" rx="1.5" fill="#22d3ee"/>
+  <rect x="51.5" y="41" width="6" height="12" rx="1.5" fill="#1e1e36"/>
+</svg>

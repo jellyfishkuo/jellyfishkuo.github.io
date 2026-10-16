@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/skyline.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/skyline-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/skyline-180.png">
+    <title>Skyline 查詢：BNL 與 SFS</title>
+    <meta name="description" content="用一張「價格 × 距離」的店家散布圖，一步一步看 BNL 怎麼用有限的視窗和暫存檔找出 skyline，以及 SFS 先排序後視窗只進不出、比較次數少多少，Java 與 Python 程式碼逐行對照。">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* ── 分頁 ── */
+        .tabs { display: flex; gap: 0.4rem; margin-top: 1.3rem; border-bottom: 1px solid var(--border); }
+        .tabs button {
+            background: none;
+            border: 1px solid transparent;
+            border-bottom: none;
+            color: var(--muted);
+            font: inherit;
+            font-size: 0.92rem;
+            padding: 0.5rem 0.9rem;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            margin-bottom: -1px;
+        }
+        .tabs button:hover { color: var(--text); }
+        .tabs button.active { color: var(--text); background: var(--panel); border-color: var(--border); border-bottom: 1px solid var(--panel); }
+        .tabs .no { font: 700 0.78rem 'Space Mono', monospace; color: var(--accent2); margin-right: 0.35rem; }
+        [hidden] { display: none !important; }
+
+        .layout { display: grid; gap: 1rem; margin-top: 1rem; }
+        .layout > * { min-width: 0; display: grid; gap: 1rem; align-content: start; }
+        .layout > * > * { min-width: 0; }
+        @media (min-width: 960px) { .layout { grid-template-columns: 1fr 1.02fr; } }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+        button.btn.small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .params { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin-top: 0.75rem; font-size: 0.88rem; }
+        .param { display: flex; align-items: center; gap: 0.45rem; }
+        .param .val { font: 700 1rem 'Space Mono', monospace; min-width: 1.4em; text-align: center; }
+        .param input[type=range] { width: 120px; accent-color: var(--accent2); }
+        .param .unit { color: var(--muted); font-size: 0.8rem; }
+        .param > span:first-child { white-space: nowrap; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .explain .ok { color: #86efac; font-weight: 600; }
+        .explain .no { color: #fca5a5; font-weight: 600; }
+
+
+        /* ── 散布圖 ── */
+        .plot-box { background: #0a0a14; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        svg.plot { display: block; width: 100%; height: auto; touch-action: manipulation; user-select: none; -webkit-user-select: none; cursor: crosshair; }
+        svg.plot * { vector-effect: non-scaling-stroke; }
+        .plot .bg { fill: #0b0b17; }
+        .plot .gridfaint { stroke: #17172c; stroke-width: 1; }
+        .plot .axis { stroke: #3a3a5a; stroke-width: 1.5; }
+        .plot .tick { fill: var(--muted); font-family: 'Space Mono', ui-monospace, monospace; }
+        .plot .atitle { fill: #b4b4c8; }
+        .plot .pt { fill: #7d8db8; stroke: #05050a; stroke-width: 1; }
+        .plot .pt.win { fill: var(--accent); }
+        .plot .pt.sky { fill: var(--good); }
+        .plot .pt.tmp { fill: rgba(245, 158, 11, 0.25); stroke: var(--warn); stroke-width: 1.6; }
+        .plot .pt.drop { fill: #4a4a62; opacity: 0.45; }
+        .plot .pt.later { opacity: 0.35; }
+        .plot .ring { fill: none; stroke-width: 2.4; }
+        .plot .ring.cur { stroke: var(--warn); }
+        .plot .ring.carried { stroke: #c4b5fd; stroke-dasharray: 3 2; stroke-width: 1.8; }
+        .plot .ring.kicked { stroke: var(--bad); }
+        .plot .xmark { stroke: var(--bad); stroke-width: 2; stroke-linecap: round; }
+        .plot .cmp { stroke-width: 1.6; stroke-linecap: round; }
+        .plot .cmp.none { stroke: #6b6b8a; stroke-dasharray: 3 3; }
+        .plot .cmp.kick { stroke: var(--good); }
+        .plot .cmp.drop { stroke: var(--bad); }
+        .plot .region-p { fill: rgba(6, 182, 212, 0.07); stroke: rgba(6, 182, 212, 0.55); stroke-width: 1.2; stroke-dasharray: 5 4; }
+        .plot .region-by { fill: rgba(248, 113, 113, 0.09); stroke: rgba(248, 113, 113, 0.6); stroke-width: 1.2; stroke-dasharray: 5 4; }
+        .plot .region-all { fill: rgba(138, 138, 163, 0.08); }
+        .plot .stair { fill: none; stroke: var(--good); stroke-width: 2.4; stroke-linejoin: round; }
+        .plot .sweep { stroke: var(--accent2); stroke-width: 1.6; stroke-dasharray: 6 4; }
+        .plot .lbl { fill: var(--text); paint-order: stroke; stroke: #05050a; stroke-width: 3px; stroke-linejoin: round; font-weight: 700; }
+        .plot .pid { fill: #9a9ab4; paint-order: stroke; stroke: #05050a; stroke-width: 2.5px; font-family: 'Space Mono', ui-monospace, monospace; }
+
+        .plot-tools { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.7rem; }
+        .plot-tools .lab { color: var(--muted); font-size: 0.8rem; margin-right: 0.1rem; }
+        .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.3em; }
+        .hint.warn { color: var(--warn); }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.45rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 0.3rem; vertical-align: -1px; border: 2px solid; }
+
+        /* ── 視窗、暫存檔 ── */
+        .sub { color: var(--muted); font-size: 0.78rem; margin: 0.8rem 0 0.4rem; }
+        .sub:first-of-type { margin-top: 0; }
+        .sub b { color: var(--text); font-weight: 600; }
+        .slots { display: grid; gap: 0.3rem; }
+        .crow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); font-size: 0.82rem; min-height: 2.1rem; }
+        .crow.empty-slot { border-style: dashed; background: none; color: #4a4a66; }
+        .crow.cur { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .crow .pat { font-weight: 600; }
+        .crow .meta { color: var(--muted); font-size: 0.78rem; }
+        .crow .meta b { color: var(--text); font: 700 0.78rem 'Space Mono', monospace; }
+        .crow .verdict { margin-left: auto; font-size: 0.75rem; border-radius: 6px; padding: 0 0.4rem; white-space: nowrap; }
+        .verdict.ok { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+        .verdict.wait { background: rgba(245, 158, 11, 0.16); color: var(--warn); }
+        .verdict.new { background: rgba(124, 58, 237, 0.25); color: #c4b5fd; }
+        .chips { display: flex; flex-wrap: wrap; gap: 0.25rem; min-height: 1.6rem; align-items: center; }
+        .chip { display: inline-flex; align-items: center; gap: 0.25rem; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; padding: 0.05rem 0.5rem; white-space: nowrap; }
+        .chip .n { font: 700 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .chip.done { opacity: 0.38; }
+        .chip.cur { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+        .chip.tmp { border-color: rgba(245, 158, 11, 0.6); }
+        .chip.sky { border-color: rgba(34, 197, 94, 0.6); }
+        .chip.sky .n { color: #86efac; }
+        .empty { color: var(--muted); font-size: 0.8rem; }
+
+        /* ── 統計 ── */
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; }
+        .stat .v { font: 700 1.25rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+        .bars { display: grid; gap: 0.35rem; margin-top: 0.8rem; }
+        .bar { display: grid; grid-template-columns: 8.6em 1fr 2.6em; gap: 0.5rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
+        .bar .track { height: 10px; background: #1b1b30; border-radius: 6px; overflow: hidden; }
+        .bar .fill { height: 100%; background: var(--accent2); border-radius: 6px; transition: width 0.25s; }
+        .bar .fill.bnl { background: var(--accent); }
+        .bar .fill.all { background: #4a4a6a; }
+        .bar .n { font: 700 0.8rem 'Space Mono', monospace; color: var(--text); text-align: right; }
+        .bar.on span:first-child { color: var(--text); }
+        .cmp-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.55rem; }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: #0a0a14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 560px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+            position: relative;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: #c792ea; }
+        .fn { color: #82aaff; }
+        .num { color: #f78c6c; }
+        .cm { color: #637777; }
+        .str { color: #c3e88d; }
+        .ty { color: #ffcb6b; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
+        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · SKYLINE QUERY</div>
+        <h1>Skyline 查詢：BNL 與 SFS<small>又便宜又近的店有哪些？把「怎麼比都不會輸」的店全部找出來</small></h1>
+        <p class="intro">
+            中午要找店吃飯，每家店有兩個數字：<b>價格</b>和<b>離實驗室的距離</b>，都是越小越好。如果 A 店比 B 店便宜、又沒有比較遠，那 B 就完全沒有理由選，我們說 <b>A 支配 B</b>。
+            沒有被任何一家支配的店，就是 <b>skyline</b>：畫在圖上剛好是左下角的一排「階梯」，不管你比較在意錢還是在意遠近，最好的選擇一定在這排裡面。
+            前面的 <a href="spatial.html">四元樹</a>、<a href="rtree.html">R-tree</a> 是回答「範圍裡有哪些點」「最近的是誰」；skyline 不用你給權重或範圍，就把所有「值得考慮」的點挑出來。
+            分頁一看經典的 <b>BNL</b>（Börzsönyi 等人，2001）怎麼用一個有限大小的視窗一路比過去，放不下的寫到暫存檔；分頁二看 <b>SFS</b>（Chomicki 等人，2003）先排序之後，為什麼視窗裡的點就再也不會被踢出去。
+        </p>
+
+        <div class="tabs" role="tablist">
+            <button role="tab" id="tab-bnl" data-tab="bnl" class="active" aria-selected="true"><span class="no">01</span>BNL 視窗比較</button>
+            <button role="tab" id="tab-sfs" data-tab="sfs" aria-selected="false"><span class="no">02</span>SFS 先排序</button>
+        </div>
+
+        <section id="panel" role="tabpanel">
+            <div class="layout">
+                <div>
+                    <div class="card">
+                        <div class="card-head"><h2>一步一步看</h2><span class="unit" id="algo-name" style="color:var(--muted);font-size:0.8rem"></span></div>
+                        <div class="player">
+                            <button class="btn" id="first" title="回到開頭">⏮</button>
+                            <button class="btn" id="prev">◀ 上一步</button>
+                            <button class="btn primary" id="next">下一步 ▶</button>
+                            <button class="btn" id="play">▶ 自動播放</button>
+                            <button class="btn" id="last">⏭ 直接看結果</button>
+                        </div>
+                        <div class="params">
+                            <div class="param">
+                                <span>視窗大小</span>
+                                <button class="btn stepper" id="w-minus" aria-label="減少">−</button>
+                                <span class="val" id="w-val">3</span>
+                                <button class="btn stepper" id="w-plus" aria-label="增加">+</button>
+                                <span class="unit">格（記憶體放得下幾個點）</span>
+                            </div>
+                        </div>
+                        <div class="explain" id="explain"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head"><h2>店家散布圖</h2><span class="unit" id="count" style="color:var(--muted);font-size:0.8rem"></span></div>
+                        <div class="plot-box"><svg class="plot" id="plot" viewBox="0 0 340 344" role="img" aria-label="價格與距離的散布圖"></svg></div>
+                        <div class="plot-tools" id="tools">
+                            <span class="lab">隨機產生：</span>
+                            <button class="btn small" data-act="ind" title="價格和距離沒有關係">🎲 獨立</button>
+                            <button class="btn small" data-act="cor" title="便宜的通常也比較近">🎲 相關</button>
+                            <button class="btn small" data-act="anti" title="便宜的通常比較遠">🎲 反相關</button>
+                            <button class="btn small" data-act="clear">清空</button>
+                            <button class="btn small" data-act="reset">恢復預設</button>
+                        </div>
+                        <div class="hint" id="hint"></div>
+                        <div class="legend" id="legend"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <h2>視窗與暫存檔</h2>
+                        <div class="sub" id="win-label"></div>
+                        <div class="slots" id="slots"></div>
+                        <div class="sub" id="input-label"></div>
+                        <div class="chips" id="input"></div>
+                        <div class="sub">暫存檔（視窗放不下的點，下一輪再讀）</div>
+                        <div class="chips" id="temp"></div>
+                        <div class="sub">已確定的 skyline</div>
+                        <div class="chips" id="sky"></div>
+                    </div>
+
+                    <div class="card">
+                        <h2>比較次數</h2>
+                        <div class="stats">
+                            <div class="stat"><div class="v" id="st-cmp">0</div><div class="k">到這一步比較了幾次</div></div>
+                            <div class="stat"><div class="v" id="st-pass">0</div><div class="k">第幾輪</div></div>
+                            <div class="stat"><div class="v" id="st-sky">0</div><div class="k">確定的 skyline</div></div>
+                        </div>
+                        <div class="bars">
+                            <div class="bar" id="bar-bnl-row"><span>BNL 全部做完</span><div class="track"><div class="fill bnl" id="bar-bnl"></div></div><span class="n" id="bar-bnl-n">0</span></div>
+                            <div class="bar" id="bar-sfs-row"><span>SFS 全部做完</span><div class="track"><div class="fill" id="bar-sfs"></div></div><span class="n" id="bar-sfs-n">0</span></div>
+                            <div class="bar"><span>每家都跟其他家比</span><div class="track"><div class="fill all" id="bar-all"></div></div><span class="n" id="bar-all-n">0</span></div>
+                        </div>
+                        <div class="cmp-note" id="cmp-note"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head">
+                            <h2>程式碼</h2>
+                            <div class="lang">
+                                <button data-lang="java" class="active">Java</button>
+                                <button data-lang="py">Python</button>
+                            </div>
+                        </div>
+                        <pre class="code" id="code"></pre>
+                        <div class="downloads" id="downloads"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notes">
+                <div class="card">
+                    <h2>為什麼這樣找出來的一定是 skyline？</h2>
+                    <p><b>支配會傳遞：</b>A 支配 B、B 支配 C，那 A 一定支配 C。所以一個點被丟掉時，丟掉它的那個點（或再支配那個點的點）一定還在某個地方，不會因為丟掉它而漏掉什麼；視窗裡的點也一定<b>互不支配</b>。</p>
+                    <p style="margin-top:0.5rem"><b>BNL 什麼時候能確定？</b>一個點要確定是 skyline，必須跟<b>所有</b>沒被丟掉的點比過。它在視窗裡時，後面讀進來的點都會跟它比；但它進視窗<b>之前</b>就被寫進暫存檔的點，它還沒碰過。所以進視窗時暫存檔是空的，這一輪結束就能確定；不是空的，就要留在視窗裡，等下一輪把暫存檔前面那幾筆讀完才確定。這就是原論文用「時間戳記」做的事，這頁用「進視窗時暫存檔有幾筆」代替。</p>
+                    <p style="margin-top:0.5rem"><b>SFS 為什麼不用踢人？</b>分數是「價格 + 距離」。A 支配 B 時，A 每一項都 ≤ B、至少一項 &lt; B，加起來 A 的分數一定<b>嚴格</b>比 B 小，排在 B 前面。所以照分數讀的時候，後來的點不可能支配先來的點：放進視窗的點馬上就是答案。任何「每一維變小、分數就變小」的函數都可以，論文裡用的是熵函數 Σ ln(1 + 值)。</p>
+                    <p style="margin-top:0.5rem"><b>一樣的處理規則：</b>兩家價格、距離完全一樣時，誰也不支配誰，<b>兩家都留在 skyline</b>；一樣分數的點保持原本的順序（穩定排序），網頁、Java、Python 三邊都照這個規則。</p>
+                </div>
+                <div class="card">
+                    <h2>優缺點，以及跟其他方法的比較</h2>
+                    <ul>
+                        <li><b>BNL 的好處是簡單：</b>不用索引、不用排序，資料讀一遍就開始比。缺點是視窗裡的點可能是「暫時贏」的，之後被踢出去前白比了很多次；skyline 很大、視窗太小時要讀很多輪。</li>
+                        <li><b>SFS 先付排序的錢：</b>排序本身要 O(n log n)，但之後每個點只要「看有沒有被支配」，視窗裡全是真正的答案，比較次數通常少很多，而且可以<b>邊算邊輸出</b>（progressive）。</li>
+                        <li><b>資料分布影響很大：</b>按「🎲 相關」時便宜的店通常也近，skyline 只有幾家；按「🎲 反相關」時便宜的都很遠，幾乎每家都在 skyline 上，視窗很快就滿、暫存檔一直寫。論文做實驗一定會測這三種分布。</li>
+                        <li><b>用索引更快：</b>BBS（Papadias 等人）把點放進 <a href="rtree.html">R-tree</a>，照「框的左下角離原點多近」用優先佇列一路往下走，整個框都被已知的 skyline 支配時就整塊跳過，跟 kNN 查詢的走法很像。</li>
+                        <li><b>跟實驗室研究的關係：</b>skyline 是空間資料庫和多條件決策常用的查詢，延伸題目像資料串流上的 skyline（新點進來、舊點過期）、top-k 支配查詢、空間 skyline（距離是到好幾個查詢點），都會用到這頁的「支配」和「視窗」兩個概念。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        /* =========================================================
+           Skyline 一步一步看
+           網頁裡用 JavaScript 照著同樣的演算法跑一次，把每一步記下來；
+           上一步／下一步只是在這些紀錄之間移動。右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = {"java": [["/** 一家店：名字，以及每一維的值（這頁是價格、距離，都是越小越好） */", []], ["static class Point {", []], ["    final String name;", []], ["    final int[] vals;", []], ["    Point(String name, int... vals) { this.name = name; this.vals = vals; }", []], ["    public String toString() {", []], ["        StringBuilder sb = new StringBuilder(name + \"(\");", []], ["        for (int i = 0; i < vals.length; i++) sb.append(i > 0 ? \",\" : \"\").append(vals[i]);", []], ["        return sb.append(\")\").toString();", []], ["    }", []], ["}", []], ["", []], ["/** 結果：skyline、比較了幾次、讀了幾輪 */", []], ["static class Result {", []], ["    final List<Point> skyline = new ArrayList<>();", []], ["    int comparisons, passes;", []], ["}", []], ["", []], ["/** p 支配 q：每一維都 ≤ q（不比它差），而且至少一維 < q（真的比它好）。", ["dom"]], ["    兩家完全一樣時誰也不支配誰，所以重複的點會一起留在 skyline 裡 */", ["dom"]], ["static boolean dominates(Point p, Point q) {", ["dom"]], ["    boolean better = false;", ["dom"]], ["    for (int i = 0; i < p.vals.length; i++) {", ["dom"]], ["        if (p.vals[i] > q.vals[i]) return false;", ["dom"]], ["        if (p.vals[i] < q.vals[i]) better = true;", ["dom"]], ["    }", ["dom"]], ["    return better;", ["dom"]], ["}", ["dom"]], ["", ["bnl"]], ["/** 視窗裡的一格：點，以及它進視窗時暫存檔已經寫了幾筆 */", ["bnl"]], ["static class Entry {", ["bnl"]], ["    final Point p;", ["bnl"]], ["    final int written;", ["bnl"]], ["    boolean carried;                              // 上一輪留下來、還沒確定的點", ["bnl"]], ["    Entry(Point p, int written) { this.p = p; this.written = written; }", ["bnl"]], ["}", ["bnl"]], ["", ["bnl"]], ["/** BNL：視窗最多放 w 個點，放不下的寫到暫存檔、下一輪再讀 */", ["bnl"]], ["static Result bnl(List<Point> points, int w) {", ["bnl"]], ["    Result r = new Result();", ["bnl", "init"]], ["    List<Entry> window = new ArrayList<>();", ["bnl", "init"]], ["    List<Point> data = new ArrayList<>(points);   // 第一輪的輸入就是全部的點", ["bnl", "init"]], ["    while (!data.isEmpty()) {", ["bnl"]], ["        r.passes++;", ["bnl", "pass"]], ["        List<Point> temp = new ArrayList<>();     // 暫存檔：視窗滿了放不下的點", ["bnl", "pass"]], ["        for (int i = 0; i < data.size(); i++) {", ["bnl"]], ["            Point p = data.get(i);", ["bnl", "read"]], ["            boolean dominated = false;", ["bnl", "read"]], ["            for (Iterator<Entry> it = window.iterator(); it.hasNext(); ) {", ["bnl", "cmp"]], ["                Entry e = it.next();", ["bnl", "cmp"]], ["                r.comparisons++;", ["bnl", "cmp"]], ["                if (dominates(e.p, p)) { dominated = true; break; }   // 被視窗裡的點支配：p 丟掉", ["bnl", "drop"]], ["                if (dominates(p, e.p)) it.remove();                   // p 支配視窗裡的點：把它踢出去", ["bnl", "kick"]], ["            }", ["bnl"]], ["            if (!dominated) {", ["bnl"]], ["                if (window.size() < w) window.add(new Entry(p, temp.size()));", ["bnl", "insert"]], ["                else temp.add(p);                     // 視窗滿了：先寫到暫存檔", ["bnl", "temp"]], ["            }", ["bnl"]], ["            // 上一輪留下的點：暫存檔裡比它早寫的那幾筆都讀過了，就確定是 skyline", ["bnl", "confirm"]], ["            for (Iterator<Entry> it = window.iterator(); it.hasNext(); ) {", ["bnl", "confirm"]], ["                Entry e = it.next();", ["bnl", "confirm"]], ["                if (e.carried && e.written <= i + 1) { r.skyline.add(e.p); it.remove(); }", ["bnl", "confirm"]], ["            }", ["bnl", "confirm"]], ["        }", ["bnl"]], ["        for (Iterator<Entry> it = window.iterator(); it.hasNext(); ) {   // 這一輪讀完了", ["bnl", "passend"]], ["            Entry e = it.next();", ["bnl", "passend"]], ["            if (e.written == 0) { r.skyline.add(e.p); it.remove(); }   // 跟所有點都比過了", ["bnl", "passend"]], ["            else e.carried = true;                // 暫存檔裡有比它早寫的點還沒比：留到下一輪", ["bnl", "passend"]], ["        }", ["bnl", "passend"]], ["        data = temp;                              // 下一輪的輸入 = 這一輪的暫存檔", ["bnl", "passend"]], ["    }", ["bnl"]], ["    return r;", ["bnl", "end"]], ["}", ["bnl"]], ["", ["bnl"]], ["", ["sfs"]], ["/** 單調的分數：任何一維變小，分數就變小。支配別人的點分數一定比較小，所以會排在前面 */", ["sfs"]], ["static int score(Point p) {", ["sfs"]], ["    int s = 0;", ["sfs"]], ["    for (int v : p.vals) s += v;", ["sfs"]], ["    return s;", ["sfs"]], ["}", ["sfs"]], ["", ["sfs"]], ["/** SFS：先照分數排好，之後進來的點不可能支配視窗裡的點，視窗只進不出 */", ["sfs"]], ["static Result sfs(List<Point> points, int w) {", ["sfs"]], ["    Result r = new Result();", ["s-init", "sfs"]], ["    List<Point> data = new ArrayList<>(points);", ["sfs", "sort"]], ["    data.sort(Comparator.comparingInt(Skyline::score));   // 分數由小到大（穩定排序：同分照原本的順序）", ["sfs", "sort"]], ["    while (!data.isEmpty()) {", ["sfs"]], ["        r.passes++;", ["s-pass", "sfs"]], ["        List<Point> window = new ArrayList<>(), temp = new ArrayList<>();", ["s-pass", "sfs"]], ["        for (Point p : data) {", ["sfs"]], ["            boolean dominated = false;", ["s-read", "sfs"]], ["            for (Point q : window) {                  // 只要看 p 有沒有被支配，不用踢人", ["s-cmp", "sfs"]], ["                r.comparisons++;", ["s-cmp", "sfs"]], ["                if (dominates(q, p)) { dominated = true; break; }", ["s-drop", "sfs"]], ["            }", ["sfs"]], ["            if (!dominated) {", ["sfs"]], ["                if (window.size() < w) {", ["s-insert", "sfs"]], ["                    window.add(p);                    // 一進視窗就確定是 skyline，可以馬上輸出", ["s-insert", "sfs"]], ["                    r.skyline.add(p);", ["s-insert", "sfs"]], ["                } else temp.add(p);                   // 視窗滿了：寫到暫存檔（還是排好的順序）", ["s-temp", "sfs"]], ["            }", ["sfs"]], ["        }", ["sfs"]], ["        data = temp;", ["s-passend", "sfs"]], ["    }", ["sfs"]], ["    return r;", ["s-end", "sfs"]], ["}", ["sfs"]]], "py": [["class Point:", []], ["    \"\"\"一家店：名字，以及每一維的值（這頁是價格、距離，都是越小越好）\"\"\"", []], ["    def __init__(self, name, *vals):", []], ["        self.name, self.vals = name, vals", []], ["", []], ["    def __str__(self):", []], ["        return f\"{self.name}({','.join(map(str, self.vals))})\"", []], ["", []], ["", []], ["def dominates(p, q):", ["dom"]], ["    \"\"\"p 支配 q：每一維都 ≤ q（不比它差），而且至少一維 < q（真的比它好）。", ["dom"]], ["    兩家完全一樣時誰也不支配誰，所以重複的點會一起留在 skyline 裡\"\"\"", ["dom"]], ["    better = False", ["dom"]], ["    for a, b in zip(p.vals, q.vals):", ["dom"]], ["        if a > b:", ["dom"]], ["            return False", ["dom"]], ["        if a < b:", ["dom"]], ["            better = True", ["dom"]], ["    return better", ["dom"]], ["", ["bnl"]], ["", ["bnl"]], ["class Entry:", ["bnl"]], ["    \"\"\"視窗裡的一格：點，以及它進視窗時暫存檔已經寫了幾筆\"\"\"", ["bnl"]], ["    def __init__(self, p, written):", ["bnl"]], ["        self.p, self.written = p, written", ["bnl"]], ["        self.carried = False            # 上一輪留下來、還沒確定的點", ["bnl"]], ["", ["bnl"]], ["", ["bnl"]], ["def bnl(points, w):", ["bnl"]], ["    \"\"\"BNL：視窗最多放 w 個點，放不下的寫到暫存檔、下一輪再讀\"\"\"", ["bnl"]], ["    skyline, comparisons, passes = [], 0, 0", ["bnl", "init"]], ["    window, data = [], list(points)     # 第一輪的輸入就是全部的點", ["bnl", "init"]], ["    while data:", ["bnl"]], ["        passes += 1", ["bnl", "pass"]], ["        temp = []                       # 暫存檔：視窗滿了放不下的點", ["bnl", "pass"]], ["        for i, p in enumerate(data):", ["bnl"]], ["            dominated = False", ["bnl", "read"]], ["            for e in list(window):", ["bnl", "cmp"]], ["                comparisons += 1", ["bnl", "cmp"]], ["                if dominates(e.p, p):   # 被視窗裡的點支配：p 丟掉", ["bnl", "drop"]], ["                    dominated = True", ["bnl", "drop"]], ["                    break", ["bnl", "drop"]], ["                if dominates(p, e.p):   # p 支配視窗裡的點：把它踢出去", ["bnl", "kick"]], ["                    window.remove(e)", ["bnl", "kick"]], ["            if not dominated:", ["bnl"]], ["                if len(window) < w:", ["bnl", "insert"]], ["                    window.append(Entry(p, len(temp)))", ["bnl", "insert"]], ["                else:                   # 視窗滿了：先寫到暫存檔", ["bnl", "temp"]], ["                    temp.append(p)", ["bnl", "temp"]], ["            # 上一輪留下的點：暫存檔裡比它早寫的那幾筆都讀過了，就確定是 skyline", ["bnl", "confirm"]], ["            for e in [e for e in window if e.carried and e.written <= i + 1]:", ["bnl", "confirm"]], ["                skyline.append(e.p)", ["bnl", "confirm"]], ["                window.remove(e)", ["bnl", "confirm"]], ["        for e in list(window):          # 這一輪讀完了", ["bnl", "passend"]], ["            if e.written == 0:          # 進視窗時暫存檔還是空的：跟所有點都比過了", ["bnl", "passend"]], ["                skyline.append(e.p)", ["bnl", "passend"]], ["                window.remove(e)", ["bnl", "passend"]], ["            else:                       # 暫存檔裡有比它早寫的點還沒比：留到下一輪", ["bnl", "passend"]], ["                e.carried = True", ["bnl", "passend"]], ["        data = temp                     # 下一輪的輸入 = 這一輪的暫存檔", ["bnl", "passend"]], ["    return skyline, comparisons, passes", ["bnl", "end"]], ["", ["bnl"]], ["", ["sfs"]], ["", ["sfs"]], ["def score(p):", ["sfs"]], ["    \"\"\"單調的分數：任何一維變小，分數就變小。支配別人的點分數一定比較小，所以會排在前面\"\"\"", ["sfs"]], ["    return sum(p.vals)", ["sfs"]], ["", ["sfs"]], ["", ["sfs"]], ["def sfs(points, w):", ["sfs"]], ["    \"\"\"SFS：先照分數排好，之後進來的點不可能支配視窗裡的點，視窗只進不出\"\"\"", ["sfs"]], ["    skyline, comparisons, passes = [], 0, 0", ["s-init", "sfs"]], ["    data = sorted(points, key=score)    # 分數由小到大（穩定排序：同分照原本的順序）", ["sfs", "sort"]], ["    while data:", ["sfs"]], ["        passes += 1", ["s-pass", "sfs"]], ["        window, temp = [], []", ["s-pass", "sfs"]], ["        for p in data:", ["sfs"]], ["            dominated = False", ["s-read", "sfs"]], ["            for q in window:            # 只要看 p 有沒有被支配，不用踢人", ["s-cmp", "sfs"]], ["                comparisons += 1", ["s-cmp", "sfs"]], ["                if dominates(q, p):", ["s-drop", "sfs"]], ["                    dominated = True", ["s-drop", "sfs"]], ["                    break", ["s-drop", "sfs"]], ["            if not dominated:", ["sfs"]], ["                if len(window) < w:", ["s-insert", "sfs"]], ["                    window.append(p)    # 一進視窗就確定是 skyline，可以馬上輸出", ["s-insert", "sfs"]], ["                    skyline.append(p)", ["s-insert", "sfs"]], ["                else:", ["s-temp", "sfs"]], ["                    temp.append(p)      # 視窗滿了：寫到暫存檔（還是排好的順序）", ["s-temp", "sfs"]], ["        data = temp", ["s-passend", "sfs"]], ["    return skyline, comparisons, passes", ["s-end", "sfs"]]]};
+
+        const AX = 300;                      // 兩個軸都是 0–300（價格：元、距離：公尺）
+        const SNAP = 10;                     // 點圖新增時對齊到 10
+        const MAX_POINTS = 40;
+        const NAMES = ['自助餐', '牛肉麵', '便當', '拉麵', '滷肉飯', '水餃', '火鍋', '義大利麵', '早午餐', '咖哩飯',
+            '鍋燒意麵', '炒飯', '壽司', '河粉', '韓式拌飯', '披薩', '漢堡', '泰式', '清粥小菜', '關東煮',
+            '鐵板燒', '排骨飯', '雞肉飯', '涼麵', '臭豆腐', '蚵仔煎', '肉圓', '碗粿', '米糕', '蛋餅',
+            '燒臘', '丼飯', '烏龍麵', '麻辣燙', '鹹酥雞', '潤餅', '陽春麵', '小籠包', '蔥油餅', '鍋貼'];
+        const DEFAULT_SHOPS = [
+            ['自助餐', 90, 120], ['咖哩飯', 130, 110], ['牛肉麵', 180, 60], ['便當', 100, 200],
+            ['拉麵', 260, 40], ['滷肉飯', 60, 260], ['水餃', 80, 170], ['火鍋', 280, 180],
+            ['義大利麵', 220, 150], ['早午餐', 160, 210], ['鍋燒意麵', 110, 170], ['炒飯', 120, 80],
+            ['壽司', 250, 230], ['河粉', 150, 140], ['韓式拌飯', 170, 90], ['披薩', 230, 100],
+            ['漢堡', 140, 250], ['泰式', 200, 190], ['清粥小菜', 70, 230], ['關東煮', 210, 30]
+        ];
+        const W_MIN = 1, W_MAX = 8;
+
+        const $ = id => document.getElementById(id);
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let pts = DEFAULT_SHOPS.map(([label, x, y]) => ({ label, x, y }));
+        let winSize = 3;
+        let algo = 'bnl';
+        let lang = 'java';
+        let traces = { bnl: [], sfs: [] };
+        const cursors = { bnl: 0, sfs: 0 };
+        let timer = null;
+
+        /* =================== 演算法：照著程式跑一次 =================== */
+        // p 支配 q：每一維都 ≤，而且至少一維 <。完全一樣的兩點互不支配
+        function dominates(a, b) {
+            let better = false;
+            for (let k = 0; k < a.length; k++) {
+                if (a[k] > b[k]) return false;
+                if (a[k] < b[k]) better = true;
+            }
+            return better;
+        }
+        const scoreOf = v => v.reduce((s, x) => s + x, 0);
+
+        // V：每個點的值（陣列），回傳每一步的紀錄
+        function bnlTrace(V, w) {
+            const steps = [];
+            const sky = [], dropped = [];        // dropped：[被丟的點, 丟掉它的點]
+            let win = [], data = V.map((_, i) => i), temp = [], comps = 0, passes = 0, pos = -1;
+            const push = (kind, extra = {}) => steps.push({
+                kind, win: win.map(e => ({ ...e })), temp: temp.slice(), sky: sky.slice(), dropped: dropped.map(d => d.slice()),
+                data, pos, pass: passes, comps, ...extra
+            });
+            push('start');
+            while (data.length) {
+                passes++;
+                temp = []; pos = -1;
+                push('pass', { carried: win.map(e => ({ ...e })) });
+                for (let i = 0; i < data.length; i++) {
+                    const p = data[i];
+                    pos = i;
+                    let dominated = false, by = -1;
+                    const cmps = [], kicked = [];
+                    for (const e of win.slice()) {
+                        comps++;
+                        if (dominates(V[e.i], V[p])) { dominated = true; by = e.i; cmps.push({ j: e.i, r: 'drop' }); break; }
+                        if (dominates(V[p], V[e.i])) { win.splice(win.indexOf(e), 1); kicked.push(e.i); dropped.push([e.i, p]); cmps.push({ j: e.i, r: 'kick' }); }
+                        else cmps.push({ j: e.i, r: 'none' });
+                    }
+                    let outcome;
+                    if (dominated) { outcome = 'drop'; dropped.push([p, by]); }
+                    else if (win.length < w) { outcome = 'insert'; win.push({ i: p, written: temp.length, carried: false }); }
+                    else { outcome = 'temp'; temp.push(p); }
+                    const confirmed = [];
+                    for (const e of win.slice()) {
+                        if (e.carried && e.written <= i + 1) { sky.push(e.i); win.splice(win.indexOf(e), 1); confirmed.push(e.i); }
+                    }
+                    push('read', { p, cmps, outcome, by, kicked, confirmed, slot: outcome === 'insert' ? win.length : 0 });
+                }
+                const out = [], carried = [];
+                for (const e of win.slice()) {
+                    if (e.written === 0) { sky.push(e.i); win.splice(win.indexOf(e), 1); out.push(e.i); }
+                    else { e.carried = true; carried.push({ i: e.i, written: e.written }); }
+                }
+                push('passend', { out, carried });
+                data = temp;
+            }
+            pos = -1;
+            push('end', { passes });
+            return steps;
+        }
+
+        function sfsTrace(V, w) {
+            const steps = [];
+            const sky = [], dropped = [];
+            const order = V.map((_, i) => i).sort((a, b) => scoreOf(V[a]) - scoreOf(V[b]));   // 穩定排序
+            let win = [], data = V.map((_, i) => i), temp = [], comps = 0, passes = 0, pos = -1;
+            const push = (kind, extra = {}) => steps.push({
+                kind, win: win.map(i => ({ i })), temp: temp.slice(), sky: sky.slice(), dropped: dropped.map(d => d.slice()),
+                data, pos, pass: passes, comps, ...extra
+            });
+            push('start');
+            data = order;
+            push('sort');
+            while (data.length) {
+                passes++;
+                win = []; temp = []; pos = -1;
+                push('pass');
+                for (let i = 0; i < data.length; i++) {
+                    const p = data[i];
+                    pos = i;
+                    let dominated = false, by = -1;
+                    const cmps = [];
+                    for (const q of win) {
+                        comps++;
+                        if (dominates(V[q], V[p])) { dominated = true; by = q; cmps.push({ j: q, r: 'drop' }); break; }
+                        cmps.push({ j: q, r: 'none' });
+                    }
+                    let outcome;
+                    if (dominated) { outcome = 'drop'; dropped.push([p, by]); }
+                    else if (win.length < w) { outcome = 'insert'; win.push(p); sky.push(p); }
+                    else { outcome = 'temp'; temp.push(p); }
+                    push('read', { p, cmps, outcome, by, kicked: [], confirmed: [] });
+                }
+                push('passend', { out: win.slice(), carried: [] });
+                data = temp;
+            }
+            pos = -1;
+            push('end', { passes });
+            return steps;
+        }
+
+        /* =================== 說明文字 =================== */
+        const V = () => pts.map(p => [p.x, p.y]);
+        const pn = i => `<b>#${i + 1} ${esc(pts[i].label)}</b>（${pts[i].x} 元、${pts[i].y} 公尺）`;
+        const pid = i => `#${i + 1} ${esc(pts[i].label)}`;
+        const joinNames = list => list.map(pid).join('、');
+        const lastOf = a => a[a.length - 1];
+        const bnlDone = () => lastOf(traces.bnl);
+        const sfsDone = () => lastOf(traces.sfs);
+
+        function cmpText(s) {
+            if (!s.cmps.length) return '視窗是空的，不用比';
+            const part = s.cmps.map(c => {
+                if (c.r === 'drop') return `${pid(c.j)} <span class="no">支配它</span>`;
+                if (c.r === 'kick') return `${pid(c.j)} <span class="ok">被它支配</span>，踢出視窗`;
+                return `${pid(c.j)} 互不支配`;
+            });
+            return `跟視窗裡的點比：${part.join('；')}`;
+        }
+
+        function describe(s, which) {
+            const n = pts.length;
+            const w = winSize;
+            if (which === 'bnl') {
+                switch (s.kind) {
+                    case 'start':
+                        if (!n) return `圖上還沒有店。點一下圖新增，或按下面的「🎲 隨機產生」。`;
+                        return `${n} 家店，每家有<b>價格</b>和<b>距離</b>，都是越小越好。A <b>支配</b> B：A 兩項都不比 B 差、而且至少一項比 B 好。要找的 skyline 就是沒有被任何一家支配的店。` +
+                            `BNL 的做法：準備一個最多放 <b>${w}</b> 個點的<b>視窗</b>（記憶體），點一個一個讀進來，跟視窗裡的點比。`;
+                    case 'pass': {
+                        if (s.pass === 1) return `第 1 輪：從第一家開始，依序讀全部 ${s.data.length} 家。被視窗裡的點支配就丟掉；支配視窗裡的點就把它踢出去；都不是就放進視窗，視窗滿了就先寫到<b>暫存檔</b>。`;
+                        let t = `第 ${s.pass} 輪：上一輪視窗放不下的 ${s.data.length} 家在暫存檔裡，現在<b>從暫存檔第 1 筆開始讀</b>，規則一樣。`;
+                        if (s.carried.length) t += `視窗裡還留著上一輪的 ${s.carried.map(e => `${pid(e.i)}（讀完前 ${e.written} 筆就確定）`).join('、')}。`;
+                        return t;
+                    }
+                    case 'read': {
+                        let t = `讀第 ${s.pos + 1} 筆 ${pn(s.p)}。${cmpText(s)}。`;
+                        if (s.outcome === 'drop') t += `它<span class="no">被 ${pid(s.by)} 支配，丟掉</span>。`;
+                        else if (s.outcome === 'insert') t += `沒有人支配它，視窗還有空位，<b>放進視窗</b>（${s.win.length}/${w}）。現在還不能確定，之後可能被別的點踢出去。`;
+                        else t += `沒有人支配它，但視窗已經滿了（${w}/${w}），只好<b>寫到暫存檔</b>（第 ${s.temp.length} 筆），下一輪再處理。`;
+                        if (s.confirmed.length) t += `暫存檔裡比它們早寫的點都讀過了，上一輪留下的 ${joinNames(s.confirmed)} <span class="ok">確定是 skyline ✓</span>，離開視窗。`;
+                        return t;
+                    }
+                    case 'passend': {
+                        let t = `第 ${s.pass} 輪讀完了。`;
+                        if (s.out.length) t += `${joinNames(s.out)} 進視窗時暫存檔還是空的，之後讀到的每個點都跟它們比過，<span class="ok">確定是 skyline ✓</span>。`;
+                        if (s.carried.length) t += `${s.carried.map(e => `${pid(e.i)} 進視窗時暫存檔已經有 ${e.written} 筆`).join('、')}，還沒跟那幾筆比過，<b>留在視窗</b>到下一輪。`;
+                        t += s.temp.length ? `暫存檔有 ${s.temp.length} 筆，要再讀一輪。` : `暫存檔是空的，不用再讀了。`;
+                        return t;
+                    }
+                    case 'end':
+                        if (!n) return `沒有店，skyline 是空的。`;
+                        return `完成！skyline 共 <b>${s.sky.length}</b> 家：${joinNames(s.sky)}。BNL 一共比較了 <b>${s.comps}</b> 次、讀了 ${s.passes} 輪。切到「SFS 先排序」看看同樣的資料要比幾次。`;
+                }
+            } else {
+                switch (s.kind) {
+                    case 'start':
+                        if (!n) return `圖上還沒有店。點一下圖新增，或按下面的「🎲 隨機產生」。`;
+                        return `${n} 家店，價格和距離都是越小越好，要找沒有被任何一家支配的店。BNL 的麻煩是：視窗裡的點只是「暫時沒輸」，之後可能被踢出去。` +
+                            `SFS 的想法：<b>先把點照「價格 + 距離」由小到大排好</b>再讀，視窗一樣最多 <b>${w}</b> 格。`;
+                    case 'sort':
+                        if (!n) return `沒有點要排。`;
+                        return `排好了（分數一樣的照原本的順序），右邊的輸入就是排好的順序。關鍵：A 支配 B 時，A 每一項都 ≤ B、至少一項 &lt; B，所以 A 的分數<b>一定比 B 小</b>、排在 B 前面。也就是說，<b>後讀進來的點不可能支配先讀的點</b>。`;
+                    case 'pass':
+                        if (s.pass === 1) return `第 1 輪：照排好的順序讀 ${s.data.length} 家。圖上的斜虛線是「價格 + 距離 = 目前這家的分數」，線的左下方都是讀過的點。`;
+                        return `第 ${s.pass} 輪：讀暫存檔裡的 ${s.data.length} 家（還是排好的順序）。上一輪視窗裡的點早就輸出了，視窗清空重來；暫存檔的點寫進去之前已經跟它們比過，不會被它們支配。`;
+                    case 'read': {
+                        let t = `讀 ${pn(s.p)}，分數 ${pts[s.p].x + pts[s.p].y}。${cmpText(s)}。`;
+                        if (s.outcome === 'drop') t += `它<span class="no">被 ${pid(s.by)} 支配，丟掉</span>。`;
+                        else if (s.outcome === 'insert') t += `沒有人支配它。分數比它小的點都讀過了，<b>之後不會再有人能支配它</b>，所以放進視窗（${s.win.length}/${w}）的同時就 <span class="ok">確定是 skyline ✓</span>，可以馬上輸出。`;
+                        else t += `沒有人支配它，但視窗滿了（${w}/${w}），<b>寫到暫存檔</b>（第 ${s.temp.length} 筆），下一輪再跟別的點比。`;
+                        return t;
+                    }
+                    case 'passend':
+                        return `第 ${s.pass} 輪讀完。` + (s.out.length ? `視窗裡的 ${joinNames(s.out)} 一放進去就輸出了，不用像 BNL 那樣等到最後才確定、也沒有人被踢出去。` : '') +
+                            (s.temp.length ? `暫存檔有 ${s.temp.length} 筆，要再讀一輪。` : `暫存檔是空的，結束。`);
+                    case 'end': {
+                        if (!n) return `沒有店，skyline 是空的。`;
+                        const b = bnlDone();
+                        return `完成！skyline 共 <b>${s.sky.length}</b> 家：${joinNames(s.sky)}。SFS 比較了 <b>${s.comps}</b> 次、讀了 ${s.passes} 輪；同樣的資料 BNL 比較了 ${b.comps} 次、讀了 ${b.passes} 輪（SFS 另外要先花時間排序）。`;
+                    }
+                }
+            }
+            return '';
+        }
+
+        const TAGS = {
+            bnl: { start: ['dom'], pass: ['pass'], passend: ['passend'], end: ['end'] },
+            sfs: { start: ['s-init', 'dom'], sort: ['sort'], pass: ['s-pass'], passend: ['s-passend'], end: ['s-end'] }
+        };
+        function tagsFor(s) {
+            if (s.kind !== 'read') return TAGS[algo][s.kind] || [];
+            if (algo === 'bnl') {
+                const t = ['read', 'cmp'];
+                if (s.outcome === 'drop') t.push('drop');
+                if (s.kicked.length) t.push('kick');
+                if (s.outcome === 'insert') t.push('insert');
+                if (s.outcome === 'temp') t.push('temp');
+                if (s.confirmed.length) t.push('confirm');
+                return t;
+            }
+            return ['s-read', 's-cmp', { drop: 's-drop', insert: 's-insert', temp: 's-temp' }[s.outcome]];
+        }
+
+        /* =================== 散布圖 =================== */
+        const PL = 40, PB = 310, PS = 290 / AX;           // 原點在 (40, 310)，1 單位 = 290/300
+        const sx = x => +(PL + x * PS).toFixed(2);
+        const sy = y => +(PB - y * PS).toFixed(2);
+        const unitPx = svg => (svg.getBoundingClientRect().width || 500) / 340;
+        const PR = 4.6;
+
+        function drawPlot() {
+            const svg = $('plot');
+            const s = traces[algo][cursors[algo]];
+            const u = unitPx(svg);
+            const fs = px => (px / u).toFixed(2);
+            let h = `<rect class="bg" x="0" y="0" width="340" height="344"/>`;
+            for (let v = 50; v <= AX; v += 50) {
+                h += `<line class="gridfaint" x1="${sx(v)}" y1="${sy(0)}" x2="${sx(v)}" y2="${sy(AX)}"/><line class="gridfaint" x1="${sx(0)}" y1="${sy(v)}" x2="${sx(AX)}" y2="${sy(v)}"/>`;
+            }
+            for (let v = 0; v <= AX; v += 100) {
+                h += `<text class="tick" x="${sx(v)}" y="${sy(0) + 4 + 10 / u}" font-size="${fs(10)}" text-anchor="${v === AX ? 'end' : 'middle'}">${v}</text>`;
+                if (v < AX) h += `<text class="tick" x="${sx(0) - 5}" y="${sy(v) + 3.5 / u}" font-size="${fs(10)}" text-anchor="end">${v}</text>`;   // 300 的位置留給軸名
+            }
+            h += `<text class="atitle" x="${sx(AX)}" y="340" font-size="${fs(11)}" text-anchor="end">價格（元）→</text>`;
+            h += `<text class="atitle" x="4" y="${4 + 10 / u}" font-size="${fs(11)}">↑ 距離（公尺）</text>`;
+
+            const winSet = new Set(s.win.map(e => e.i));
+            const carriedSet = new Set(s.win.filter(e => e.carried).map(e => e.i));
+            const skySet = new Set(s.sky), tmpSet = new Set(s.temp);
+            const dropSet = new Set(s.dropped.map(d => d[0]));
+            const cur = s.kind === 'read' ? s.p : -1;
+            let deco = '', rings = '', labels = '';
+
+            // 這一步的區域：p 會支配的範圍（右上），或是支配 p 的那個點的範圍
+            if (cur >= 0) {
+                const p = pts[cur];
+                if (s.outcome === 'drop') {
+                    const b = pts[s.by];
+                    deco += `<rect class="region-by" x="${sx(b.x)}" y="${sy(AX)}" width="${sx(AX) - sx(b.x)}" height="${sy(b.y) - sy(AX)}"/>`;
+                } else {
+                    deco += `<rect class="region-p" x="${sx(p.x)}" y="${sy(AX)}" width="${sx(AX) - sx(p.x)}" height="${sy(p.y) - sy(AX)}"/>`;
+                }
+                s.cmps.forEach(c => {
+                    const q = pts[c.j];
+                    deco += `<line class="cmp ${c.r}" x1="${sx(p.x)}" y1="${sy(p.y)}" x2="${sx(q.x)}" y2="${sy(q.y)}"/>`;
+                });
+            }
+            // SFS：斜線「價格 + 距離 = 目前分數」
+            if (algo === 'sfs' && pts.length && (s.kind === 'read' || s.kind === 'sort' || s.kind === 'pass')) {
+                const ref = s.kind === 'read' ? s.p : s.data[0];
+                if (ref !== undefined) {
+                    const c = pts[ref].x + pts[ref].y;
+                    const x1 = Math.max(0, c - AX), x2 = Math.min(AX, c);
+                    deco += `<line class="sweep" x1="${sx(x1)}" y1="${sy(c - x1)}" x2="${sx(x2)}" y2="${sy(c - x2)}"/>`;
+                }
+            }
+            // 最後一步：skyline 的階梯，以及被支配的區域
+            if (s.kind === 'end' && s.sky.length) {
+                const st = s.sky.map(i => pts[i]).sort((a, b) => a.x - b.x || a.y - b.y);
+                let d = `M${sx(st[0].x)},${sy(AX)} L${sx(st[0].x)},${sy(st[0].y)}`;
+                let area = d;
+                for (let k = 1; k < st.length; k++) {
+                    const seg = ` L${sx(st[k].x)},${sy(st[k - 1].y)} L${sx(st[k].x)},${sy(st[k].y)}`;
+                    d += seg; area += seg;
+                }
+                const lastY = sy(st[st.length - 1].y);
+                d += ` L${sx(AX)},${lastY}`;
+                area += ` L${sx(AX)},${lastY} L${sx(AX)},${sy(AX)} Z`;
+                deco += `<path class="region-all" d="${area}"/><path class="stair" d="${d}"/>`;
+            }
+
+            // 還沒讀到的點（SFS 這一輪的斜線右上方）淡一點
+            const later = new Set();
+            if (s.kind === 'read' || s.kind === 'pass') s.data.forEach((i, k) => { if (k > s.pos) later.add(i); });
+
+            let dots = '';
+            pts.forEach((p, i) => {
+                let cls = 'pt';
+                if (skySet.has(i)) cls += ' sky';
+                else if (winSet.has(i)) cls += ' win';
+                else if (tmpSet.has(i)) cls += ' tmp';
+                else if (dropSet.has(i)) cls += ' drop';
+                else if (later.has(i) && algo === 'sfs') cls += ' later';
+                dots += `<circle class="${cls}" cx="${sx(p.x)}" cy="${sy(p.y)}" r="${PR}"/>`;
+                if (carriedSet.has(i)) rings += `<circle class="ring carried" cx="${sx(p.x)}" cy="${sy(p.y)}" r="${PR + 3}"/>`;
+                if (s.kicked && s.kicked.includes(i)) {
+                    const a = sx(p.x), b = sy(p.y), r = PR + 1.5;
+                    rings += `<line class="xmark" x1="${a - r}" y1="${b - r}" x2="${a + r}" y2="${b + r}"/><line class="xmark" x1="${a - r}" y1="${b + r}" x2="${a + r}" y2="${b - r}"/>`;
+                }
+                labels += `<text class="pid" x="${sx(p.x) + PR + 1.5}" y="${sy(p.y) - PR + 1}" font-size="${fs(9)}">${i + 1}</text>`;
+            });
+            if (cur >= 0) {
+                const p = pts[cur];
+                rings += `<circle class="ring cur" cx="${sx(p.x)}" cy="${sy(p.y)}" r="${PR + 3.4}"/>`;
+                const right = p.x > 200;
+                const ty = p.y > 270 ? sy(p.y) + 10 + 12 / u : sy(p.y) - 9;
+                labels += `<text class="lbl" x="${sx(p.x) + (right ? -8 : 8)}" y="${ty}" font-size="${fs(12)}" text-anchor="${right ? 'end' : 'start'}">${esc(p.label)}</text>`;
+            }
+            h += `<line class="axis" x1="${sx(0)}" y1="${sy(0)}" x2="${sx(AX)}" y2="${sy(0)}"/><line class="axis" x1="${sx(0)}" y1="${sy(0)}" x2="${sx(0)}" y2="${sy(AX)}"/>`;
+            svg.innerHTML = h + deco + dots + rings + labels;
+        }
+
+        /* =================== 視窗與暫存檔 =================== */
+        function chip(i, cls = '', withName = false) {
+            return `<span class="chip ${cls}" title="${esc(pts[i].label)}（${pts[i].x} 元、${pts[i].y} 公尺）"><span class="n">#${i + 1}</span>${withName ? esc(pts[i].label) : ''}</span>`;
+        }
+        function renderBox(s) {
+            const w = winSize;
+            $('win-label').innerHTML = `視窗（最多 <b>${w}</b> 格）` + (algo === 'sfs' ? '：放進來的點都已經確定是 skyline' : '：放進來的點還可能被踢出去');
+            let slots = '';
+            const newOne = s.kind === 'read' && s.outcome === 'insert' ? s.p : -1;
+            for (let k = 0; k < w; k++) {
+                const e = s.win[k];
+                if (!e) { slots += `<div class="crow empty-slot">空位</div>`; continue; }
+                const p = pts[e.i];
+                let verdict;
+                if (algo === 'sfs') verdict = `<span class="verdict ok">skyline ✓</span>`;
+                else if (e.carried) verdict = `<span class="verdict wait">上一輪留下 · 讀完前 ${e.written} 筆確定</span>`;
+                else if (e.i === newOne) verdict = `<span class="verdict new">剛放進來</span>`;
+                else verdict = algo === 'bnl' && e.written > 0 ? `<span class="verdict wait">暫存檔已有 ${e.written} 筆</span>` : '';
+                slots += `<div class="crow${e.i === newOne ? ' cur' : ''}"><span class="pat">#${e.i + 1} ${esc(p.label)}</span><span class="meta"><b>${p.x}</b> 元 · <b>${p.y}</b> 公尺</span>${verdict}</div>`;
+            }
+            $('slots').innerHTML = slots;
+
+            const src = algo === 'sfs' && s.pass <= 1 ? '排好的順序' : (s.pass <= 1 ? '全部的點' : '上一輪的暫存檔');
+            $('input-label').innerHTML = s.kind === 'start' || s.kind === 'end'
+                ? (s.kind === 'start' ? '輸入（原本的順序）' : '輸入：全部讀完了')
+                : `第 <b>${s.pass || 1}</b> 輪的輸入（${src}）` + (algo === 'sfs' ? '，編號後面是分數（價格 + 距離）' : '');
+            const inp = s.kind === 'end' ? [] : s.data;
+            $('input').innerHTML = inp.length
+                ? inp.map((i, k) => {
+                    const cls = k === s.pos && s.kind === 'read' ? 'cur' : (k < s.pos || s.kind === 'passend' ? 'done' : '');
+                    if (algo === 'sfs' && s.kind !== 'start') {
+                        return `<span class="chip ${cls}" title="${esc(pts[i].label)}"><span class="n">#${i + 1}</span>${pts[i].x + pts[i].y}</span>`;
+                    }
+                    return chip(i, cls);
+                }).join('')
+                : `<span class="empty">${pts.length ? '—' : '沒有點'}</span>`;
+            $('temp').innerHTML = s.temp.length ? s.temp.map(i => chip(i, 'tmp')).join('') : '<span class="empty">空的</span>';
+            $('sky').innerHTML = s.sky.length ? s.sky.map(i => chip(i, 'sky', true)).join('') : '<span class="empty">還沒有</span>';
+        }
+
+        function renderStats(s) {
+            $('st-cmp').textContent = s.comps;
+            $('st-pass').textContent = s.pass;
+            $('st-sky').textContent = s.sky.length;
+            const b = bnlDone().comps, f = sfsDone().comps, n = pts.length, all = n * (n - 1);
+            const mx = Math.max(1, b, f, all);
+            $('bar-bnl').style.width = (b / mx * 100) + '%';
+            $('bar-sfs').style.width = (f / mx * 100) + '%';
+            $('bar-all').style.width = (all / mx * 100) + '%';
+            $('bar-bnl-n').textContent = b;
+            $('bar-sfs-n').textContent = f;
+            $('bar-all-n').textContent = all;
+            $('bar-bnl-row').classList.toggle('on', algo === 'bnl');
+            $('bar-sfs-row').classList.toggle('on', algo === 'sfs');
+            $('cmp-note').textContent = n
+                ? `視窗 ${winSize} 格：BNL 讀了 ${bnlDone().passes} 輪、SFS 讀了 ${sfsDone().passes} 輪。「每家都跟其他家比」是 ${n} × ${n - 1}，不用視窗、最笨的做法。`
+                : '圖上沒有店。';
+        }
+
+        /* =================== 程式碼 =================== */
+        const KW = {
+            java: new Set('public static final for if return new boolean int void class import while else null this record double continue break'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue break'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, numb, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (numb) return `<span class="num">${numb}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        const FILES = { java: ['Skyline.java', 'javac Skyline.java && java Skyline'], py: ['skyline.py', 'python3 skyline.py'] };
+        function renderCode(tags) {
+            if (measuringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），省時間
+            const pre = $('code');
+            const other = algo === 'bnl' ? 'sfs' : 'bnl';      // 同一個檔案裡另一個演算法的部分不顯示
+            const lines = CODE[lang].filter(([, t]) => !t.includes(other));
+            pre.innerHTML = lines.map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length && pre.clientHeight) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            const [file, cmd] = FILES[lang];
+            $('downloads').innerHTML = `下載 <a href="code/${file}" download>${file}</a>（BNL 和 SFS 都在裡面）　執行 <code>${cmd}</code>`;
+        }
+
+        /* =================== 顯示某一步 =================== */
+        function legendHtml() {
+            const common = '<span><i style="border-color:#7d8db8;background:#7d8db8"></i>還沒處理</span><span><i style="border-color:var(--accent);background:var(--accent)"></i>在視窗裡</span>' +
+                '<span><i style="border-color:var(--warn)"></i>寫到暫存檔</span><span><i style="border-color:var(--good);background:var(--good)"></i>確定是 skyline</span>' +
+                '<span><i style="border-color:#4a4a62;background:#4a4a62"></i>被支配、丟掉</span>';
+            return common + (algo === 'bnl'
+                ? '<span><i style="border-color:#c4b5fd;border-style:dashed"></i>上一輪留下、還沒確定</span>'
+                : '<span><i style="border-color:var(--accent2);border-radius:0;border-width:0 0 2px 0;height:6px"></i>價格 + 距離 = 目前分數</span>');
+        }
+
+        function show() {
+            const steps = traces[algo];
+            const c = cursors[algo];
+            const s = steps[c];
+            $('explain').innerHTML = `<span class="step-no">${algo === 'bnl' ? 'BNL' : 'SFS'} · 步驟 ${c + 1} / ${steps.length}</span>${describe(s, algo)}`;
+            $('algo-name').textContent = algo === 'bnl' ? 'Block-Nested-Loops' : 'Sort-Filter-Skyline';
+            drawPlot();
+            renderBox(s);
+            renderStats(s);
+            renderCode(tagsFor(s));
+            $('prev').disabled = $('first').disabled = c === 0;
+            $('next').disabled = $('last').disabled = c === steps.length - 1;
+            $('w-val').textContent = winSize;
+            $('w-minus').disabled = winSize <= W_MIN;
+            $('w-plus').disabled = winSize >= W_MAX;
+            $('count').textContent = `${pts.length} 家店`;
+            $('legend').innerHTML = legendHtml();
+            document.querySelectorAll('.tabs button').forEach(b => {
+                const on = b.dataset.tab === algo;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on);
+            });
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住。 */
+        let measuringBlocks = false, blockJob = 0;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            if (!blocks.length || count < 2) return;
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                const until = performance.now() + 25;
+                measuringBlocks = true;
+                blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                while (pass < passes && performance.now() < until) {
+                    showAt(i);
+                    blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                    if (++i === count) {
+                        i = 0; pass++;
+                        base = tallest.map(h => h + 'px');
+                        blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    }
+                }
+                measuringBlocks = false;
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                showAt(cur);
+                if (pass < passes) setTimeout(chunk, 0);
+            };
+            chunk();
+        }
+
+        /* 說明框用最長那段文字的高度固定住，下面的東西才不會跳來跳去。
+           兩個分頁共用同一組區塊，所以 BNL、SFS 的每一步都量，切換分頁時區塊也不會動 */
+        function reserveExplainHeight() {
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            ['bnl', 'sfs'].forEach(which => traces[which].forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">${which === 'bnl' ? 'BNL' : 'SFS'} · 步驟 ${i + 1} / ${traces[which].length}</span>${describe(s, which)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            }));
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            const nb = traces.bnl.length;
+            reserveBlockHeights(document, nb + traces.sfs.length,
+                i => { if (i < nb) { algo = 'bnl'; cursors.bnl = i; } else { algo = 'sfs'; cursors.sfs = i - nb; } show(); },
+                () => (algo === 'bnl' ? cursors.bnl : nb + cursors.sfs));
+        }
+
+        /* =================== 資料或參數改變：重算 trace =================== */
+        function rebuild() {
+            traces = { bnl: bnlTrace(V(), winSize), sfs: sfsTrace(V(), winSize) };
+        }
+        function changed(how) {
+            stopAuto();
+            rebuild();
+            if (how === 'add') {
+                // 直接看新的點第一次被讀進來的那一步
+                const idx = pts.length - 1;
+                ['bnl', 'sfs'].forEach(k => { cursors[k] = Math.max(0, traces[k].findIndex(s => s.kind === 'read' && s.p === idx)); });
+            } else if (how === 'delete') {
+                cursors.bnl = traces.bnl.length - 1;
+                cursors.sfs = traces.sfs.length - 1;
+            } else {
+                cursors.bnl = cursors.sfs = 0;
+            }
+            show();
+            reserveExplainHeight();
+        }
+
+        function setHint(text, warn) {
+            const el = $('hint');
+            el.textContent = text;
+            el.classList.toggle('warn', !!warn);
+        }
+        const DEFAULT_HINT = '點圖上空白處新增一家店（對齊到 10），點一下已有的店刪除它。';
+
+        function nextName() {
+            const used = new Set(pts.map(p => p.label));
+            return NAMES.find(nm => !used.has(nm)) || `店${pts.length + 1}`;
+        }
+
+        // 三種分布：獨立、相關（便宜的也比較近）、反相關（便宜的比較遠）
+        function randomShops(kind) {
+            const rnd = (a, b) => a + Math.random() * (b - a);
+            const snap = v => Math.max(10, Math.min(AX, Math.round(v / SNAP) * SNAP));
+            const names = [...NAMES].sort(() => Math.random() - 0.5);
+            const n = 30;
+            const out = [];
+            for (let k = 0; k < n; k++) {
+                let x, y;
+                if (kind === 'ind') { x = rnd(10, 300); y = rnd(10, 300); }
+                else if (kind === 'cor') { const t = rnd(30, 280); x = t + rnd(-35, 35); y = t + rnd(-35, 35); }
+                else { const t = rnd(20, 290); x = t + rnd(-25, 25); y = 310 - t + rnd(-25, 25); }
+                out.push({ label: names[k], x: snap(x), y: snap(y) });
+            }
+            return out;
+        }
+        const DIST_NAME = { ind: '獨立', cor: '相關', anti: '反相關' };
+
+        $('tools').addEventListener('click', e => {
+            const b = e.target.closest('[data-act]');
+            if (!b) return;
+            const act = b.dataset.act;
+            if (act === 'clear') { pts = []; changed('clear'); setHint('清空了。點圖上任何地方新增一家店。'); return; }
+            if (act === 'reset') { pts = DEFAULT_SHOPS.map(([label, x, y]) => ({ label, x, y })); changed('reset'); setHint(DEFAULT_HINT); return; }
+            pts = randomShops(act);
+            changed('random');
+            setHint(`${DIST_NAME[act]}分布的 ${pts.length} 家店：skyline 有 ${bnlDone().sky.length} 家；BNL 比較 ${bnlDone().comps} 次、SFS 比較 ${sfsDone().comps} 次。`);
+        });
+
+        /* =================== 在圖上點 =================== */
+        const svgEl = $('plot');
+        function toWorld(e) {
+            const pt = svgEl.createSVGPoint();
+            pt.x = e.clientX; pt.y = e.clientY;
+            return pt.matrixTransform(svgEl.getScreenCTM().inverse());
+        }
+        let downAt = null;
+        svgEl.addEventListener('pointerdown', e => { if (e.button === undefined || e.button === 0) downAt = { x: e.clientX, y: e.clientY }; });
+        svgEl.addEventListener('pointerup', e => {
+            if (!downAt) return;
+            const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+            downAt = null;
+            if (moved >= 8) return;
+            const w = toWorld(e);
+            const hitR = Math.max(6, 14 / unitPx(svgEl));
+            let best = -1, bestD = Infinity;
+            pts.forEach((p, i) => { const d = Math.hypot(sx(p.x) - w.x, sy(p.y) - w.y); if (d < bestD) { bestD = d; best = i; } });
+            if (best >= 0 && bestD <= hitR) {
+                const p = pts[best];
+                pts.splice(best, 1);
+                changed('delete');
+                setHint(`刪掉了 ${p.label}（${p.x} 元、${p.y} 公尺）。後面的編號會往前遞補。`);
+                return;
+            }
+            const dx = (w.x - PL) / PS, dy = (PB - w.y) / PS;
+            if (dx < -6 || dy < -6 || dx > AX + 6 || dy > AX + 6) return;
+            if (pts.length >= MAX_POINTS) { setHint(`最多 ${MAX_POINTS} 家，先刪掉一些吧。`, true); return; }
+            const snap = v => Math.max(0, Math.min(AX, Math.round(v / SNAP) * SNAP));
+            const p = { label: nextName(), x: snap(dx), y: snap(dy) };
+            pts.push(p);
+            changed('add');
+            setHint(`新增了 #${pts.length} ${p.label}（${p.x} 元、${p.y} 公尺），直接跳到它被讀進來的那一步。`);
+        });
+        svgEl.addEventListener('pointercancel', () => { downAt = null; });
+
+        /* =================== 播放控制 =================== */
+        function go(dir) {
+            const next = cursors[algo] + dir;
+            if (next < 0 || next >= traces[algo].length) return false;
+            cursors[algo] = next;
+            show();
+            return cursors[algo] < traces[algo].length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('play').textContent = '▶ 自動播放';
+        }
+        $('next').addEventListener('click', () => { stopAuto(); go(1); });
+        $('prev').addEventListener('click', () => { stopAuto(); go(-1); });
+        $('first').addEventListener('click', () => { stopAuto(); cursors[algo] = 0; show(); });
+        $('last').addEventListener('click', () => { stopAuto(); cursors[algo] = traces[algo].length - 1; show(); });
+        $('play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursors[algo] === traces[algo].length - 1) { cursors[algo] = 0; show(); }
+            $('play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!go(1)) stopAuto(); }, 1700);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            if (e.key === 'ArrowRight') { stopAuto(); go(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); go(-1); }
+        });
+        $('w-minus').addEventListener('click', () => { if (winSize > W_MIN) { winSize--; changed('window'); } });
+        $('w-plus').addEventListener('click', () => { if (winSize < W_MAX) { winSize++; changed('window'); } });
+
+        document.querySelector('.lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            document.querySelectorAll('.lang button').forEach(x => x.classList.toggle('active', x.dataset.lang === lang));
+            show();
+        });
+
+        function switchTab(tab) {
+            if (tab === algo) return;
+            stopAuto();
+            algo = tab;
+            history.replaceState(null, '', '#' + tab);
+            show();
+        }
+        document.querySelector('.tabs').addEventListener('click', e => {
+            const b = e.target.closest('button[data-tab]');
+            if (b) switchTab(b.dataset.tab);
+        });
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { show(); reserveExplainHeight(); }, 150);
+        });
+
+        rebuild();
+        setHint(DEFAULT_HINT);
+        if (location.hash === '#sfs') algo = 'sfs';
+        show();
+        reserveExplainHeight();
+    </script>
+</body>
+
+</html>

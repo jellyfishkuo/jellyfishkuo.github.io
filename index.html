@@ -453,6 +453,35 @@
             line-height: 1.8;
         }
 
+        /* Research 上方兩個入口：研究地圖、效能比賽場 */
+        .research-hub {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+            gap: 0.8rem;
+            margin-top: 1.6rem;
+            max-width: 760px;
+        }
+
+        .hub-link {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            min-width: 0;
+            padding: 0.8rem 1rem;
+            border: 1px solid rgba(124, 58, 237, 0.35);
+            border-radius: 12px;
+            background: rgba(124, 58, 237, 0.08);
+            color: var(--text);
+            text-decoration: none;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .hub-link:hover { border-color: var(--accent); background: rgba(124, 58, 237, 0.16); }
+        .hub-link img { flex: none; border-radius: 8px; }
+        .hub-link span { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+        .hub-link b { font-weight: 600; }
+        .hub-link small { color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+
         .topic-chips {
             display: flex;
             flex-wrap: wrap;
@@ -957,6 +986,16 @@
         <div class="reveal">
             <h2>What I'm digging into.</h2>
             <p class="research-lead">在資料庫系統實驗室研究資料探勘：從交易、時間序列與空間資料裡找出有意義的樣式，並設計資料結構和剪枝策略，讓資料不斷更新時也能有效率地維護結果。</p>
+            <div class="research-hub">
+                <a class="hub-link" href="research/overview.html" target="_blank">
+                    <img src="assets/icons/overview.svg" alt="" width="36" height="36">
+                    <span><b>研究地圖</b><small>所有演算法「改良自誰」的關係圖、建議閱讀順序、比較表</small></span>
+                </a>
+                <a class="hub-link" href="research/benchmark.html" target="_blank">
+                    <img src="assets/icons/benchmark.svg" alt="" width="36" height="36">
+                    <span><b>效能比賽場</b><small>產生上萬筆交易，實際跑 Apriori、FP-Growth、EFIM… 畫圖比快慢</small></span>
+                </a>
+            </div>
             <div class="topic-chips" role="group" aria-label="依主題篩選">
                 <button type="button" class="topic-chip active" data-topic="all" aria-pressed="true">全部</button>
                 <button type="button" class="topic-chip" data-topic="freq" aria-pressed="false">頻繁樣式</button>
@@ -1006,7 +1045,16 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="rule" style="transition-delay:0.1s">
+            <div class="project-card reveal" data-topics="freq" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/gspan.svg" alt="" width="28" height="28">gSpan 圖形樣式探勘</div>
+                <div class="project-desc">從交易、序列再到圖：把分子畫成圖（原子是點、化學鍵是邊），看 gSpan 怎麼把子圖寫成 DFS code、只從最右路徑一次接一條邊往外長。同一個子圖有很多種寫法，長出來的 code 不是最小的就剪掉，頁面會並排兩種寫法，標出是哪一列比較小；每張圖裡的嵌入都會標亮。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/gspan.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="rule" style="transition-delay:0.2s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/association-rules.svg" alt="" width="28" height="28">關聯規則：信賴度與提升度</div>
                 <div class="project-desc">接在 Apriori 後面：把頻繁樣式切成「買了 X 的人也會買 Y」的規則，一步一步算信賴度和提升度。後件逐層變大，只要一條不夠，包含它的更大後件就整批剪掉。看信賴度 75% 的規則為什麼可能其實毫無關聯，規則表可依信賴度、提升度排序。</div>
@@ -1015,7 +1063,7 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="rule" style="transition-delay:0.2s">
+            <div class="project-card reveal" data-topics="rule">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/prefixspan.svg" alt="" width="28" height="28">序列樣式：PrefixSpan</div>
                 <div class="project-desc">這次多了先後順序：「早上買☕🍞，下次再來買🍙」。每位常客一條時間軸，看 PrefixSpan 怎麼用前綴把資料庫投影成越來越小的後綴，分成「同一次一起買」和「下一次才買」兩種延伸，一路遞迴找出常見的購買順序。</div>
@@ -1024,7 +1072,16 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="hui">
+            <div class="project-card reveal" data-topics="rule" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/gsp-spade.svg" alt="" width="28" height="28">GSP 與 SPADE 序列樣式</div>
+                <div class="project-desc">序列樣式的另外兩種做法：GSP 像 Apriori 一層一層拼候選序列、每層掃一次資料庫；SPADE 像序列版 Eclat，把資料轉成 id-list，用「後來再買」「同一次一起買」兩種 temporal join 長出新樣式。跟 PrefixSpan 同一份資料、結果一樣，頁尾即時比較三種做法的掃描次數與候選數。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/gsp-spade.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.2s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/two-phase.svg" alt="" width="28" height="28">Two-Phase 高效益樣式</div>
                 <div class="project-desc">HUI-Miner 之前的經典兩階段做法：第一階段用有向下封閉性的 TWU 當上界，照 Apriori 一層一層挑候選；第二階段再掃一次資料庫算真正的效益。用長條圖看上界有多鬆、哪些候選是白算的，最後跟 HUI-Miner 比較掃描次數和候選數量。</div>
@@ -1033,7 +1090,7 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.1s">
+            <div class="project-card reveal" data-topics="hui">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/up-growth.svg" alt="" width="28" height="28">UP-Growth：用樹找高效益樣式</div>
                 <div class="project-desc">把交易壓成一棵 UP-Tree，節點只記「到自己為止」的效益，挖條件樹時再扣掉一定不屬於組合的錢，上界比 TWU 緊，候選比 Two-Phase 少。一步一步看 DGU、DGN、DLU、DLN 四招怎麼收緊上界，最後跟 Two-Phase、HUI-Miner 比較。</div>
@@ -1042,12 +1099,21 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.2s">
+            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.1s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/high-utility.svg" alt="" width="28" height="28">HUI-Miner 高效益樣式探勘</div>
                 <div class="project-desc">同一間超商，這次記下每樣買了幾個、每樣賺多少。看「出現次數多」和「賺最多」的組合有什麼不同、為什麼效益不能像 Apriori 那樣直接剪，以及 TWU 上界和 utility list 的剩餘效益怎麼安全地剪掉不可能的分支。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="research/high-utility.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.2s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/efim.svg" alt="" width="28" height="28">EFIM：投影與合併</div>
+                <div class="project-desc">不建 utility list，直接在越縮越小的投影資料庫上挖高效益樣式：相同的投影交易合成一筆，再用 utility-bin 掃一次就算出 sub-tree utility 與 local utility 兩個上界。一步一步看投影、合併、剪枝，最後跟 Two-Phase、UP-Growth、HUI-Miner 比較掃描次數和建了多少結構。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/efim.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
@@ -1105,7 +1171,16 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="spatial">
+            <div class="project-card reveal" data-topics="stream">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/bloom-filter.svg" alt="" width="28" height="28">Bloom Filter 與誤判率</div>
+                <div class="project-desc">超商集點活動要判斷「這張發票登錄過了沒」：Bloom Filter 只用 m 個位元和 k 個雜湊函數，一步一步看登錄時設定 k 格、查詢時看到第一個 0 就確定沒登錄過，以及誤判是怎麼來的。可以自己輸入號碼、調 m 和 k，對照理論與實測誤判率找出最佳 k，最後打開計數版看怎麼做到刪除。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/bloom-filter.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.1s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/spatial.svg" alt="" width="28" height="28">空間資料：四元樹與共位樣式</div>
                 <div class="project-desc">在街區地圖上點出店家，看四元樹怎麼依密度一路切格子、範圍查詢怎麼整塊跳過不相干的區域；另一頁用鄰近距離定義「一起出現」，算參與指數找出哪幾種店總是開在彼此附近。</div>
@@ -1114,7 +1189,7 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.1s">
+            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.2s">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/rtree.svg" alt="" width="28" height="28">R-tree 與 kNN 查詢</div>
                 <div class="project-desc">在街區地圖上一個點一個點插入，看 R-tree 怎麼挑「擴大最少」的框、節點滿了怎麼一分為二，長出一層層巢狀的框；再點地圖選位置，看優先佇列依距離一路找出最近的 k 家店，太遠的框連打開都不用。</div>
@@ -1123,12 +1198,21 @@
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>
-            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.2s">
+            <div class="project-card reveal" data-topics="spatial">
                 <div class="project-tag">Interactive Demo / Java · Python</div>
                 <div class="project-title"><img class="project-icon" src="assets/icons/dbscan.svg" alt="" width="28" height="28">DBSCAN 密度分群</div>
                 <div class="project-desc">圈裡鄰居夠多的點是核心點，用佇列把鄰居一圈一圈拉進來長成一群，鄰居太少的先標成雜訊，之後可能被收編。不用先指定群數，兩個月牙、同心圓也分得開，還能跟 k-means 的結果並排比較。</div>
                 <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
                     <a href="research/dbscan.html" target="_blank" class="project-link"
+                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
+                </div>
+            </div>
+            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.1s">
+                <div class="project-tag">Interactive Demo / Java · Python</div>
+                <div class="project-title"><img class="project-icon" src="assets/icons/skyline.svg" alt="" width="28" height="28">Skyline 查詢：BNL 與 SFS</div>
+                <div class="project-desc">中午找店吃飯，又便宜又近的店有哪些？在「價格 × 距離」散布圖上一步一步看 BNL 怎麼用有限的視窗比較、放不下的寫進暫存檔下一輪再讀，以及 SFS 先排序後視窗只進不出、比較次數少多少；可以點圖新增店家，或隨機產生獨立、相關、反相關三種分布。</div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
+                    <a href="research/skyline.html" target="_blank" class="project-link"
                         style="margin-top:0; color: var(--accent);">開始探索 →</a>
                 </div>
             </div>

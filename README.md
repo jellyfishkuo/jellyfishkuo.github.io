@@ -30,16 +30,19 @@
 
 ## 研究互動 Demo
 
-共 18 個，全部用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔）當例子。每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。首頁 Research 區可以點主題標籤篩選。
+共 23 個，大部分用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔）當例子。每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。首頁 Research 區可以點主題標籤篩選。
+
+- [研究地圖](research/overview.html)：所有演算法「改良自誰」的關係圖、建議閱讀順序、比較表。
+- [效能比賽場](research/benchmark.html)：在瀏覽器裡產生上萬筆隨機交易，實際跑頻繁／高效益樣式演算法，畫出門檻對時間的圖。
 
 | 主題 | Demo |
 |---|---|
-| 頻繁樣式 | [Apriori](research/apriori.html)、[FP-Growth](research/fp-growth.html)、[Eclat](research/eclat.html)、[封閉與最大樣式（CHARM）](research/closed-patterns.html) |
-| 關聯規則・序列 | [關聯規則：信賴度與提升度](research/association-rules.html)、[序列樣式 PrefixSpan](research/prefixspan.html) |
-| 高效益樣式 | [Two-Phase](research/two-phase.html)、[UP-Growth](research/up-growth.html)、[HUI-Miner](research/high-utility.html)、[Top-k 高效益樣式](research/top-k-hui.html) |
+| 頻繁樣式 | [Apriori](research/apriori.html)、[FP-Growth](research/fp-growth.html)、[Eclat](research/eclat.html)、[封閉與最大樣式（CHARM）](research/closed-patterns.html)、[gSpan 圖形樣式](research/gspan.html) |
+| 關聯規則・序列 | [關聯規則：信賴度與提升度](research/association-rules.html)、[序列樣式 PrefixSpan](research/prefixspan.html)、[GSP 與 SPADE](research/gsp-spade.html) |
+| 高效益樣式 | [Two-Phase](research/two-phase.html)、[UP-Growth](research/up-growth.html)、[HUI-Miner](research/high-utility.html)、[EFIM](research/efim.html)、[Top-k 高效益樣式](research/top-k-hui.html) |
 | 增量資料庫 | [FUP](research/incremental.html)、[CanTree](research/cantree.html) |
-| 資料串流 | [滑動視窗](research/sliding-window.html)、[Lossy Counting・Space-Saving](research/stream-counting.html)、[Count-Min Sketch](research/count-min.html) |
-| 空間資料 | [四元樹與共位樣式](research/spatial.html)、[R-tree 與 kNN 查詢](research/rtree.html)、[DBSCAN 密度分群](research/dbscan.html) |
+| 資料串流 | [滑動視窗](research/sliding-window.html)、[Lossy Counting・Space-Saving](research/stream-counting.html)、[Count-Min Sketch](research/count-min.html)、[Bloom Filter](research/bloom-filter.html) |
+| 空間資料 | [四元樹與共位樣式](research/spatial.html)、[R-tree 與 kNN 查詢](research/rtree.html)、[DBSCAN 密度分群](research/dbscan.html)、[Skyline：BNL 與 SFS](research/skyline.html) |
 
 ### 幾個從這些專案裡算出來的結果
 
