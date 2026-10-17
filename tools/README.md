@@ -30,6 +30,13 @@
 
 驗證 Java：`javac -encoding UTF-8 -d /tmp/out research/code/X.java && java -Dstdout.encoding=UTF-8 -cp /tmp/out X`（終端機不是 UTF-8 時中文會變問號）。
 
+## theme/：淺色版（果汁龍樂園）
+
+- `lightify.py`：幫頁面接上淺色。`<head>` 加 `theme.js`／`theme.css`，`<style>` 裡寫死的顏色改成 `var(--lt-xxxx, 原色)`（深色時變數沒定義，照舊），用到的顏色記在 `colors.json`，並重寫 `assets/theme.css` 最後自動產生的那段。可以重複執行。
+- `palette.py`：深色→淺色的換色規則（語法高亮、紫青主色有指定，其餘依亮度／飽和度換）。調規則後跑 `python3 lightify.py --css-only`。
+- 研究 Demo 改的是樣板：`cd tools/theme && python3 lightify.py --prefix ../ ../research/*/*.tpl ../../research/*.html`，再重新產生各頁。
+- JS 產生的顏色不用改程式：`theme.js` 會把畫面上 `fill`/`stroke`/`style=` 的顏色換成同樣的 `var()`；顏色要先被 lightify 登記過（掃整個檔案）才有淺色值。
+
 ## set-online/：SET 多人連線的本機測試環境
 
 SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測試時改成本機的：

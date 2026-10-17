@@ -9,13 +9,14 @@
     <link rel="apple-touch-icon" href="../assets/icons/stream-counting-180.png">
     <title>串流近似計數：Lossy Counting 與 Space-Saving</title>
     <meta name="description" content="記憶體有限、資料又停不下來時，怎麼數每個商品賣了幾次？一步一步看 Lossy Counting 怎麼分桶清理、Space-Saving 怎麼只用 k 個計數器，以及它們的誤差保證，Java 與 Python 程式碼逐行對照。">
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         :root {
             --bg: #05050a;
@@ -57,7 +58,7 @@
         h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
         h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
         h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
-        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro { color: var(--lt-c6c6d6, #c6c6d6); max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
         .intro b { color: var(--text); }
         .intro a { color: var(--accent2); }
 
@@ -127,19 +128,19 @@
         }
         .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
         .explain b { color: var(--warn); font-weight: 600; }
-        .explain .ok { color: #86efac; font-weight: 600; }
-        .explain .no { color: #fca5a5; font-weight: 600; }
+        .explain .ok { color: var(--lt-86efac, #86efac); font-weight: 600; }
+        .explain .no { color: var(--lt-fca5a5, #fca5a5); font-weight: 600; }
 
         /* ── 串流輸送帶 ── */
         .belt {
             overflow-x: auto;
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 10px 8px;
         }
         .belt-inner { display: flex; gap: 6px; width: max-content; align-items: flex-end; }
-        .bucket { display: flex; gap: 3px; position: relative; padding: 18px 4px 4px; border: 1px dashed #2c2c48; border-radius: 9px; }
+        .bucket { display: flex; gap: 3px; position: relative; padding: 18px 4px 4px; border: 1px dashed var(--lt-2c2c48, #2c2c48); border-radius: 9px; }
         .bucket.plain { border-color: transparent; padding-top: 4px; }
         .bucket .blab { position: absolute; top: 1px; left: 6px; font: 0.62rem 'Space Mono', monospace; color: var(--muted); white-space: nowrap; }
         .bucket.cur { border-color: var(--accent2); }
@@ -161,7 +162,7 @@
         .cell.future { opacity: 0.4; border-style: dashed; background: transparent; }
         .cell.cur { border-color: var(--good); box-shadow: 0 0 0 1px var(--good); }
         .cell.cur .idx { color: var(--good); }
-        .cell.same { background: rgba(245, 158, 11, 0.22); }
+        .cell.same { background: var(--lt-f59e0b-22, rgba(245, 158, 11, 0.22)); }
         .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; }
         .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 0.3rem; vertical-align: -1px; border: 2px solid; }
         .composer { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); font-size: 0.85rem; }
@@ -208,18 +209,18 @@
         .row .n.off { color: var(--bad); }
         .row.cur { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
         .row.new { border-color: var(--good); box-shadow: 0 0 0 1px var(--good) inset; }
-        .row.gone { opacity: 0.6; border-style: dashed; border-color: rgba(248, 113, 113, 0.6); }
+        .row.gone { opacity: 0.6; border-style: dashed; border-color: var(--lt-f87171-60, rgba(248, 113, 113, 0.6)); }
         .row.gone .it { text-decoration: line-through; }
-        .row.rep { box-shadow: inset 3px 0 0 var(--accent); background: rgba(124, 58, 237, 0.12); }
-        .row.rep.fp { box-shadow: inset 3px 0 0 var(--warn); background: rgba(245, 158, 11, 0.1); }
-        .rbar { position: relative; height: 10px; background: #1b1b30; border-radius: 5px; }
+        .row.rep { box-shadow: inset 3px 0 0 var(--accent); background: var(--lt-7c3aed-12, rgba(124, 58, 237, 0.12)); }
+        .row.rep.fp { box-shadow: inset 3px 0 0 var(--warn); background: var(--lt-f59e0b-10, rgba(245, 158, 11, 0.1)); }
+        .rbar { position: relative; height: 10px; background: var(--lt-1b1b30, #1b1b30); border-radius: 5px; }
         .rbar .solid { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent2); border-radius: 5px; transition: width 0.25s; }
-        .rbar .range { position: absolute; top: 0; bottom: 0; background: rgba(6, 182, 212, 0.3); border-radius: 0 5px 5px 0; transition: left 0.25s, width 0.25s; }
-        .rbar .truth { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #fff; border-radius: 1px; transition: left 0.25s; }
+        .rbar .range { position: absolute; top: 0; bottom: 0; background: var(--lt-06b6d4-30, rgba(6, 182, 212, 0.3)); border-radius: 0 5px 5px 0; transition: left 0.25s, width 0.25s; }
+        .rbar .truth { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--lt-ffffff, #fff); border-radius: 1px; transition: left 0.25s; }
         .rbar .truth.out { background: var(--bad); }
         .empty { color: var(--muted); font-size: 0.85rem; padding: 0.3rem 0.2rem; }
         .forgot { margin-top: 0.7rem; font-size: 0.8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0.3rem 0.45rem; align-items: center; min-height: 1.6em; }
-        .forgot .chip { border: 1px dashed #3a3a5a; border-radius: 999px; padding: 0 0.5rem; color: #b4b4c8; white-space: nowrap; }
+        .forgot .chip { border: 1px dashed var(--lt-3a3a5a, #3a3a5a); border-radius: 999px; padding: 0 0.5rem; color: var(--lt-b4b4c8, #b4b4c8); white-space: nowrap; }
         .forgot .chip b { font: 700 0.74rem 'Space Mono', monospace; color: var(--text); }
 
         .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
@@ -229,14 +230,14 @@
         .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
         .bars { display: grid; gap: 0.35rem; margin-top: 0.8rem; }
         .bar { display: grid; grid-template-columns: 8.4em 1fr 3em; gap: 0.5rem; align-items: center; font-size: 0.78rem; color: var(--muted); }
-        .bar .track { height: 10px; background: #1b1b30; border-radius: 6px; overflow: hidden; }
+        .bar .track { height: 10px; background: var(--lt-1b1b30, #1b1b30); border-radius: 6px; overflow: hidden; }
         .bar .fill { height: 100%; background: var(--warn); border-radius: 6px; transition: width 0.25s; }
-        .bar .fill.limit { background: #4a4a6a; }
+        .bar .fill.limit { background: var(--lt-4a4a6a, #4a4a6a); }
         .bar .fill.mem { background: var(--accent2); }
         .bar .n { font: 700 0.8rem 'Space Mono', monospace; color: var(--text); text-align: right; }
         .guar { margin-top: 0.6rem; font-size: 0.82rem; color: var(--muted); }
         .guar b { color: var(--text); }
-        .guar .ok { color: #86efac; font-weight: 600; }
+        .guar .ok { color: var(--lt-86efac, #86efac); font-weight: 600; }
 
         /* ── 程式碼 ── */
         .lang { display: flex; gap: 0.25rem; }
@@ -251,7 +252,7 @@
         }
         .lang button.active { color: var(--text); border-color: var(--accent2); }
         pre.code {
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 0.5rem 0;
@@ -262,21 +263,21 @@
         }
         @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
         .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
-        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: #4a4a66; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: var(--lt-4a4a66, #4a4a66); }
         .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
-        .kw { color: #c792ea; }
-        .fn { color: #82aaff; }
-        .num { color: #f78c6c; }
-        .cm { color: #637777; }
-        .str { color: #c3e88d; }
-        .ty { color: #ffcb6b; }
+        .kw { color: var(--lt-c792ea, #c792ea); }
+        .fn { color: var(--lt-82aaff, #82aaff); }
+        .num { color: var(--lt-f78c6c, #f78c6c); }
+        .cm { color: var(--lt-637777, #637777); }
+        .str { color: var(--lt-c3e88d, #c3e88d); }
+        .ty { color: var(--lt-ffcb6b, #ffcb6b); }
         .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
         .downloads a { color: var(--accent2); }
         .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
 
         .notes { margin-top: 1rem; display: grid; gap: 1rem; }
         @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } }
-        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes p, .notes li { color: var(--lt-c6c6d6, #c6c6d6); font-size: 0.92rem; }
         .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
         .notes b { color: var(--text); }
         .notes a { color: var(--accent2); }
@@ -289,11 +290,11 @@
         /* ── 練習模式（猜下一步）：題目疊在說明框的位置，不推動任何區塊 ── */
         .quiz-bar { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.75rem; }
         .quiz-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
-        .quiz-toggle .sw { position: relative; flex: none; width: 30px; height: 17px; border-radius: 9px; background: #2a2a48; transition: background 0.15s; }
+        .quiz-toggle .sw { position: relative; flex: none; width: 30px; height: 17px; border-radius: 9px; background: var(--lt-2a2a48, #2a2a48); transition: background 0.15s; }
         .quiz-toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
         .quiz-toggle.quiz-on { border-color: var(--accent); }
         .quiz-toggle.quiz-on .sw { background: var(--accent); }
-        .quiz-toggle.quiz-on .sw::after { transform: translateX(13px); background: #fff; }
+        .quiz-toggle.quiz-on .sw::after { transform: translateX(13px); background: var(--lt-ffffff, #fff); }
         .quiz-toggle { flex: none; }
         .quiz-score { font: 0.8rem 'Space Mono', monospace; color: var(--accent2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
         .quiz-host { position: relative; display: grid; margin-top: 0.8rem; }
@@ -301,14 +302,14 @@
         .quiz {
             position: absolute; inset: 0; z-index: 2; overflow: auto;
             display: flex; flex-direction: column; gap: 0.45rem;
-            background: var(--panel-2); border: 1px solid rgba(124, 58, 237, 0.5); border-left: 3px solid var(--accent);
+            background: var(--panel-2); border: 1px solid var(--lt-7c3aed-50, rgba(124, 58, 237, 0.5)); border-left: 3px solid var(--accent);
             border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.88rem; line-height: 1.5;
         }
         .quiz[hidden] { display: none; }
         .quiz.nudge { animation: quiz-nudge 0.3s; }
         @keyframes quiz-nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
         .quiz-head { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem 0.5rem; flex-wrap: wrap; }
-        .quiz-tag { font: 700 0.74rem 'Space Mono', monospace; color: #c4b5fd; }
+        .quiz-tag { font: 700 0.74rem 'Space Mono', monospace; color: var(--lt-c4b5fd, #c4b5fd); }
         /* 題目和解釋疊在同一格：答完換成解釋，高度取兩者較高的，不會跳 */
         .quiz-body { display: grid; }
         .quiz-body > * { grid-area: 1 / 1; min-width: 0; }
@@ -318,24 +319,25 @@
         .quiz-choices.wide .quiz-choice { min-height: 32px; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
         .quiz-choice {
             min-height: 36px; min-width: 44px; padding: 0.25rem 0.7rem; border-radius: 8px;
-            border: 1px solid var(--border); background: #1c1c33; color: var(--text);
+            border: 1px solid var(--border); background: var(--lt-1c1c33, #1c1c33); color: var(--text);
             font: inherit; font-size: 0.86rem; line-height: 1.35; text-align: left; cursor: pointer; overflow-wrap: anywhere;
         }
         .quiz-choice:hover:not(:disabled) { border-color: var(--accent2); }
         .quiz-choice:disabled { cursor: default; }
-        .quiz-choice.sel { border-color: var(--accent2); background: rgba(6, 182, 212, 0.14); box-shadow: 0 0 0 1px var(--accent2) inset; }
-        .quiz-choice.right { border-color: var(--good); background: rgba(34, 197, 94, 0.18); color: #bbf7d0; }
-        .quiz-choice.right.missed { border-style: dashed; background: rgba(34, 197, 94, 0.07); }   /* 複選題漏選的 */
-        .quiz-choice.wrong { border-color: var(--bad); background: rgba(248, 113, 113, 0.14); color: #fecaca; text-decoration: line-through; }
+        .quiz-choice.sel { border-color: var(--accent2); background: var(--lt-06b6d4-14, rgba(6, 182, 212, 0.14)); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .quiz-choice.right { border-color: var(--good); background: var(--lt-22c55e-18, rgba(34, 197, 94, 0.18)); color: var(--lt-bbf7d0, #bbf7d0); }
+        .quiz-choice.right.missed { border-style: dashed; background: var(--lt-22c55e-7, rgba(34, 197, 94, 0.07)); }   /* 複選題漏選的 */
+        .quiz-choice.wrong { border-color: var(--bad); background: var(--lt-f87171-14, rgba(248, 113, 113, 0.14)); color: var(--lt-fecaca, #fecaca); text-decoration: line-through; }
         .quiz-actions { display: flex; gap: 0.35rem; margin-left: auto; }
         .quiz-actions .btn { padding: 0.2rem 0.65rem; font-size: 0.82rem; }
         .quiz.done .quiz-ok { visibility: hidden; }
-        .quiz-why { visibility: hidden; font-size: 0.85rem; color: #c6c6d6; }
+        .quiz-why { visibility: hidden; font-size: 0.85rem; color: var(--lt-c6c6d6, #c6c6d6); }
         .quiz.done .quiz-why { visibility: visible; }
         .quiz.done .quiz-text { visibility: hidden; }
         .quiz-verdict { color: var(--good); margin-right: 0.3rem; }
         .quiz.miss .quiz-verdict { color: var(--bad); }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>

@@ -9,12 +9,13 @@
     <link rel="apple-touch-icon" href="../assets/icons/benchmark-180.png">
     <title>效能比賽場：頻繁與高效益樣式探勘</title>
     <meta name="description" content="在瀏覽器裡產生較大的隨機交易資料，實際跑 Apriori、FP-Growth、Eclat 與 Two-Phase、UP-Growth、HUI-Miner、EFIM，畫出門檻對時間、對候選數的圖，並檢查每個演算法的結果完全一致。">
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，表格裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         :root {
             --bg: #05050a;
@@ -59,7 +60,7 @@
         h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
         h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
         h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
-        .intro { color: #c6c6d6; max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro { color: var(--lt-c6c6d6, #c6c6d6); max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
         .intro b { color: var(--text); }
         .intro a { color: var(--accent2); }
 
@@ -113,13 +114,13 @@
         .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
         .seg button { background: none; border: none; color: var(--muted); padding: 0.3rem 0.7rem; font: inherit; font-size: 0.84rem; cursor: pointer; }
         .seg button + button { border-left: 1px solid var(--border); }
-        .seg button.active { background: rgba(6, 182, 212, 0.16); color: var(--text); }
+        .seg button.active { background: var(--lt-06b6d4-16, rgba(6, 182, 212, 0.16)); color: var(--text); }
         .seg button:disabled { cursor: default; }
 
         /* ── 資料產生器 ── */
         .form { display: grid; gap: 0.55rem; }
         .row { display: grid; grid-template-columns: 7.2em 1fr 4.6em; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
-        .row > span:first-child { color: #c6c6d6; }
+        .row > span:first-child { color: var(--lt-c6c6d6, #c6c6d6); }
         .row input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); }
         .row .v { font: 700 0.85rem 'Space Mono', monospace; text-align: right; white-space: nowrap; }
         .row.wide { grid-template-columns: 7.2em 1fr; }
@@ -129,7 +130,7 @@
         .seed .btn { white-space: nowrap; }
         @media (max-width: 420px) { .row { grid-template-columns: 6.3em 1fr 4.3em; font-size: 0.85rem; } .row.wide { grid-template-columns: 6.3em 1fr; } }
         input.num {
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             color: var(--text);
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -158,12 +159,12 @@
         /* ── 圖 ── */
         .chart { display: block; width: 100%; height: 250px; }
         .chart text { font-family: 'Space Mono', ui-monospace, monospace; }
-        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.82rem; margin-top: 0.4rem; color: #c6c6d6; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.82rem; margin-top: 0.4rem; color: var(--lt-c6c6d6, #c6c6d6); }
         .legend .sw { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 0.35rem; }
         .legend .x { color: var(--muted); }
         .pill { font-size: 0.8rem; padding: 0.15rem 0.6rem; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
-        .pill.ok { color: #86efac; border-color: rgba(34, 197, 94, 0.55); background: rgba(34, 197, 94, 0.12); }
-        .pill.no { color: #fca5a5; border-color: rgba(248, 113, 113, 0.55); background: rgba(248, 113, 113, 0.12); }
+        .pill.ok { color: var(--lt-86efac, #86efac); border-color: var(--lt-22c55e-55, rgba(34, 197, 94, 0.55)); background: var(--lt-22c55e-12, rgba(34, 197, 94, 0.12)); }
+        .pill.no { color: var(--lt-fca5a5, #fca5a5); border-color: var(--lt-f87171-55, rgba(248, 113, 113, 0.55)); background: var(--lt-f87171-12, rgba(248, 113, 113, 0.12)); }
 
         /* ── 表格（寬的話只在自己的框裡捲動） ── */
         .tbl-wrap { overflow-x: auto; }
@@ -171,12 +172,12 @@
         .cmp th, .cmp td { border-bottom: 1px solid var(--border); padding: 0.3rem 0.45rem; text-align: right; white-space: nowrap; }
         .cmp th:first-child, .cmp td:first-child { text-align: left; }
         .cmp th { color: var(--muted); font-weight: 400; }
-        .cmp th.grp { text-align: center; color: #c6c6d6; border-bottom: none; }
+        .cmp th.grp { text-align: center; color: var(--lt-c6c6d6, #c6c6d6); border-bottom: none; }
         .cmp td { color: var(--text); font-family: 'Space Mono', monospace; }
-        .cmp td:first-child { font-family: inherit; color: #c6c6d6; }
-        .cmp td.fast { color: #86efac; font-weight: 700; }
+        .cmp td:first-child { font-family: inherit; color: var(--lt-c6c6d6, #c6c6d6); }
+        .cmp td.fast { color: var(--lt-86efac, #86efac); font-weight: 700; }
         .cmp td.to { color: var(--bad); font-family: inherit; }
-        .cmp td.skip, .cmp td.wait { color: #4a4a66; font-family: inherit; }
+        .cmp td.skip, .cmp td.wait { color: var(--lt-4a4a66, #4a4a66); font-family: inherit; }
         .cmp td.yes { color: var(--good); }
         .cmp td.noo { color: var(--bad); }
         .cmp .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.3rem; vertical-align: middle; }
@@ -201,11 +202,12 @@
 
         .notes { margin-top: 1rem; display: grid; gap: 1rem; }
         @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr 1fr; } }
-        .notes p, .notes li { color: #c6c6d6; font-size: 0.92rem; }
+        .notes p, .notes li { color: var(--lt-c6c6d6, #c6c6d6); font-size: 0.92rem; }
         .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
         .notes b { color: var(--text); }
         .notes a { color: var(--accent2); }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
