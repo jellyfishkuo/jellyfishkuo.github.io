@@ -33,6 +33,7 @@
             --gold: #facc15;
             --line-hl: rgba(124, 58, 237, 0.22);
         }
+        [data-theme="light"] { --gold: #e0a000; }  /* 淺色：亮黃在白底上看不到，換深一點的金色 */
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 

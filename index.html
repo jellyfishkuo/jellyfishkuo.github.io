@@ -233,6 +233,10 @@
         [data-theme="light"] .tile { border: 2.5px solid var(--ink); border-radius: 16px; background: #fff; box-shadow: 4px 4px 0 var(--ink); }
         [data-theme="light"] .tile:nth-child(3n+2) { background: #fff4dc; }
         [data-theme="light"] .tile:nth-child(3n) { background: #f2fbe4; }
+        @media (max-width: 560px) {  /* 手機兩欄：排成棋盤格，不然 3n 的規律在兩欄裡看起來很亂 */
+            [data-theme="light"] .tile:nth-child(n) { background: #fff; }
+            [data-theme="light"] .tile:nth-child(4n+2), [data-theme="light"] .tile:nth-child(4n+3) { background: #fff4dc; }
+        }
         [data-theme="light"] .tile:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
         [data-theme="light"] .tile img { width: 42px; height: 42px; }
         [data-theme="light"] .tile h3 { font-weight: 900; }

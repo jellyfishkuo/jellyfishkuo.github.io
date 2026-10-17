@@ -214,7 +214,7 @@ h2 {
     font-size: clamp(1.4rem, 4vw, 2rem);
     margin-bottom: 1.5rem;
     display: flex;
-    align-items: center;
+    align-items: flex-start;   /* 標題換行時，前面的短線對齊第一行 */
     gap: 12px;
     color: var(--lt-ffffff, #fff);
     line-height: 1.3;
@@ -224,6 +224,7 @@ h2::before {
     content: '';
     width: 20px;
     height: 4px;
+    margin-top: calc(0.65em - 2px);
     background: var(--accent2);
     display: inline-block;
     border-radius: 2px;
