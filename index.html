@@ -611,11 +611,8 @@
         function syncThemeBtn() {
             themeBtn.setAttribute('aria-pressed', window.jfkTheme.get() === 'dark');
         }
-        // 點太陽就淺色、點月亮就深色；用鍵盤按（沒點在圖示上）就切到另一種
-        themeBtn.addEventListener('click', e => {
-            const opt = e.target.closest('.opt');
-            if (opt) window.jfkTheme.set(opt.dataset.set); else window.jfkTheme.toggle();
-        });
+        // 按鈕上任何地方都可以按，按一下就切到另一種
+        themeBtn.addEventListener('click', () => window.jfkTheme.toggle());
         document.addEventListener('themechange', syncThemeBtn);
         syncThemeBtn();
 

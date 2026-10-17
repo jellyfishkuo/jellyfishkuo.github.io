@@ -41,11 +41,8 @@
                 '<span class="opt" data-set="light" title="淺色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg></span>' +
                 '<span class="opt" data-set="dark" title="深色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>';
             var sync = function () { btn.setAttribute('aria-pressed', root.dataset.theme === 'dark'); };
-            // 點太陽就淺色、點月亮就深色；用鍵盤按（沒點在圖示上）就切到另一種
-            btn.addEventListener('click', function (e) {
-                var opt = e.target.closest && e.target.closest('.opt');
-                if (opt) window.jfkTheme.set(opt.getAttribute('data-set')); else window.jfkTheme.toggle();
-            });
+            // 按鈕上任何地方都可以按（太陽、月亮或中間），按一下就切到另一種
+            btn.addEventListener('click', function () { window.jfkTheme.toggle(); });
             document.addEventListener('themechange', sync);
             sync();
             return btn;
