@@ -318,10 +318,12 @@
 
         /* ── 競賽 ── */
         .ach { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 8px; }
+        /* 電腦上好幾欄時，名字長的卡片會把同一列撐高；每一列都用最高的那張，卡片大小一致 */
+        @media (min-width: 640px) { .ach { grid-auto-rows: 1fr; } }
         .ach li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid rgba(255, 255, 255, 0.06); }
         .ach .m { font-size: 1.3rem; text-align: center; line-height: 1; }
         .ach .y { font-family: var(--mono); color: var(--accent2); font-size: 0.68rem; letter-spacing: 0.08em; display: block; }
-        .ach .t { font-weight: 700; font-size: 0.88rem; line-height: 1.4; }
+        .ach .t { font-weight: 700; font-size: 0.88rem; line-height: 1.4; display: block; }
         .ach .a { color: var(--muted); font-size: 0.8rem; display: block; }
         [data-theme="light"] .ach li { background: #fff; border: 2px solid var(--ink); }
         [data-theme="light"] .ach .y { color: #2b6b0e; font-weight: 700; }
