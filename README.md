@@ -114,9 +114,9 @@ npx serve .
 
 1. 在 `games/` 放 `你的專案.html`（單檔，自我完備）。
 2. 想寫技術介紹就在 `tools/detail/content/` 加一份內容、把專案加進 `build_detail.py` 的 `GAMES`，重新產生所有技術介紹頁（側欄交叉連結才會同步）。
-3. 在 `index.html` 的 `#projects` 區塊複製一張 `.project-card`，補上「技術介紹」與「直接試玩」兩個連結，並把 About 的「自己做的小工具與遊戲」數字加一。
+3. 在 `index.html` 的 `#projects` 區塊複製一張 `.tile`（圖示、淺色版的小標籤、名稱、一句話說明、「直接玩」與「技術介紹」連結），並把 About 的「自己做的小工具與遊戲」數字加一。
 4. 在其他新版技術文章的「其他技術剖析」側欄補上交叉連結，並同步 README 的專案表與檔案樹。
-5. 新增的是研究 Demo 的話，照 [`tools/research/BRIEF.md`](tools/research/BRIEF.md) 做；首頁卡片要加 `data-topics` 才篩選得到，README 的研究表也要補上。
+5. 新增的是研究 Demo 的話，照 [`tools/research/BRIEF.md`](tools/research/BRIEF.md) 做；首頁 `#demos` 清單加一列 `.demo`（名稱＋一句話說明），要加 `data-topics` 才篩選得到，README 的研究表也要補上。
 6. 記得檢查：
    - `<html lang="zh-Hant">` 與 `<meta name="viewport">` 都要有，且**不要**鎖 `user-scalable=no`（違反 WCAG 1.4.4）
    - favicon 路徑從 `games/` 出發是 `../assets/...`

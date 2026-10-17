@@ -13,7 +13,9 @@
 ## 網站結構
 
 ```
-index.html              首頁：Hero / 01 About / 02 Research / 03 Skills / 04 Projects / 05 Achievements / 06 Contact
+index.html              首頁：開場 / 作品 / 研究 / 關於我（含技能）/ 競賽 / 聯絡；深色＝A 版面、淺色＝C「果汁龍樂園」版面
+assets/theme.js         深色／淺色切換（<head> 同步載入；localStorage `jfk-theme`，沒選過跟系統）
+assets/dragon.svg       沒有底色的果汁龍（首頁開場、導覽列用）
 assets/logo.svg|.ico|-32/-180.png   站台圖示（深色底的果汁龍，手拿蘋果汁）
 assets/icons/<name>.svg + -32.png + -180.png   每個作品的圖示（64×64、#12121c 圓角深色底、扁平圖形）
 games/                  單檔遊戲／工具（HTML+CSS+JS 同一檔），以及 *-detail.html 技術介紹頁（由 tools/detail 產生）
@@ -42,7 +44,10 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 ## 開發慣例與踩過的坑
 
 - 單檔、零建置、零框架；外部只用 CDN（Google Fonts、PeerJS、MQTT.js、canvas-confetti、MathJax）。
-- 視覺：深色底、紫 `#7c3aed` / 青 `#06b6d4`，標題 `Syne`、等寬 `Space Mono`。
+- 視覺有兩套，用 `assets/theme.js` 切換、`<html data-theme="dark|light">` 決定：
+  - 深色（A）：深底、紫 `#7c3aed` / 青 `#06b6d4`，標題 `Syne`、等寬 `Space Mono`，細框，小標「// 01 — PROJECTS」。
+  - 淺色（C，果汁龍樂園）：淺綠底 `#e9f7d9`、白卡片、粗黑框 `#1d2b12`＋硬陰影、果汁橘 `#ffb02e`、蘋果紅圓點標題，字型 `Noto Sans TC` 900；程式碼框也用淺色。
+  - 兩套版面可以不一樣（使用者要求），只屬於一種主題的元素用 `.only-dark` / `.only-light`。目前只有首頁接上，遊戲與 Demo 頁之後分批換。
 - **不要用 `top`、`name`、`status`、`parent` 當全域變數或函式名**（`const top` 曾讓整頁掛掉）。
 - **內容會變長變短的區塊，不能推動旁邊或下面的其他區塊**（使用者明確要求，所有程式都適用）。一步一步播放的說明框用最長說明的高度固定；Research Demo 的每個 `.card` 由 `reserveBlockHeights()` 把每一步都畫一次、用最高的那次固定（分段量，不卡畫面），新 Demo 也要接上。要切換顯示的提示文字用 `visibility` 切，不要清空內容。驗證：從頭按到尾，每個區塊的位置都不能變。
 - 每頁的 CSS 都要有 `html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }`，不然手機瀏覽器會自動放大部分文字，程式碼框的字一行大一行小。**這行要放在字型的 `@import` 後面**（`@import` 必須是樣式表的第一條，前面有任何規則就會失效、字型整個跑掉）。

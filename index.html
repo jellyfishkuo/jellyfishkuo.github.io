@@ -15,1783 +15,680 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jellyfishkuo.github.io/">
     <meta property="og:image" content="https://jellyfishkuo.github.io/assets/logo-180.png">
+    <!-- 先決定深色／淺色，畫面才不會先閃另一種顏色 -->
+    <script src="assets/theme.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
-        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
-        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
-
-        *,
-        *::before,
-        *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        /*
+         * 兩種主題，版面不一樣：
+         *   深色（A）：深底、紫青漸層、細框、等寬字小標「// 01 — PROJECTS」
+         *   淺色（C）：果汁龍樂園，淺綠底、橘色開場、粗黑框＋硬陰影、紅點標題
+         * 同一份 HTML，只靠 [data-theme] 切換樣式；只屬於某一種主題的文字用 .only-dark / .only-light。
+         */
         :root {
             --bg: #05050f;
+            --surface: rgba(255, 255, 255, 0.03);
+            --surface-solid: #0c0c1a;
+            --text: #e2e8f0;
+            --muted: #8b95a8;
             --accent: #7c3aed;
             --accent2: #06b6d4;
-            --text: #e2e8f0;
-            --muted: #64748b;
+            --line: rgba(124, 58, 237, 0.22);
+            --sans: 'Noto Sans TC', -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            --mono: 'Space Mono', ui-monospace, monospace;
+            color-scheme: dark;
         }
 
-        html {
-            scroll-behavior: smooth;
+        :root[data-theme="light"] {
+            --bg: #e9f7d9;
+            --surface: #ffffff;
+            --surface-solid: #ffffff;
+            --text: #1d2b12;
+            --muted: #4f5d44;
+            --accent: #ff9f1c;
+            --accent2: #3f8f12;
+            --line: #1d2b12;
+            --ink: #1d2b12;
+            --lime: #9bd72f;
+            --juice: #ffb02e;
+            --apple: #e8413c;
+            color-scheme: light;
         }
 
+        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        [data-theme="light"] ::selection { background: #ffb02e; color: #1d2b12; -webkit-text-fill-color: #1d2b12; }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: 64px; }
         body {
             background: var(--bg);
             color: var(--text);
-            font-family: 'Syne', sans-serif;
+            font-family: var(--sans);
+            line-height: 1.7;
             overflow-x: hidden;
         }
+        a { color: inherit; }
+        img { max-width: 100%; }
 
-        /* ── Canvas ── */
-        #canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none;
-        }
+        .only-light { display: none !important; }
+        [data-theme="light"] .only-light { display: revert !important; }
+        [data-theme="light"] .only-dark { display: none !important; }
 
-        /* ── Nav ── */
+        .wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 clamp(16px, 5vw, 40px); }
+
+        /* ── 背景粒子（只有深色有） ── */
+        #canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        [data-theme="light"] #canvas { display: none; }
+
+        /* ── 導覽列 ── */
         nav {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            padding: 1.2rem 3rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 100;
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(124, 58, 237, 0.15);
+            position: sticky; top: 0; z-index: 100;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            background: rgba(5, 5, 15, 0.82);
+            border-bottom: 1px solid var(--line);
         }
+        .nav-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; }
+        .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; min-width: 0; }
+        .brand img { width: 30px; height: 25px; flex: none; }
+        .brand .name-dark { font-family: var(--mono); color: var(--accent2); letter-spacing: 0.08em; font-size: 0.95rem; }
+        .brand .name-light { font-weight: 900; font-size: 1.05rem; }
+        .nav-right { display: flex; align-items: center; gap: clamp(10px, 2.4vw, 28px); }
+        .nav-links { display: flex; gap: clamp(12px, 2.4vw, 28px); list-style: none; }
+        .nav-links a { text-decoration: none; color: var(--muted); font-size: 0.9rem; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--accent2); }
 
-        .logo {
-            font-family: 'Space Mono', monospace;
-            font-size: 1rem;
-            color: var(--accent2);
-            letter-spacing: 0.1em;
+        .theme-btn, .menu-btn {
+            flex: none; width: 38px; height: 38px; display: grid; place-items: center;
+            border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+            color: var(--text); cursor: pointer; font: inherit;
         }
-
-        nav ul {
-            list-style: none;
-            display: flex;
-            gap: clamp(1rem, 2.6vw, 2.5rem);   /* 6 個連結在平板寬度也排得下 */
-        }
-
-        @media (max-width: 1000px) {
-            nav { padding: 1.2rem 1.5rem; }
-            nav a { font-size: 0.78rem; letter-spacing: 0.05em; }
-        }
-
-        nav a {
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 0.85rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            transition: color 0.3s;
-        }
-
-        nav a:hover {
-            color: var(--accent2);
-        }
-
-        /* ── Hamburger (hidden on desktop) ── */
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            cursor: pointer;
-            padding: 4px;
-            position: relative;
-            z-index: 200;
-        }
-
-        .hamburger span {
-            display: block;
-            width: 22px;
-            height: 2px;
-            background: var(--muted);
-            border-radius: 2px;
-            transition: transform 0.3s, opacity 0.3s, background 0.3s;
-        }
-
-        .hamburger.open span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-            background: var(--accent2);
-        }
-
-        .hamburger.open span:nth-child(2) {
-            opacity: 0;
-        }
-
-        .hamburger.open span:nth-child(3) {
-            transform: rotate(-45deg) translate(5px, -5px);
-            background: var(--accent2);
-        }
-
-        /* ── Mobile dropdown menu ── */
+        .theme-btn svg, .menu-btn svg { width: 20px; height: 20px; }
+        .theme-btn:focus-visible, .menu-btn:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+        .menu-btn { display: none; }
         .mobile-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            right: 0;
-            min-width: 160px;
-            background: rgba(13, 13, 31, 0.97);
-            border: 1px solid rgba(124, 58, 237, 0.3);
-            border-top: none;
-            border-radius: 0 0 0 10px;
-            padding: 0.5rem 0;
-            backdrop-filter: blur(16px);
+            display: none; position: absolute; right: clamp(16px, 5vw, 40px); top: 60px; min-width: 170px;
+            background: var(--surface-solid); border: 1px solid var(--line); border-radius: 12px; padding: 6px 0;
+        }
+        .mobile-menu.open { display: block; }
+        .mobile-menu a { display: block; padding: 10px 18px; text-decoration: none; color: var(--text); }
+
+        @media (max-width: 760px) {
+            .nav-links { display: none; }
+            .menu-btn { display: grid; }
         }
 
-        .mobile-menu.open {
-            display: block;
-        }
+        [data-theme="light"] nav { background: rgba(233, 247, 217, 0.94); border-bottom: 2.5px solid var(--ink); }
+        [data-theme="light"] .nav-links a { color: var(--ink); font-weight: 700; }
+        [data-theme="light"] .nav-links a:hover { color: #b35c00; }
+        [data-theme="light"] .theme-btn, [data-theme="light"] .menu-btn,
+        [data-theme="light"] .mobile-menu { border: 2px solid var(--ink); background: #fff; box-shadow: 2px 2px 0 var(--ink); }
+        [data-theme="light"] .mobile-menu a { font-weight: 700; }
 
-        .mobile-menu a {
-            display: block;
-            padding: 0.75rem 1.5rem;
-            color: var(--muted);
-            text-decoration: none;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            transition: color 0.2s, background 0.2s;
-        }
+        main, footer { position: relative; z-index: 1; }
 
-        .mobile-menu a:hover {
-            color: var(--accent2);
-            background: rgba(6, 182, 212, 0.06);
+        /* ── 開場 ── */
+        .hero { padding: clamp(36px, 8vw, 96px) 0 clamp(32px, 6vw, 72px); }
+        .hero-in { display: grid; grid-template-columns: minmax(0, 1fr) clamp(96px, 26vw, 260px); gap: clamp(12px, 3vw, 40px); align-items: center; }
+        .hero-dragon { width: 100%; height: auto; }
+        .hero-tag { font-family: var(--mono); color: var(--accent2); font-size: 0.75rem; letter-spacing: 0.2em; margin-bottom: 0.8rem; }
+        .hero h1 { font-family: 'Syne', var(--sans); font-weight: 800; font-size: clamp(1.9rem, 7vw, 4.4rem); line-height: 1.15; letter-spacing: -0.01em; }
+        .hero h1 .hl {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         }
-
-        /* ── Hero ── */
-        #hero {
-            position: relative;
-            z-index: 1;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 0 10vw;
-        }
-
-        .hero-tag {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--accent2);
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            margin-bottom: 1.5rem;
-            opacity: 0;
-            animation: fadeUp 0.8s 0.3s forwards;
-        }
-
-        h1 {
-            /* 下限不能太大：#hero 是 align-items:flex-start 的 flex 容器，h1 會用 max-content
-               寬度，字級過大時「& algorithms.」單行就會撐破視窗（手機曾溢出到 435px） */
-            font-size: clamp(2rem, 9vw, 7rem);
-            font-weight: 800;
-            line-height: 1.05;
-            letter-spacing: -0.02em;
-            width: 100%;
-            max-width: 100%;
-            overflow-wrap: break-word;
-            opacity: 0;
-            animation: fadeUp 0.8s 0.5s forwards;
-        }
-
-        h1 .gradient {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .typewriter-wrap {
-            margin-top: 1.5rem;
-            font-family: 'Space Mono', monospace;
-            font-size: clamp(0.9rem, 2vw, 1.1rem);
-            color: var(--muted);
-            opacity: 0;
-            animation: fadeUp 0.8s 0.7s forwards;
-        }
-
-        #typewriter::after {
-            content: '|';
-            color: var(--accent2);
-            animation: blink 0.8s step-end infinite;
-        }
-
-        .hero-cta {
-            margin-top: 3rem;
-            opacity: 0;
-            animation: fadeUp 0.8s 1s forwards;
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
+        .hero-sub { margin-top: 0.9rem; color: var(--muted); max-width: 36em; font-size: clamp(0.92rem, 2.2vw, 1.08rem); }
+        .hero-cta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(4px, 1vw, 12px); }
         .btn {
-            padding: 0.8rem 2rem;
-            border-radius: 4px;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            cursor: pointer;
-            text-decoration: none;
-            transition: transform 0.2s, box-shadow 0.3s;
-            display: inline-block;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            color: #fff;
-            border: none;
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--text);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(124, 58, 237, 0.3);
-        }
-
-        /* ── Scroll indicator ── */
-        .scroll-hint {
-            position: absolute;
-            bottom: 2.5rem;
-            left: 10vw;
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            color: var(--muted);
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            opacity: 0;
-            animation: fadeUp 0.8s 1.3s forwards;
-        }
-
-        .scroll-line {
-            width: 40px;
-            height: 1px;
-            background: linear-gradient(to right, var(--accent2), transparent);
-            animation: scrollPulse 2s ease-in-out infinite;
-        }
-
-        /* ── About ── */
-        #about {
-            position: relative;
-            z-index: 1;
-            padding: 10rem 10vw;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6rem;
-            row-gap: 0;
-            align-items: center;
-        }
-
-        /* 標題橫跨兩欄；放得下就一行，放不下只在逗號後換行，不會被擠成一字一行 */
-        .about-head {
-            grid-column: 1 / -1;
-        }
-
-        .about-title {
-            margin-bottom: 2.5rem;
-        }
-
-        .about-title span {
-            white-space: nowrap;
-        }
-
-        .section-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            color: var(--accent2);
-            letter-spacing: 0.25em;
-            text-transform: uppercase;
-            margin-bottom: 1.2rem;
-        }
-
-        h2 {
-            /* 下限同樣不能太大：Syne 800 的「Competition」單字在 2rem 下要 289px，
-               窄螢幕會撐破 #achievements 的容器 */
-            font-size: clamp(1.6rem, 4.5vw, 3.5rem);
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 1.5rem;
-            overflow-wrap: break-word;
-        }
-
-        p {
-            color: var(--muted);
-            line-height: 1.8;
-            font-size: 1rem;
-        }
-
-        .about-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-top: 3rem;
-        }
-
-        .stat-box {
-            padding: 1.5rem;
-            border: 1px solid rgba(124, 58, 237, 0.2);
-            border-radius: 8px;
-            background: rgba(124, 58, 237, 0.04);
-            transition: border-color 0.3s, transform 0.3s;
-        }
-
-        .stat-box:hover {
-            border-color: rgba(124, 58, 237, 0.5);
-            transform: translateY(-4px);
-        }
-
-        .stat-num {
-            font-size: 2.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .stat-label {
-            font-size: 0.8rem;
-            color: var(--muted);
-            margin-top: 0.3rem;
-        }
-
-        /* ── Skills ── */
-        #skills {
-            position: relative;
-            z-index: 1;
-            padding: 6rem 10vw;
-        }
-
-        .skills-grid {
-            display: grid;
-            /* min(…, 100%) 讓軌道在窄螢幕可以縮到比下限更小，否則 grid 會撐破容器 */
-            grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
-            gap: 1.2rem;
-            margin-top: 3rem;
-        }
-
-        .skill-card {
-            padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.03);
-            transition: all 0.3s;
-            cursor: default;
-        }
-
-        .skill-card:hover {
-            border-color: var(--accent2);
-            background: rgba(6, 182, 212, 0.06);
-            transform: translateY(-4px);
-        }
-
-        .skill-icon {
-            font-size: 1.5rem;
-            margin-bottom: 0.8rem;
-        }
-
-        .skill-name {
-            font-weight: 700;
-            font-size: 0.95rem;
-        }
-
-        .skill-bar-bg {
-            margin-top: 0.8rem;
-            height: 3px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .skill-bar {
-            height: 100%;
-            background: linear-gradient(to right, var(--accent), var(--accent2));
-            border-radius: 2px;
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 1s ease;
-        }
-
-        /* ── Research ── */
-        #research {
-            position: relative;
-            z-index: 1;
-            padding: 6rem 10vw;
-        }
-
-        .research-lead {
-            color: var(--muted);
-            max-width: 760px;
-            line-height: 1.8;
-        }
-
-        /* Research 上方兩個入口：研究地圖、效能比賽場 */
-        .research-hub {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-            gap: 0.8rem;
-            margin-top: 1.6rem;
-            max-width: 760px;
-        }
-
-        .hub-link {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            min-width: 0;
-            padding: 0.8rem 1rem;
-            border: 1px solid rgba(124, 58, 237, 0.35);
-            border-radius: 12px;
-            background: rgba(124, 58, 237, 0.08);
-            color: var(--text);
-            text-decoration: none;
-            transition: border-color 0.2s, background 0.2s;
-        }
-
-        .hub-link:hover { border-color: var(--accent); background: rgba(124, 58, 237, 0.16); }
-        .hub-link img { flex: none; border-radius: 8px; }
-        .hub-link span { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
-        .hub-link b { font-weight: 600; }
-        .hub-link small { color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
-
-        .topic-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.6rem;
-            margin-top: 1.8rem;
-        }
-
-        .topic-chip {
-            border: 1px solid rgba(6, 182, 212, 0.35);
-            color: var(--accent2);
-            background: transparent;
-            border-radius: 999px;
-            padding: 0.35rem 0.9rem;
-            font: inherit;
-            font-size: 0.88rem;
-            cursor: pointer;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
-        }
-
-        .topic-chip:hover { border-color: var(--accent2); }
-
-        /* 選中的主題：實心底，一眼看出現在篩的是哪一個 */
-        .topic-chip.active {
-            background: var(--accent2);
-            border-color: var(--accent2);
-            color: #030308;
-        }
-
-        .topic-chip .n { opacity: 0.7; margin-left: 0.3em; font-size: 0.8em; }
-
-        /* 篩選時被藏起來的卡片 */
-        #research .project-card[hidden] { display: none; }
-
-        .roadmap {
-            margin-top: 1.6rem;
-            color: var(--muted);
-            font-size: 0.88rem;
-        }
-
-        .roadmap b {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        /* ── Projects ── */
-        #projects {
-            position: relative;
-            z-index: 1;
-            padding: 6rem 10vw;
-        }
-
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
-            gap: 1.5rem;
-            margin-top: 3rem;
-        }
-
-        .project-card {
-            padding: 2rem;
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.02);
-            transition: all 0.4s;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .project-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at center, rgba(124, 58, 237, 0.08) 0%, transparent 60%);
-            opacity: 0;
-            transition: opacity 0.4s;
-            pointer-events: none;
-        }
-
-        .project-card:hover {
-            border-color: rgba(124, 58, 237, 0.4);
-            transform: translateY(-6px);
-        }
-
-        .project-card:hover::before {
-            opacity: 1;
-        }
-
-        .project-tag {
-            display: inline-block;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.65rem;
-            padding: 0.3rem 0.8rem;
-            border-radius: 100px;
-            background: rgba(6, 182, 212, 0.1);
-            color: var(--accent2);
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-bottom: 1rem;
-            align-self: flex-start;
-        }
-
-        .project-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        .project-icon {
-            width: 28px;
-            height: 28px;
-            flex-shrink: 0;
-            border-radius: 7px;
-        }
-
-        .project-desc {
-            font-size: 0.9rem;
-            color: var(--muted);
-            line-height: 1.7;
-            flex-grow: 1;
-        }
-
-        .project-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin-top: 1.5rem;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--accent2);
-            text-decoration: none;
-            letter-spacing: 0.08em;
-            transition: gap 0.2s;
-            position: relative;
-            z-index: 10;
-        }
-
-        .project-link:hover {
-            gap: 0.8rem;
-        }
-
-        /* ── Contact ── */
-        #contact {
-            position: relative;
-            z-index: 1;
-            padding: 8rem 10vw;
-            text-align: center;
-        }
-
-        .contact-inner {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .contact-inner p {
-            margin: 1.5rem 0 3rem;
-            font-size: 1.1rem;
-        }
-
-        .social-links {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .social-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.8rem 1.6rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 100px;
-            color: var(--text);
-            text-decoration: none;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-            transition: all 0.3s;
-        }
-
-        .social-link:hover {
-            border-color: var(--accent2);
-            color: var(--accent2);
-            transform: translateY(-2px);
-        }
-
-        /* ── Footer ── */
-        footer {
-            position: relative;
-            z-index: 1;
-            padding: 2rem 10vw;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--muted);
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-        }
-
-        /* ── Animations ── */
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(24px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
-        }
-
-        @keyframes scrollPulse {
-
-            0%,
-            100% {
-                opacity: 0.4;
-                width: 40px;
-            }
-
-            50% {
-                opacity: 1;
-                width: 60px;
-            }
-        }
-
-        /* Reveal on scroll */
-        .reveal {
-            opacity: 0;
-            transform: translateY(40px);
-            transition: opacity 0.8s, transform 0.8s;
-        }
-
-        .reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* ── Achievements ── */
-        #achievements {
-            position: relative;
-            z-index: 1;
-            padding: 6rem 10vw;
-        }
-
-        .ach-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
-            gap: 1rem;
-            margin-top: 3rem;
-        }
-
-        .ach-card {
-            padding: 1.2rem 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
-            transition: all 0.3s;
-        }
-
-        .ach-card:hover {
-            transform: translateY(-3px);
-            background: rgba(255, 255, 255, 0.04);
-        }
-
-        .ach-card.gold {
-            border-left: 3px solid #f59e0b;
-        }
-
-        .ach-card.silver {
-            border-left: 3px solid #94a3b8;
-        }
-
-        .ach-card.bronze {
-            border-left: 3px solid #b45309;
-        }
-
-        .ach-card.honor {
-            border-left: 3px solid #7c3aed;
-        }
-
-        .ach-card.entry {
-            border-left: 3px solid #374151;
-        }
-
-        .ach-medal {
-            font-size: 1.6rem;
-            flex-shrink: 0;
-            line-height: 1;
-            margin-top: 0.1rem;
-        }
-
-        .ach-year {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.65rem;
-            color: var(--accent2);
-            letter-spacing: 0.1em;
-            margin-bottom: 0.3rem;
-        }
-
-        .ach-title {
-            font-size: 0.9rem;
-            font-weight: 700;
-            line-height: 1.4;
-        }
-
-        .ach-award {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.72rem;
-            color: var(--muted);
-            margin-top: 0.25rem;
-        }
-
-        /* ── Mobile ── */
-        @media (max-width: 768px) {
-            #about {
-                grid-template-columns: 1fr;
-                gap: 3rem;
-                row-gap: 0;
-            }
-
-            /* 窄螢幕或手機把字放大時，h2 的最小字級 1.6rem 會讓「building small things.」超出畫面：
-               字級改成同時受螢幕寬度限制，真的還放不下才允許在詞之間換行 */
-            .about-title {
-                margin-bottom: 1.5rem;
-                font-size: min(clamp(1.6rem, 4.5vw, 3.5rem), 7.4vw);
-            }
-
-            .about-title span {
-                display: block;          /* 手機上固定在逗號後換行 */
-                white-space: normal;
-            }
-
-            .about-head {
-                min-width: 0;
-            }
-
-            #about > .reveal:last-child {
-                margin-top: 3rem;
-            }
-
-            nav {
-                padding: 1.2rem 1.5rem;
-            }
-
-            nav ul {
-                display: none;
-            }
-
-            .hamburger {
-                display: flex;
-            }
-
-            #hero,
-            #about,
-            #research,
-            #skills,
-            #projects,
-            #achievements,
-            #contact {
-                padding-left: 6vw;
-                padding-right: 6vw;
-            }
-        }
-
-        /* 窄螢幕：.stat-num 的「100+」在 2.5rem 下無法斷行，
-           會把 1fr 1fr 撐成 125px/187px 而溢出，這裡改為單欄 */
-        @media (max-width: 420px) {
-            .about-stats {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .stat-box {
-                padding: 1.1rem 1.2rem;
-                display: flex;
-                align-items: baseline;
-                gap: 0.8rem;
-            }
-
-            .stat-num {
-                font-size: 1.9rem;
-            }
-
-            .stat-label {
-                margin-top: 0;
-            }
-
-            footer {
-                flex-direction: column;
-                gap: 0.6rem;
-                text-align: center;
-            }
-        }
+            display: inline-block; text-decoration: none; cursor: pointer;
+            padding: 0.7rem 1.4rem; border-radius: 6px; font-size: 0.9rem; font-weight: 700;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+        .btn-outline { border: 1px solid rgba(124, 58, 237, 0.5); color: var(--text); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(124, 58, 237, 0.3); }
+
+        @media (min-width: 761px) {
+            .hero { background: radial-gradient(circle at 80% 45%, rgba(124, 58, 237, 0.2), transparent 45%); }
+        }
+        @media (max-width: 760px) {
+            .hero { background: radial-gradient(circle at 88% 30%, rgba(124, 58, 237, 0.22), transparent 55%); }
+        }
+
+        [data-theme="light"] .hero { background: #ffc94d; border-bottom: 2.5px solid var(--ink); position: relative; overflow: hidden; }
+        [data-theme="light"] .hero::after {
+            content: ''; position: absolute; right: -8vw; bottom: -18vw; width: 46vw; height: 46vw; max-width: 520px; max-height: 520px;
+            border-radius: 50%; background: rgba(255, 255, 255, 0.35); pointer-events: none;
+        }
+        [data-theme="light"] .hero-in { position: relative; z-index: 1; }
+        [data-theme="light"] .hero h1 { font-family: var(--sans); font-weight: 900; letter-spacing: 0; }
+        [data-theme="light"] .hero h1 .hl {
+            -webkit-text-fill-color: var(--ink); background: #fff; color: var(--ink);
+            display: inline-block; border: 3px solid var(--ink); border-radius: 12px; padding: 0 0.18em; transform: rotate(-2deg);
+        }
+        [data-theme="light"] .hero-sub { color: var(--ink); font-weight: 500; }
+        [data-theme="light"] .hero-dragon { filter: drop-shadow(4px 4px 0 var(--ink)); }
+        [data-theme="light"] .btn { border: 2.5px solid var(--ink); border-radius: 12px; color: var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); }
+        [data-theme="light"] .btn-primary { background: var(--juice); }
+        [data-theme="light"] .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+
+        @media (prefers-reduced-motion: no-preference) {
+            [data-theme="light"] .hero-dragon { animation: bob 3s ease-in-out infinite; }
+            @keyframes bob { 50% { transform: translateY(-6px); } }
+        }
+
+        /* ── 區塊標題 ── */
+        section { padding: clamp(36px, 7vw, 80px) 0; }
+        .sec-label { font-family: var(--mono); color: var(--accent2); font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; }
+        h2 { font-family: 'Syne', var(--sans); font-weight: 800; font-size: clamp(1.4rem, 4vw, 2.4rem); line-height: 1.2; margin: 0.3rem 0 1.2rem; }
+        .lead { color: var(--muted); max-width: 46em; margin: -0.4rem 0 1.2rem; }
+        [data-theme="light"] section + section { border-top: 2.5px solid var(--ink); }
+        [data-theme="light"] .sec-label { display: none; }
+        [data-theme="light"] h2 { font-family: var(--sans); font-weight: 900; display: flex; align-items: center; gap: 10px; margin-top: 0; }
+        [data-theme="light"] h2::before {
+            content: ''; flex: none; width: 0.6em; height: 0.6em; border-radius: 50%;
+            background: var(--apple); border: 2.5px solid var(--ink);
+        }
+        section:not(:first-of-type) { border-top: 1px solid rgba(124, 58, 237, 0.12); }
+
+        /* ── 作品 ── */
+        .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 185px), 1fr)); gap: 12px; }
+        @media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+        .tile {
+            position: relative; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+            padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .tile:hover { border-color: rgba(124, 58, 237, 0.6); transform: translateY(-3px); }
+        .tile img { width: 38px; height: 38px; border-radius: 9px; }
+        .tile h3 { font-size: 0.98rem; line-height: 1.35; }
+        .tile h3 a { text-decoration: none; }
+        .tile h3 a::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }   /* 整張卡都點得到 */
+        .tile p { color: var(--muted); font-size: 0.8rem; line-height: 1.5; flex: 1; }
+        .tile .tag { display: none; }
+        .tile .links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.78rem; }
+        .tile .links a { position: relative; z-index: 1; text-decoration: none; color: var(--accent2); }
+        .tile .links a.go { color: #a78bfa; }
+
+        [data-theme="light"] .tile { border: 2.5px solid var(--ink); border-radius: 16px; background: #fff; box-shadow: 4px 4px 0 var(--ink); }
+        [data-theme="light"] .tile:nth-child(3n+2) { background: #fff4dc; }
+        [data-theme="light"] .tile:nth-child(3n) { background: #f2fbe4; }
+        [data-theme="light"] .tile:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+        [data-theme="light"] .tile img { border: 2px solid var(--ink); width: 42px; height: 42px; }
+        [data-theme="light"] .tile h3 { font-weight: 900; }
+        [data-theme="light"] .tile .tag {
+            display: inline-block; align-self: flex-start; font-size: 0.7rem; font-weight: 700;
+            background: var(--ink); color: #fff; border-radius: 6px; padding: 0 7px;
+        }
+        [data-theme="light"] .tile .links a { color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--juice); text-decoration-thickness: 3px; text-underline-offset: 3px; }
+        [data-theme="light"] .tile .links a.go { color: var(--ink); }
+
+        /* ── 研究 ── */
+        .hub { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; max-width: 760px; margin-bottom: 1.2rem; }
+        .hub a {
+            display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 14px; text-decoration: none;
+            border: 1px solid rgba(124, 58, 237, 0.35); border-radius: 12px; background: rgba(124, 58, 237, 0.08);
+        }
+        .hub a:hover { border-color: var(--accent); }
+        .hub img { flex: none; border-radius: 8px; }
+        .hub span { min-width: 0; display: flex; flex-direction: column; }
+        .hub b { font-weight: 700; }
+        .hub small { color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+        [data-theme="light"] .hub a { border: 2.5px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); }
+        [data-theme="light"] .hub img { border: 2px solid var(--ink); }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+        .chip {
+            font: inherit; font-size: 0.85rem; cursor: pointer; padding: 0.25rem 0.85rem; border-radius: 999px;
+            border: 1px solid rgba(6, 182, 212, 0.4); color: #67e8f9; background: transparent;
+        }
+        .chip .n { opacity: 0.7; margin-left: 0.3em; font-size: 0.85em; }
+        .chip.active { background: var(--accent2); border-color: var(--accent2); color: #030308; }
+        [data-theme="light"] .chip { border: 2px solid var(--ink); color: var(--ink); background: #fff; font-weight: 700; }
+        [data-theme="light"] .chip.active { background: var(--juice); }
+
+        .demos { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); column-gap: 28px; }
+        .demo { min-width: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+        .demo a { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 4px; text-decoration: none; }
+        .demo a:hover b { color: var(--accent2); }
+        .demo img { width: 32px; height: 32px; border-radius: 8px; }
+        .demo span { min-width: 0; display: flex; flex-direction: column; }
+        .demo b { font-weight: 700; font-size: 0.95rem; line-height: 1.4; transition: color 0.2s; }
+        .demo small { color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+        .more-row { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .more-btn { font: inherit; font-size: 0.9rem; cursor: pointer; background: none; border: none; color: #a78bfa; padding: 6px 10px; }
+        .note { color: var(--muted); font-size: 0.85rem; text-align: center; }
+
+        [data-theme="light"] .demos { background: #fff; border: 2.5px solid var(--ink); border-radius: 16px; padding: 4px 14px; box-shadow: 4px 4px 0 var(--ink); }
+        [data-theme="light"] .demo { border-bottom: 2px solid #e4ecd8; }
+        [data-theme="light"] .demo:last-child { border-bottom: 0; }
+        [data-theme="light"] .demo a:hover b { color: #b35c00; }
+        [data-theme="light"] .more-btn { color: var(--ink); font-weight: 900; text-decoration: underline; text-decoration-color: var(--juice); text-decoration-thickness: 3px; text-underline-offset: 4px; }
+
+        /* ── 關於我 ── */
+        .about { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: clamp(20px, 5vw, 64px); align-items: start; }
+        @media (max-width: 760px) { .about { grid-template-columns: minmax(0, 1fr); } }
+        .about p { color: var(--muted); }
+        .about p + p { margin-top: 0.9rem; }
+        .about strong { color: var(--text); }
+        .photo { border-radius: 16px; overflow: hidden; border: 1px solid rgba(124, 58, 237, 0.3); aspect-ratio: 1; max-width: 420px; }
+        .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        [data-theme="light"] .about p { color: var(--ink); }
+        [data-theme="light"] .photo { border: 2.5px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); transform: rotate(1.5deg); }
+
+        .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 1.4rem; }
+        @media (min-width: 900px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        .stat { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(124, 58, 237, 0.05); min-width: 0; }
+        .stat b {
+            display: block; font-family: 'Syne', var(--sans); font-size: 1.7rem; line-height: 1.2;
+            background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .stat span { color: var(--muted); font-size: 0.78rem; line-height: 1.4; display: block; }
+        [data-theme="light"] .stat { border: 2.5px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); }
+        [data-theme="light"] .stat b { -webkit-text-fill-color: var(--ink); background: none; font-family: var(--sans); font-weight: 900; }
+        [data-theme="light"] .stat span { color: var(--muted); }
+
+        .skills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1.4rem; }
+        .skills span { font-size: 0.85rem; padding: 4px 12px; border-radius: 8px; background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(124, 58, 237, 0.28); }
+        [data-theme="light"] .skills span { background: #fff; border: 2px solid var(--ink); font-weight: 700; }
+        .sub-h { font-size: 1rem; margin-top: 1.8rem; }
+
+        /* ── 競賽 ── */
+        .ach { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 8px; }
+        .ach li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid rgba(255, 255, 255, 0.06); }
+        .ach .m { font-size: 1.3rem; text-align: center; line-height: 1; }
+        .ach .y { font-family: var(--mono); color: var(--accent2); font-size: 0.68rem; letter-spacing: 0.08em; display: block; }
+        .ach .t { font-weight: 700; font-size: 0.88rem; line-height: 1.4; }
+        .ach .a { color: var(--muted); font-size: 0.8rem; display: block; }
+        [data-theme="light"] .ach li { background: #fff; border: 2px solid var(--ink); }
+        [data-theme="light"] .ach .y { color: #2b6b0e; font-weight: 700; }
+
+        /* ── 聯絡 ── */
+        .contact { text-align: center; }
+        .contact h2 { justify-content: center; }
+        .contact .lead { margin: 0 auto 1.4rem; }
+        .socials { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 1.4rem; }
+        .socials a { text-decoration: none; font-size: 0.85rem; padding: 0.5rem 1.1rem; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.14); }
+        .socials a:hover { border-color: var(--accent2); color: var(--accent2); }
+        [data-theme="light"] .socials a { border: 2px solid var(--ink); background: #fff; font-weight: 700; }
+        [data-theme="light"] .socials a:hover { color: var(--ink); background: var(--juice); }
+
+        footer { border-top: 1px solid rgba(255, 255, 255, 0.06); padding: 22px 0; color: var(--muted); font-size: 0.8rem; }
+        footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+        [data-theme="light"] footer { background: var(--ink); color: #e9f7d9; border-top: 0; }
     </style>
 </head>
 
 <body>
-
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas" aria-hidden="true"></canvas>
 
     <nav>
-        <a href="#" class="logo" style="text-decoration:none; text-transform:none;">jellyfishkuo</a>
-        <ul>
-            <li><a href="#about">About</a></li>
-            <li><a href="#research">Research</a></li>
-            <li><a href="#skills">Skills</a></li>
-            <li><a href="#projects">Projects</a></li>
-            <li><a href="#achievements">Achievements</a></li>
-            <li><a href="#contact">Contact</a></li>
-        </ul>
-        <div class="hamburger" id="hamburger">
-            <span></span>
-            <span></span>
-            <span></span>
-            <div class="mobile-menu" id="mobileMenu">
-                <a href="#about" onclick="closeMenu()">About</a>
-                <a href="#research" onclick="closeMenu()">Research</a>
-                <a href="#skills" onclick="closeMenu()">Skills</a>
-                <a href="#projects" onclick="closeMenu()">Projects</a>
-                <a href="#achievements" onclick="closeMenu()">Achievements</a>
-                <a href="#contact" onclick="closeMenu()">Contact</a>
+        <div class="wrap nav-in">
+            <a class="brand" href="#top">
+                <img src="assets/dragon.svg" alt="" width="30" height="25">
+                <span class="name-dark only-dark">jellyfishkuo</span>
+                <span class="name-light only-light">果汁龍</span>
+            </a>
+            <div class="nav-right">
+                <ul class="nav-links">
+                    <li><a href="#projects">作品</a></li>
+                    <li><a href="#research">研究</a></li>
+                    <li><a href="#about">關於我</a></li>
+                    <li><a href="#achievements">競賽</a></li>
+                    <li><a href="#contact">聯絡</a></li>
+                </ul>
+                <button class="theme-btn" id="themeBtn" type="button">
+                    <!-- 深色時顯示太陽（按了變淺色），淺色時顯示月亮 -->
+                    <svg class="only-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
+                    <svg class="only-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+                </button>
+                <button class="menu-btn" id="menuBtn" type="button" aria-label="選單" aria-expanded="false" aria-controls="mobileMenu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                </button>
             </div>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="#projects">作品</a>
+            <a href="#research">研究</a>
+            <a href="#about">關於我</a>
+            <a href="#achievements">競賽</a>
+            <a href="#contact">聯絡</a>
         </div>
     </nav>
 
-    <section id="hero">
-        <div class="hero-tag">// Hello, World</div>
-        <h1>
-            Turning data<br>
-            <span class="gradient">into insight</span><br>
-            &amp; ideas into tools.
-        </h1>
-        <div class="typewriter-wrap">
-            <span id="typewriter"></span>
+    <main id="top">
+        <div class="hero">
+            <div class="wrap hero-in">
+                <div>
+                    <div class="hero-tag only-dark">// HELLO, WORLD</div>
+                    <h1>嗨！我是<br class="only-light"><span class="hl">果汁龍</span></h1>
+                    <p class="hero-sub">資料庫系統實驗室的碩一生。研究資料探勘，也喜歡把想法做成小遊戲和小工具。</p>
+                </div>
+                <img class="hero-dragon" src="assets/dragon.svg" alt="果汁龍：手拿蘋果汁的綠色小恐龍" width="260" height="214">
+                <div class="hero-cta">
+                    <a class="btn btn-primary" href="#projects"><span class="only-dark">玩玩看作品</span><span class="only-light">來玩遊戲</span></a>
+                    <a class="btn btn-outline" href="#research">看研究 Demo</a>
+                </div>
+            </div>
         </div>
-        <div class="hero-cta">
-            <a href="#projects" class="btn btn-primary">View Projects</a>
-            <a href="#contact" class="btn btn-outline">Get in Touch</a>
-        </div>
-        <div class="scroll-hint">
-            <div class="scroll-line"></div>
-            scroll down
-        </div>
-    </section>
 
-    <section id="about">
-        <div class="about-head reveal">
-            <div class="section-label">// 01 — About</div>
-            <h2 class="about-title"><span>Mining patterns,</span> <span>building small things.</span></h2>
-        </div>
-        <div class="reveal">
-            <p>Hi！我是果汁龍，目前是資料庫系統實驗室的碩一生。研究方向是<strong>資料探勘</strong>：從大量交易、時間序列與空間資料中，找出頻繁出現、高效益或具有週期性的樣式。</p>
-            <p style="margin-top:1rem;">真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
-            <p style="margin-top:1rem;">課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。平常主要使用 C++、Java 與 Python，也熟悉用 Docker 建置 PostgreSQL、Oracle 等資料庫。</p>
-            <div class="about-stats">
-                <div class="stat-box">
-                    <div class="stat-num">9</div>
-                    <div class="stat-label">自己做的小工具與遊戲</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-num">100+</div>
-                    <div class="stat-label">演算法解題紀錄</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-num">4+</div>
-                    <div class="stat-label">熟悉資料庫系統</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-num">10</div>
-                    <div class="stat-label">程式競賽獲獎</div>
+        <section id="projects">
+            <div class="wrap">
+                <div class="sec-label">// 01 — Projects</div>
+                <h2><span class="only-dark">我做的東西</span><span class="only-light">遊戲與小工具</span></h2>
+                <div class="tiles">
+                    <article class="tile">
+                        <img src="assets/icons/pentomino.svg" alt="" width="38" height="38">
+                        <span class="tag">每日挑戰</span>
+                        <h3><a href="games/pentomino.html" target="_blank">Pentomino 日曆拼圖</a></h3>
+                        <p>每天一題，用 12 塊拼出今天日期，附求解器</p>
+                        <div class="links"><a class="go" href="games/pentomino.html" target="_blank">直接玩 →</a><a href="games/pentomino-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/set.svg" alt="" width="38" height="38">
+                        <span class="tag">6 人連線</span>
+                        <h3><a href="games/game-set.html" target="_blank">SET 練功房</a></h3>
+                        <p>單人、電腦對手，或最多 6 人連線對戰</p>
+                        <div class="links"><a class="go" href="games/game-set.html" target="_blank">直接玩 →</a><a href="games/game-set-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/hanoi.svg" alt="" width="38" height="38">
+                        <span class="tag">看遞迴</span>
+                        <h3><a href="games/hanoi.html" target="_blank">河內塔</a></h3>
+                        <p>自己玩，或看遞迴程式一行一行解</p>
+                        <div class="links"><a class="go" href="games/hanoi.html" target="_blank">開始學習 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/dinner-wheel.svg" alt="" width="38" height="38">
+                        <span class="tag">轉盤</span>
+                        <h3><a href="games/dinner-wheel.html" target="_blank">晚餐吃什麼？</a></h3>
+                        <p>選不出來就轉一下，選項自己加</p>
+                        <div class="links"><a class="go" href="games/dinner-wheel.html" target="_blank">轉一下 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/1a2b.svg" alt="" width="38" height="38">
+                        <span class="tag">猜數字</span>
+                        <h3><a href="games/1A2B.html" target="_blank">1A2B 猜數字</a></h3>
+                        <p>經典猜數字，附猜測紀錄</p>
+                        <div class="links"><a class="go" href="games/1A2B.html" target="_blank">直接玩 →</a><a href="games/1A2B-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/infinite-tictactoe.svg" alt="" width="38" height="38">
+                        <span class="tag">已求解</span>
+                        <h3><a href="games/infinite-tictactoe.html" target="_blank">無限井字棋</a></h3>
+                        <p>每人最多 3 子；已完整求解，先手必勝</p>
+                        <div class="links"><a class="go" href="games/infinite-tictactoe.html" target="_blank">直接玩 →</a><a href="games/infinite-tictactoe-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/vertical-gomoku.svg" alt="" width="38" height="38">
+                        <span class="tag">AI 對戰</span>
+                        <h3><a href="games/vertical-gomoku.html" target="_blank">立式五子棋</a></h3>
+                        <p>9×8 重力棋盤，三段難度 AI</p>
+                        <div class="links"><a class="go" href="games/vertical-gomoku.html" target="_blank">直接玩 →</a><a href="games/vertical-gomoku-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/coc-card.svg" alt="" width="38" height="38">
+                        <span class="tag">小工具</span>
+                        <h3><a href="games/coc-card.html" target="_blank">部落衝突卡牌交易站</a></h3>
+                        <p>多帳號卡牌總表與交換配對</p>
+                        <div class="links"><a class="go" href="games/coc-card.html" target="_blank">直接用 →</a><a href="games/coc-card-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/electricity.svg" alt="" width="38" height="38">
+                        <span class="tag">小工具</span>
+                        <h3><a href="electricity-tracker/" target="_blank">電費紀錄</a></h3>
+                        <p>記電表讀數，算出每天、每月用電</p>
+                        <div class="links"><a class="go" href="electricity-tracker/" target="_blank">直接用 →</a><a href="games/electricity-detail.html">技術介紹 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img src="assets/icons/notes.svg" alt="" width="38" height="38">
+                        <span class="tag">筆記</span>
+                        <h3><a href="https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link" target="_blank">解題筆記</a></h3>
+                        <p>100+ 題演算法解題紀錄（Notion）</p>
+                        <div class="links"><a class="go" href="https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link" target="_blank">去看看 →</a></div>
+                    </article>
                 </div>
             </div>
-        </div>
-        <div class="reveal" style="transition-delay:0.2s">
-            <div
-                style="border:1px solid rgba(124,58,237,0.3);border-radius:16px;overflow:hidden;aspect-ratio:1;background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(6,182,212,0.1));display:flex;align-items:center;justify-content:center;">
-                <img src="assets/me.jpg" alt="果汁龍" style="width: 100%; height: 100%; object-fit: cover;">
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <section id="research">
-        <div class="reveal section-label">// 02 — Research</div>
-        <div class="reveal">
-            <h2>What I'm digging into.</h2>
-            <p class="research-lead">在資料庫系統實驗室研究資料探勘：從交易、時間序列與空間資料裡找出有意義的樣式，並設計資料結構和剪枝策略，讓資料不斷更新時也能有效率地維護結果。</p>
-            <div class="research-hub">
-                <a class="hub-link" href="research/overview.html" target="_blank">
-                    <img src="assets/icons/overview.svg" alt="" width="36" height="36">
-                    <span><b>研究地圖</b><small>所有演算法「改良自誰」的關係圖、建議閱讀順序、比較表</small></span>
-                </a>
-                <a class="hub-link" href="research/benchmark.html" target="_blank">
-                    <img src="assets/icons/benchmark.svg" alt="" width="36" height="36">
-                    <span><b>效能比賽場</b><small>產生上萬筆交易，實際跑 Apriori、FP-Growth、EFIM… 畫圖比快慢</small></span>
-                </a>
-            </div>
-            <div class="topic-chips" role="group" aria-label="依主題篩選">
-                <button type="button" class="topic-chip active" data-topic="all" aria-pressed="true">全部</button>
-                <button type="button" class="topic-chip" data-topic="freq" aria-pressed="false">頻繁樣式</button>
-                <button type="button" class="topic-chip" data-topic="rule" aria-pressed="false">關聯規則・序列</button>
-                <button type="button" class="topic-chip" data-topic="hui" aria-pressed="false">高效益樣式</button>
-                <button type="button" class="topic-chip" data-topic="inc" aria-pressed="false">增量資料庫</button>
-                <button type="button" class="topic-chip" data-topic="stream" aria-pressed="false">資料串流</button>
-                <button type="button" class="topic-chip" data-topic="spatial" aria-pressed="false">空間資料</button>
-            </div>
-        </div>
-        <div class="projects-grid">
-            <div class="project-card reveal" data-topics="freq">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/apriori.svg" alt="" width="28" height="28">Apriori 頻繁樣式探勘</div>
-                <div class="project-desc">用超商交易紀錄一步一步看 Apriori 怎麼找出常一起買的商品：合併、剪枝、計數、篩選，每一步都同步標出 Java / Python 程式碼正在跑的那幾行。
-                    資料和最小支持度都可以自己改，被剪掉的候選會說明是哪個子集合不頻繁；程式碼可直接下載執行。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/apriori.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="freq" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/fp-growth.svg" alt="" width="28" height="28">FP-Growth 頻繁樣式探勘</div>
-                <div class="project-desc">同一份超商資料，換成 FP-Growth：看交易一筆一筆插進 FP-tree、共同前綴怎麼被壓縮，再沿著節點鏈找出條件模式基底、建條件樹、遞迴挖下去。
-                    遞迴走到哪一層、程式跑到哪一行都同步顯示，最後和 Apriori 比較掃描資料庫的次數。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/fp-growth.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="freq" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/eclat.svg" alt="" width="28" height="28">Eclat：垂直格式與交集</div>
-                <div class="project-desc">同一份超商資料的第三種做法：先把交易轉成「每個商品出現在哪幾筆交易」的垂直格式，再把同前綴的交易編號集合兩兩取交集、深度優先往下挖。交集有幾筆就是支持度，整個過程只掃一次資料庫；最後跟 Apriori、FP-Growth 比較。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/eclat.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="freq">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/closed-patterns.svg" alt="" width="28" height="28">封閉與最大樣式：CHARM</div>
-                <div class="project-desc">頻繁樣式常常多到看不完，而且很多資訊重複。先比較全部頻繁、封閉、最大三種答案：封閉樣式保留所有次數，最大樣式只留邊界。再一步一步看 CHARM 怎麼比較兩個樣式的交易集合，用四條性質合併、吸收或刪掉，直接找出封閉樣式。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/closed-patterns.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="freq" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/periodic.svg" alt="" width="28" height="28">週期性頻繁樣式（PFP-tree）</div>
-                <div class="project-desc">頻繁樣式只問出現幾次，週期性頻繁樣式還要問「隔多久出現一次」。把 8 筆交易當成 8 天，時間軸上直接標出每個組合在哪幾天出現、最長斷了幾天；PFP-tree 的節點不記次數、改在尾節點記 tid，挖完再把 tid 往上交。支持度、最大週期都能調，資料也能自己改。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/periodic.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="freq" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/gspan.svg" alt="" width="28" height="28">gSpan 圖形樣式探勘</div>
-                <div class="project-desc">從交易、序列再到圖：把分子畫成圖（原子是點、化學鍵是邊），看 gSpan 怎麼把子圖寫成 DFS code、只從最右路徑一次接一條邊往外長。同一個子圖有很多種寫法，長出來的 code 不是最小的就剪掉，頁面會並排兩種寫法，標出是哪一列比較小；每張圖裡的嵌入都會標亮。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/gspan.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="rule">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/association-rules.svg" alt="" width="28" height="28">關聯規則：信賴度與提升度</div>
-                <div class="project-desc">接在 Apriori 後面：把頻繁樣式切成「買了 X 的人也會買 Y」的規則，一步一步算信賴度和提升度。後件逐層變大，只要一條不夠，包含它的更大後件就整批剪掉。看信賴度 75% 的規則為什麼可能其實毫無關聯，規則表可依信賴度、提升度排序。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/association-rules.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="rule" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/prefixspan.svg" alt="" width="28" height="28">序列樣式：PrefixSpan</div>
-                <div class="project-desc">這次多了先後順序：「早上買☕🍞，下次再來買🍙」。每位常客一條時間軸，看 PrefixSpan 怎麼用前綴把資料庫投影成越來越小的後綴，分成「同一次一起買」和「下一次才買」兩種延伸，一路遞迴找出常見的購買順序。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/prefixspan.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="rule" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/gsp-spade.svg" alt="" width="28" height="28">GSP 與 SPADE 序列樣式</div>
-                <div class="project-desc">序列樣式的另外兩種做法：GSP 像 Apriori 一層一層拼候選序列、每層掃一次資料庫；SPADE 像序列版 Eclat，把資料轉成 id-list，用「後來再買」「同一次一起買」兩種 temporal join 長出新樣式。跟 PrefixSpan 同一份資料、結果一樣，頁尾即時比較三種做法的掃描次數與候選數。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/gsp-spade.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/two-phase.svg" alt="" width="28" height="28">Two-Phase 高效益樣式</div>
-                <div class="project-desc">HUI-Miner 之前的經典兩階段做法：第一階段用有向下封閉性的 TWU 當上界，照 Apriori 一層一層挑候選；第二階段再掃一次資料庫算真正的效益。用長條圖看上界有多鬆、哪些候選是白算的，最後跟 HUI-Miner 比較掃描次數和候選數量。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/two-phase.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/up-growth.svg" alt="" width="28" height="28">UP-Growth：用樹找高效益樣式</div>
-                <div class="project-desc">把交易壓成一棵 UP-Tree，節點只記「到自己為止」的效益，挖條件樹時再扣掉一定不屬於組合的錢，上界比 TWU 緊，候選比 Two-Phase 少。一步一步看 DGU、DGN、DLU、DLN 四招怎麼收緊上界，最後跟 Two-Phase、HUI-Miner 比較。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/up-growth.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/high-utility.svg" alt="" width="28" height="28">HUI-Miner 高效益樣式探勘</div>
-                <div class="project-desc">同一間超商，這次記下每樣買了幾個、每樣賺多少。看「出現次數多」和「賺最多」的組合有什麼不同、為什麼效益不能像 Apriori 那樣直接剪，以及 TWU 上界和 utility list 的剩餘效益怎麼安全地剪掉不可能的分支。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/high-utility.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/efim.svg" alt="" width="28" height="28">EFIM：投影與合併</div>
-                <div class="project-desc">不建 utility list，直接在越縮越小的投影資料庫上挖高效益樣式：相同的投影交易合成一筆，再用 utility-bin 掃一次就算出 sub-tree utility 與 local utility 兩個上界。一步一步看投影、合併、剪枝，最後跟 Two-Phase、UP-Growth、HUI-Miner 比較掃描次數和建了多少結構。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/efim.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/top-k-hui.svg" alt="" width="28" height="28">Top-k 高效益樣式</div>
-                <div class="project-desc">不知道門檻該設多少？直接要效益最高的前 k 名。在 HUI-Miner 的 utility list 旁放一個排行榜，門檻從單品效益起跳、邊挖邊往上調，被新門檻剪掉的分支會標出來；最後比較跟「早就知道門檻」相比多花了多少。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/top-k-hui.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui rule" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/uspan.svg" alt="" width="28" height="28">USpan 高效益序列樣式</div>
-                <div class="project-desc">在有數量、有利潤的購買序列裡，找出「先買什麼、之後再買什麼」又最賺的樣式。一步一步看同一個樣式在一位顧客身上有好幾種對應時怎麼取最大、效益矩陣怎麼建、I-接和 S-接怎麼在 q-序列樹上長，以及用 SWU 和 SPU 剪枝；門檻可調、資料可編輯。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/uspan.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="inc">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/incremental.svg" alt="" width="28" height="28">增量探勘：FUP</div>
-                <div class="project-desc">資料庫一直進新交易時，不用全部重算：舊樣式只看新的那幾筆就能更新次數，新冒出的候選先用一條引理篩過，只有少數需要回頭掃舊資料。可以自己組一批新交易，看 FUP 和全部重算各讀了幾筆。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/incremental.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="freq inc" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/cantree.svg" alt="" width="28" height="28">CanTree：不用重建的 FP-tree</div>
-                <div class="project-desc">商品照事先定好的固定順序插進樹裡，新交易進來只要沿著一條路徑把次數加一，不會因為次數變了就要整棵重排重建；要挖的時候才照 FP-Growth 的方式挖。可以自己加新交易、隨時挖，並跟 FP-tree 比較順序和節點數。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/cantree.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="hui inc" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/ihup.svg" alt="" width="28" height="28">IHUP 增量高效益樣式</div>
-                <div class="project-desc">資料一直進來，高效益樣式也不想每次從頭算。IHUP 把交易照固定的字典序插進樹裡、節點記 TWU，新交易直接沿一條路徑加上去、不用重建；要結果時才像 FP-Growth 一樣挖出候選，再掃一次驗證。可以自己加交易、選時間點挖，跟每次從頭跑 Two-Phase 比掃描次數。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/ihup.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="stream">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/sliding-window.svg" alt="" width="28" height="28">滑動視窗頻繁樣式</div>
-                <div class="project-desc">資料串流源源不絕，只關心最近 W 筆：每進來一筆、最舊的離開，用計數表只改受影響的組合，即時更新頻繁與最大頻繁樣式。附支持度隨時間變化的折線圖，看早上、中午、晚上的購買習慣怎麼變。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/sliding-window.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="stream" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/stream-counting.svg" alt="" width="28" height="28">串流近似計數：Lossy Counting・Space-Saving</div>
-                <div class="project-desc">資料串流停不下來、記憶體又不夠每個商品都記時，怎麼知道誰賣得最多？看 Lossy Counting 分桶大掃除、Space-Saving 只用 k 個計數器搶位子，對照真實次數和估計次數，看「少算不超過 εN／多算不超過 N/k」的保證怎麼成立。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/stream-counting.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="stream" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/count-min.svg" alt="" width="28" height="28">Count-Min Sketch</div>
-                <div class="project-desc">不記商品名稱，只用 d 列 × w 欄的計數格子數串流：每來一筆，每一列用雜湊算出一格加一；查詢時取 d 格裡最小的。看商品怎麼撞進同一格、為什麼只會多算不會少算，還可以切換保守更新比較誤差。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/count-min.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="stream">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/bloom-filter.svg" alt="" width="28" height="28">Bloom Filter 與誤判率</div>
-                <div class="project-desc">超商集點活動要判斷「這張發票登錄過了沒」：Bloom Filter 只用 m 個位元和 k 個雜湊函數，一步一步看登錄時設定 k 格、查詢時看到第一個 0 就確定沒登錄過，以及誤判是怎麼來的。可以自己輸入號碼、調 m 和 k，對照理論與實測誤判率找出最佳 k，最後打開計數版看怎麼做到刪除。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/bloom-filter.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="stream" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/hyperloglog.svg" alt="" width="28" height="28">HyperLogLog 基數估計</div>
-                <div class="project-desc">今天有幾位「不同的」會員來店？HyperLogLog 不記卡號，只用 m 個小暫存器：一步一步看卡號怎麼雜湊、前 p 個位元決定第幾格、開頭幾個 0 變成 ρ、暫存器只留最大值，再算出人數。可以一次灌入十萬次來店，對照誤差和理論 1.04/√m，最後把兩家分店的結果合併成聯集。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/hyperloglog.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/spatial.svg" alt="" width="28" height="28">空間資料：四元樹與共位樣式</div>
-                <div class="project-desc">在街區地圖上點出店家，看四元樹怎麼依密度一路切格子、範圍查詢怎麼整塊跳過不相干的區域；另一頁用鄰近距離定義「一起出現」，算參與指數找出哪幾種店總是開在彼此附近。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/spatial.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="spatial">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/rtree.svg" alt="" width="28" height="28">R-tree 與 kNN 查詢</div>
-                <div class="project-desc">在街區地圖上一個點一個點插入，看 R-tree 怎麼挑「擴大最少」的框、節點滿了怎麼一分為二，長出一層層巢狀的框；再點地圖選位置，看優先佇列依距離一路找出最近的 k 家店，太遠的框連打開都不用。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/rtree.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.1s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/ir-tree.svg" alt="" width="28" height="28">IR-tree 空間關鍵字查詢</div>
-                <div class="project-desc">「離我最近、咖啡和牛奶都有賣的 3 家店在哪？」在 R-tree 每個節點掛一份倒排表，點地圖選位置、勾選要買的商品，一步一步看商品湊不齊的框怎麼整個跳過、湊得齊的才依距離排進佇列；再跟「先找最近再檢查」、「先查倒排表再全部排序」比打開的節點和算距離的店家數。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/ir-tree.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="spatial" style="transition-delay:0.2s">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/dbscan.svg" alt="" width="28" height="28">DBSCAN 密度分群</div>
-                <div class="project-desc">圈裡鄰居夠多的點是核心點，用佇列把鄰居一圈一圈拉進來長成一群，鄰居太少的先標成雜訊，之後可能被收編。不用先指定群數，兩個月牙、同心圓也分得開，還能跟 k-means 的結果並排比較。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/dbscan.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" data-topics="spatial">
-                <div class="project-tag">Interactive Demo / Java · Python</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/skyline.svg" alt="" width="28" height="28">Skyline 查詢：BNL 與 SFS</div>
-                <div class="project-desc">中午找店吃飯，又便宜又近的店有哪些？在「價格 × 距離」散布圖上一步一步看 BNL 怎麼用有限的視窗比較、放不下的寫進暫存檔下一輪再讀，以及 SFS 先排序後視窗只進不出、比較次數少多少；可以點圖新增店家，或隨機產生獨立、相關、反相關三種分布。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="research/skyline.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始探索 →</a>
-                </div>
-            </div>
-        </div>
-        <p class="roadmap reveal">每個 Demo 都附可直接執行的 <b>Java</b> 與 <b>Python</b> 程式碼，跟網頁上逐行高亮的是同一份。</p>
-    </section>
-
-    <section id="skills">
-        <div class="reveal section-label">// 03 — Skills</div>
-        <div class="reveal">
-            <h2>What I work with.</h2>
-        </div>
-        <div class="skills-grid reveal">
-            <div class="skill-card">
-                <div class="skill-icon">🐹</div>
-                <div class="skill-name">Go</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.5"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🐍</div>
-                <div class="skill-name">Python</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">☕</div>
-                <div class="skill-name">Java</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.8"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">⚙️</div>
-                <div class="skill-name">C++</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.85"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🐳</div>
-                <div class="skill-name">Docker</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🗄️</div>
-                <div class="skill-name">SQL</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">✨</div>
-                <div class="skill-name">JavaScript</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🌐</div>
-                <div class="skill-name">HTML / CSS</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🌿</div>
-                <div class="skill-name">Git / GitHub</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.8"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🐧</div>
-                <div class="skill-name">Linux / Bash</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-            <div class="skill-card">
-                <div class="skill-icon">🔌</div>
-                <div class="skill-name">REST API</div>
-                <div class="skill-bar-bg">
-                    <div class="skill-bar" data-width="0.7"></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="projects">
-        <div class="reveal section-label">// 04 — Projects</div>
-        <div class="reveal">
-            <h2>Things I've built.</h2>
-        </div>
-        <div class="projects-grid">
-            <div class="project-card reveal">
-                <div class="project-tag">Algorithm / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/pentomino.svg" alt="" width="28" height="28">Pentomino 8x8 Solver</div>
-                <div class="project-desc">每天換一題的日曆拼圖：用 12 塊五格骨牌填滿盤面，只留下今天的日期。內建回溯求解器，加入孤島剪枝並把搜尋切成小段，計算時畫面不會卡住；自由解答可一鍵標出今天的日期，逐一瀏覽所有解（以 2026/10/02 為例共有 602 種）。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/pentomino-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="games/pentomino.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
-                </div>
-            </div>
-            <div class="project-card reveal" style="transition-delay:0.1s">
-                <div class="project-tag">程式解題紀錄</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/notes.svg" alt="" width="28" height="28">Coding Problem Records</div>
-                <div class="project-desc">深入分析經典演算法，專注於動態規劃狀態轉移、離散數學應用及複雜度優化；透過系統化歸納與實作，構建高效能的邏輯解法並記錄技術細節。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem;">
-                    <a href="https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link" target="_blank"
-                        class="project-link" style="margin-top:0;">
-                        查看解題筆記 →
+        <section id="research">
+            <div class="wrap">
+                <div class="sec-label">// 02 — Research</div>
+                <h2><span class="only-dark">研究互動 Demo</span><span class="only-light">果汁龍的研究實驗室</span></h2>
+                <p class="lead">在資料庫系統實驗室研究資料探勘。每個 Demo 都用同一份超商交易一步一步演給你看，Java / Python 程式碼逐行對照，也可以下載回去跑。</p>
+                <div class="hub">
+                    <a href="research/overview.html" target="_blank">
+                        <img src="assets/icons/overview.svg" alt="" width="36" height="36">
+                        <span><b>研究地圖</b><small>演算法「改良自誰」的關係圖、建議閱讀順序、比較表</small></span>
+                    </a>
+                    <a href="research/benchmark.html" target="_blank">
+                        <img src="assets/icons/benchmark.svg" alt="" width="36" height="36">
+                        <span><b>效能比賽場</b><small>產生上萬筆交易，實際跑 Apriori、FP-Growth、EFIM… 比快慢</small></span>
                     </a>
                 </div>
-            </div>
-
-            <div class="project-card reveal" style="transition-delay:0.2s">
-                <div class="project-tag">Web Game / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/1a2b.svg" alt="" width="28" height="28">1A2B 猜數字</div>
-                <div class="project-desc">基於純前端技術實作的經典猜數字遊戲。具備動態粒子背景、猜測歷史紀錄面板，支援實體鍵盤操作，並結合 Canvas Confetti
-                    特效提供過關回饋體驗。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/1A2B-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="games/1A2B.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+                <div class="chips" role="group" aria-label="依主題篩選">
+                    <button type="button" class="chip active" data-topic="all" aria-pressed="true">全部</button>
+                    <button type="button" class="chip" data-topic="freq" aria-pressed="false">頻繁樣式</button>
+                    <button type="button" class="chip" data-topic="rule" aria-pressed="false">關聯規則・序列</button>
+                    <button type="button" class="chip" data-topic="hui" aria-pressed="false">高效益樣式</button>
+                    <button type="button" class="chip" data-topic="inc" aria-pressed="false">增量資料庫</button>
+                    <button type="button" class="chip" data-topic="stream" aria-pressed="false">資料串流</button>
+                    <button type="button" class="chip" data-topic="spatial" aria-pressed="false">空間資料</button>
+                </div>
+                <ul class="demos" id="demos">
+                    <li class="demo" data-topics="freq"><a href="research/apriori.html" target="_blank"><img src="assets/icons/apriori.svg" alt="" width="32" height="32" loading="lazy"><span><b>Apriori 頻繁樣式探勘</b><small>合併、剪枝、計數，每一步都對照程式碼</small></span></a></li>
+                    <li class="demo" data-topics="freq"><a href="research/fp-growth.html" target="_blank"><img src="assets/icons/fp-growth.svg" alt="" width="32" height="32" loading="lazy"><span><b>FP-Growth 頻繁樣式探勘</b><small>交易壓進 FP-tree，再遞迴挖出樣式</small></span></a></li>
+                    <li class="demo" data-topics="freq"><a href="research/eclat.html" target="_blank"><img src="assets/icons/eclat.svg" alt="" width="32" height="32" loading="lazy"><span><b>Eclat：垂直格式與交集</b><small>交易編號取交集，整個過程只掃一次資料庫</small></span></a></li>
+                    <li class="demo" data-topics="freq"><a href="research/closed-patterns.html" target="_blank"><img src="assets/icons/closed-patterns.svg" alt="" width="32" height="32" loading="lazy"><span><b>封閉與最大樣式：CHARM</b><small>樣式多到看不完？只留不重複的那些</small></span></a></li>
+                    <li class="demo" data-topics="freq"><a href="research/periodic.html" target="_blank"><img src="assets/icons/periodic.svg" alt="" width="32" height="32" loading="lazy"><span><b>週期性頻繁樣式（PFP-tree）</b><small>不只看出現幾次，還看隔多久出現一次</small></span></a></li>
+                    <li class="demo" data-topics="freq"><a href="research/gspan.html" target="_blank"><img src="assets/icons/gspan.svg" alt="" width="32" height="32" loading="lazy"><span><b>gSpan 圖形樣式探勘</b><small>把分子畫成圖，找出常見的子圖</small></span></a></li>
+                    <li class="demo" data-topics="rule"><a href="research/association-rules.html" target="_blank"><img src="assets/icons/association-rules.svg" alt="" width="32" height="32" loading="lazy"><span><b>關聯規則：信賴度與提升度</b><small>買了 X 的人，真的也比較會買 Y 嗎？</small></span></a></li>
+                    <li class="demo" data-topics="rule"><a href="research/prefixspan.html" target="_blank"><img src="assets/icons/prefixspan.svg" alt="" width="32" height="32" loading="lazy"><span><b>序列樣式：PrefixSpan</b><small>先買什麼、下次再買什麼</small></span></a></li>
+                    <li class="demo" data-topics="rule"><a href="research/gsp-spade.html" target="_blank"><img src="assets/icons/gsp-spade.svg" alt="" width="32" height="32" loading="lazy"><span><b>GSP 與 SPADE 序列樣式</b><small>序列樣式的另外兩種做法，三種一起比</small></span></a></li>
+                    <li class="demo" data-topics="hui"><a href="research/two-phase.html" target="_blank"><img src="assets/icons/two-phase.svg" alt="" width="32" height="32" loading="lazy"><span><b>Two-Phase 高效益樣式</b><small>先用 TWU 上界篩候選，再算真正的效益</small></span></a></li>
+                    <li class="demo" data-topics="hui"><a href="research/up-growth.html" target="_blank"><img src="assets/icons/up-growth.svg" alt="" width="32" height="32" loading="lazy"><span><b>UP-Growth：用樹找高效益樣式</b><small>四招收緊上界，候選比 Two-Phase 少</small></span></a></li>
+                    <li class="demo" data-topics="hui"><a href="research/high-utility.html" target="_blank"><img src="assets/icons/high-utility.svg" alt="" width="32" height="32" loading="lazy"><span><b>HUI-Miner 高效益樣式探勘</b><small>出現最多的組合，不一定最賺錢</small></span></a></li>
+                    <li class="demo" data-topics="hui"><a href="research/efim.html" target="_blank"><img src="assets/icons/efim.svg" alt="" width="32" height="32" loading="lazy"><span><b>EFIM：投影與合併</b><small>投影資料庫越縮越小，相同交易合成一筆</small></span></a></li>
+                    <li class="demo" data-topics="hui"><a href="research/top-k-hui.html" target="_blank"><img src="assets/icons/top-k-hui.svg" alt="" width="32" height="32" loading="lazy"><span><b>Top-k 高效益樣式</b><small>不知道門檻設多少？直接要前 k 名</small></span></a></li>
+                    <li class="demo" data-topics="hui rule"><a href="research/uspan.html" target="_blank"><img src="assets/icons/uspan.svg" alt="" width="32" height="32" loading="lazy"><span><b>USpan 高效益序列樣式</b><small>有先後順序，又要最賺錢</small></span></a></li>
+                    <li class="demo" data-topics="inc"><a href="research/incremental.html" target="_blank"><img src="assets/icons/incremental.svg" alt="" width="32" height="32" loading="lazy"><span><b>增量探勘：FUP</b><small>新交易進來，不用全部重算</small></span></a></li>
+                    <li class="demo" data-topics="freq inc"><a href="research/cantree.html" target="_blank"><img src="assets/icons/cantree.svg" alt="" width="32" height="32" loading="lazy"><span><b>CanTree：不用重建的 FP-tree</b><small>固定順序插入，新交易只加一條路徑</small></span></a></li>
+                    <li class="demo" data-topics="hui inc"><a href="research/ihup.html" target="_blank"><img src="assets/icons/ihup.svg" alt="" width="32" height="32" loading="lazy"><span><b>IHUP 增量高效益樣式</b><small>高效益樣式也能邊加資料邊挖</small></span></a></li>
+                    <li class="demo" data-topics="stream"><a href="research/sliding-window.html" target="_blank"><img src="assets/icons/sliding-window.svg" alt="" width="32" height="32" loading="lazy"><span><b>滑動視窗頻繁樣式</b><small>只看最近 W 筆，每進一筆即時更新</small></span></a></li>
+                    <li class="demo" data-topics="stream"><a href="research/stream-counting.html" target="_blank"><img src="assets/icons/stream-counting.svg" alt="" width="32" height="32" loading="lazy"><span><b>串流近似計數：Lossy Counting・Space-Saving</b><small>記憶體不夠時，怎麼知道誰賣最多</small></span></a></li>
+                    <li class="demo" data-topics="stream"><a href="research/count-min.html" target="_blank"><img src="assets/icons/count-min.svg" alt="" width="32" height="32" loading="lazy"><span><b>Count-Min Sketch</b><small>用一格格計數器估次數，只會多算不會少算</small></span></a></li>
+                    <li class="demo" data-topics="stream"><a href="research/bloom-filter.html" target="_blank"><img src="assets/icons/bloom-filter.svg" alt="" width="32" height="32" loading="lazy"><span><b>Bloom Filter 與誤判率</b><small>這張發票登錄過了沒？</small></span></a></li>
+                    <li class="demo" data-topics="stream"><a href="research/hyperloglog.html" target="_blank"><img src="assets/icons/hyperloglog.svg" alt="" width="32" height="32" loading="lazy"><span><b>HyperLogLog 基數估計</b><small>今天來了幾位「不同的」會員？</small></span></a></li>
+                    <li class="demo" data-topics="spatial"><a href="research/spatial.html" target="_blank"><img src="assets/icons/spatial.svg" alt="" width="32" height="32" loading="lazy"><span><b>空間資料：四元樹與共位樣式</b><small>哪幾種店總是開在彼此附近</small></span></a></li>
+                    <li class="demo" data-topics="spatial"><a href="research/rtree.html" target="_blank"><img src="assets/icons/rtree.svg" alt="" width="32" height="32" loading="lazy"><span><b>R-tree 與 kNN 查詢</b><small>找最近的 k 家店，太遠的框不用打開</small></span></a></li>
+                    <li class="demo" data-topics="spatial"><a href="research/ir-tree.html" target="_blank"><img src="assets/icons/ir-tree.svg" alt="" width="32" height="32" loading="lazy"><span><b>IR-tree 空間關鍵字查詢</b><small>最近、又有賣咖啡和牛奶的店在哪</small></span></a></li>
+                    <li class="demo" data-topics="spatial"><a href="research/dbscan.html" target="_blank"><img src="assets/icons/dbscan.svg" alt="" width="32" height="32" loading="lazy"><span><b>DBSCAN 密度分群</b><small>不用先指定群數，月牙形也分得開</small></span></a></li>
+                    <li class="demo" data-topics="spatial"><a href="research/skyline.html" target="_blank"><img src="assets/icons/skyline.svg" alt="" width="32" height="32" loading="lazy"><span><b>Skyline 查詢：BNL 與 SFS</b><small>又便宜又近的店有哪些</small></span></a></li>
+                </ul>
+                <div class="more-row">
+                    <button type="button" class="more-btn" id="moreBtn" aria-controls="demos" aria-expanded="false"></button>
+                    <p class="note">每個 Demo 都附可直接執行的 Java 與 Python 程式碼，跟網頁上逐行高亮的是同一份。</p>
                 </div>
             </div>
+        </section>
 
-            <div class="project-card reveal" style="transition-delay:0.3s">
-                <div class="project-tag">Web Game / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/set.svg" alt="" width="28" height="28">SET 練功房</div>
-                <div class="project-desc">經典邏輯桌遊 SET
-                    的練習工具。內建全解偵測演算法，根據形狀、顏色、數量、紋路四種屬性即時判定合法組合；除了單人練習，也可以挑戰三段難度的電腦對手，或輸入暱稱、用四位數房間碼開房間，最多 6 人連線對戰（可中途加入、斷線重回同一局）：優先 WebRTC 直連，打不通時自動改走 MQTT 備援通道，
-                    手機版一個畫面就能看到整個牌面。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/game-set-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="games/game-set.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+        <section id="about">
+            <div class="wrap">
+                <div class="sec-label">// 03 — About</div>
+                <h2><span class="only-dark">關於我</span><span class="only-light">關於果汁龍</span></h2>
+                <div class="about">
+                    <div>
+                        <p>Hi！我是果汁龍，目前是資料庫系統實驗室的碩一生。研究方向是<strong>資料探勘</strong>：從大量交易、時間序列與空間資料中，找出頻繁出現、高效益或具有週期性的樣式。</p>
+                        <p>真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
+                        <p>課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。</p>
+                        <div class="stats">
+                            <div class="stat"><b>9</b><span>自己做的小工具與遊戲</span></div>
+                            <div class="stat"><b>100+</b><span>演算法解題紀錄</span></div>
+                            <div class="stat"><b>4+</b><span>熟悉資料庫系統</span></div>
+                            <div class="stat"><b>10</b><span>程式競賽獲獎</span></div>
+                        </div>
+                        <h3 class="sub-h">會用的工具</h3>
+                        <div class="skills">
+                            <span>⚙️ C++</span><span>☕ Java</span><span>🐍 Python</span><span>🐹 Go</span><span>✨ JavaScript</span><span>🌐 HTML / CSS</span>
+                            <span>🗄️ SQL</span><span>🐳 Docker</span><span>🌿 Git / GitHub</span><span>🐧 Linux / Bash</span><span>🔌 REST API</span>
+                        </div>
+                    </div>
+                    <div class="photo"><img src="assets/me.jpg" alt="果汁龍和三隻黃金獵犬的合照" loading="lazy"></div>
                 </div>
             </div>
+        </section>
 
-            <div class="project-card reveal" style="transition-delay:0.4s">
-                <div class="project-tag">Web Game / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/infinite-tictactoe.svg" alt="" width="28" height="28">無限井字棋</div>
-                <div class="project-desc">井字棋的無限變體：每人場上最多 3 子，落下第 4 子時最舊的會消失。內建 negamax + Alpha-Beta 的 AI
-                    對手（三種強度）。我另外用逆向歸納把這個遊戲<strong style="color:var(--accent2)">完整求解</strong>了 ——
-                    116,074 個局面、先手必勝，而且只有下「邊」才贏。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/infinite-tictactoe-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="games/infinite-tictactoe.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
+        <section id="achievements">
+            <div class="wrap">
+                <div class="sec-label">// 04 — Achievements</div>
+                <h2>程式競賽</h2>
+                <ul class="ach">
+                    <li><span class="m">🥇</span><span><span class="y">2023 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第三名</span></span></li>
+                    <li><span class="m">🥇</span><span><span class="y">2024 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第二名</span></span></li>
+                    <li><span class="m">🥇</span><span><span class="y">2025 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第二名</span></span></li>
+                    <li><span class="m">🥇</span><span><span class="y">2026 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第四名</span></span></li>
+                    <li><span class="m">🥈</span><span><span class="y">2025 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">銀牌</span></span></li>
+                    <li><span class="m">🥉</span><span><span class="y">2023 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">銅牌</span></span></li>
+                    <li><span class="m">🥉</span><span><span class="y">2024 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">銅牌</span></span></li>
+                    <li><span class="m">✦</span><span><span class="y">2024 · NCPC</span><span class="t">全國大專院校電腦軟體設計競賽</span> <span class="a">佳作</span></span></li>
+                    <li><span class="m">✦</span><span><span class="y">2025 · NCPC</span><span class="t">全國大專院校電腦軟體設計競賽</span> <span class="a">佳作</span></span></li>
+                    <li><span class="m">✦</span><span><span class="y">2024 · GiCS</span><span class="t">尋找資安女婕思</span> <span class="a">佳作</span></span></li>
+                    <li><span class="m">◈</span><span><span class="y">2023 · ICPC Regional</span><span class="t">Asia Taoyuan Regional Programming Contest</span> <span class="a">參賽</span></span></li>
+                    <li><span class="m">◈</span><span><span class="y">2024 · ICPC Regional</span><span class="t">Asia Taichung Regional Programming Contest</span> <span class="a">參賽</span></span></li>
+                    <li><span class="m">◈</span><span><span class="y">2025 · ICPC Regional</span><span class="t">Asia Taichung Regional Programming Contest</span> <span class="a">參賽</span></span></li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="contact" class="contact">
+            <div class="wrap">
+                <div class="sec-label">// 05 — Contact</div>
+                <h2>來聊聊吧</h2>
+                <p class="lead">想討論研究、作品，或只是想打聲招呼，都歡迎寄信給我。</p>
+                <a href="mailto:ginakuo0923@gmail.com" class="btn btn-primary">寄信給我 ✉️</a>
+                <div class="socials">
+                    <a href="https://github.com/jellyfishkuo">GitHub</a>
+                    <a href="https://linkedin.com/in/jellyfishkuo">LinkedIn</a>
+                    <a href="https://www.instagram.com/jellyfish.kuo/">Instagram</a>
                 </div>
             </div>
-
-            <div class="project-card reveal" style="transition-delay:0.5s">
-                <div class="project-tag">Web Game / AI</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/vertical-gomoku.svg" alt="" width="28" height="28">立式五子棋</div>
-                <div class="project-desc">9×8 重力棋盤上的五連線對戰。棋子只能落在欄位最低空格，內建 iterative deepening、Negamax、
-                    Alpha-Beta 剪枝與局面快取的三段難度 AI，並處理 AI 思考期間重新開始的非同步競態。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/vertical-gomoku-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="games/vertical-gomoku.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
-                </div>
-            </div>
-
-            <div class="project-card reveal" style="transition-delay:0.6s">
-                <div class="project-tag">Web App / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/coc-card.svg" alt="" width="28" height="28">部落衝突卡牌交易站</div>
-                <div class="project-desc">為《部落衝突》玩家打造的多帳號卡牌收藏與交換管理器。支援跨帳號卡牌總表、交易配對推薦與資料設定，透過純前端與
-                    localStorage 保存資料，方便管理多個帳號間的卡牌調度。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/coc-card-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="games/coc-card.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接試玩 →</a>
-                </div>
-            </div>
-
-            <div class="project-card reveal" style="transition-delay:0.7s">
-                <div class="project-tag">Web Tool / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/electricity.svg" alt="" width="28" height="28">電費紀錄</div>
-                <div class="project-desc">為了掌握租屋處用電而做的電表讀數紀錄工具。手機優先設計，輸入讀數後自動算出與上一筆的用電差，並以每日、每月長條圖呈現；
-                    跨天的用電依時間平均分配，電表從 9999 歸零也算得對；支援編輯與 JSON / CSV 匯出匯入備份。資料只存在自己的瀏覽器裡，不需要登入、離線也能使用。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/electricity-detail.html" class="project-link" style="margin-top:0;">技術介紹 →</a>
-                    <a href="electricity-tracker/" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">直接使用 →</a>
-                </div>
-            </div>
-
-            <div class="project-card reveal" style="transition-delay:0.8s">
-                <div class="project-tag">Algorithm / Teaching</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/hanoi.svg" alt="" width="28" height="28">河內塔 Tower of Hanoi</div>
-                <div class="project-desc">用來理解遞迴的互動教材。可以自己動手玩，卡關時按提示會算出從目前盤面出發的最佳下一步；
-                    也可以一步一步看遞迴程式怎麼解：Python / JS / C++ 程式碼逐行高亮，旁邊同步顯示呼叫堆疊與每一步在做什麼，最後說明為什麼最少要 2ⁿ − 1 步。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/hanoi.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">開始學習 →</a>
-                </div>
-            </div>
-
-            <div class="project-card reveal" style="transition-delay:0.9s">
-                <div class="project-tag">Web Tool / JS</div>
-                <div class="project-title"><img class="project-icon" src="assets/icons/dinner-wheel.svg" alt="" width="28" height="28">晚餐吃什麼？</div>
-                <div class="project-desc">選擇困難的救星轉盤。用 Canvas 畫出轉盤、先抽好結果再算出要停的角度，讓指針一定落在格子中間；
-                    選項可以自己增減並記在瀏覽器裡，不想吃的一鍵排除再轉一次，手機上也能一手操作。</div>
-                <div style="margin-top: 1.5rem; display: flex; gap: 1.2rem; flex-wrap: wrap;">
-                    <a href="games/dinner-wheel.html" target="_blank" class="project-link"
-                        style="margin-top:0; color: var(--accent);">轉一下 →</a>
-                </div>
-            </div>
-
-        </div>
-    </section>
-
-    <section id="achievements">
-        <div class="reveal section-label">// 05 — Achievements</div>
-        <div class="reveal">
-            <h2>Competition record.</h2>
-        </div>
-        <div class="ach-grid">
-
-            <div class="ach-card gold reveal">
-                <div class="ach-medal">🥇</div>
-                <div>
-                    <div class="ach-year">2023 · PUPC</div>
-                    <div class="ach-title">全國私立大專校院程式競賽</div>
-                    <div class="ach-award">金獎 第三名</div>
-                </div>
-            </div>
-
-            <div class="ach-card gold reveal" style="transition-delay:0.05s">
-                <div class="ach-medal">🥇</div>
-                <div>
-                    <div class="ach-year">2024 · PUPC</div>
-                    <div class="ach-title">全國私立大專校院程式競賽</div>
-                    <div class="ach-award">金獎 第二名</div>
-                </div>
-            </div>
-
-            <div class="ach-card gold reveal" style="transition-delay:0.10s">
-                <div class="ach-medal">🥇</div>
-                <div>
-                    <div class="ach-year">2025 · PUPC</div>
-                    <div class="ach-title">全國私立大專校院程式競賽</div>
-                    <div class="ach-award">金獎 第二名</div>
-                </div>
-            </div>
-
-            <div class="ach-card gold reveal" style="transition-delay:0.15s">
-                <div class="ach-medal">🥇</div>
-                <div>
-                    <div class="ach-year">2026 · PUPC</div>
-                    <div class="ach-title">全國私立大專校院程式競賽</div>
-                    <div class="ach-award">金獎 第四名</div>
-                </div>
-            </div>
-
-            <div class="ach-card silver reveal" style="transition-delay:0.20s">
-                <div class="ach-medal">🥈</div>
-                <div>
-                    <div class="ach-year">2025 · TOPC</div>
-                    <div class="ach-title">Asia Taiwan Online Programming Contest</div>
-                    <div class="ach-award">銀牌</div>
-                </div>
-            </div>
-
-            <div class="ach-card bronze reveal" style="transition-delay:0.25s">
-                <div class="ach-medal">🥉</div>
-                <div>
-                    <div class="ach-year">2023 · TOPC</div>
-                    <div class="ach-title">Asia Taiwan Online Programming Contest</div>
-                    <div class="ach-award">銅牌</div>
-                </div>
-            </div>
-
-            <div class="ach-card bronze reveal" style="transition-delay:0.30s">
-                <div class="ach-medal">🥉</div>
-                <div>
-                    <div class="ach-year">2024 · TOPC</div>
-                    <div class="ach-title">Asia Taiwan Online Programming Contest</div>
-                    <div class="ach-award">銅牌</div>
-                </div>
-            </div>
-
-            <div class="ach-card honor reveal" style="transition-delay:0.35s">
-                <div class="ach-medal">✦</div>
-                <div>
-                    <div class="ach-year">2024 · NCPC</div>
-                    <div class="ach-title">全國大專院校電腦軟體設計競賽</div>
-                    <div class="ach-award">佳作</div>
-                </div>
-            </div>
-
-            <div class="ach-card honor reveal" style="transition-delay:0.40s">
-                <div class="ach-medal">✦</div>
-                <div>
-                    <div class="ach-year">2025 · NCPC</div>
-                    <div class="ach-title">全國大專院校電腦軟體設計競賽</div>
-                    <div class="ach-award">佳作</div>
-                </div>
-            </div>
-
-            <div class="ach-card honor reveal" style="transition-delay:0.45s">
-                <div class="ach-medal">✦</div>
-                <div>
-                    <div class="ach-year">2024 · GiCS</div>
-                    <div class="ach-title">尋找資安女婕思</div>
-                    <div class="ach-award">佳作</div>
-                </div>
-            </div>
-
-            <div class="ach-card entry reveal" style="transition-delay:0.50s">
-                <div class="ach-medal">◈</div>
-                <div>
-                    <div class="ach-year">2023 · ICPC Regional</div>
-                    <div class="ach-title">Asia Taoyuan Regional Programming Contest</div>
-                    <div class="ach-award">參賽</div>
-                </div>
-            </div>
-
-            <div class="ach-card entry reveal" style="transition-delay:0.55s">
-                <div class="ach-medal">◈</div>
-                <div>
-                    <div class="ach-year">2024 · ICPC Regional</div>
-                    <div class="ach-title">Asia Taichung Regional Programming Contest</div>
-                    <div class="ach-award">參賽</div>
-                </div>
-            </div>
-
-            <div class="ach-card entry reveal" style="transition-delay:0.60s">
-                <div class="ach-medal">◈</div>
-                <div>
-                    <div class="ach-year">2025 · ICPC Regional</div>
-                    <div class="ach-title">Asia Taichung Regional Programming Contest</div>
-                    <div class="ach-award">參賽</div>
-                </div>
-            </div>
-
-        </div>
-    </section>
-
-    <section id="contact">
-        <div class="contact-inner reveal">
-            <div class="section-label">// 06 — Contact</div>
-            <h2>Let's work together.</h2>
-            <p>Have a project in mind or just want to chat? My inbox is always open.</p>
-            <a href="mailto:ginakuo0923@gmail.com" class="btn btn-primary"
-                style="margin-bottom:2.5rem;display:inline-block;">Say Hello ✉️</a>
-            <div class="social-links">
-                <a href="https://github.com/jellyfishkuo" class="social-link">⌥ GitHub</a>
-                <a href="https://linkedin.com/in/jellyfishkuo" class="social-link">in LinkedIn</a>
-                <a href="https://www.instagram.com/jellyfish.kuo/" class="social-link">◈ Instagram</a>
-            </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
     <footer>
-        <span>© 2026 果汁龍</span>
-        <span>Built with ♥ &amp; curiosity</span>
+        <div class="wrap"><span>© 2026 果汁龍</span><span>ginakuo0923@gmail.com</span></div>
     </footer>
 
     <script>
-        // ── Particle canvas ──
-        // 包成函式並加能力檢測：隱私設定或擴充套件擋掉 canvas 時 getContext 會回 null，
-        // 若讓例外冒出去，後面的 typewriter 與 scroll reveal 都不會執行 ——
-        // 而 .reveal 預設是 opacity: 0，等於整頁內容永遠不會出現。
-        function initParticles() {
+        // ── 深色／淺色切換 ──
+        const themeBtn = document.getElementById('themeBtn');
+        function syncThemeBtn() {
+            const dark = window.jfkTheme.get() === 'dark';
+            themeBtn.setAttribute('aria-label', dark ? '切換成淺色' : '切換成深色');
+            themeBtn.title = dark ? '切換成淺色' : '切換成深色';
+        }
+        themeBtn.addEventListener('click', () => window.jfkTheme.toggle());
+        document.addEventListener('themechange', syncThemeBtn);
+        syncThemeBtn();
+
+        // ── 背景粒子：只有深色在跑，切到淺色就停 ──
+        // canvas 被擋（getContext 回 null）時直接略過，不影響頁面
+        (() => {
             const canvas = document.getElementById('canvas');
             const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
             if (!ctx) return;
-            let W, H, particles = [], mouse = { x: -9999, y: -9999 };
-
-            function resize() {
-                W = canvas.width = window.innerWidth;
-                H = canvas.height = window.innerHeight;
-            }
+            let W, H, raf = 0;
+            const mouse = { x: -9999, y: -9999 };
+            const resize = () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight; };
             resize();
-            window.addEventListener('resize', resize);
-            window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-
-            class Particle {
-                constructor() { this.reset(); }
-                reset() {
-                    this.x = Math.random() * W;
-                    this.y = Math.random() * H;
-                    this.vx = (Math.random() - 0.5) * 0.4;
-                    this.vy = (Math.random() - 0.5) * 0.4;
-                    this.r = Math.random() * 1.5 + 0.5;
-                    this.alpha = Math.random() * 0.5 + 0.1;
-                    this.color = Math.random() > 0.5 ? '#7c3aed' : '#06b6d4';
-                }
-                update() {
-                    const dx = mouse.x - this.x, dy = mouse.y - this.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 150) {
-                        this.vx += (dx / dist) * 0.015;
-                        this.vy += (dy / dist) * 0.015;
-                    }
-                    this.vx *= 0.995; this.vy *= 0.995;
-                    this.x += this.vx; this.y += this.vy;
-                    if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
-                }
-                draw() {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-                    ctx.fillStyle = this.color;
-                    ctx.globalAlpha = this.alpha;
-                    ctx.fill();
-                }
-            }
-
-            for (let i = 0; i < 120; i++) particles.push(new Particle());
-
-            function drawLines() {
-                for (let i = 0; i < particles.length; i++) {
-                    for (let j = i + 1; j < particles.length; j++) {
-                        const dx = particles[i].x - particles[j].x;
-                        const dy = particles[i].y - particles[j].y;
-                        const d = Math.sqrt(dx * dx + dy * dy);
-                        if (d < 100) {
-                            ctx.beginPath();
-                            ctx.moveTo(particles[i].x, particles[i].y);
-                            ctx.lineTo(particles[j].x, particles[j].y);
-                            ctx.strokeStyle = '#7c3aed';
-                            ctx.globalAlpha = (1 - d / 100) * 0.15;
-                            ctx.lineWidth = 0.5;
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-
-            function animate() {
-                ctx.clearRect(0, 0, W, H);
-                particles.forEach(p => { p.update(); p.draw(); });
-                drawLines();
-                ctx.globalAlpha = 1;
-                requestAnimationFrame(animate);
-            }
-            animate();
-        }
-
-        try { initParticles(); } catch (err) { /* 背景動畫是裝飾，失敗不影響頁面內容 */ }
-
-        // ── Typewriter ──
-        const phrases = [
-            'MS Student @ DB Lab',
-            'Data Mining & Indexing',
-            'Algorithm Enthusiast',
-            'Maker of Small Tools & Games',
-        ];
-        let pi = 0, ci = 0, deleting = false, tw = document.getElementById('typewriter');
-        function type() {
-            const phrase = phrases[pi];
-            if (!deleting) {
-                tw.textContent = phrase.slice(0, ci + 1);
-                ci++;
-                if (ci === phrase.length) { deleting = true; setTimeout(type, 1800); return; }
-                setTimeout(type, 80);
-            } else {
-                tw.textContent = phrase.slice(0, ci - 1);
-                ci--;
-                if (ci === 0) { deleting = false; pi = (pi + 1) % phrases.length; setTimeout(type, 400); return; }
-                setTimeout(type, 45);
-            }
-        }
-        type();
-
-        // ── Scroll reveal ──
-        const reveals = document.querySelectorAll('.reveal');
-        /* Research 主題篩選：點標籤只顯示那個主題的 Demo，再點「全部」恢復 */
-        (() => {
-            const chips = [...document.querySelectorAll('#research .topic-chip')];
-            const cards = [...document.querySelectorAll('#research .project-card[data-topics]')];
-            chips.forEach(chip => {
-                const t = chip.dataset.topic;
-                const n = t === 'all' ? cards.length : cards.filter(c => c.dataset.topics.split(' ').includes(t)).length;
-                const span = document.createElement('span');
-                span.className = 'n';
-                span.textContent = n;
-                chip.appendChild(span);
-                chip.addEventListener('click', () => {
-                    chips.forEach(c => {
-                        const on = c === chip;
-                        c.classList.toggle('active', on);
-                        c.setAttribute('aria-pressed', on);
-                    });
-                    cards.forEach(card => {
-                        card.hidden = t !== 'all' && !card.dataset.topics.split(' ').includes(t);
-                        // 篩選後才出現的卡片不用再等滑到才淡入
-                        if (!card.hidden) { card.style.transitionDelay = ''; card.classList.add('visible'); }
-                    });
-                });
+            addEventListener('resize', resize);
+            addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+            const newParticle = () => ({
+                x: Math.random() * W, y: Math.random() * H,
+                vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+                r: Math.random() * 1.5 + 0.5, alpha: Math.random() * 0.5 + 0.1,
+                color: Math.random() > 0.5 ? '#7c3aed' : '#06b6d4',
             });
+            const ps = Array.from({ length: innerWidth < 600 ? 60 : 120 }, newParticle);
+            function frame() {
+                ctx.clearRect(0, 0, W, H);
+                for (const p of ps) {
+                    const dx = mouse.x - p.x, dy = mouse.y - p.y, d = Math.hypot(dx, dy);
+                    if (d < 150) { p.vx += dx / d * 0.015; p.vy += dy / d * 0.015; }
+                    p.vx *= 0.995; p.vy *= 0.995; p.x += p.vx; p.y += p.vy;
+                    if (p.x < 0 || p.x > W || p.y < 0 || p.y > H) Object.assign(p, newParticle());
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill();
+                }
+                ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 0.5;
+                for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+                    const d = Math.hypot(ps[i].x - ps[j].x, ps[i].y - ps[j].y);
+                    if (d < 100) {
+                        ctx.beginPath(); ctx.moveTo(ps[i].x, ps[i].y); ctx.lineTo(ps[j].x, ps[j].y);
+                        ctx.globalAlpha = (1 - d / 100) * 0.15; ctx.stroke();
+                    }
+                }
+                ctx.globalAlpha = 1;
+                raf = requestAnimationFrame(frame);
+            }
+            const sync = () => {
+                const on = window.jfkTheme.get() === 'dark' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (on && !raf) raf = requestAnimationFrame(frame);
+                if (!on && raf) { cancelAnimationFrame(raf); raf = 0; ctx.clearRect(0, 0, W, H); }
+            };
+            document.addEventListener('themechange', sync);
+            sync();
         })();
 
-        const observer = new IntersectionObserver(entries => {
-            entries.forEach(e => {
-                if (e.isIntersecting) {
-                    e.target.classList.add('visible');
-                    // 錯開的 transition-delay 只給進場用，進場完就拿掉，不然滑鼠移上去時越後面的卡片反應越慢
-                    const el = e.target, delay = parseFloat(el.style.transitionDelay) || 0;
-                    if (delay) setTimeout(() => { el.style.transitionDelay = ''; }, delay * 1000 + 900);
-                    observer.unobserve(el);
-                    e.target.querySelectorAll('.skill-bar').forEach(bar => {
-                        bar.style.transform = `scaleX(${bar.dataset.width})`;
-                    });
-                }
+        // ── 研究 Demo：主題篩選＋「全部」時先只列前幾個 ──
+        (() => {
+            const FIRST = 8;
+            const chips = [...document.querySelectorAll('#research .chip')];
+            const items = [...document.querySelectorAll('#demos .demo[data-topics]')];
+            const moreBtn = document.getElementById('moreBtn');
+            let topic = 'all', expanded = false;
+            const has = (el, t) => el.dataset.topics.split(' ').includes(t);
+            function render() {
+                let shown = 0;
+                items.forEach(el => {
+                    const match = topic === 'all' || has(el, topic);
+                    const hide = !match || (topic === 'all' && !expanded && shown >= FIRST);
+                    el.hidden = hide;
+                    if (match) shown++;
+                });
+                const collapsible = topic === 'all';
+                moreBtn.hidden = !collapsible;
+                moreBtn.textContent = expanded ? '收起來 ↑' : `看全部 ${items.length} 個 Demo ↓`;
+                moreBtn.setAttribute('aria-expanded', expanded);
+            }
+            chips.forEach(chip => {
+                const t = chip.dataset.topic;
+                const n = document.createElement('span');
+                n.className = 'n';
+                n.textContent = t === 'all' ? items.length : items.filter(el => has(el, t)).length;
+                chip.appendChild(n);
+                chip.addEventListener('click', () => {
+                    topic = t;
+                    chips.forEach(c => { c.classList.toggle('active', c === chip); c.setAttribute('aria-pressed', c === chip); });
+                    render();
+                });
             });
-        }, { threshold: 0.15 });
-        reveals.forEach(r => observer.observe(r));
+            moreBtn.addEventListener('click', () => {
+                expanded = !expanded;
+                render();
+                if (!expanded) document.getElementById('research').scrollIntoView();
+            });
+            render();
+        })();
 
-        // ── Mobile menu ──
-        const hamburger = document.getElementById('hamburger');
+        // ── 手機選單 ──
+        const menuBtn = document.getElementById('menuBtn');
         const mobileMenu = document.getElementById('mobileMenu');
-        hamburger.addEventListener('click', e => {
-            e.stopPropagation();
-            hamburger.classList.toggle('open');
-            mobileMenu.classList.toggle('open');
-        });
-        document.addEventListener('click', () => {
-            hamburger.classList.remove('open');
-            mobileMenu.classList.remove('open');
-        });
-        function closeMenu() {
-            hamburger.classList.remove('open');
-            mobileMenu.classList.remove('open');
-        }
+        const setMenu = open => { mobileMenu.classList.toggle('open', open); menuBtn.setAttribute('aria-expanded', open); };
+        menuBtn.addEventListener('click', e => { e.stopPropagation(); setMenu(!mobileMenu.classList.contains('open')); });
+        document.addEventListener('click', () => setMenu(false));
     </script>
 </body>
 
