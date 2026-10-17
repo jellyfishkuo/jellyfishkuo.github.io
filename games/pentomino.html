@@ -11,17 +11,19 @@
     <link rel="apple-touch-icon" href="../assets/icons/pentomino-180.png">
     <title>Pentomino 拼圖</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <meta name="jfk-paint" content="off"><!-- 骨牌顏色是遊戲內容，不要被淺色換掉 -->
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
-        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: #05050a; }
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--lt-05050a, #05050a); }
         /* 永遠預留捲軸的位置：自由解答比每日挑戰長，只有一邊出現捲軸時，
            整頁會被擠窄、置中的頁首和分頁就左右跳一下（桌機才看得到） */
         @media (hover: hover) and (pointer: fine) {
             html { scrollbar-gutter: stable; }
         }
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         /* --- 全域重置與防護 --- */
         * {
@@ -30,15 +32,15 @@
         }
 
         :root {
-            /* 與首頁同一套配色：深色底、紫 #7c3aed / 青 #06b6d4 */
-            --bg-color: #05050a;
-            --panel-bg: #0f0f1a;
-            --panel-2: #151527;
-            --line: #262640;
-            --muted: #8a8aa3;
-            --accent-blue: #7c3aed;
-            --accent-cyan: #06b6d4;
-            --accent-yellow: #fbbf24;
+            /* 與首頁同一套配色：深色底、紫 var(--lt-7c3aed, #7c3aed) / 青 var(--lt-06b6d4, #06b6d4) */
+            --bg-color: var(--lt-05050a, #05050a);
+            --panel-bg: var(--lt-0f0f1a, #0f0f1a);
+            --panel-2: var(--lt-151527, #151527);
+            --line: var(--lt-262640, #262640);
+            --muted: var(--lt-8a8aa3, #8a8aa3);
+            --accent-blue: var(--lt-7c3aed, #7c3aed);
+            --accent-cyan: var(--lt-06b6d4, #06b6d4);
+            --accent-yellow: var(--lt-fbbf24, #fbbf24);
             --mono: 'Space Mono', ui-monospace, monospace;
 
             /* 兩個模式的棋盤都由這個變數推導，切換分頁時盤面尺寸完全一致 */
@@ -70,8 +72,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-            background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 58, 237, 0.16), transparent 70%), var(--bg-color);
-            color: #f8fafc;
+            background: radial-gradient(ellipse 80% 50% at 50% -10%, var(--lt-7c3aed-16, rgba(124, 58, 237, 0.16)), transparent 70%), var(--bg-color);
+            color: var(--lt-f8fafc, #f8fafc);
             margin: 0;
             padding: 1dvh 5px;
             min-height: 100dvh;
@@ -115,7 +117,7 @@
             letter-spacing: 1px;
             text-align: center;
             white-space: nowrap;
-            background: linear-gradient(90deg, #c4b5fd, #67e8f9);
+            background: linear-gradient(90deg, var(--lt-c4b5fd, #c4b5fd), var(--lt-67e8f9, #67e8f9));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -135,6 +137,7 @@
         .head-link:hover { color: var(--accent-cyan); }
         .head-link.left { left: 4px; }
         .head-link.right { right: 4px; }
+        #tab-container .jfk-switch-slot { align-self: center; }
 
         /* --- 模式切換標籤 (Tabs) --- */
         #tab-container {
@@ -164,9 +167,9 @@
         }
 
         .tab-btn.active {
-            background: linear-gradient(135deg, #7c3aed, #6d28d9);
-            color: white;
-            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+            background: linear-gradient(135deg, var(--lt-7c3aed, #7c3aed), var(--lt-6d28d9, #6d28d9));
+            color: var(--lt-ffffff, #fff);
+            box-shadow: 0 4px 14px var(--lt-7c3aed-35, rgba(124, 58, 237, 0.35));
         }
 
         .hidden-view {
@@ -181,9 +184,9 @@
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
-            color: white;
+            color: var(--lt-ffffff, #fff);
             font-size: clamp(0.85rem, 2.5vw, 0.95rem);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 6px var(--lt-000000-20, rgba(0, 0, 0, 0.2));
             touch-action: manipulation;
         }
 
@@ -201,7 +204,7 @@
 
         /* 主要動作：紫色漸層 */
         .btn-blue {
-            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            background: linear-gradient(135deg, var(--lt-7c3aed, #7c3aed), var(--lt-6d28d9, #6d28d9));
         }
 
         .btn-blue:hover:not(:disabled) {
@@ -212,7 +215,7 @@
         .btn-ghost {
             background: var(--panel-2);
             border: 1px solid var(--line);
-            color: #d4d4e6;
+            color: var(--lt-d4d4e6, #d4d4e6);
             box-shadow: none;
         }
 
@@ -222,26 +225,26 @@
 
         .btn-ghost:hover:not(:disabled) {
             border-color: var(--accent-cyan);
-            color: #fff;
+            color: var(--lt-ffffff, #fff);
         }
 
         /* 會清掉進度的按鈕：平常低調，只有字是紅色 */
         .btn-red {
             background: var(--panel-2);
-            border: 1px solid rgba(239, 68, 68, 0.45);
-            color: #fca5a5;
+            border: 1px solid var(--lt-ef4444-45, rgba(239, 68, 68, 0.45));
+            color: var(--lt-fca5a5, #fca5a5);
             box-shadow: none;
         }
 
         .btn-red:hover:not(:disabled),
         .btn-red.confirming {
-            background: #ef4444;
-            border-color: #ef4444;
-            color: #fff;
+            background: var(--lt-ef4444, #ef4444);
+            border-color: var(--lt-ef4444, #ef4444);
+            color: var(--lt-ffffff, #fff);
         }
 
         .btn-green {
-            background: linear-gradient(135deg, #10b981, #059669);
+            background: linear-gradient(135deg, var(--lt-10b981, #10b981), var(--lt-059669, #059669));
             width: 100%;
             height: 100%;
         }
@@ -280,11 +283,11 @@
         /* 托盤外框：與主面板同一套外觀，桌機時垂直置中對齊棋盤 */
         .tray-panel {
             width: max-content;
-            background: linear-gradient(180deg, var(--panel-bg) 0%, #0b0b14 100%);
+            background: linear-gradient(180deg, var(--panel-bg) 0%, var(--lt-0b0b14, #0b0b14) 100%);
             border: 1px solid var(--line);
             border-radius: 18px;
             padding: 16px;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 18px 40px var(--lt-000000-45, rgba(0, 0, 0, 0.45));
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -340,10 +343,10 @@
             margin-left: auto;
             margin-right: auto;
             padding: var(--board-pad);
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border: 1px solid var(--line);
             border-radius: 12px;
-            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6);
+            box-shadow: inset 0 2px 12px var(--lt-000000-60, rgba(0, 0, 0, 0.6));
             flex-shrink: 0;
         }
 
@@ -364,8 +367,8 @@
             width: var(--cell-size);
             height: var(--cell-size);
             /* 深色格子：彩色骨牌放上去才跳得出來（舊版淺灰底像試算表） */
-            background: #17172a;
-            border: 1px solid #0a0a14;
+            background: var(--lt-17172a, #17172a);
+            border: 1px solid var(--lt-0a0a14, #0a0a14);
             border-radius: 6px;
             transition: background 0.12s, box-shadow 0.12s;
         }
@@ -375,7 +378,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #6e6e8f;
+            color: var(--lt-6e6e8f, #6e6e8f);
             font-weight: 700;
             font-size: calc(var(--cell-size) * 0.3);
             user-select: none;
@@ -385,21 +388,21 @@
         /* 今天的日期／障礙物：琥珀色外框發光，一眼就看到要留下哪幾格 */
         .cell.blocked,
         .s-cell.s-blocked {
-            background: linear-gradient(160deg, #3a2a0a, #241a06) !important;
+            background: linear-gradient(160deg, var(--lt-3a2a0a, #3a2a0a), var(--lt-241a06, #241a06)) !important;
             border: 2px solid var(--accent-yellow) !important;
             border-radius: 6px !important;
-            box-shadow: 0 0 10px rgba(251, 191, 36, 0.35), inset 0 0 8px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 10px var(--lt-fbbf24-35, rgba(251, 191, 36, 0.35)), inset 0 0 8px var(--lt-000000-50, rgba(0, 0, 0, 0.5));
         }
 
         /* 拖曳時預覽放下去的位置：青色 = 放得下，紅色 = 放不下 */
         .cell.drop-ok {
-            background: rgba(6, 182, 212, 0.45);
-            box-shadow: inset 0 0 0 2px #67e8f9;
+            background: var(--lt-06b6d4-45, rgba(6, 182, 212, 0.45));
+            box-shadow: inset 0 0 0 2px var(--lt-67e8f9, #67e8f9);
         }
 
         .cell.drop-bad {
-            background: rgba(239, 68, 68, 0.35);
-            box-shadow: inset 0 0 0 2px #fca5a5;
+            background: var(--lt-ef4444-35, rgba(239, 68, 68, 0.35));
+            box-shadow: inset 0 0 0 2px var(--lt-fca5a5, #fca5a5);
         }
 
         .cell.blocked {
@@ -459,11 +462,11 @@
             flex-shrink: 0;
             font-family: var(--mono);
             font-size: 0.78rem;
-            color: #c4b5fd;
+            color: var(--lt-c4b5fd, #c4b5fd);
             padding: 2px 8px;
             border-radius: 100px;
-            background: rgba(124, 58, 237, 0.15);
-            border: 1px solid rgba(124, 58, 237, 0.4);
+            background: var(--lt-7c3aed-15, rgba(124, 58, 237, 0.15));
+            border: 1px solid var(--lt-7c3aed-40, rgba(124, 58, 237, 0.4));
         }
 
         #shareBtn {
@@ -480,11 +483,11 @@
 
         /* 積木托盤：外觀與棋盤外框呼應（同色系、同圓角） */
         #tray-container {
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border-radius: 12px;
             border: 1px solid var(--line);
             position: relative;
-            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6);
+            box-shadow: inset 0 2px 12px var(--lt-000000-60, rgba(0, 0, 0, 0.6));
             flex-shrink: 0;
         }
 
@@ -536,7 +539,7 @@
             transition: none;
             opacity: 0.8;
             transform: scale(1.05) translateZ(0) !important;
-            filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.6)) !important;
+            filter: drop-shadow(0 10px 14px var(--lt-000000-60, rgba(0, 0, 0, 0.6))) !important;
         }
 
         /* 邊框與圓角由 Piece.draw() 依相鄰情況逐格計算（見 JS），
@@ -549,7 +552,7 @@
         /* 兩個模式共用的骨牌方格：上亮下暗，有一點立體感 */
         .p-block,
         .s-cell.s-piece {
-            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.12));
+            background-image: linear-gradient(180deg, var(--lt-ffffff-22, rgba(255, 255, 255, 0.22)), var(--lt-ffffff-0, rgba(255, 255, 255, 0)) 55%, var(--lt-000000-12, rgba(0, 0, 0, 0.12)));
         }
 
         /* =========================================
@@ -569,11 +572,11 @@
             width: 100%;
             /* 棋盤框 + 左右內距 36px + 面板自身邊框 2px */
             max-width: calc(var(--board-frame) + 40px);
-            background: linear-gradient(180deg, var(--panel-bg) 0%, #0b0b14 100%);
+            background: linear-gradient(180deg, var(--panel-bg) 0%, var(--lt-0b0b14, #0b0b14) 100%);
             border: 1px solid var(--line);
             border-radius: 18px;
             padding: 18px;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 18px 40px var(--lt-000000-45, rgba(0, 0, 0, 0.45));
         }
 
         /* 表頭高度在兩個模式中鎖成一致：棋盤上方只有這一塊，
@@ -594,7 +597,7 @@
             font-size: 1.15rem;
             font-weight: 700;
             letter-spacing: 1px;
-            color: #f8fafc;
+            color: var(--lt-f8fafc, #f8fafc);
         }
 
         .s-sub {
@@ -611,7 +614,7 @@
             text-align: center;
             padding: 8px 10px;
             border-radius: 12px;
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border: 1px solid var(--line);
             font-variant-numeric: tabular-nums;
             transition: border-color 0.25s, box-shadow 0.25s;
@@ -619,7 +622,7 @@
 
         .s-badge.ready {
             border-color: var(--accent-yellow);
-            box-shadow: 0 0 14px rgba(251, 191, 36, 0.25);
+            box-shadow: 0 0 14px var(--lt-fbbf24-25, rgba(251, 191, 36, 0.25));
         }
 
         .s-badge b {
@@ -636,8 +639,8 @@
             margin-top: 4px;
             padding: 2px 8px;
             border-radius: 6px;
-            background: rgba(251, 191, 36, 0.1);
-            border: 1px solid rgba(251, 191, 36, 0.45);
+            background: var(--lt-fbbf24-10, rgba(251, 191, 36, 0.1));
+            border: 1px solid var(--lt-fbbf24-45, rgba(251, 191, 36, 0.45));
             color: var(--accent-yellow);
             font-family: var(--mono);
             font-weight: 700;
@@ -647,7 +650,7 @@
 
         /* 今天完成過：計時徽章下方的小字改成最佳時間（不新增元素，表頭高度不變） */
         #timer-label.has-record {
-            color: #86efac;
+            color: var(--lt-86efac, #86efac);
             white-space: nowrap;
         }
 
@@ -683,14 +686,14 @@
             border-radius: 100px;
             border: 1px solid var(--line);
             background: var(--panel-2);
-            color: #d4d4e6;
+            color: var(--lt-d4d4e6, #d4d4e6);
             cursor: pointer;
             transition: border-color 0.2s, color 0.2s, background 0.2s;
         }
 
         .s-chip:hover:not(:disabled) {
             border-color: var(--accent-cyan);
-            color: #fff;
+            color: var(--lt-ffffff, #fff);
         }
 
         .s-chip:disabled {
@@ -706,7 +709,7 @@
         }
 
         .s-cell:hover:not(.s-blocked):not(.s-piece) {
-            background: #24243e;
+            background: var(--lt-24243e, #24243e);
         }
 
         .s-cell.s-blocked {
@@ -759,15 +762,15 @@
         }
 
         #s-status.busy {
-            color: #7dd3fc;
+            color: var(--lt-7dd3fc, #7dd3fc);
         }
 
         #s-status.warn {
-            color: #fca5a5;
+            color: var(--lt-fca5a5, #fca5a5);
         }
 
         #s-status.done {
-            color: #86efac;
+            color: var(--lt-86efac, #86efac);
         }
 
         /* 解答導覽 */
@@ -790,7 +793,7 @@
 
         .s-nav-info {
             font-size: 0.8rem;
-            color: #d4d4e6;
+            color: var(--lt-d4d4e6, #d4d4e6);
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
         }
@@ -813,7 +816,7 @@
         }
 
         .s-metrics span b {
-            color: #c4c4d8;
+            color: var(--lt-c4c4d8, #c4c4d8);
             font-family: var(--mono);
         }
 
@@ -830,7 +833,7 @@
         .s-cal {
             font-size: calc(var(--cell-size) * 0.3);
             font-weight: 700;
-            color: #6e6e8f;
+            color: var(--lt-6e6e8f, #6e6e8f);
             pointer-events: none;
         }
 
@@ -839,7 +842,7 @@
         }
 
         .s-chip-today {
-            border-color: rgba(251, 191, 36, 0.55);
+            border-color: var(--lt-fbbf24-55, rgba(251, 191, 36, 0.55));
             color: var(--accent-yellow);
         }
 
@@ -850,8 +853,8 @@
             justify-content: center;
             font-size: calc(var(--cell-size) * 0.4);
             font-weight: 800;
-            color: rgba(0, 0, 0, 0.6);
-            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+            color: var(--lt-000000-60, rgba(0, 0, 0, 0.6));
+            text-shadow: 0 1px 0 var(--lt-ffffff-30, rgba(255, 255, 255, 0.3));
         }
 
         .s-cell:focus-visible {
@@ -879,7 +882,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: var(--lt-000000-85, rgba(0, 0, 0, 0.85));
             display: flex;
             justify-content: center;
             align-items: center;
@@ -897,7 +900,7 @@
             text-align: center;
             position: relative;
             border: 1px solid var(--line);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 20px 40px var(--lt-000000-60, rgba(0, 0, 0, 0.6));
         }
 
         .close-btn {
@@ -905,7 +908,7 @@
             top: 10px;
             right: 15px;
             font-size: 28px;
-            color: #94a3b8;
+            color: var(--lt-94a3b8, #94a3b8);
             cursor: pointer;
             line-height: 1;
             padding: 0 5px;
@@ -913,14 +916,14 @@
         }
 
         .close-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            background: var(--lt-ffffff-10, rgba(255, 255, 255, 0.1));
+            color: var(--lt-ffffff, #fff);
         }
 
         #score-img {
             width: 100%;
             border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 5px 15px var(--lt-000000-30, rgba(0, 0, 0, 0.3));
             margin: 10px 0;
             border: 1px solid var(--line);
         }
@@ -1085,7 +1088,18 @@
                 white-space: nowrap;
             }
         }
+            /* 窄螢幕：分頁鈕旁邊多了切換鈕，左右留白縮小，字才不會折成兩行 */
+        @media (max-width: 400px) {
+            #tab-container { gap: 4px; }
+            .tab-btn { padding: 9px 8px; white-space: nowrap; font-size: 0.82rem; }
+        }
+        /* 淺色（果汁龍樂園）：分頁鈕粗黑框、選中的是果汁橘 */
+        [data-theme="light"] #tab-container { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
+        [data-theme="light"] .tab-btn { color: #1d2b12; }
+        [data-theme="light"] .tab-btn.active { background: #ffb02e; color: #1d2b12; box-shadow: inset 0 0 0 2px #1d2b12; }
+        [data-theme="light"] h1 { color: #1d2b12; background: none; -webkit-text-fill-color: #1d2b12; }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body class="play-mode-locked">
@@ -1099,6 +1113,7 @@
     <div id="tab-container">
         <button class="tab-btn active" id="tab-play">🎮 每日挑戰</button>
         <button class="tab-btn" id="tab-solver">💡 自由解答</button>
+        <span class="jfk-switch-slot"></span>
     </div>
 
     <div id="play-view">

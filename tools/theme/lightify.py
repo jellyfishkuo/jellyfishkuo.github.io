@@ -25,10 +25,15 @@ BEGIN, END = '/* ==== 自動產生：tools/theme/lightify.py（不要手改這�
 VAR_RE = re.compile(r'var\(--lt-[0-9a-f_-]+,\s*(?:#[0-9a-fA-F]+|rgba?\([^)]*\))\)')
 
 
-def convert_css(css, used):
+def convert_css(css, used, root=False):
     out, pos = [], 0
     # :root { ... } 是頁面自己的變數，淺色值由 theme.css 用同名變數蓋掉，這裡不動
-    skip = [m.span() for m in re.finditer(r':root\s*\{[^}]*\}', css)]
+    skip = [] if root else [m.span() for m in re.finditer(r':root\s*\{[^}]*\}', css)]
+    # 頁面自己寫的淺色規則已經是淺色的顏色，不要再換
+    skip += [m.span() for m in re.finditer(r'\[data-theme="light"\][^{}]*\{[^}]*\}', css)]
+    for m in VAR_RE.finditer(css):  # 之前換過的也要登記（重跑時 colors.json 才完整）
+        c = COLOR_RE.search(m.group(0)).group(0)
+        used.setdefault(key_of(c), c)
     keep = skip + [m.span() for m in VAR_RE.finditer(css)]
     keep.sort()
 
@@ -50,11 +55,18 @@ def convert_css(css, used):
     return ''.join(out)
 
 
-def process(path, prefix, used):
+def process(path, prefix, used, root=False):
     s = open(path, encoding='utf-8').read()
     orig = s
+    if path.endswith('.js'):  # JS 只登記顏色，畫面上由 theme.js 換
+        for c in COLOR_RE.findall(s):
+            try:
+                used.setdefault(key_of(c), c)
+            except ValueError:
+                pass
+        return
     if path.endswith('.css'):
-        s = convert_css(s, used)
+        s = convert_css(s, used, root)
         if s != orig:
             open(path, 'w', encoding='utf-8').write(s)
             print('改了', os.path.relpath(path, ROOT))
@@ -65,9 +77,11 @@ def process(path, prefix, used):
             used.setdefault(key_of(c), c)
         except ValueError:
             pass
-    s = re.sub(r'(<style[^>]*>)(.*?)(</style>)', lambda m: m.group(1) + convert_css(m.group(2), used) + m.group(3), s, flags=re.S)
+    s = re.sub(r'(<style[^>]*>)(.*?)(</style>)', lambda m: m.group(1) + convert_css(m.group(2), used, root) + m.group(3), s, flags=re.S)
     if 'assets/theme.js' not in s:
-        s = s.replace('<style', f'<script src="{prefix}assets/theme.js"></script>\n    <style', 1)
+        tag = f'<script src="{prefix}assets/theme.js"></script>\n    '
+        at = re.search(r'<style|<link rel="stylesheet"|</head>', s)
+        s = s[:at.start()] + tag + s[at.start():]
     if 'assets/theme.css' not in s:
         s = s.replace('</head>', f'    <link rel="stylesheet" href="{prefix}assets/theme.css">\n</head>', 1)
     if s != orig:
@@ -92,13 +106,14 @@ def write_css(used):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--prefix', default='../')
+    ap.add_argument('--root', action='store_true', help=':root 裡的變數也換（遊戲頁各有自己的變數名）')
     ap.add_argument('--css-only', action='store_true', help='只依 colors.json 重寫 theme.css')
     ap.add_argument('files', nargs='*')
     a = ap.parse_args()
     used = json.load(open(REGISTRY)) if os.path.exists(REGISTRY) else {}
     if not a.css_only:
         for f in a.files:
-            process(f, a.prefix, used)
+            process(f, a.prefix, used, a.root)
         json.dump(used, open(REGISTRY, 'w'), indent=1, sort_keys=True)
     write_css(used)
 

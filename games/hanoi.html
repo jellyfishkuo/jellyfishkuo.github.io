@@ -9,27 +9,28 @@
     <link rel="apple-touch-icon" href="../assets/icons/hanoi-180.png">
     <title>河內塔 Tower of Hanoi</title>
     <meta name="description" content="可以自己玩，也可以一步一步看遞迴程式怎麼解的河內塔：程式碼逐行高亮、呼叫堆疊與每一步的說明。">
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         :root {
-            --bg: #05050a;
-            --panel: #0f0f1a;
-            --panel-2: #151527;
-            --border: #262640;
-            --text: #e6e6f0;
-            --muted: #8a8aa3;
-            --accent: #7c3aed;
-            --accent2: #06b6d4;
-            --good: #22c55e;
-            --warn: #f59e0b;
-            --bad: #ef4444;
-            --line-hl: rgba(124, 58, 237, 0.22);
+            --bg: var(--lt-05050a, #05050a);
+            --panel: var(--lt-0f0f1a, #0f0f1a);
+            --panel-2: var(--lt-151527, #151527);
+            --border: var(--lt-262640, #262640);
+            --text: var(--lt-e6e6f0, #e6e6f0);
+            --muted: var(--lt-8a8aa3, #8a8aa3);
+            --accent: var(--lt-7c3aed, #7c3aed);
+            --accent2: var(--lt-06b6d4, #06b6d4);
+            --good: var(--lt-22c55e, #22c55e);
+            --warn: var(--lt-f59e0b, #f59e0b);
+            --bad: var(--lt-ef4444, #ef4444);
+            --line-hl: var(--lt-7c3aed-22, rgba(124, 58, 237, 0.22));
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -71,7 +72,7 @@
             font-size: 0.95rem;
             cursor: pointer;
         }
-        .tab.active { border-color: var(--accent); color: var(--text); background: rgba(124, 58, 237, 0.15); }
+        .tab.active { border-color: var(--accent); color: var(--text); background: var(--lt-7c3aed-15, rgba(124, 58, 237, 0.15)); }
 
         .toolbar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 0.8rem; }
         .toolbar label { color: var(--muted); font-size: 0.9rem; }
@@ -123,8 +124,8 @@
             transition: background 0.15s;
             -webkit-tap-highlight-color: transparent;
         }
-        .peg:hover { background: rgba(255, 255, 255, 0.025); }
-        .peg.target { background: rgba(6, 182, 212, 0.08); }
+        .peg:hover { background: var(--lt-ffffff-2, rgba(255, 255, 255, 0.025)); }
+        .peg.target { background: var(--lt-06b6d4-8, rgba(6, 182, 212, 0.08)); }
         .peg.locked { cursor: default; }
         .peg.locked:hover { background: none; }
         .peg::before {               /* 柱子 */
@@ -135,7 +136,7 @@
             width: 8px;
             height: calc(100% - 22px);
             transform: translateX(-50%);
-            background: #3a3a5a;
+            background: var(--lt-3a3a5a, #3a3a5a);
             border-radius: 4px 4px 0 0;
         }
         .peg::after {                /* 底座 */
@@ -145,7 +146,7 @@
             left: 4%;
             right: 4%;
             height: 8px;
-            background: #3a3a5a;
+            background: var(--lt-3a3a5a, #3a3a5a);
             border-radius: 4px;
         }
         .peg-name {
@@ -164,12 +165,12 @@
             align-items: center;
             justify-content: center;
             font: 700 0.75rem 'Space Mono', monospace;
-            color: rgba(0, 0, 0, 0.65);
+            color: var(--lt-000000-65, rgba(0, 0, 0, 0.65));
             transition: transform 0.18s ease, box-shadow 0.18s;
         }
-        .disk.lifted { transform: translateY(-14px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5); }
-        .disk.just-moved { box-shadow: 0 0 0 3px #fff; }
-        .disk.in-frame { outline: 2px dashed rgba(255, 255, 255, 0.75); outline-offset: 2px; }
+        .disk.lifted { transform: translateY(-14px); box-shadow: 0 6px 14px var(--lt-000000-50, rgba(0, 0, 0, 0.5)); }
+        .disk.just-moved { box-shadow: 0 0 0 3px var(--lt-ffffff, #fff); }
+        .disk.in-frame { outline: 2px dashed var(--lt-ffffff-75, rgba(255, 255, 255, 0.75)); outline-offset: 2px; }
         .disk.dim { opacity: 0.35; }
         .shake { animation: shake 0.3s; }
         @keyframes shake {
@@ -186,8 +187,8 @@
             padding: 0.45rem 0.7rem;
             border-left: 3px solid var(--warn);
             border-radius: 6px;
-            background: rgba(245, 158, 11, 0.08);
-            color: #f5d08a;
+            background: var(--lt-f59e0b-8, rgba(245, 158, 11, 0.08));
+            color: var(--lt-f5d08a, #f5d08a);
             font-size: 0.85rem;
             line-height: 1.5;
             opacity: 0;
@@ -230,7 +231,7 @@
         }
         .lang button.active { color: var(--text); border-color: var(--accent2); }
         pre.code {
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 0.6rem 0;
@@ -244,14 +245,14 @@
             width: 2.2em;
             text-align: right;
             margin-right: 0.9em;
-            color: #4a4a66;
+            color: var(--lt-4a4a66, #4a4a66);
         }
         .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
-        .kw { color: #c792ea; }
-        .fn { color: #82aaff; }
-        .num { color: #f78c6c; }
-        .cm { color: #637777; }
-        .ty { color: #ffcb6b; }
+        .kw { color: var(--lt-c792ea, #c792ea); }
+        .fn { color: var(--lt-82aaff, #82aaff); }
+        .num { color: var(--lt-f78c6c, #f78c6c); }
+        .cm { color: var(--lt-637777, #637777); }
+        .ty { color: var(--lt-ffcb6b, #ffcb6b); }
 
         .legend { margin-top: 0.7rem; font-size: 0.88rem; color: var(--muted); display: grid; gap: 0.25rem; }
         .legend b { color: var(--text); font-weight: 600; }
@@ -268,7 +269,7 @@
             justify-content: space-between;
             gap: 0.5rem;
         }
-        .frame.top { border-color: var(--accent); background: rgba(124, 58, 237, 0.12); }
+        .frame.top { border-color: var(--accent); background: var(--lt-7c3aed-12, rgba(124, 58, 237, 0.12)); }
         .frame .where { color: var(--muted); white-space: nowrap; }
         .stack-empty { color: var(--muted); font-size: 0.85rem; }
         .hint-small { color: var(--muted); font-size: 0.82rem; margin-top: 0.3rem; }
@@ -276,11 +277,11 @@
         /* ── 下方說明 ── */
         .notes { margin-top: 1.2rem; display: grid; gap: 1rem; }
         @media (min-width: 900px) { .notes { grid-template-columns: 1fr 1fr; } }
-        .notes p, .notes li { color: #c6c6d6; font-size: 0.93rem; }
+        .notes p, .notes li { color: var(--lt-c6c6d6, #c6c6d6); font-size: 0.93rem; }
         .notes ul, .notes ol { padding-left: 1.3rem; display: grid; gap: 0.25rem; }
         .math {
             font: 0.9rem 'Space Mono', monospace;
-            background: #0a0a14;
+            background: var(--lt-0a0a14, #0a0a14);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 0.6rem 0.8rem;
@@ -288,7 +289,14 @@
             line-height: 1.9;
         }
         .hidden { display: none !important; }
+            /* 淺色：盤子保留原本的彩色，加黑框 */
+        [data-theme="light"] .disk { border: 2px solid #1d2b12; color: #1d2b12; }
+        [data-theme="light"] .disk.just-moved { box-shadow: 0 0 0 3px #ff9f1c; }
+        [data-theme="light"] .disk.in-frame { outline-color: #1d2b12; }
+        [data-theme="light"] .tab { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; font-weight: 700; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .tab.active { background: #ffb02e; }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
@@ -314,7 +322,7 @@
         <div class="layout" id="layout">
             <!-- 左：棋盤 -->
             <div class="card">
-                <div class="board" id="board"></div>
+                <div class="board" id="board" data-keep-color></div>
                 <div class="status" id="status"></div>
                 <div class="offpath" id="offpath" aria-live="polite"></div>
 

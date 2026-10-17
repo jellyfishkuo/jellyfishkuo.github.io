@@ -17,6 +17,8 @@
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
     <!-- MQTT.js：直連打不通時的備援通道（經由公開 MQTT 伺服器轉送牌局訊息）。 -->
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js" defer></script>
+    <meta name="jfk-paint" content="off"><!-- 牌面顏色是遊戲內容，不要被淺色換掉 -->
+    <script src="../assets/theme.js"></script>
     <style>
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -1272,7 +1274,23 @@
                 flex: 1;
             }
         }
+            /* ── 淺色（果汁龍樂園）：這頁本來就是淺色，只換成粗黑框、硬陰影；深色主題維持原本的米色牌桌 ── */
+        [data-theme="light"] body { background: #e9f7d9; }
+        [data-theme="light"] header { border-bottom: 2.5px solid #1d2b12; }
+        [data-theme="light"] h1 { font-weight: 900; letter-spacing: 0; color: #1d2b12; }
+        [data-theme="light"] .card:not(.empty) { border: 2.5px solid #1d2b12; border-radius: 10px; box-shadow: 3px 3px 0 #1d2b12; }
+        [data-theme="light"] .card.empty { border: none; box-shadow: none; }
+        [data-theme="light"] .mode-panel,
+        [data-theme="light"] .rules-box,
+        [data-theme="light"] .solution-panel { background: #fff; border: 2.5px solid #1d2b12; border-radius: 14px; box-shadow: 4px 4px 0 #1d2b12; }
+        [data-theme="light"] button { border: 2px solid #1d2b12; border-radius: 10px; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] button:hover { background: #fff4dc; }
+        [data-theme="light"] button.btn-primary { background: #ffb02e; color: #1d2b12; border-color: #1d2b12; }
+        [data-theme="light"] button.btn-primary:hover { background: #ffc94d; }
+        [data-theme="light"] ::selection { background: #ffb02e; color: #1d2b12; -webkit-text-fill-color: #1d2b12; }
+        .title-row { display: flex; align-items: center; gap: 12px; }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
@@ -1291,8 +1309,9 @@
     <div class="layout">
         <div class="main-content">
             <header>
-                <div>
+                <div class="title-row">
                     <h1>SET 牌局</h1>
+                    <span class="jfk-switch-slot"></span>
                 </div>
                 <div class="stats">
                     <div class="stat">

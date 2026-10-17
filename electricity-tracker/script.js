@@ -379,6 +379,9 @@
       : label.slice(5).replace("-", "/");
   }
 
+  // 切換深色／淺色時，圖表的顏色要重畫
+  document.addEventListener("themechange", function () { renderCharts(); });
+
   function renderCharts() {
     var daily = getUsageByPeriod("day");
     var monthly = getUsageByPeriod("month");

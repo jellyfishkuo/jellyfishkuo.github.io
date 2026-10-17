@@ -9,13 +9,14 @@
     <link rel="apple-touch-icon" href="../assets/icons/1a2b-180.png">
     <title>1A2B 猜數字</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         *,
         *::before,
@@ -26,13 +27,13 @@
         }
 
         :root {
-            --bg: #05050f;
-            --surface: rgba(13, 13, 30, 0.8);
-            --border: rgba(124, 58, 237, 0.25);
-            --text: #e2e8f0;
-            --muted: #64748b;
-            --accent: #7c3aed;
-            --accent2: #06b6d4;
+            --bg: var(--lt-05050f, #05050f);
+            --surface: var(--lt-0d0d1e-80, rgba(13, 13, 30, 0.8));
+            --border: var(--lt-7c3aed-25, rgba(124, 58, 237, 0.25));
+            --text: var(--lt-e2e8f0, #e2e8f0);
+            --muted: var(--lt-64748b, #64748b);
+            --accent: var(--lt-7c3aed, #7c3aed);
+            --accent2: var(--lt-06b6d4, #06b6d4);
             --mono: 'Space Mono', monospace;
             --sans: 'Syne', sans-serif;
 
@@ -120,7 +121,7 @@
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 25px 50px -12px var(--lt-000000-50, rgba(0, 0, 0, 0.5));
         }
 
         /* ── 中心面板 ── */
@@ -152,9 +153,9 @@
             flex: 1;
             padding: 10px;
             text-align: center;
-            border: 1px solid rgba(124, 58, 237, 0.15);
+            border: 1px solid var(--lt-7c3aed-15, rgba(124, 58, 237, 0.15));
             border-radius: 12px;
-            background: rgba(124, 58, 237, 0.05);
+            background: var(--lt-7c3aed-5, rgba(124, 58, 237, 0.05));
         }
 
         .stat-val {
@@ -181,21 +182,21 @@
             flex: 1;
             height: 85px;
             border-radius: 15px;
-            border: 2px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.02);
+            border: 2px solid var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
+            background: var(--lt-ffffff-2, rgba(255, 255, 255, 0.02));
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: var(--mono);
             font-size: 44px;
             font-weight: 700;
-            color: #fff;
+            color: var(--lt-ffffff, #fff);
             position: relative;
         }
 
         .digit-box.active {
             border-color: var(--accent2);
-            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+            box-shadow: 0 0 15px var(--lt-06b6d4-15, rgba(6, 182, 212, 0.15));
         }
 
         .digit-box.active::after {
@@ -230,7 +231,7 @@
         }
 
         .kb-hint kbd {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--lt-ffffff-10, rgba(255, 255, 255, 0.1));
             padding: 2px 5px;
             border-radius: 4px;
             font-size: 0.6rem;
@@ -247,8 +248,8 @@
         .num-btn {
             height: 52px;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
+            background: var(--lt-ffffff-3, rgba(255, 255, 255, 0.03));
             font-family: var(--mono);
             font-size: 18px;
             font-weight: 700;
@@ -259,7 +260,7 @@
 
         .num-btn:hover:not(.used) {
             border-color: var(--accent2);
-            background: rgba(6, 182, 212, 0.1);
+            background: var(--lt-06b6d4-10, rgba(6, 182, 212, 0.1));
             color: var(--accent2);
             transform: translateY(-2px);
         }
@@ -289,7 +290,7 @@
 
         .del-btn {
             background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--lt-ffffff-10, rgba(255, 255, 255, 0.1));
             color: var(--muted);
         }
 
@@ -301,7 +302,7 @@
         .guess-btn {
             background: linear-gradient(135deg, var(--accent), var(--accent2));
             border: none;
-            color: #fff;
+            color: var(--lt-ffffff, #fff);
             letter-spacing: 0.1em;
         }
 
@@ -313,7 +314,7 @@
 
         .guess-btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(124, 58, 237, 0.3);
+            box-shadow: 0 5px 15px var(--lt-7c3aed-30, rgba(124, 58, 237, 0.3));
         }
 
         /* ── 結算視窗 (改小且置中) ── */
@@ -325,7 +326,7 @@
             /* 稍微偏上看起來比較平衡 */
             width: 85%;
             padding: 30px 20px;
-            background: rgba(10, 10, 25, 0.95);
+            background: var(--lt-0a0a19-95, rgba(10, 10, 25, 0.95));
             border: 1px solid var(--accent2);
             border-radius: 18px;
             display: flex;
@@ -333,7 +334,7 @@
             align-items: center;
             justify-content: center;
             z-index: 100;
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 40px var(--lt-000000-80, rgba(0, 0, 0, 0.8));
             animation: popIn 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.27);
         }
 
@@ -352,7 +353,7 @@
 
         .win-banner p {
             font-size: 1.6rem;
-            color: #fff;
+            color: var(--lt-ffffff, #fff);
             font-weight: 800;
             margin-bottom: 8px;
             text-align: center;
@@ -372,8 +373,8 @@
             height: 50px;
             border-radius: 12px;
             border: 2px solid var(--accent2);
-            background: rgba(6, 182, 212, 0.1);
-            color: #fff;
+            background: var(--lt-06b6d4-10, rgba(6, 182, 212, 0.1));
+            color: var(--lt-ffffff, #fff);
             font-weight: 700;
             cursor: pointer;
             transition: 0.3s;
@@ -381,7 +382,7 @@
 
         .new-game-btn:hover {
             background: var(--accent2);
-            color: #000;
+            color: var(--lt-000000, #000);
         }
 
         /* 歷史日誌 */
@@ -400,7 +401,7 @@
             content: '';
             flex: 1;
             height: 1px;
-            background: linear-gradient(to right, rgba(6, 182, 212, 0.3), transparent);
+            background: linear-gradient(to right, var(--lt-06b6d4-30, rgba(6, 182, 212, 0.3)), transparent);
         }
 
         .history {
@@ -417,7 +418,7 @@
         }
 
         .history::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--lt-ffffff-10, rgba(255, 255, 255, 0.1));
             border-radius: 10px;
         }
 
@@ -427,8 +428,8 @@
             align-items: center;
             padding: 10px;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: var(--lt-ffffff-2, rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--lt-ffffff-5, rgba(255, 255, 255, 0.05));
         }
 
         .h-round {
@@ -455,15 +456,15 @@
         }
 
         .badge-a {
-            background: rgba(124, 58, 237, 0.15);
-            color: #a78bfa;
-            border: 1px solid rgba(124, 58, 237, 0.4);
+            background: var(--lt-7c3aed-15, rgba(124, 58, 237, 0.15));
+            color: var(--lt-a78bfa, #a78bfa);
+            border: 1px solid var(--lt-7c3aed-40, rgba(124, 58, 237, 0.4));
         }
 
         .badge-b {
-            background: rgba(6, 182, 212, 0.15);
-            color: #22d3ee;
-            border: 1px solid rgba(6, 182, 212, 0.4);
+            background: var(--lt-06b6d4-15, rgba(6, 182, 212, 0.15));
+            color: var(--lt-22d3ee, #22d3ee);
+            border: 1px solid var(--lt-06b6d4-40, rgba(6, 182, 212, 0.4));
         }
 
         /* 斷點必須 ≥ 1100px：右側面板的 left 是
@@ -521,12 +522,41 @@
                 min-height: 620px;
             }
         }
+            .back-link {
+            position: absolute;
+            top: 0.6rem;
+            left: 1rem;
+            z-index: 5;
+            padding: 0.8rem 0.5rem;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-decoration: none;
+            letter-spacing: 0.08em;
+        }
+        .back-link:hover { color: var(--accent2); }
+        /* 窄螢幕：左上角放了回首頁、右上角放了切換鈕，標題往下讓出一列 */
+        @media (max-width: 560px) {
+            .hero-tag { display: none; }
+            .header { padding-top: 34px; }
+        }
+            /* ── 淺色（果汁龍樂園）：白卡片、粗黑框、硬陰影，主要按鈕是果汁橘 ── */
+        [data-theme="light"] .hero-tag { visibility: hidden; }
+        [data-theme="light"] #canvas { display: none; }  /* 背景粒子只在深色出現 */
+        [data-theme="light"] .panel { background: #fff; border: 2.5px solid #1d2b12; border-radius: 16px; box-shadow: 4px 4px 0 #1d2b12; backdrop-filter: none; }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; font-weight: 700; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .btn.btn-primary { background: #ffb02e; border: 2px solid #1d2b12; color: #1d2b12; }
+        [data-theme="light"] .rules { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+        [data-theme="light"] .rules summary { color: #1d2b12; }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
     <canvas id="canvas" aria-hidden="true"></canvas>
     <div class="shell">
+        <a href="../index.html#projects" class="back-link corner-back">← 回到首頁</a>
+        <span class="jfk-switch-slot corner"></span>
         <div class="header">
             <div class="hero-tag">// 密碼破譯系統</div>
             <div class="game-title">1<span class="gradient">A</span>2<span class="gradient">B</span> 猜數字</div>

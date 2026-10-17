@@ -9,13 +9,14 @@
     <link rel="apple-touch-icon" href="../assets/icons/vertical-gomoku-180.png">
     <title>立式五子棋</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         *,
         *::before,
@@ -26,21 +27,21 @@
         }
 
         :root {
-            --bg: #05050f;
-            --surface: rgba(13, 13, 30, 0.84);
-            --surface-strong: rgba(18, 18, 40, 0.96);
-            --border: rgba(124, 58, 237, 0.28);
-            --text: #e2e8f0;
-            --muted: #718096;
-            --accent: #7c3aed;
-            --accent2: #06b6d4;
-            --p1: #22d3ee;
-            --p1-hi: #cffafe;
-            --p2: #f472b6;
-            --p2-hi: #fce7f3;
-            --board: #25205a;
-            --board-hi: #39307d;
-            --hole: #09091a;
+            --bg: var(--lt-05050f, #05050f);
+            --surface: var(--lt-0d0d1e-84, rgba(13, 13, 30, 0.84));
+            --surface-strong: var(--lt-121228-96, rgba(18, 18, 40, 0.96));
+            --border: var(--lt-7c3aed-28, rgba(124, 58, 237, 0.28));
+            --text: var(--lt-e2e8f0, #e2e8f0);
+            --muted: var(--lt-718096, #718096);
+            --accent: var(--lt-7c3aed, #7c3aed);
+            --accent2: var(--lt-06b6d4, #06b6d4);
+            --p1: var(--lt-22d3ee, #22d3ee);
+            --p1-hi: var(--lt-cffafe, #cffafe);
+            --p2: var(--lt-f472b6, #f472b6);
+            --p2-hi: var(--lt-fce7f3, #fce7f3);
+            --board: var(--lt-25205a, #25205a);
+            --board-hi: var(--lt-39307d, #39307d);
+            --hole: var(--lt-09091a, #09091a);
             --mono: 'Space Mono', monospace;
             --sans: 'Syne', sans-serif;
         }
@@ -52,8 +53,8 @@
         body {
             min-height: 100vh;
             background:
-                radial-gradient(circle at 20% -10%, rgba(124, 58, 237, 0.20), transparent 40%),
-                radial-gradient(circle at 90% 20%, rgba(6, 182, 212, 0.12), transparent 38%),
+                radial-gradient(circle at 20% -10%, var(--lt-7c3aed-20, rgba(124, 58, 237, 0.20)), transparent 40%),
+                radial-gradient(circle at 90% 20%, var(--lt-06b6d4-12, rgba(6, 182, 212, 0.12)), transparent 38%),
                 var(--bg);
             color: var(--text);
             font-family: var(--sans);
@@ -67,10 +68,10 @@
             pointer-events: none;
             opacity: 0.18;
             background-image:
-                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+                linear-gradient(var(--lt-ffffff-2, rgba(255, 255, 255, 0.025)) 1px, transparent 1px),
+                linear-gradient(90deg, var(--lt-ffffff-2, rgba(255, 255, 255, 0.025)) 1px, transparent 1px);
             background-size: 42px 42px;
-            mask-image: linear-gradient(to bottom, #000, transparent 90%);
+            mask-image: linear-gradient(to bottom, var(--lt-000000, #000), transparent 90%);
         }
 
         button,
@@ -158,7 +159,7 @@
             border-radius: 20px;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            box-shadow: 0 24px 55px -25px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 24px 55px -25px var(--lt-000000-80, rgba(0, 0, 0, 0.8));
         }
 
         .game-panel {
@@ -189,7 +190,7 @@
             flex: 0 0 auto;
             border-radius: 50%;
             border: 2px solid currentColor;
-            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.18), 0 0 14px currentColor;
+            box-shadow: inset 0 0 10px var(--lt-ffffff-18, rgba(255, 255, 255, 0.18)), 0 0 14px currentColor;
         }
 
         .player-chip.p1 {
@@ -247,9 +248,9 @@
         @media (hover: hover) and (pointer: fine) {
             .column-btn:hover:not(:disabled),
             .column-btn.preview {
-                color: #fff;
-                border-color: rgba(6, 182, 212, 0.45);
-                background: rgba(6, 182, 212, 0.08);
+                color: var(--lt-ffffff, #fff);
+                border-color: var(--lt-06b6d4-45, rgba(6, 182, 212, 0.45));
+                background: var(--lt-06b6d4-8, rgba(6, 182, 212, 0.08));
             }
 
             .column-btn:hover:not(:disabled)::before,
@@ -261,7 +262,7 @@
 
         .column-btn:active:not(:disabled) {
             transform: scale(0.94);
-            background: rgba(6, 182, 212, 0.14);
+            background: var(--lt-06b6d4-14, rgba(6, 182, 212, 0.14));
         }
 
         .column-btn:focus-visible,
@@ -276,12 +277,12 @@
             padding: 10px;
             border-radius: 18px 18px 12px 12px;
             background: linear-gradient(145deg, var(--board-hi), var(--board));
-            border: 1px solid rgba(167, 139, 250, 0.42);
+            border: 1px solid var(--lt-a78bfa-42, rgba(167, 139, 250, 0.42));
             box-shadow:
-                inset 0 1px 0 rgba(255, 255, 255, 0.13),
-                inset 0 -10px 20px rgba(0, 0, 0, 0.22),
-                0 18px 32px -16px rgba(0, 0, 0, 0.75),
-                0 0 35px rgba(124, 58, 237, 0.12);
+                inset 0 1px 0 var(--lt-ffffff-13, rgba(255, 255, 255, 0.13)),
+                inset 0 -10px 20px var(--lt-000000-22, rgba(0, 0, 0, 0.22)),
+                0 18px 32px -16px var(--lt-000000-75, rgba(0, 0, 0, 0.75)),
+                0 0 35px var(--lt-7c3aed-12, rgba(124, 58, 237, 0.12));
         }
 
         .board {
@@ -303,9 +304,9 @@
             cursor: pointer;
             overflow: hidden;
             box-shadow:
-                inset 0 5px 9px rgba(0, 0, 0, 0.72),
-                inset 0 -2px 3px rgba(255, 255, 255, 0.06),
-                0 1px 0 rgba(255, 255, 255, 0.08);
+                inset 0 5px 9px var(--lt-000000-72, rgba(0, 0, 0, 0.72)),
+                inset 0 -2px 3px var(--lt-ffffff-6, rgba(255, 255, 255, 0.06)),
+                0 1px 0 var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
         }
 
         .board.locked .cell {
@@ -322,9 +323,9 @@
             transform: scale(0.85);
             pointer-events: none;
             box-shadow:
-                inset -7px -8px 12px rgba(0, 0, 0, 0.28),
-                inset 5px 5px 8px rgba(255, 255, 255, 0.32),
-                0 3px 8px rgba(0, 0, 0, 0.45);
+                inset -7px -8px 12px var(--lt-000000-28, rgba(0, 0, 0, 0.28)),
+                inset 5px 5px 8px var(--lt-ffffff-32, rgba(255, 255, 255, 0.32)),
+                0 3px 8px var(--lt-000000-45, rgba(0, 0, 0, 0.45));
         }
 
         .cell.p1 {
@@ -342,7 +343,7 @@
         }
 
         .cell.last::after {
-            outline: 2px solid rgba(255, 255, 255, 0.82);
+            outline: 2px solid var(--lt-ffffff-82, rgba(255, 255, 255, 0.82));
             outline-offset: -4px;
         }
 
@@ -364,7 +365,7 @@
 
         .cell.win::after {
             animation: winnerPulse 0.75s ease-in-out infinite alternate;
-            outline: 3px solid #fef08a;
+            outline: 3px solid var(--lt-fef08a, #fef08a);
             outline-offset: -3px;
         }
 
@@ -389,9 +390,9 @@
             height: 13px;
             margin-left: -9px;
             border-radius: 4px 4px 10px 10px;
-            background: linear-gradient(to bottom, #44398e, #211c52);
-            border: 1px solid rgba(167, 139, 250, 0.35);
-            box-shadow: 0 9px 16px rgba(0, 0, 0, 0.45);
+            background: linear-gradient(to bottom, var(--lt-44398e, #44398e), var(--lt-211c52, #211c52));
+            border: 1px solid var(--lt-a78bfa-35, rgba(167, 139, 250, 0.35));
+            box-shadow: 0 9px 16px var(--lt-000000-45, rgba(0, 0, 0, 0.45));
         }
 
         .game-controls {
@@ -405,8 +406,8 @@
             min-height: 44px;
             padding: 0.72rem 1rem;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid var(--lt-ffffff-15, rgba(255, 255, 255, 0.15));
+            background: var(--lt-ffffff-4, rgba(255, 255, 255, 0.035));
             color: var(--text);
             cursor: pointer;
             font-family: var(--mono);
@@ -440,7 +441,7 @@
         .side-block + .side-block {
             margin-top: 1.35rem;
             padding-top: 1.25rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            border-top: 1px solid var(--lt-ffffff-7, rgba(255, 255, 255, 0.07));
         }
 
         .side-title {
@@ -462,8 +463,8 @@
         .score-box {
             padding: 0.72rem 0.35rem;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
+            background: var(--lt-ffffff-2, rgba(255, 255, 255, 0.025));
         }
 
         .score-num {
@@ -506,7 +507,7 @@
             min-height: 44px;
             padding: 0.58rem 0.68rem;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
+            border: 1px solid var(--lt-ffffff-14, rgba(255, 255, 255, 0.14));
             background: var(--surface-strong);
             color: var(--text);
             font-family: var(--mono);
@@ -523,8 +524,8 @@
             min-height: 2.8rem;
             padding: 0.65rem 0.75rem;
             border-radius: 9px;
-            background: rgba(6, 182, 212, 0.05);
-            border: 1px dashed rgba(6, 182, 212, 0.22);
+            background: var(--lt-06b6d4-5, rgba(6, 182, 212, 0.05));
+            border: 1px dashed var(--lt-06b6d4-22, rgba(6, 182, 212, 0.22));
             color: var(--muted);
             font-family: var(--mono);
             font-size: 0.64rem;
@@ -542,7 +543,7 @@
             flex-direction: column;
             gap: 0.38rem;
             scrollbar-width: thin;
-            scrollbar-color: rgba(124, 58, 237, 0.35) transparent;
+            scrollbar-color: var(--lt-7c3aed-35, rgba(124, 58, 237, 0.35)) transparent;
         }
 
         .log-empty {
@@ -557,7 +558,7 @@
             gap: 0.5rem;
             padding: 0.42rem 0.55rem;
             border-radius: 7px;
-            background: rgba(255, 255, 255, 0.025);
+            background: var(--lt-ffffff-2, rgba(255, 255, 255, 0.025));
             border-left: 2px solid currentColor;
             font-family: var(--mono);
             font-size: 0.69rem;
@@ -571,7 +572,7 @@
             margin-top: 1.4rem;
             border: 1px solid var(--border);
             border-radius: 14px;
-            background: rgba(13, 13, 30, 0.7);
+            background: var(--lt-0d0d1e-70, rgba(13, 13, 30, 0.7));
             overflow: hidden;
         }
 
@@ -594,7 +595,7 @@
 
         .rules-body {
             padding: 0 1.2rem 1.15rem;
-            border-top: 1px dashed rgba(255, 255, 255, 0.08);
+            border-top: 1px dashed var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
         }
 
         .rules-body ul {
@@ -621,7 +622,7 @@
             padding: 0.8rem 1.25rem;
             border-radius: 10px;
             border: 1px solid var(--border);
-            background: rgba(13, 13, 30, 0.96);
+            background: var(--lt-0d0d1e-96, rgba(13, 13, 30, 0.96));
             color: var(--text);
             opacity: 0;
             visibility: hidden;
@@ -751,7 +752,7 @@
 
             .side-block + .side-block {
                 padding-top: 0.95rem;
-                border-top: 1px solid rgba(255, 255, 255, 0.07);
+                border-top: 1px solid var(--lt-ffffff-7, rgba(255, 255, 255, 0.07));
             }
 
             .settings-grid {
@@ -798,12 +799,21 @@
                 transition-duration: 0.01ms !important;
             }
         }
+            /* ── 淺色（果汁龍樂園）：白卡片、粗黑框、硬陰影，主要按鈕是果汁橘 ── */
+        [data-theme="light"] .hero-tag { visibility: hidden; }
+        [data-theme="light"] .panel { background: #fff; border: 2.5px solid #1d2b12; border-radius: 16px; box-shadow: 4px 4px 0 #1d2b12; backdrop-filter: none; }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; font-weight: 700; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .btn.btn-primary { background: #ffb02e; border: 2px solid #1d2b12; color: #1d2b12; }
+        [data-theme="light"] .rules { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+        [data-theme="light"] .rules summary { color: #1d2b12; }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
     <div class="shell">
-        <a class="back-link" href="../index.html">← 回到首頁</a>
+        <a class="back-link corner-back" href="../index.html">← 回到首頁</a>
+        <span class="jfk-switch-slot corner"></span>
 
         <header class="header">
             <div class="hero-tag">// Gravity Board Game</div>

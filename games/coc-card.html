@@ -13,40 +13,41 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap"
     rel="stylesheet">
-  <style>
+  <script src="../assets/theme.js"></script>
+    <style>
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     :root {
-      --bg-deep: #120e1c;
-      --bg-panel: #1c1730;
-      --bg-panel-alt: #231c3a;
-      --bg-inset: #150f22;
-      --ink: #f3eeff;
-      --ink-dim: #a89bc9;
-      --ink-faint: #6f6390;
-      --gold: #e8b34c;
-      --gold-dim: #a97f2f;
-      --line: #332a52;
-      --danger: #ef5b6f;
-      --danger-bg: #3a1b25;
-      --spare-bg: #123424;
-      --spare-line: #2ecc8f;
+      --bg-deep: var(--lt-120e1c, #120e1c);
+      --bg-panel: var(--lt-1c1730, #1c1730);
+      --bg-panel-alt: var(--lt-231c3a, #231c3a);
+      --bg-inset: var(--lt-150f22, #150f22);
+      --ink: var(--lt-f3eeff, #f3eeff);
+      --ink-dim: var(--lt-a89bc9, #a89bc9);
+      --ink-faint: var(--lt-6f6390, #6f6390);
+      --gold: var(--lt-e8b34c, #e8b34c);
+      --gold-dim: var(--lt-a97f2f, #a97f2f);
+      --line: var(--lt-332a52, #332a52);
+      --danger: var(--lt-ef5b6f, #ef5b6f);
+      --danger-bg: var(--lt-3a1b25, #3a1b25);
+      --spare-bg: var(--lt-123424, #123424);
+      --spare-line: var(--lt-2ecc8f, #2ecc8f);
 
-      --cat-holy: #f472b6;
-      --cat-holy-dark: #a3266b;
-      --cat-holy-bg: #3a1c2c;
+      --cat-holy: var(--lt-f472b6, #f472b6);
+      --cat-holy-dark: var(--lt-a3266b, #a3266b);
+      --cat-holy-bg: var(--lt-3a1c2c, #3a1c2c);
 
-      --cat-dark: #8b7cf6;
-      --cat-dark-dark: #3d2f7a;
-      --cat-dark-bg: #1c1836;
+      --cat-dark: var(--lt-8b7cf6, #8b7cf6);
+      --cat-dark-dark: var(--lt-3d2f7a, #3d2f7a);
+      --cat-dark-bg: var(--lt-1c1836, #1c1836);
 
-      --cat-builder: #38bdf8;
-      --cat-builder-dark: #0a6ba8;
-      --cat-builder-bg: #152a38;
+      --cat-builder: var(--lt-38bdf8, #38bdf8);
+      --cat-builder-dark: var(--lt-0a6ba8, #0a6ba8);
+      --cat-builder-bg: var(--lt-152a38, #152a38);
 
-      --cat-super: #fb923c;
-      --cat-super-dark: #8a3f10;
-      --cat-super-bg: #2a1c14;
+      --cat-super: var(--lt-fb923c, #fb923c);
+      --cat-super-dark: var(--lt-8a3f10, #8a3f10);
+      --cat-super-bg: var(--lt-2a1c14, #2a1c14);
     }
 
     * {
@@ -61,8 +62,8 @@
 
     body {
       background:
-        radial-gradient(circle at 15% -10%, rgba(232, 179, 76, 0.08), transparent 40%),
-        radial-gradient(circle at 90% 10%, rgba(139, 124, 246, 0.10), transparent 45%),
+        radial-gradient(circle at 15% -10%, var(--lt-e8b34c-8, rgba(232, 179, 76, 0.08)), transparent 40%),
+        radial-gradient(circle at 90% 10%, var(--lt-8b7cf6-10, rgba(139, 124, 246, 0.10)), transparent 45%),
         var(--bg-deep);
       color: var(--ink);
       font-family: 'Noto Sans TC', sans-serif;
@@ -71,7 +72,7 @@
 
     ::selection {
       background: var(--gold-dim);
-      color: #1a1327;
+      color: var(--lt-1a1327, #1a1327);
     }
 
     :focus-visible {
@@ -127,7 +128,7 @@
     .brand-title .gem {
       color: var(--gold);
       font-size: 22px;
-      filter: drop-shadow(0 0 6px rgba(232, 179, 76, 0.55));
+      filter: drop-shadow(0 0 6px var(--lt-e8b34c-55, rgba(232, 179, 76, 0.55)));
     }
 
     .brand-sub {
@@ -371,23 +372,23 @@
     }
 
     .card-tile.picked .stripe {
-      background: #1a1327;
+      background: var(--lt-1a1327, #1a1327);
     }
 
     .card-tile.picked .name {
-      color: #1a1327;
+      color: var(--lt-1a1327, #1a1327);
     }
 
     .card-tile.picked .count-badge {
-      color: #1a1327;
+      color: var(--lt-1a1327, #1a1327);
     }
 
     .card-tile.picked .count-badge.zero {
-      color: #6b5424;
+      color: var(--lt-6b5424, #6b5424);
     }
 
     .card-tile.picked .count-badge.spare {
-      color: #1a1327;
+      color: var(--lt-1a1327, #1a1327);
     }
 
     .card-tile.empty-slot {
@@ -441,7 +442,7 @@
     }
 
     .count-badge.spare {
-      color: #5fe0ac;
+      color: var(--lt-5fe0ac, #5fe0ac);
     }
 
     .stepper {
@@ -468,7 +469,7 @@
 
     .step-btn:hover {
       background: var(--gold-dim);
-      color: #1a1327;
+      color: var(--lt-1a1327, #1a1327);
     }
 
     .step-btn:active {
@@ -566,7 +567,7 @@
 
     table.matrix td.spare {
       background: var(--spare-bg);
-      color: #5fe0ac;
+      color: var(--lt-5fe0ac, #5fe0ac);
       font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
     }
@@ -703,8 +704,8 @@
       font-family: 'Cinzel', serif;
       letter-spacing: 0.03em;
       font-size: 13.5px;
-      background: linear-gradient(180deg, #f3c66a, var(--gold));
-      color: #241a08;
+      background: linear-gradient(180deg, var(--lt-f3c66a, #f3c66a), var(--gold));
+      color: var(--lt-241a08, #241a08);
       border: none;
       padding: 10px 22px;
       border-radius: 7px;
@@ -871,6 +872,7 @@
       transform: translateX(-50%) translateY(-6px);
     }
   </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
@@ -891,6 +893,7 @@
       <button class="tab-btn" data-view="matrix">跨帳號總表</button>
       <button class="tab-btn" data-view="trade">交易配對</button>
       <button class="tab-btn" data-view="settings">設定</button>
+      <span class="jfk-switch-slot" style="margin-left:auto"></span>
     </nav>
 
     <div class="panel" id="viewRoot"></div>

@@ -22,6 +22,13 @@
             try { localStorage.setItem(KEY, t); } catch (e) { /* 被擋就只在這一頁有效 */ }
             apply(t);
         },
+        /* canvas 用：淺色時把深色版的顏色換成淺色版（theme.css 的 --lt-*），深色時原樣回傳 */
+        color: function (c) {
+            if (root.dataset.theme !== 'light') return c;
+            var k = keyOf(c);
+            var v = k ? getComputedStyle(root).getPropertyValue(k).trim() : '';
+            return v || c;
+        },
         toggle: function () { this.set(this.get() === 'dark' ? 'light' : 'dark'); },
         /* 做一顆切換鈕（太陽、月亮並排），樣式在 theme.css */
         makeSwitch: function () {
@@ -74,6 +81,7 @@
     }
     var ATTRS = ['fill', 'stroke', 'stop-color'];
     function paint(el) {
+        if (el.closest('[data-keep-color]')) return;  // 遊戲內容（棋子、牌面）保留原本的顏色
         for (var i = 0; i < ATTRS.length; i++) {
             var v = el.getAttribute(ATTRS[i]);
             if (v && v.charAt(0) === '#' || v && v.indexOf('rgb') === 0) {
@@ -92,6 +100,8 @@
     }
     function startPaint() {
         if (!document.querySelector('link[href$="assets/theme.css"]') || !window.MutationObserver) return;
+        var off = document.querySelector('meta[name="jfk-paint"]');
+        if (off && off.content === 'off') return;
         paintTree(document.body);
         new MutationObserver(function (muts) {
             for (var i = 0; i < muts.length; i++) {
@@ -104,28 +114,37 @@
         }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'fill', 'stroke', 'stop-color'] });
     }
 
-    /* 有「回首頁」連結的頁面：連結換成兩種主題各自的樣子，旁邊放切換鈕 */
+    /* 放切換鈕：頁面有 .jfk-switch-slot 就放那裡；不然放在「回首頁」連結同一列；都沒有就固定在右上角。
+       「回首頁」連結換成兩種主題各自的樣子（淺色是果汁龍貼紙）。 */
     function mount() {
         if (document.querySelector('.theme-switch')) return;
+        var sw = window.jfkTheme.makeSwitch();
+        var slot = document.querySelector('.jfk-switch-slot');
         var back = document.querySelector('a.back, a.back-link');
-        if (!back) return;
-        var prefix = (back.getAttribute('href') || '').replace(/index\.html.*$/, '');
-        var dark = document.createElement('span');
-        dark.className = 'only-dark';
-        while (back.firstChild) dark.appendChild(back.firstChild);
-        var img = document.createElement('img');
-        img.className = 'jfk-dragon only-light';
-        img.src = prefix + 'assets/dragon.svg';
-        img.alt = '';
-        var light = document.createElement('span');
-        light.className = 'only-light';
-        light.textContent = '回果汁龍首頁';
-        back.appendChild(dark); back.appendChild(img); back.appendChild(light);
-        var bar = document.createElement('div');
-        bar.className = 'jfk-topbar';
-        back.parentNode.insertBefore(bar, back);
-        bar.appendChild(back);
-        bar.appendChild(window.jfkTheme.makeSwitch());
+        if (back) {
+            var prefix = (back.getAttribute('href') || '').replace(/index\.html.*$/, '');
+            var dark = document.createElement('span');
+            dark.className = 'only-dark';
+            while (back.firstChild) dark.appendChild(back.firstChild);
+            var img = document.createElement('img');
+            img.className = 'jfk-dragon only-light';
+            img.src = prefix + 'assets/dragon.svg';
+            img.alt = '';
+            var light = document.createElement('span');
+            light.className = 'only-light';
+            light.textContent = back.getAttribute('data-light-label') || '回果汁龍首頁';
+            back.appendChild(dark); back.appendChild(img); back.appendChild(light);
+            if (!slot) {
+                var bar = document.createElement('div');
+                bar.className = 'jfk-topbar';
+                back.parentNode.insertBefore(bar, back);
+                bar.appendChild(back);
+                bar.appendChild(sw);
+                return;
+            }
+        }
+        if (slot) slot.appendChild(sw);
+        else { sw.classList.add('jfk-float'); document.body.appendChild(sw); }
     }
     function ready() { mount(); startPaint(); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);

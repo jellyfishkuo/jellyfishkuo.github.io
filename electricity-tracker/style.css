@@ -27,8 +27,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
 ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* 深色／淺色由 assets/theme.js 決定（沒選過就跟系統），寫在 <html data-theme> 上 */
+:root[data-theme="dark"] {
     --bg: #101018;
     --card-bg: #1b1b28;
     --text: #f0f0f5;
@@ -44,8 +44,31 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     --warn: #fbbf24;
     --highlight: rgba(77, 141, 255, 0.22);
     --shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  }
 }
+
+/* 淺色＝果汁龍樂園：淺綠底、白卡片粗黑框（卡片框線在 assets/theme.css）、主要按鈕果汁橘 */
+:root[data-theme="light"] {
+  --bg: #e9f7d9;
+  --card-bg: #ffffff;
+  --text: #1d2b12;
+  --text-secondary: #55624a;
+  --primary: #ffb02e;
+  --primary-dark: #ff9f1c;
+  --primary-contrast: #1d2b12;
+  --danger: #ff6b5e;
+  --border: #c9d6bb;
+  --input-bg: #f6fbef;
+  --success: #2f8a12;
+  --warn: #c77700;
+  --highlight: rgba(255, 176, 46, 0.3);
+}
+[data-theme="light"] .btn { border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; font-weight: 700; }
+[data-theme="light"] .btn.btn-primary { background: var(--primary); color: var(--primary-contrast); }
+[data-theme="light"] .btn.btn-secondary { background: #fff; color: #1d2b12; }
+[data-theme="light"] .btn.btn-danger { background: var(--danger); color: #1d2b12; }
+[data-theme="light"] .reading-input { border: 2.5px solid #1d2b12; background: #fff; }
+.app-header { position: relative; }
+.app-header .jfk-switch-slot { position: absolute; right: 0; top: 50%; transform: translateY(-50%); margin-top: 6px; }
 
 * {
   box-sizing: border-box;
@@ -514,3 +537,6 @@ label {
     animation: none;
   }
 }
+
+/* 窄螢幕標題靠左，才不會撞到右邊的切換鈕 */
+@media (max-width: 420px) { .app-header { text-align: left; } }

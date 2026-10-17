@@ -82,6 +82,8 @@ def light_of(color):
     # 半透明（多半是淡淡的底色或光暈）
     r, g, b = (v / 255 for v in rgb)
     h, l, s = colorsys.rgb_to_hls(r, g, b)
+    if l < 0.2 and a >= 0.3 and max(rgb) > 0:      # 深色半透明面板（毛玻璃）→ 白色面板；純黑多半是陰影或遮罩，不動
+        return f'rgba(255, 255, 255, {min(1, round(a + 0.25, 3))})'
     if s < 0.2:
         if l > 0.5:                                # 深底上的白色薄膜 → 淺底上的墨色薄膜
             return f'rgba({INK[0]}, {INK[1]}, {INK[2]}, {min(1, round(a * 1.4, 3))})'

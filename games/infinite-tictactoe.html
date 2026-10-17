@@ -9,13 +9,14 @@
     <link rel="apple-touch-icon" href="../assets/icons/infinite-tictactoe-180.png">
     <title>無限井字棋</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
-        ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
 
         *,
         *::before,
@@ -26,15 +27,15 @@
         }
 
         :root {
-            --bg: #05050f;
-            --surface: rgba(13, 13, 30, 0.8);
-            --border: rgba(124, 58, 237, 0.25);
-            --text: #e2e8f0;
-            --muted: #64748b;
-            --accent: #7c3aed;
-            --accent2: #06b6d4;
-            --x-color: #06b6d4;
-            --o-color: #f472b6;
+            --bg: var(--lt-05050f, #05050f);
+            --surface: var(--lt-0d0d1e-80, rgba(13, 13, 30, 0.8));
+            --border: var(--lt-7c3aed-25, rgba(124, 58, 237, 0.25));
+            --text: var(--lt-e2e8f0, #e2e8f0);
+            --muted: var(--lt-64748b, #64748b);
+            --accent: var(--lt-7c3aed, #7c3aed);
+            --accent2: var(--lt-06b6d4, #06b6d4);
+            --x-color: var(--lt-06b6d4, #06b6d4);
+            --o-color: var(--lt-f472b6, #f472b6);
             --mono: 'Space Mono', monospace;
             --sans: 'Syne', sans-serif;
         }
@@ -137,7 +138,7 @@
             border-radius: 18px;
             backdrop-filter: blur(14px);
             padding: 1.5rem;
-            box-shadow: 0 20px 45px -20px rgba(0, 0, 0, 0.7);
+            box-shadow: 0 20px 45px -20px var(--lt-000000-70, rgba(0, 0, 0, 0.7));
         }
 
         /* ── Status ── */
@@ -181,12 +182,12 @@
 
         .turn-chip.x {
             color: var(--x-color);
-            background: rgba(6, 182, 212, 0.12);
+            background: var(--lt-06b6d4-12, rgba(6, 182, 212, 0.12));
         }
 
         .turn-chip.o {
             color: var(--o-color);
-            background: rgba(244, 114, 182, 0.12);
+            background: var(--lt-f472b6-12, rgba(244, 114, 182, 0.12));
         }
 
         /* ── Board ── */
@@ -202,9 +203,9 @@
         .cell {
             position: relative;
             aspect-ratio: 1;
-            border: 1px solid rgba(255, 255, 255, 0.09);
+            border: 1px solid var(--lt-ffffff-9, rgba(255, 255, 255, 0.09));
             border-radius: 14px;
-            background: rgba(255, 255, 255, 0.03);
+            background: var(--lt-ffffff-3, rgba(255, 255, 255, 0.03));
             cursor: pointer;
             /* 刻意不用 padding 留白：棋子改由絕對定位的 SVG 自己內縮。
                只要 SVG 還在排版流裡，Safari 就會把這個 aspect-ratio 容器的
@@ -222,15 +223,15 @@
         /* hover 效果只給真的有指標的裝置，否則手機點過的格子會一直亮著 */
         @media (hover: hover) and (pointer: fine) {
             .cell:hover:not(:disabled):not(.filled) {
-                border-color: rgba(124, 58, 237, 0.6);
-                background: rgba(124, 58, 237, 0.08);
+                border-color: var(--lt-7c3aed-60, rgba(124, 58, 237, 0.6));
+                background: var(--lt-7c3aed-8, rgba(124, 58, 237, 0.08));
             }
         }
 
         /* 手機用「按下瞬間」回饋取代 hover */
         .cell:not(:disabled):not(.filled):active {
-            border-color: rgba(124, 58, 237, 0.8);
-            background: rgba(124, 58, 237, 0.14);
+            border-color: var(--lt-7c3aed-80, rgba(124, 58, 237, 0.8));
+            background: var(--lt-7c3aed-14, rgba(124, 58, 237, 0.14));
             transform: scale(0.96);
         }
 
@@ -253,7 +254,7 @@
             left: 9px;
             font-family: var(--mono);
             font-size: 0.65rem;
-            color: rgba(148, 163, 184, 0.35);
+            color: var(--lt-94a3b8-35, rgba(148, 163, 184, 0.35));
             line-height: 1;
         }
 
@@ -280,12 +281,12 @@
 
         .mark-x path {
             stroke: var(--x-color);
-            filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.5));
+            filter: drop-shadow(0 0 8px var(--lt-06b6d4-50, rgba(6, 182, 212, 0.5)));
         }
 
         .mark-o circle {
             stroke: var(--o-color);
-            filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.45));
+            filter: drop-shadow(0 0 8px var(--lt-f472b6-45, rgba(244, 114, 182, 0.45)));
         }
 
         /* 落子動畫 */
@@ -312,7 +313,7 @@
 
         .cell.doomed {
             border-style: dashed;
-            border-color: rgba(148, 163, 184, 0.4);
+            border-color: var(--lt-94a3b8-40, rgba(148, 163, 184, 0.4));
         }
 
         @keyframes doom {
@@ -328,8 +329,8 @@
         }
 
         .cell.win {
-            border-color: rgba(124, 58, 237, 0.9);
-            background: rgba(124, 58, 237, 0.18);
+            border-color: var(--lt-7c3aed-90, rgba(124, 58, 237, 0.9));
+            background: var(--lt-7c3aed-18, rgba(124, 58, 237, 0.18));
             animation: winPulse 0.9s ease-in-out infinite;
         }
 
@@ -337,11 +338,11 @@
 
             0%,
             100% {
-                box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5);
+                box-shadow: 0 0 0 0 var(--lt-7c3aed-50, rgba(124, 58, 237, 0.5));
             }
 
             50% {
-                box-shadow: 0 0 22px 4px rgba(124, 58, 237, 0.35);
+                box-shadow: 0 0 22px 4px var(--lt-7c3aed-35, rgba(124, 58, 237, 0.35));
             }
         }
 
@@ -362,7 +363,7 @@
             padding: 0.7rem 1.4rem;
             min-height: 44px;          /* 觸控建議最小高度 */
             border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.16);
+            border: 1px solid var(--lt-ffffff-16, rgba(255, 255, 255, 0.16));
             background: transparent;
             color: var(--text);
             cursor: pointer;
@@ -376,7 +377,7 @@
             }
 
             .btn-primary:hover {
-                box-shadow: 0 8px 26px rgba(124, 58, 237, 0.35);
+                box-shadow: 0 8px 26px var(--lt-7c3aed-35, rgba(124, 58, 237, 0.35));
             }
         }
 
@@ -387,7 +388,7 @@
         .btn-primary {
             background: linear-gradient(135deg, var(--accent), var(--accent2));
             border: none;
-            color: #fff;
+            color: var(--lt-ffffff, #fff);
         }
 
         /* ── Side panel ── */
@@ -403,7 +404,7 @@
         .side-block + .side-block {
             margin-top: 1.8rem;
             padding-top: 1.6rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            border-top: 1px solid var(--lt-ffffff-7, rgba(255, 255, 255, 0.07));
         }
 
         .score-grid {
@@ -415,9 +416,9 @@
 
         .score-box {
             padding: 0.8rem 0.4rem;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
+            background: var(--lt-ffffff-2, rgba(255, 255, 255, 0.02));
         }
 
         .score-num {
@@ -461,8 +462,8 @@
             min-height: 44px;
             padding: 0.6rem 0.7rem;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(13, 13, 30, 0.95);
+            border: 1px solid var(--lt-ffffff-14, rgba(255, 255, 255, 0.14));
+            background: var(--lt-0d0d1e-95, rgba(13, 13, 30, 0.95));
             color: var(--text);
             font-family: var(--mono);
             font-size: 0.8rem;
@@ -494,7 +495,7 @@
             gap: 0.5rem;
             padding: 0.4rem 0.6rem;
             border-radius: 6px;
-            background: rgba(255, 255, 255, 0.03);
+            background: var(--lt-ffffff-3, rgba(255, 255, 255, 0.03));
             border-left: 2px solid transparent;
         }
 
@@ -522,7 +523,7 @@
             margin-top: 1.8rem;
             border: 1px solid var(--border);
             border-radius: 14px;
-            background: rgba(13, 13, 30, 0.6);
+            background: var(--lt-0d0d1e-60, rgba(13, 13, 30, 0.6));
             overflow: hidden;
         }
 
@@ -554,7 +555,7 @@
 
         .rules-content {
             padding: 0 1.4rem 1.3rem;
-            border-top: 1px dashed rgba(255, 255, 255, 0.08);
+            border-top: 1px dashed var(--lt-ffffff-8, rgba(255, 255, 255, 0.08));
         }
 
         .rules-content ul {
@@ -580,7 +581,7 @@
             transform: translate(-50%, 1.5rem);
             padding: 0.9rem 1.6rem;
             border-radius: 10px;
-            background: rgba(13, 13, 30, 0.95);
+            background: var(--lt-0d0d1e-95, rgba(13, 13, 30, 0.95));
             border: 1px solid var(--border);
             font-family: var(--mono);
             font-size: 0.85rem;
@@ -825,7 +826,16 @@
                 transition-duration: 0.01ms !important;
             }
         }
+            /* ── 淺色（果汁龍樂園）：白卡片、粗黑框、硬陰影，主要按鈕是果汁橘 ── */
+        [data-theme="light"] .hero-tag { visibility: hidden; }
+        [data-theme="light"] #canvas { display: none; }  /* 背景粒子只在深色出現 */
+        [data-theme="light"] .panel { background: #fff; border: 2.5px solid #1d2b12; border-radius: 16px; box-shadow: 4px 4px 0 #1d2b12; backdrop-filter: none; }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; font-weight: 700; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .btn.btn-primary { background: #ffb02e; border: 2px solid #1d2b12; color: #1d2b12; }
+        [data-theme="light"] .rules { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+        [data-theme="light"] .rules summary { color: #1d2b12; }
     </style>
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
@@ -833,7 +843,8 @@
     <canvas id="canvas"></canvas>
 
     <div class="shell">
-        <a href="../index.html" class="back-link">← 回到首頁</a>
+        <a href="../index.html" class="back-link corner-back">← 回到首頁</a>
+        <span class="jfk-switch-slot corner"></span>
 
         <div class="header">
             <div class="hero-tag">// Web Game</div>
