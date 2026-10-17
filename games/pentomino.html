@@ -1432,7 +1432,9 @@
             }
 
             // 🎯 終極修復：真・物理重心自轉演算法
-            transformAction(transformFn) {
+            // pivot：被點到的那一格（blocks 的 index）。有給的話就繞這一格轉，
+            // 轉完那一格還在原位，積木就一直留在游標／手指底下；沒給才用重心。
+            transformAction(transformFn, pivot = null) {
                 const board = document.getElementById('board');
                 const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
 
@@ -1469,20 +1471,25 @@
                 // 3. 旋轉後的新重心
                 const [newComR, newComC] = getCoM(this.blocks);
 
+                const usePivot = pivot !== null && pivot >= 0 && pivot < this.blocks.length;
+                // 繞 pivot 轉：同一格旋轉前後的座標差，就是整塊要平移的格數（一定是整數）
+                const pivotDR = usePivot ? oldBlocks[pivot][0] - this.blocks[pivot][0] : 0;
+                const pivotDC = usePivot ? oldBlocks[pivot][1] - this.blocks[pivot][1] : 0;
+
                 if (wasSnapped && !this.isDragging) {
-                    // 原地自轉，利用 Math.round 與重心的奇數特性消除進位誤差
-                    const targetGridR = oldGridR + Math.round(oldComR - newComR);
-                    const targetGridC = oldGridC + Math.round(oldComC - newComC);
+                    const fits = (gr, gc) => this.blocks.every(([dr, dc]) => {
+                        const nr = gr + dr, nc = gc + dc;
+                        return nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && gridState[nr * 8 + nc] === null;
+                    });
+                    // 先試「點到的那格不動」；靠邊或撞到別塊時，退一步用重心原地轉
+                    // （利用 Math.round 與重心的奇數特性消除進位誤差）
+                    const candidates = [];
+                    if (usePivot) candidates.push([oldGridR + pivotDR, oldGridC + pivotDC]);
+                    candidates.push([oldGridR + Math.round(oldComR - newComR), oldGridC + Math.round(oldComC - newComC)]);
+                    const spot = candidates.find(([gr, gc]) => fits(gr, gc));
 
-                    let canPlace = true;
-                    for (const [dr, dc] of this.blocks) {
-                        const nr = targetGridR + dr, nc = targetGridC + dc;
-                        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || gridState[nr * 8 + nc] !== null) {
-                            canPlace = false; break;
-                        }
-                    }
-
-                    if (canPlace) {
+                    if (spot) {
+                        const [targetGridR, targetGridC] = spot;
                         this.isSnapped = true;
                         this.gridPos = { r: targetGridR, c: targetGridC };
                         this.blocks.forEach(([dr, dc]) => gridState[(targetGridR + dr) * 8 + (targetGridC + dc)] = this.id);
@@ -1502,6 +1509,13 @@
                         this.el.classList.add('nudge');
                         return;
                     }
+                } else if (usePivot && !this.isDragging) {
+                    // 托盤上點一下旋轉：點到的那格不動，托盤座標跟著改，之後重新排位置也不會跳走
+                    this.trayR += pivotDR; this.trayC += pivotDC;
+                    this.x = oldX + pivotDC * currentCellSize;
+                    this.y = oldY + pivotDR * currentCellSize;
+                    this.draw();
+                    this.updatePos();
                 } else {
                     // 拖曳中旋轉
                     this.x = centerX - newComC * currentCellSize - currentCellSize / 2;
@@ -1518,8 +1532,8 @@
                 }
             }
 
-            rotate() { this.transformAction((r, c) => [c, -r]); }
-            rotateReverse() { this.transformAction((r, c) => [-c, r]); }
+            rotate(pivot = null) { this.transformAction((r, c) => [c, -r], pivot); }
+            rotateReverse(pivot = null) { this.transformAction((r, c) => [-c, r], pivot); }
             flip() { this.transformAction((r, c) => [r, -c]); }
 
             normalize() {
@@ -1576,7 +1590,11 @@
 
                     e.preventDefault();
                     // 已經選取的積木再點一下（沒有拖動）= 旋轉，手機上不用再伸手去按旋轉鍵
-                    tapState = { piece: this, wasSelected: selectedPiece === this, x: e.clientX, y: e.clientY, moved: false };
+                    const hitBlock = e.target.closest && e.target.closest('.p-block');
+                    tapState = {
+                        piece: this, wasSelected: selectedPiece === this, x: e.clientX, y: e.clientY, moved: false,
+                        pivot: hitBlock ? [...this.el.children].indexOf(hitBlock) : null
+                    };
                     select(this);
                     startTimer();
 
@@ -1691,7 +1709,7 @@
             piece.trySnap();
             activeDragPiece = null;
             const tap = tapState; tapState = null;
-            if (e.type === 'pointerup' && tap && tap.piece === piece && tap.wasSelected && !tap.moved) piece.rotate();
+            if (e.type === 'pointerup' && tap && tap.piece === piece && tap.wasSelected && !tap.moved) piece.rotate(tap.pivot);
             updateProgress();
         };
         document.addEventListener('pointerup', releasePiece);
@@ -1738,10 +1756,13 @@
             targetPiece._isRotating = true;
             setTimeout(() => { targetPiece._isRotating = false; }, 150);
 
+            // 游標停在哪一格就繞那一格轉（拖曳中仍用重心，跟著游標走）
+            const hit = !activeDragPiece && e.target.closest('.p-block');
+            const pivot = hit ? [...targetPiece.el.children].indexOf(hit) : null;
             if (e.deltaY > 0) {
-                targetPiece.rotate();        // 往下滾：順時針轉
+                targetPiece.rotate(pivot);        // 往下滾：順時針轉
             } else {
-                targetPiece.rotateReverse(); // 往上滾：逆時針轉
+                targetPiece.rotateReverse(pivot); // 往上滾：逆時針轉
             }
         }, { passive: false });
 
