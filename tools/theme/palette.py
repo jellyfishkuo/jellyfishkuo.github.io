@@ -1,6 +1,8 @@
 """深色頁面上寫死的顏色 → 淺色（果汁龍樂園）要換成什麼顏色。
 
-大部分顏色用規則換算（暗底變淺底、淺字變深字、紫色系換成果汁橘、青色系換成葉子綠），
+大部分顏色用規則換算：暗底變淺底、淺字變深字；彩色保留原本的色相（紫還是紫、青還是青），
+只把亮度壓到白底上看得清楚、飽和度拉高，避免黃橘被壓暗後變成髒髒的土黃。
+主色 #7c3aed 換成果汁橘（跟淺色的 --accent 一致），#06b6d4 換成深青（--accent2）。
 規則算出來不好看的再寫進 EXPLICIT 直接指定。
 """
 import colorsys
@@ -16,7 +18,7 @@ EXPLICIT = {
     # 常見的淡灰字（說明文字）
     '#c6c6d6': '#3d4a33', '#e6e6f0': '#1d2b12', '#fff': '#1d2b12', '#ffffff': '#1d2b12',
     # 主色
-    '#7c3aed': '#e08a00', '#06b6d4': '#3f8f12',
+    '#7c3aed': '#e08a00', '#06b6d4': '#0e7490',
 }
 
 INK = (29, 43, 18)          # #1d2b12
@@ -39,20 +41,35 @@ def hexof(rgb):
 
 
 def remap_hue(h, s):
-    """紫 → 果汁橘、青 → 葉子綠；其他（紅綠黃藍）保持原本的意思"""
-    deg = h * 360
-    if s > 0.25:
-        if 240 <= deg <= 300:
-            return 33 / 360
-        if 175 <= deg <= 200:
-            return 95 / 360
+    """色相保留（之前把紫換成橘、青換成綠，整頁變成一片土黃綠，看起來髒）"""
     return h
+
+
+def text_tone(h):
+    """白底上當文字／線條用的（亮度, 飽和度），大致等於 Tailwind 的 700 色階：
+    黃橘綠青本身很亮，要壓比較深；藍紫可以亮一點。"""
+    deg = h * 360
+    if deg < 20 or deg >= 345:
+        return 0.42, 0.74        # 紅
+    if deg < 40:
+        return 0.37, 0.9         # 橘
+    if deg < 65:
+        return 0.33, 0.9         # 黃、琥珀
+    if deg < 170:
+        return 0.30, 0.72        # 綠
+    if deg < 200:
+        return 0.31, 0.82        # 青
+    if deg < 235:
+        return 0.45, 0.76        # 天藍、藍
+    if deg < 290:
+        return 0.50, 0.70        # 靛、紫
+    return 0.42, 0.75            # 桃紅、粉
 
 
 def light_rgb(rgb):
     r, g, b = (v / 255 for v in rgb)
     h, l, s = colorsys.rgb_to_hls(r, g, b)
-    if s < 0.25 or (l < 0.25 and s < 0.5):        # 灰階（帶一點紫），或很暗、不太飽和的底
+    if s < 0.25 or (l < 0.25 and s < 0.5) or (l > 0.75 and s < 0.45):   # 灰階（帶一點紫），很暗、不太飽和的底，或帶一點藍的淺灰字（#cbd5e1）
         if l < 0.22:                               # 暗底 → 很淡的綠白
             nl, ns, nh = 1 - l * 0.55, 0.35, 95 / 360
         elif l < 0.5:                              # 邊框、次要線條 → 中間的灰綠
@@ -63,10 +80,9 @@ def light_rgb(rgb):
         nh = remap_hue(h, s)
         if l < 0.25:                               # 很暗的彩色底 → 很淡的同色底
             nl, ns = 0.93, min(s, 0.6)
-        elif l >= 0.65:                            # 粉彩字（深底上的字）→ 深色字
-            nl, ns = 0.28, min(1, s * 0.85)
-        else:                                      # 一般彩色 → 稍微壓暗，淺底上才看得清楚
-            nl, ns = min(l, 0.42), s
+        else:                                      # 彩色字／線條 → 同色相、白底看得清楚的深度，飽和度拉高
+            tl, ts = text_tone(h)
+            nl, ns = min(l, tl), ts
     return tuple(v * 255 for v in colorsys.hls_to_rgb(nh, nl, ns))
 
 

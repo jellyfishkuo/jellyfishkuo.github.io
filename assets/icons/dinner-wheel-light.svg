@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 六格轉盤＋上方指針 -->
+  <g transform="translate(32 35)">
+    <circle r="22" fill="#1d2b12"/>
+    <path d="M0 0 L0 -20 A20 20 0 0 1 17.32 -10 Z" fill="#f87171"/>
+    <path d="M0 0 L17.32 -10 A20 20 0 0 1 17.32 10 Z" fill="#fb923c"/>
+    <path d="M0 0 L17.32 10 A20 20 0 0 1 0 20 Z" fill="#facc15"/>
+    <path d="M0 0 L0 20 A20 20 0 0 1 -17.32 10 Z" fill="#4ade80"/>
+    <path d="M0 0 L-17.32 10 A20 20 0 0 1 -17.32 -10 Z" fill="#38bdf8"/>
+    <path d="M0 0 L-17.32 -10 A20 20 0 0 1 0 -20 Z" fill="#c084fc"/>
+    <circle r="6" fill="#ffffff" stroke="#ff4d3d" stroke-width="2"/>
+  </g>
+  <path d="M32 19 L26.5 7.5 A6 6 0 0 1 37.5 7.5 Z" fill="#ff4d3d" stroke="#1d2b12" stroke-width="2" stroke-linejoin="round"/>
+</svg>

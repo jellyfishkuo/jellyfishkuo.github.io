@@ -38,7 +38,8 @@
 - 研究 Demo 改的是樣板：`cd tools/theme && python3 lightify.py --prefix ../ ../research/*/*.tpl ../../research/*.html`，再重新產生各頁。
 - JS 產生的顏色不用改程式：`theme.js` 會把畫面上 `fill`/`stroke`/`style=` 的顏色換成同樣的 `var()`；顏色要先被 lightify 登記過（掃整個檔案）才有淺色值。
 
-- `icons_light.py`：產生研究 Demo 圖示的淺色版 `assets/icons/<name>-light.svg`（首頁淺色「研究實驗室」用，白底墨框、鮮豔色保留）。新增 Demo 或改圖示後重跑。
+- `icons_light.py`：產生圖示的淺色版 `assets/icons/<name>-light.svg`（首頁淺色版用，白底墨框）。研究 Demo 用通用規則換色；作品圖示寫在 `PROJECTS`，逐一指定要換的顏色。新增 Demo／作品或改圖示後重跑。
+- `palette.py`：淺色換色規則。彩色字保留色相，只把亮度壓到白底看得清楚（大約 Tailwind 700 色階，見 `text_tone`）；改完跑 `python3 lightify.py --css-only` 重新產生 `theme.css` 的自動區塊。
 
 ## set-online/：SET 多人連線的本機測試環境
 

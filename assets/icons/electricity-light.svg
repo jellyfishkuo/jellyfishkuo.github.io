@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 用電長條圖＋閃電 -->
+  <rect x="9" y="38" width="8" height="16" rx="2" fill="#22d3ee" stroke="#1d2b12" stroke-width="2"/>
+  <rect x="21" y="30" width="8" height="24" rx="2" fill="#22d3ee" stroke="#1d2b12" stroke-width="2"/>
+  <rect x="33" y="42" width="8" height="12" rx="2" fill="#22d3ee" stroke="#1d2b12" stroke-width="2"/>
+  <path d="M42 8 30 31h9l-4 19 16-26h-9l5-16z" fill="#ffb02e" stroke="#1d2b12" stroke-width="2" stroke-linejoin="round"/>
+</svg>

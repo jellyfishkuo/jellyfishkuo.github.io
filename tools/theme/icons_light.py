@@ -1,5 +1,6 @@
 """產生研究 Demo 圖示的淺色版（首頁淺色「研究實驗室」用）：assets/icons/<name>.svg → assets/icons/<name>-light.svg
-只處理 research/ 底下有頁面的圖示。
+研究 Demo（research/ 底下有頁面的）用通用規則換色；作品圖示（PROJECTS）各自寫要換哪些顏色，
+因為它們的底色、圖案都是遊戲本身的配色，用通用規則會換壞（例如 SET 的紫色變淡）。
 
 深色底換成白底＋墨色粗框；深色的線、格子換成淺灰綠；原本在深底上當「白字」的顏色換成墨色；
 鮮豔的顏色（黃、青、紫、紅…）保留，白底上一樣好看。可以重複執行。
@@ -38,6 +39,46 @@ def light(hexcolor):
     return hexcolor                  # 鮮豔的顏色保留
 
 
+# 作品圖示：外框統一換成白底＋墨色粗框，剩下逐一指定 (原字串, 新字串)
+PROJECTS = {
+    '1a2b': [('fill="#0b0b14"', f'fill="{INK}"'),
+             ('rx="6" fill="#22c55e"/>', f'rx="6" fill="#22c55e" stroke="{INK}" stroke-width="2.5"/>'),
+             ('rx="6" fill="#f59e0b"/>', f'rx="6" fill="#ffb02e" stroke="{INK}" stroke-width="2.5"/>')],
+    'coc-card': [('stroke="#120e1c"', f'stroke="{INK}"'),
+                 ('fill="#7c3aed" transform', f'fill="#7c3aed" stroke="{INK}" stroke-width="2.5" transform')],
+    'dinner-wheel': [('<circle r="22" fill="#1e1e33"/>', f'<circle r="22" fill="{INK}"/>'),
+                     ('<circle r="6" fill="#7c3aed" stroke="#fff"', '<circle r="6" fill="#ffffff" stroke="#ff4d3d"'),
+                     ('Z" fill="#fff"/>', f'Z" fill="#ff4d3d" stroke="{INK}" stroke-width="2" stroke-linejoin="round"/>')],
+    'electricity': [('stroke="#12121c"', f'stroke="{INK}"'),
+                    ('fill="#06b6d4"', f'fill="#22d3ee" stroke="{INK}" stroke-width="2"'),
+                    ('fill="#facc15"', 'fill="#ffb02e"')],
+    'hanoi': [('fill="#4a4a6a"', 'fill="#8a9580"'),
+              ('rx="3.5" fill="', f'rx="3.5" stroke="{INK}" stroke-width="1.8" fill="')],
+    'infinite-tictactoe': [('stroke="#475569"', 'stroke="#c9d6bb"'),
+                           ('stroke="#06b6d4"', 'stroke="#0891b2"'), ('stroke="#ec4899"', 'stroke="#db2777"')],
+    'notes': [('fill="#f4f1ff"/>', f'fill="#fff8e6" stroke="{INK}" stroke-width="2"/>')],
+    'pentomino': [('stroke="#0f172a"', f'stroke="{INK}"'),
+                  ('rx="3" fill="#fbbf24"/>', f'rx="3" fill="#ffb02e" stroke="{INK}" stroke-width="2"/>')],
+    'set': [],
+    'vertical-gomoku': [('<g fill="#0b1636">', f'<g fill="#fff8e6" stroke="{INK}" stroke-width="1.8">'),
+                        ('r="6.5" fill="#facc15"/>', f'r="6.5" fill="#22d3ee" stroke="{INK}" stroke-width="2"/>'),
+                        ('r="6.5" fill="#ef4444"/>', f'r="6.5" fill="#f472b6" stroke="{INK}" stroke-width="2"/>')],
+}
+# 立式五子棋的底板本身就是棋盤：淺色用遊戲淺色版的橘色棋盤
+PROJECT_BG = {'vertical-gomoku': '#ffb02e'}
+
+
+def project_icon(name):
+    path = os.path.join(ICONS, name + '.svg')
+    src = open(path, encoding='utf-8').read()
+    bg = PROJECT_BG.get(name, '#ffffff')
+    out = re.sub(r'<rect [^>]*/>', f'<rect x="1.25" y="1.25" width="61.5" height="61.5" rx="13" fill="{bg}" stroke="{INK}" stroke-width="2.5"/>', src, count=1)
+    for old, new in PROJECTS[name]:
+        assert old in out, (name, old)
+        out = out.replace(old, new)
+    open(path[:-4] + '-light.svg', 'w', encoding='utf-8').write(out)
+
+
 def main():
     names = sorted(os.path.basename(p)[:-5] for p in glob.glob(os.path.join(ROOT, 'research', '*.html')))
     for name in names:
@@ -52,6 +93,8 @@ def main():
         body = re.sub(r'#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b(?![0-9a-fA-F])', lambda m: light(m.group(0)), head)
         body = body.replace('__BG__', '#ffffff').replace('__INK__', INK)
         open(out, 'w', encoding='utf-8').write(body)
+    for name in PROJECTS:
+        project_icon(name)
     print('done')
 
 
