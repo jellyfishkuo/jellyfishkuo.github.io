@@ -50,6 +50,10 @@
     --warn: #c77700;
     --line-hl: rgba(255, 176, 46, 0.35);
     --newc: #b35c00;
+    /* 技術介紹頁（games/detail.css）的變數名 */
+    --surface: #ffffff;
+    --surface-glass: rgba(255, 255, 255, 0.92);
+    --accent-glow: rgba(255, 176, 46, 0.35);
     color-scheme: light;
 }
 
@@ -64,6 +68,14 @@
     font: 900 0.9rem 'Noto Sans TC', -apple-system, 'PingFang TC', sans-serif; letter-spacing: 0;
     background: #fff; border: 2px solid #1d2b12; border-radius: 12px; padding: 3px 12px 3px 6px; box-shadow: 2px 2px 0 #1d2b12;
 }
+[data-theme="light"] .back-link {
+    display: inline-flex; align-items: center; gap: 6px; color: #1d2b12;
+    font: 900 0.9rem 'Noto Sans TC', -apple-system, 'PingFang TC', sans-serif; letter-spacing: 0;
+    background: #fff; border: 2px solid #1d2b12; border-radius: 12px; padding: 3px 12px 3px 6px; box-shadow: 2px 2px 0 #1d2b12;
+}
+[data-theme="light"] .back-link:hover { color: #1d2b12; background: #ffb02e; }
+.back-link .jfk-dragon { width: 26px; height: 22px; vertical-align: middle; }
+.jfk-topbar .back-link { margin-bottom: 0 !important; }
 [data-theme="light"] .back:hover { color: #1d2b12; background: #ffb02e; }
 
 /* 卡片：粗黑框＋硬陰影 */
@@ -90,10 +102,31 @@
 [data-theme="light"] pre.code { background: #fbfdf6; border: 2px solid #1d2b12; color: #1d2b12; }
 [data-theme="light"] .code .ln.hl { background: rgba(255, 176, 46, 0.32); box-shadow: inset 4px 0 0 #ff9f1c; }
 
+/* ── 技術介紹頁（games/*-detail.html） ── */
+[data-theme="light"] .bg-glow, [data-theme="light"] .bg-glow-2 { display: none; }
+[data-theme="light"] header h1 { background: none; -webkit-text-fill-color: #1d2b12; color: #1d2b12; letter-spacing: 0; }
+[data-theme="light"] .tabs-container { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; backdrop-filter: none; }
+[data-theme="light"] .tab-btn { color: #1d2b12; font-weight: 700; }
+[data-theme="light"] .tab-btn.active { background: #ffb02e; color: #1d2b12; box-shadow: inset 0 0 0 2px #1d2b12; }
+[data-theme="light"] .tech-card,
+[data-theme="light"] .play-card,
+[data-theme="light"] .side-box,
+[data-theme="light"] .toc,
+[data-theme="light"] .case,
+[data-theme="light"] .code-window { border: 2.5px solid #1d2b12; border-radius: 16px; box-shadow: 4px 4px 0 #1d2b12; background: #fff; }
+[data-theme="light"] .code-window .code-body { background: #fbfdf6; }
+[data-theme="light"] .play-card .btn { background: #ffb02e; color: #1d2b12; border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+[data-theme="light"] .play-card .btn:hover { background: #ffc94d; }
+[data-theme="light"] .meta-chip { background: #fff; border: 2px solid #1d2b12; color: #1d2b12; }
+[data-theme="light"] h2, [data-theme="light"] .case-head h3 { font-family: 'Noto Sans TC', -apple-system, 'PingFang TC', sans-serif; font-weight: 900; letter-spacing: 0; }
+
 /* ==== 自動產生：tools/theme/lightify.py（不要手改這一段） ==== */
 :root[data-theme="light"] {
+    --lt-000000-40: rgba(0, 0, 0, 0.4);
+    --lt-000000-50: rgba(0, 0, 0, 0.5);
     --lt-05050a: #f6fbef;
     --lt-06b6d4: #3f8f12;
+    --lt-06b6d4-10: rgba(92, 212, 6, 0.135);
     --lt-06b6d4-12: rgba(92, 212, 6, 0.162);
     --lt-06b6d4-13: rgba(92, 212, 6, 0.176);
     --lt-06b6d4-14: rgba(92, 212, 6, 0.189);
@@ -106,6 +139,7 @@
     --lt-06b6d4-35: rgba(92, 212, 6, 0.472);
     --lt-06b6d4-40: rgba(92, 212, 6, 0.54);
     --lt-06b6d4-45: rgba(92, 212, 6, 0.608);
+    --lt-06b6d4-5: rgba(92, 212, 6, 0.068);
     --lt-06b6d4-50: rgba(92, 212, 6, 0.675);
     --lt-06b6d4-55: rgba(92, 212, 6, 0.743);
     --lt-06b6d4-6: rgba(92, 212, 6, 0.081);
@@ -120,14 +154,18 @@
     --lt-0b0b16: #f5f9f3;
     --lt-0b0b17: #fbfdf6;
     --lt-0c0c17: #f5f9f2;
+    --lt-0d1117: #f5f9f2;
     --lt-0e2530: #ecf7e3;
     --lt-0f0f1a: #f3f8f0;
+    --lt-10b981: #10b981;
+    --lt-10b981-5: rgba(16, 185, 129, 0.068);
     --lt-12121f: #f1f6ed;
     --lt-122046: #e3e8f8;
     --lt-14142a: #edf4e8;
     --lt-151527: #eef4e9;
     --lt-15152a: #edf4e8;
     --lt-16162a: #ecf4e7;
+    --lt-161b22: #eff5ea;
     --lt-17172c: #ecf3e6;
     --lt-191930: #eaf2e4;
     --lt-1a1a2e: #eaf2e4;
@@ -162,12 +200,14 @@
     --lt-24243f: #e2edda;
     --lt-262638: #e4eedc;
     --lt-262640: #e1edd9;
+    --lt-27c93f: #23b338;
     --lt-2a2a40: #e0ecd8;
     --lt-2a2a48: #cbd2c6;
     --lt-2b2318: #ecf3e6;
     --lt-2c2c44: #deebd5;
     --lt-2c2c48: #cad1c5;
     --lt-2dd4bf: #24b2a0;
+    --lt-30363d: #dfecd7;
     --lt-33260e: #f7f0e3;
     --lt-34344e: #c1c9bb;
     --lt-34345a: #5a4934;
@@ -198,20 +238,26 @@
     --lt-787896-40: rgba(29, 43, 18, 0.56);
     --lt-78789a: #779462;
     --lt-78789a-50: rgba(29, 43, 18, 0.7);
+    --lt-79c0ff: #0b4b84;
     --lt-7c3aed: #e08a00;
     --lt-7c3aed-10: rgba(234, 138, 21, 0.135);
     --lt-7c3aed-12: rgba(234, 138, 21, 0.162);
     --lt-7c3aed-14: rgba(234, 138, 21, 0.189);
     --lt-7c3aed-15: rgba(234, 138, 21, 0.203);
+    --lt-7c3aed-20: rgba(234, 138, 21, 0.27);
     --lt-7c3aed-25: rgba(234, 138, 21, 0.338);
     --lt-7c3aed-30: rgba(234, 138, 21, 0.405);
     --lt-7c3aed-35: rgba(234, 138, 21, 0.472);
+    --lt-7c3aed-40: rgba(234, 138, 21, 0.54);
+    --lt-7c3aed-5: rgba(234, 138, 21, 0.068);
     --lt-7c3aed-50: rgba(234, 138, 21, 0.675);
     --lt-7c3aed-55: rgba(234, 138, 21, 0.743);
     --lt-7c3aed-60: rgba(234, 138, 21, 0.81);
+    --lt-7c3aed-7: rgba(234, 138, 21, 0.095);
     --lt-7c3aed-8: rgba(234, 138, 21, 0.108);
     --lt-7c3aed-80: rgba(234, 138, 21, 1);
     --lt-7d8db8: #4c5d8b;
+    --lt-7ee787: #1e7125;
     --lt-818cf8: #111b7e;
     --lt-82aaff: #1f5fbf;
     --lt-86efac: #19763b;
@@ -219,9 +265,11 @@
     --lt-8a8aa3-18: rgba(29, 43, 18, 0.252);
     --lt-8a8aa3-8: rgba(29, 43, 18, 0.112);
     --lt-8b5cf6: #7e4d11;
+    --lt-8b949e: #6c8659;
     --lt-9a9ab4: #5a704a;
     --lt-9a9ab5: #5a6f4a;
     --lt-a3e635: #7fbf18;
+    --lt-a5d6ff: #0b4d84;
     --lt-a5f3fc: #3e800f;
     --lt-a78bfa: #7f4d10;
     --lt-a78bfa-75: rgba(244, 139, 11, 1);
@@ -238,12 +286,18 @@
     --lt-c4b5fd: #814d0e;
     --lt-c6c6d6: #3d4a33;
     --lt-c792ea: #8b2fc9;
+    --lt-c9d1d9: #313d29;
+    --lt-cbd5e1: #374658;
     --lt-cccccc: #36432d;
+    --lt-d2a8ff: #844d0b;
     --lt-d6a46c: #a76f2f;
     --lt-ddd6fe: #814d0e;
+    --lt-e2e8f0: #34455b;
     --lt-e6e6f0: #1d2b12;
     --lt-e879f9: #7f4d10;
     --lt-e9d5ff: #844d0b;
+    --lt-ef4444: #c51111;
+    --lt-ef4444-5: rgba(235, 20, 20, 0.068);
     --lt-f472b6: #7b134a;
     --lt-f59e0b: #ce8408;
     --lt-f59e0b-10: rgba(245, 158, 10, 0.135);
@@ -293,10 +347,17 @@
     --lt-fcd34d: #d3a204;
     --lt-fde68a: #826b0d;
     --lt-fecaca: #820d0d;
+    --lt-ff5f56: #84110b;
+    --lt-ff7b72: #84120b;
+    --lt-ffbd2e: #d69300;
     --lt-ffcb6b: #9a5b00;
     --lt-ffffff: #1d2b12;
-    --lt-ffffff-2: rgba(29, 43, 18, 0.035);
+    --lt-ffffff-15: rgba(29, 43, 18, 0.21);
+    --lt-ffffff-2: rgba(29, 43, 18, 0.028);
     --lt-ffffff-3: rgba(29, 43, 18, 0.042);
     --lt-ffffff-5: rgba(29, 43, 18, 0.07);
+    --lt-ffffff-6: rgba(29, 43, 18, 0.084);
+    --lt-ffffff-7: rgba(29, 43, 18, 0.098);
+    --lt-ffffff-8: rgba(29, 43, 18, 0.112);
 }
 /* ==== 自動產生結束 ==== */

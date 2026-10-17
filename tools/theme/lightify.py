@@ -7,7 +7,7 @@
    JS 裡的顏色不改程式，由 theme.js 在畫面上換成同樣的 var()，這裡只登記。
 3. 把用到的顏色記進 colors.json，重寫 assets/theme.css 裡自動產生的那一段。
 
-用法：python3 lightify.py --prefix ../ <檔案...>
+用法：python3 lightify.py --prefix ../ <檔案...>（.css 檔只換顏色）
       （prefix 是「產出的 HTML」到 repo 根目錄的相對路徑；可以重複執行）
 """
 import argparse
@@ -53,6 +53,12 @@ def convert_css(css, used):
 def process(path, prefix, used):
     s = open(path, encoding='utf-8').read()
     orig = s
+    if path.endswith('.css'):
+        s = convert_css(s, used)
+        if s != orig:
+            open(path, 'w', encoding='utf-8').write(s)
+            print('改了', os.path.relpath(path, ROOT))
+        return
     # <style> 以外（JS 畫的 SVG、style="..."）的顏色由 theme.js 在畫面上換，這裡只登記
     for c in COLOR_RE.findall(re.sub(r'<style[^>]*>.*?</style>', '', s, flags=re.S)):
         try:

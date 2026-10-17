@@ -48,7 +48,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 - 視覺有兩套，用 `assets/theme.js` 切換、`<html data-theme="dark|light">` 決定：
   - 深色（A）：深底、紫 `#7c3aed` / 青 `#06b6d4`，標題 `Syne`、等寬 `Space Mono`，細框，小標「// 01 — PROJECTS」。
   - 淺色（C，果汁龍樂園）：淺綠底 `#e9f7d9`、白卡片、粗黑框 `#1d2b12`＋硬陰影、果汁橘 `#ffb02e`、蘋果紅圓點標題，字型 `Noto Sans TC` 900；程式碼框也用淺色。
-  - 兩套版面可以不一樣（使用者要求），只屬於一種主題的元素用 `.only-dark` / `.only-light`。首頁自己寫兩套；研究 Demo 用 `assets/theme.css`（淺色共用樣式＋自動算出的 `--lt-*` 顏色）＋ `tools/theme/lightify.py`（把 `<style>` 裡寫死的顏色換成 `var(--lt-xxxx, 原色)`），JS 畫出來的 `fill`/`stroke`/`style=` 顏色由 `theme.js` 在畫面上自動換。新頁面或新顏色要重跑 lightify（見 `tools/README.md`）。技術介紹頁、遊戲之後分批換。
+  - 兩套版面可以不一樣（使用者要求），只屬於一種主題的元素用 `.only-dark` / `.only-light`。首頁自己寫兩套；研究 Demo 與技術介紹頁用 `assets/theme.css`（淺色共用樣式＋自動算出的 `--lt-*` 顏色）＋ `tools/theme/lightify.py`（把 `<style>` 裡寫死的顏色換成 `var(--lt-xxxx, 原色)`），JS 畫出來的 `fill`/`stroke`/`style=` 顏色由 `theme.js` 在畫面上自動換。新頁面或新顏色要重跑 lightify（見 `tools/README.md`）。遊戲之後分批換。
 - **不要用 `top`、`name`、`status`、`parent` 當全域變數或函式名**（`const top` 曾讓整頁掛掉）。
 - **內容會變長變短的區塊，不能推動旁邊或下面的其他區塊**（使用者明確要求，所有程式都適用）。一步一步播放的說明框用最長說明的高度固定；Research Demo 的每個 `.card` 由 `reserveBlockHeights()` 把每一步都畫一次、用最高的那次固定（分段量，不卡畫面），新 Demo 也要接上。要切換顯示的提示文字用 `visibility` 切，不要清空內容。驗證：從頭按到尾，每個區塊的位置都不能變。
 - 每頁的 CSS 都要有 `html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }`，不然手機瀏覽器會自動放大部分文字，程式碼框的字一行大一行小。**這行要放在字型的 `@import` 後面**（`@import` 必須是樣式表的第一條，前面有任何規則就會失效、字型整個跑掉）。

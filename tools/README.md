@@ -34,6 +34,7 @@
 
 - `lightify.py`：幫頁面接上淺色。`<head>` 加 `theme.js`／`theme.css`，`<style>` 裡寫死的顏色改成 `var(--lt-xxxx, 原色)`（深色時變數沒定義，照舊），用到的顏色記在 `colors.json`，並重寫 `assets/theme.css` 最後自動產生的那段。可以重複執行。
 - `palette.py`：深色→淺色的換色規則（語法高亮、紫青主色有指定，其餘依亮度／飽和度換）。調規則後跑 `python3 lightify.py --css-only`。
+- 技術介紹頁的顏色在 `games/detail.css`（`python3 lightify.py ../../games/detail.css`）。
 - 研究 Demo 改的是樣板：`cd tools/theme && python3 lightify.py --prefix ../ ../research/*/*.tpl ../../research/*.html`，再重新產生各頁。
 - JS 產生的顏色不用改程式：`theme.js` 會把畫面上 `fill`/`stroke`/`style=` 的顏色換成同樣的 `var()`；顏色要先被 lightify 登記過（掃整個檔案）才有淺色值。
 

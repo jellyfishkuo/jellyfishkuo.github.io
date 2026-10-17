@@ -107,14 +107,12 @@
     /* 有「回首頁」連結的頁面：連結換成兩種主題各自的樣子，旁邊放切換鈕 */
     function mount() {
         if (document.querySelector('.theme-switch')) return;
-        var back = document.querySelector('a.back');
+        var back = document.querySelector('a.back, a.back-link');
         if (!back) return;
         var prefix = (back.getAttribute('href') || '').replace(/index\.html.*$/, '');
-        var label = back.textContent;
-        back.textContent = '';
         var dark = document.createElement('span');
         dark.className = 'only-dark';
-        dark.textContent = label;
+        while (back.firstChild) dark.appendChild(back.firstChild);
         var img = document.createElement('img');
         img.className = 'jfk-dragon only-light';
         img.src = prefix + 'assets/dragon.svg';

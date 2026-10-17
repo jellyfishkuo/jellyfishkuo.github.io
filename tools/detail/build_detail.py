@@ -94,7 +94,9 @@ def build(name):
     <link rel="apple-touch-icon" href="../assets/icons/{icon}-180.png">
     <title>{P['title']}</title>
     <meta name="description" content="{html.escape(P['description'])}">{mathjax}
+    <script src="../assets/theme.js"></script>
     <link rel="stylesheet" href="detail.css">
+    <link rel="stylesheet" href="../assets/theme.css">
 </head>
 
 <body>
@@ -120,7 +122,7 @@ def build(name):
         <aside class="sidebar">
             <div class="play-card">
                 <img src="../assets/icons/{icon}.svg" alt="" width="72" height="72" style="border-radius:18px; margin-bottom:1rem; box-shadow:0 0 30px var(--accent-glow);">
-                <h3 style="color: white; font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
+                <h3 style="color: var(--text); font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0;">Experience It</h3>
                 <p style="font-size: 0.95rem; margin-top: 1rem; color: var(--muted); line-height: 1.6;">{P['play']}</p>
                 <a href="{P.get('play_href', name + '.html')}" class="btn">{P.get('play_label', 'Launch Interactive Demo')}</a>
             </div>
