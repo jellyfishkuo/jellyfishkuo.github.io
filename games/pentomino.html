@@ -53,6 +53,16 @@
             }
         }
 
+        /* 格子取整數 px：小數寬度的格子會讓拖上去的積木和格線差半像素，
+           兩個模式看起來就不完全一樣（不支援 round() 的瀏覽器維持上面的寫法） */
+        @supports (width: round(down, 10.5px, 1px)) {
+            @media (max-width: 1190px) {
+                :root {
+                    --cell-size: round(down, min(9vw, 4.6dvh, 44px), 1px);
+                }
+            }
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
             background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 58, 237, 0.16), transparent 70%), var(--bg-color);
@@ -275,9 +285,10 @@
             align-items: center;
         }
 
+        /* 桌機：托盤和左邊主面板的上緣對齊 */
         @media (min-width: 1191px) {
             .right-tray {
-                justify-content: center;
+                justify-content: flex-start;
             }
         }
 
@@ -528,7 +539,11 @@
         .p-block {
             position: absolute;
             box-sizing: border-box;
-            /* 上亮下暗，骨牌看起來有一點立體感 */
+        }
+
+        /* 兩個模式共用的骨牌方格：上亮下暗，有一點立體感 */
+        .p-block,
+        .s-cell.s-piece {
             background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.12));
         }
 
@@ -693,57 +708,20 @@
             cursor: not-allowed;
         }
 
-        .s-piece {
-            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.12)) !important;
-        }
+        /* 骨牌的顏色、邊框、圓角都由 JS 的 paintPieceBlock() 設定，
+           每日挑戰的積木（.p-block）和這裡用同一支函式，兩邊畫出來一模一樣 */
 
-        .s-piece.F {
-            background: #ef4444;
-        }
 
-        .s-piece.I {
-            background: #3b82f6;
-        }
 
-        .s-piece.L {
-            background: #f59e0b;
-        }
 
-        .s-piece.P {
-            background: #10b981;
-        }
 
-        .s-piece.N {
-            background: #8b5cf6;
-        }
 
-        .s-piece.T {
-            background: #ec4899;
-        }
 
-        .s-piece.U {
-            background: #06b6d4;
-        }
 
-        .s-piece.V {
-            background: #f97316;
-        }
 
-        .s-piece.W {
-            background: #6366f1;
-        }
 
-        .s-piece.X {
-            background: #84cc16;
-        }
 
-        .s-piece.Y {
-            background: #eab308;
-        }
 
-        .s-piece.Z {
-            background: #14b8a6;
-        }
 
         .s-controls {
             margin: 16px 0 0;
@@ -843,17 +821,16 @@
             touch-action: manipulation;
         }
 
+        /* 字級、粗細、顏色都和每日挑戰的 .cell 一樣 */
         .s-cal {
-            font-size: calc(var(--cell-size) * 0.26);
+            font-size: calc(var(--cell-size) * 0.3);
             font-weight: 700;
             color: #6e6e8f;
-            opacity: 0.8;
             pointer-events: none;
         }
 
         .s-cell.s-blocked .s-cal {
             color: var(--accent-yellow);
-            opacity: 1;
         }
 
         .s-chip-today {
@@ -1320,7 +1297,24 @@
         const solutionDesktop = ["UUXPPP", "UXXXPP", "UUXTTT", "YYYYTN", "IYWWTN", "IWWFNN", "IWFFNV", "IZZFFV", "IZLVVV", "ZZLLLL"];
         const solutionMobile = ["UUUYIIIIIZ", "UXUYYWWZZZ", "XXXYWWFZLL", "PXTYWFFFVL", "PPTTTNNFVL", "PPTNNNVVVL"];
 
-        const pieceColors = { 'F': '#ef4444', 'I': '#3b82f6', 'L': '#f59e0b', 'P': '#10b981', 'N': '#8b5cf6', 'T': '#ec4899', 'U': '#06b6d4', 'V': '#f97316', 'W': '#6366f1', 'X': '#84cc16', 'Y': '#eab308', 'Z': '#14b8a6' };
+        // 12 個色相平均分布、飽和度與亮度一致的柔和色，深色底上不刺眼、彼此又分得開
+        const pieceColors = { 'F': '#f2777a', 'I': '#6f9cf2', 'L': '#e07ad8', 'P': '#5cc98f', 'N': '#b07cf0', 'T': '#f07aa6', 'U': '#5bbfe8', 'V': '#f5a25d', 'W': '#8f86f0', 'X': '#a5d86e', 'Y': '#f2d16b', 'Z': '#4fc6b8' };
+
+        /** 畫一格骨牌：對內的邊用細線、對外的邊用粗線，外側轉角才切圓角。
+            每日挑戰的積木和自由解答的盤面都呼叫這支，兩邊的樣子才會完全相同。 */
+        function paintPieceBlock(el, color, up, down, left, right) {
+            const OUTER = '2px solid rgba(5, 5, 10, 0.85)';
+            const INNER = '1px solid rgba(255, 255, 255, 0.16)';
+            el.style.backgroundColor = color;
+            el.style.borderTop = up ? INNER : OUTER;
+            el.style.borderBottom = down ? INNER : OUTER;
+            el.style.borderLeft = left ? INNER : OUTER;
+            el.style.borderRight = right ? INNER : OUTER;
+            el.style.borderTopLeftRadius = (up || left) ? '0' : '7px';
+            el.style.borderTopRightRadius = (up || right) ? '0' : '7px';
+            el.style.borderBottomLeftRadius = (down || left) ? '0' : '7px';
+            el.style.borderBottomRightRadius = (down || right) ? '0' : '7px';
+        }
 
         let blockedIndices = new Set();
         let gridState = Array(64).fill(null);
@@ -1403,7 +1397,6 @@
                 while (this.el.children.length < this.blocks.length) {
                     const b = document.createElement('div');
                     b.className = 'p-block';
-                    b.style.background = this.color;
                     this.el.appendChild(b);
                 }
                 while (this.el.children.length > this.blocks.length) {
@@ -1412,8 +1405,6 @@
 
                 // 判斷某個相對座標上有沒有同一塊骨牌的方格，用來畫出整塊的輪廓
                 const has = (r, c) => this.blocks.some(([br, bc]) => br === r && bc === c);
-                const OUTER = '2px solid rgba(3, 8, 20, 0.75)';
-                const INNER = '1px solid rgba(255, 255, 255, 0.18)';
 
                 // 直接修改現有節點的座標，不銷毀 DOM，防止滑鼠跟丟！
                 this.blocks.forEach(([r, c], i) => {
@@ -1423,18 +1414,7 @@
                     b.style.left = (c * currentCellSize) + 'px';
                     b.style.top = (r * currentCellSize) + 'px';
 
-                    // 與求解器盤面同一套畫法：對內的邊用細線、對外的邊用粗線，
-                    // 外側轉角才切圓角，整塊骨牌看起來就是一個完整的形狀
-                    const up = has(r - 1, c), down = has(r + 1, c);
-                    const left = has(r, c - 1), right = has(r, c + 1);
-                    b.style.borderTop = up ? INNER : OUTER;
-                    b.style.borderBottom = down ? INNER : OUTER;
-                    b.style.borderLeft = left ? INNER : OUTER;
-                    b.style.borderRight = right ? INNER : OUTER;
-                    b.style.borderTopLeftRadius = (up || left) ? '0' : '7px';
-                    b.style.borderTopRightRadius = (up || right) ? '0' : '7px';
-                    b.style.borderBottomLeftRadius = (down || left) ? '0' : '7px';
-                    b.style.borderBottomRightRadius = (down || right) ? '0' : '7px';
+                    paintPieceBlock(b, this.color, has(r - 1, c), has(r + 1, c), has(r, c - 1), has(r, c + 1));
                 });
             }
 
@@ -2084,9 +2064,6 @@
 
             // grid 為 null 時只畫障礙物；否則畫出該解的骨牌與輪廓
             function paintBoard(grid) {
-                const outerLine = '3px solid #05050a';
-                const innerLine = '1px solid rgba(255,255,255,0.2)';
-
                 for (let i = 0; i < 64; i++) {
                     const c = cells[i];
                     c.className = 's-cell';
@@ -2107,20 +2084,11 @@
                         if (showLabels) c.textContent = name;
                         c.setAttribute('aria-label', `${desc(i)}：骨牌 ${name}`);
 
-                        // 用邊框畫出整塊骨牌的輪廓：與同一塊相鄰的邊用細線，外緣用粗線
+                        // 和每日挑戰的積木同一支函式畫，輪廓、圓角、顏色完全一致
                         const r = Math.floor(i / 8), col = i % 8;
-                        const topSame = r > 0 && grid[i - 8] === name;
-                        const bottomSame = r < 7 && grid[i + 8] === name;
-                        const leftSame = col > 0 && grid[i - 1] === name;
-                        const rightSame = col < 7 && grid[i + 1] === name;
-                        c.style.borderTop = topSame ? innerLine : outerLine;
-                        c.style.borderBottom = bottomSame ? innerLine : outerLine;
-                        c.style.borderLeft = leftSame ? innerLine : outerLine;
-                        c.style.borderRight = rightSame ? innerLine : outerLine;
-                        c.style.borderTopLeftRadius = (topSame || leftSame) ? '0' : '6px';
-                        c.style.borderTopRightRadius = (topSame || rightSame) ? '0' : '6px';
-                        c.style.borderBottomLeftRadius = (bottomSame || leftSame) ? '0' : '6px';
-                        c.style.borderBottomRightRadius = (bottomSame || rightSame) ? '0' : '6px';
+                        paintPieceBlock(c, pieceColors[name],
+                            r > 0 && grid[i - 8] === name, r < 7 && grid[i + 8] === name,
+                            col > 0 && grid[i - 1] === name, col < 7 && grid[i + 1] === name);
                     } else {
                         c.innerHTML = `<span class="s-cal">${calLabel}</span>`;
                         c.setAttribute('aria-label', `${desc(i)}（${calLabel}）：空格`);
