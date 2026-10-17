@@ -12,8 +12,9 @@
     <title>Pentomino 拼圖</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
-        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: #05050a; }
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
 
@@ -24,10 +25,16 @@
         }
 
         :root {
-            --bg-color: #0f172a;
-            --panel-bg: #1e293b;
-            --accent-blue: #3b82f6;
+            /* 與首頁同一套配色：深色底、紫 #7c3aed / 青 #06b6d4 */
+            --bg-color: #05050a;
+            --panel-bg: #0f0f1a;
+            --panel-2: #151527;
+            --line: #262640;
+            --muted: #8a8aa3;
+            --accent-blue: #7c3aed;
+            --accent-cyan: #06b6d4;
             --accent-yellow: #fbbf24;
+            --mono: 'Space Mono', ui-monospace, monospace;
 
             /* 兩個模式的棋盤都由這個變數推導，切換分頁時盤面尺寸完全一致 */
             --cell-size: 50px;
@@ -47,8 +54,8 @@
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 58, 237, 0.16), transparent 70%), var(--bg-color);
             color: #f8fafc;
             margin: 0;
             padding: 1dvh 5px;
@@ -73,13 +80,46 @@
             display: none !important;
         }
 
-        h1 {
-            margin: 0 0 10px 0;
-            font-size: clamp(1.4rem, 4vw, 1.8rem);
-            letter-spacing: 2px;
-            text-align: center;
+        /* 頁首：左邊回首頁、右邊技術介紹，標題置中 */
+        .page-head {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 10px;
             flex-shrink: 0;
         }
+
+        h1 {
+            margin: 0;
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: clamp(1.3rem, 5vw, 1.8rem);
+            letter-spacing: 1px;
+            text-align: center;
+            white-space: nowrap;
+            background: linear-gradient(90deg, #c4b5fd, #67e8f9);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .head-link {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-decoration: none;
+            padding: 6px 4px;
+            white-space: nowrap;
+        }
+
+        .head-link:hover { color: var(--accent-cyan); }
+        .head-link.left { left: 4px; }
+        .head-link.right { right: 4px; }
 
         /* --- 模式切換標籤 (Tabs) --- */
         #tab-container {
@@ -87,19 +127,19 @@
             gap: 10px;
             margin-bottom: 10px;
             background: var(--panel-bg);
-            padding: 6px;
-            border-radius: 10px;
-            border: 1px solid #334155;
+            padding: 5px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
             z-index: 100;
             flex-shrink: 0;
         }
 
         .tab-btn {
-            padding: 10px 20px;
+            padding: 9px 20px;
             border: none;
-            border-radius: 8px;
+            border-radius: 9px;
             background: transparent;
-            color: #94a3b8;
+            color: var(--muted);
             font-weight: bold;
             font-size: clamp(0.9rem, 3vw, 1rem);
             cursor: pointer;
@@ -109,9 +149,9 @@
         }
 
         .tab-btn.active {
-            background: var(--accent-blue);
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
             color: white;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
         }
 
         .hidden-view {
@@ -144,25 +184,51 @@
             box-shadow: none;
         }
 
+        /* 主要動作：紫色漸層 */
         .btn-blue {
-            background: #6366f1;
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
         }
 
-        .btn-blue:hover {
-            background: #4f46e5;
+        .btn-blue:hover:not(:disabled) {
+            filter: brightness(1.12);
         }
 
+        /* 次要動作（旋轉、翻面、顯示文字…）：深色底＋細框，不搶棋盤的鋒頭 */
+        .btn-ghost {
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            color: #d4d4e6;
+            box-shadow: none;
+        }
+
+        .btn-ghost:disabled {
+            opacity: 0.5;
+        }
+
+        .btn-ghost:hover:not(:disabled) {
+            border-color: var(--accent-cyan);
+            color: #fff;
+        }
+
+        /* 會清掉進度的按鈕：平常低調，只有字是紅色 */
         .btn-red {
-            background: #ef4444;
+            background: var(--panel-2);
+            border: 1px solid rgba(239, 68, 68, 0.45);
+            color: #fca5a5;
+            box-shadow: none;
         }
 
-        .btn-red:hover {
-            background: #dc2626;
+        .btn-red:hover:not(:disabled),
+        .btn-red.confirming {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
         }
 
         .btn-green {
-            background: #10b981;
+            background: linear-gradient(135deg, #10b981, #059669);
             width: 100%;
+            height: 100%;
         }
 
         /* =========================================
@@ -199,8 +265,8 @@
         /* 托盤外框：與主面板同一套外觀，桌機時垂直置中對齊棋盤 */
         .tray-panel {
             width: max-content;
-            background: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
-            border: 1px solid #334155;
+            background: linear-gradient(180deg, var(--panel-bg) 0%, #0b0b14 100%);
+            border: 1px solid var(--line);
             border-radius: 18px;
             padding: 16px;
             box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
@@ -258,10 +324,10 @@
             margin-left: auto;
             margin-right: auto;
             padding: var(--board-pad);
-            background: #334155;
-            border: 1px solid #0f172a;
+            background: #0a0a14;
+            border: 1px solid var(--line);
             border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6);
             flex-shrink: 0;
         }
 
@@ -281,9 +347,11 @@
         .s-cell {
             width: var(--cell-size);
             height: var(--cell-size);
-            background: #cbd5e1;
-            border: 1px solid #475569;
-            border-radius: 4px;
+            /* 深色格子：彩色骨牌放上去才跳得出來（舊版淺灰底像試算表） */
+            background: #17172a;
+            border: 1px solid #0a0a14;
+            border-radius: 6px;
+            transition: background 0.12s, box-shadow 0.12s;
         }
 
         .cell {
@@ -291,19 +359,31 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #475569;
-            font-weight: 800;
-            font-size: calc(var(--cell-size) * 0.32);
+            color: #6e6e8f;
+            font-weight: 700;
+            font-size: calc(var(--cell-size) * 0.3);
             user-select: none;
         }
 
         /* 障礙物 / 日期格：與求解器的 .s-blocked 相同視覺 */
+        /* 今天的日期／障礙物：琥珀色外框發光，一眼就看到要留下哪幾格 */
         .cell.blocked,
         .s-cell.s-blocked {
-            background: #0f172a !important;
-            border: 2px solid #000 !important;
+            background: linear-gradient(160deg, #3a2a0a, #241a06) !important;
+            border: 2px solid var(--accent-yellow) !important;
             border-radius: 6px !important;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.35), inset 0 0 8px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 拖曳時預覽放下去的位置：青色 = 放得下，紅色 = 放不下 */
+        .cell.drop-ok {
+            background: rgba(6, 182, 212, 0.45);
+            box-shadow: inset 0 0 0 2px #67e8f9;
+        }
+
+        .cell.drop-bad {
+            background: rgba(239, 68, 68, 0.35);
+            box-shadow: inset 0 0 0 2px #fca5a5;
         }
 
         .cell.blocked {
@@ -341,6 +421,39 @@
             grid-column: 1 / -1;
             width: 100%;
             height: 40px;
+            position: relative;
+        }
+
+        /* 進度／操作提示，和戰績按鈕疊在同一格，用 visibility 切換 */
+        .p-status {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.35;
+        }
+
+        .p-progress {
+            flex-shrink: 0;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: #c4b5fd;
+            padding: 2px 8px;
+            border-radius: 100px;
+            background: rgba(124, 58, 237, 0.15);
+            border: 1px solid rgba(124, 58, 237, 0.4);
+        }
+
+        #shareBtn {
+            position: absolute;
+            inset: 0;
+            padding: 0;
         }
 
         @media (max-width: 1190px) {
@@ -351,17 +464,17 @@
 
         /* 積木托盤：外觀與棋盤外框呼應（同色系、同圓角） */
         #tray-container {
-            background: #253449;
+            background: #0a0a14;
             border-radius: 12px;
-            border: 1px solid #0f172a;
+            border: 1px solid var(--line);
             position: relative;
-            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.45), 0 10px 25px rgba(0, 0, 0, 0.35);
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6);
             flex-shrink: 0;
         }
 
         .tray-label {
             font-size: 0.72rem;
-            color: #64748b;
+            color: var(--muted);
             letter-spacing: 0.1em;
             margin-bottom: 8px;
             align-self: flex-start;
@@ -405,9 +518,9 @@
             z-index: 9999 !important;
             cursor: grabbing;
             transition: none;
-            opacity: 0.85;
+            opacity: 0.8;
             transform: scale(1.05) translateZ(0) !important;
-            filter: none !important;
+            filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.6)) !important;
         }
 
         /* 邊框與圓角由 Piece.draw() 依相鄰情況逐格計算（見 JS），
@@ -415,7 +528,8 @@
         .p-block {
             position: absolute;
             box-sizing: border-box;
-            box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.18);
+            /* 上亮下暗，骨牌看起來有一點立體感 */
+            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.12));
         }
 
         /* =========================================
@@ -435,8 +549,8 @@
             width: 100%;
             /* 棋盤框 + 左右內距 36px + 面板自身邊框 2px */
             max-width: calc(var(--board-frame) + 40px);
-            background: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
-            border: 1px solid #334155;
+            background: linear-gradient(180deg, var(--panel-bg) 0%, #0b0b14 100%);
+            border: 1px solid var(--line);
             border-radius: 18px;
             padding: 18px;
             box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
@@ -466,7 +580,7 @@
         .s-sub {
             margin: 4px 0 0;
             font-size: 0.78rem;
-            color: #94a3b8;
+            color: var(--muted);
             line-height: 1.5;
         }
 
@@ -477,8 +591,8 @@
             text-align: center;
             padding: 8px 10px;
             border-radius: 12px;
-            background: #0f172a;
-            border: 1px solid #334155;
+            background: #0a0a14;
+            border: 1px solid var(--line);
             font-variant-numeric: tabular-nums;
             transition: border-color 0.25s, box-shadow 0.25s;
         }
@@ -489,7 +603,8 @@
         }
 
         .s-badge b {
-            font-size: 1.35rem;
+            font-family: var(--mono);
+            font-size: 1.3rem;
             color: var(--accent-yellow);
             line-height: 1;
             font-variant-numeric: tabular-nums;
@@ -501,9 +616,10 @@
             margin-top: 4px;
             padding: 2px 8px;
             border-radius: 6px;
-            background: #0f172a;
-            border: 1px solid #334155;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.45);
             color: var(--accent-yellow);
+            font-family: var(--mono);
             font-weight: 700;
             letter-spacing: 0.04em;
             white-space: nowrap;
@@ -518,7 +634,7 @@
         .s-badge span {
             display: block;
             font-size: 0.62rem;
-            color: #94a3b8;
+            color: var(--muted);
             margin-top: 3px;
             letter-spacing: 0.08em;
         }
@@ -535,7 +651,7 @@
 
         .s-presets-label {
             font-size: 0.7rem;
-            color: #64748b;
+            color: var(--muted);
             letter-spacing: 0.08em;
             margin-right: 2px;
         }
@@ -545,17 +661,16 @@
             font-size: 0.75rem;
             padding: 6px 11px;
             border-radius: 100px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #cbd5e1;
+            border: 1px solid var(--line);
+            background: var(--panel-2);
+            color: #d4d4e6;
             cursor: pointer;
             transition: border-color 0.2s, color 0.2s, background 0.2s;
         }
 
         .s-chip:hover:not(:disabled) {
-            border-color: var(--accent-blue);
+            border-color: var(--accent-cyan);
             color: #fff;
-            background: #16253c;
         }
 
         .s-chip:disabled {
@@ -571,7 +686,7 @@
         }
 
         .s-cell:hover:not(.s-blocked):not(.s-piece) {
-            background: #e2e8f0;
+            background: #24243e;
         }
 
         .s-cell.s-blocked {
@@ -579,7 +694,7 @@
         }
 
         .s-piece {
-            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
+            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.12)) !important;
         }
 
         .s-piece.F {
@@ -680,7 +795,7 @@
             gap: 8px;
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 1px dashed #334155;
+            border-top: 1px dashed var(--line);
         }
 
         .s-nav .btn-style {
@@ -692,7 +807,7 @@
 
         .s-nav-info {
             font-size: 0.8rem;
-            color: #cbd5e1;
+            color: #d4d4e6;
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
         }
@@ -710,12 +825,13 @@
             flex-wrap: wrap;
             margin-top: 12px;
             font-size: 0.72rem;
-            color: #64748b;
+            color: var(--muted);
             font-variant-numeric: tabular-nums;
         }
 
         .s-metrics span b {
-            color: #94a3b8;
+            color: #c4c4d8;
+            font-family: var(--mono);
         }
 
         /* 自由解答的格子也印上日曆文字（淡一點），方便對照每日挑戰、挑出想要的日期 */
@@ -729,9 +845,9 @@
 
         .s-cal {
             font-size: calc(var(--cell-size) * 0.26);
-            font-weight: 800;
-            color: #64748b;
-            opacity: 0.75;
+            font-weight: 700;
+            color: #6e6e8f;
+            opacity: 0.8;
             pointer-events: none;
         }
 
@@ -752,8 +868,8 @@
             justify-content: center;
             font-size: calc(var(--cell-size) * 0.4);
             font-weight: 800;
-            color: rgba(0, 0, 0, 0.55);
-            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+            color: rgba(0, 0, 0, 0.6);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
         .s-cell:focus-visible {
@@ -798,7 +914,7 @@
             max-width: 360px;
             text-align: center;
             position: relative;
-            border: 1px solid #334155;
+            border: 1px solid var(--line);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
         }
 
@@ -824,7 +940,7 @@
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
             margin: 10px 0;
-            border: 1px solid #0f172a;
+            border: 1px solid var(--line);
         }
         /* ── 手機版 play 模式的壓縮樣式 ──
            放在樣式表最後，確保能覆寫前面 .controls / .p-date / .tray-label 等基礎規則 */
@@ -934,12 +1050,57 @@
             .tray-label {
                 display: none;
             }
+
+            /* 主面板與托盤同寬（托盤 = 10 格 + 內距 8×2 + 框 1×2），
+               上下兩塊對齊，不會一寬一窄 */
+            .s-panel,
+            .p-panel {
+                max-width: calc(var(--cell-size) * 10 + 18px);
+            }
+
+            .p-status {
+                font-size: 0.72rem;
+                gap: 6px;
+            }
+
+            .p-progress {
+                font-size: 0.7rem;
+                padding: 1px 6px;
+            }
+
+            /* 快速擺法：五顆排成一行（舊版「隨機」會自己掉到第二行） */
+            .s-presets {
+                flex-wrap: nowrap;
+            }
+
+            .s-chip {
+                flex: 1 1 auto;
+                white-space: nowrap;
+            }
         }
 
-        /* 更窄的機型：拿掉「快速擺法」標籤，四顆按鈕才排得進一行 */
-        @media (max-width: 385px) {
+        /* 更窄的機型：拿掉「快速擺法」標籤，按鈕才排得進一行 */
+        @media (max-width: 440px) {
             .s-presets-label {
                 display: none;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .s-chip {
+                padding: 5px 4px;
+                font-size: 0.66rem;
+            }
+
+            .head-link .long {
+                display: none;
+            }
+
+            /* 「隱藏文字」在 320px 會折成兩行、把整排按鈕撐高 */
+            .controls .btn-style {
+                font-size: 0.62rem;
+                padding: 9px 0;
+                white-space: nowrap;
             }
         }
     </style>
@@ -947,7 +1108,11 @@
 
 <body class="play-mode-locked">
 
-    <h1>Pentomino 拼圖</h1>
+    <header class="page-head">
+        <a class="head-link left" href="../index.html#projects">← <span class="long">回</span>首頁</a>
+        <h1>Pentomino 拼圖</h1>
+        <a class="head-link right" href="pentomino-detail.html">技術<span class="long">介紹</span> →</a>
+    </header>
 
     <div id="tab-container">
         <button class="tab-btn active" id="tab-play">🎮 每日挑戰</button>
@@ -960,8 +1125,8 @@
             <div class="p-panel">
                 <div class="s-head">
                     <div>
-                        <h2 class="s-title">🎮 每日挑戰</h2>
-                        <p class="s-sub p-hint">用 12 塊骨牌填滿盤面，只留下今天的日期</p>
+                        <h2 class="s-title">📅 今天要留下的格子</h2>
+                        <p class="s-sub p-hint">用 12 塊骨牌填滿盤面，只留下發亮的 4 格</p>
                         <span class="p-date" id="target-date">載入中...</span>
                     </div>
                     <div class="s-badge" id="timer-badge">
@@ -975,11 +1140,13 @@
                 </div>
 
                 <div class="controls">
-                    <button id="rotateBtn" class="btn-style btn-blue" disabled>🔄 旋轉 90°</button>
-                    <button id="flipBtn" class="btn-style btn-blue" disabled>↔️ 翻面</button>
-                    <button id="toggleTextBtn" class="btn-style btn-blue" style="background:#475569">👁️ 隱藏文字</button>
-                    <button id="resetBtn" class="btn-style btn-red">🧹 重排積木</button>
+                    <button id="rotateBtn" class="btn-style btn-ghost" disabled>🔄 旋轉</button>
+                    <button id="flipBtn" class="btn-style btn-ghost" disabled>↔️ 翻面</button>
+                    <button id="toggleTextBtn" class="btn-style btn-ghost">👁️ 隱藏文字</button>
+                    <button id="resetBtn" class="btn-style btn-red">🧹 重排</button>
+                    <!-- 進度提示與戰績按鈕疊在同一格，過關時只切換 visibility，版面不會跳 -->
                     <div class="share-container">
+                        <p class="p-status" id="p-status"><span class="p-progress" id="p-progress">0 / 12</span><span id="p-tip">把下方積木拖到盤面上</span></p>
                         <button id="shareBtn" class="btn-style btn-green" style="visibility: hidden;">📸 產生戰績小卡</button>
                     </div>
                 </div>
@@ -997,7 +1164,7 @@
         <div class="s-panel">
             <div class="s-head">
                 <div>
-                    <h2 class="s-title">💡 自由解答</h2>
+                    <h2 class="s-title">🧩 自己出題</h2>
                     <p class="s-sub">點格子放 4 個障礙物<span class="s-sub-more">，回溯演算法會逐一找出 12
                             塊骨牌的所有填法</span></p>
                 </div>
@@ -1013,10 +1180,10 @@
                  這樣兩個模式的棋盤才會落在完全相同的位置，方便對照 -->
             <div class="s-presets">
                 <span class="s-presets-label">快速擺法</span>
-                <button class="s-chip s-chip-today" id="s-preset-today">📅 今天日期</button>
-                <button class="s-chip" id="s-preset-center">中央 2×2</button>
-                <button class="s-chip" id="s-preset-corners">四個角</button>
-                <button class="s-chip" id="s-preset-diag">對角線</button>
+                <button class="s-chip s-chip-today" id="s-preset-today">📅 今天</button>
+                <button class="s-chip" id="s-preset-center">中央</button>
+                <button class="s-chip" id="s-preset-corners">四角</button>
+                <button class="s-chip" id="s-preset-diag">對角</button>
                 <button class="s-chip" id="s-preset-random">🎲 隨機</button>
             </div>
 
@@ -1024,15 +1191,15 @@
                 <button id="s-solveBtn" class="btn-style btn-blue">💡 開始計算</button>
                 <button id="s-cancelBtn" class="btn-style btn-red hidden-view">⏹ 停止計算</button>
                 <button id="s-resetBtn" class="btn-style btn-red">🧹 重設網格</button>
-                <button id="s-labelBtn" class="btn-style btn-blue" style="background:#475569">🔤 顯示代號</button>
+                <button id="s-labelBtn" class="btn-style btn-ghost">🔤 顯示代號</button>
             </div>
 
             <div id="s-status" role="status" aria-live="polite"></div>
 
             <div class="s-nav hidden-view" id="s-nav">
-                <button id="s-prevBtn" class="btn-style btn-blue">← 上一個</button>
+                <button id="s-prevBtn" class="btn-style btn-ghost">← 上一個</button>
                 <span class="s-nav-info">第 <b id="s-solIndex">1</b> / <span id="s-solTotal">1</span> 個解</span>
-                <button id="s-nextBtn" class="btn-style btn-blue">下一個 →</button>
+                <button id="s-nextBtn" class="btn-style btn-ghost">下一個 →</button>
             </div>
 
             <div class="s-metrics" id="s-metrics"></div>
@@ -1381,8 +1548,8 @@
                 this.blocks = this.blocks.map(([r, c]) => [r - minR, c - minC]);
             }
 
-            trySnap() {
-                this.removeFromGrid();
+            /** 以目前位置放開的話會落在盤面哪裡：{ row, col, canPlace, overBoard } */
+            dropTarget() {
                 const board = document.getElementById('board');
                 const bRect = board.getBoundingClientRect();
                 const currentCellSize = board.querySelector('.cell').getBoundingClientRect().width;
@@ -1397,13 +1564,19 @@
                 const col = boardCol - firstC;
                 const row = boardRow - firstR;
 
-                let canPlace = true;
+                let canPlace = true, overBoard = false;
                 for (const [dr, dc] of this.blocks) {
                     const nr = row + dr, nc = col + dc;
-                    if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || gridState[nr * 8 + nc] !== null) {
-                        canPlace = false; break;
-                    }
+                    const inside = nr >= 0 && nr < 8 && nc >= 0 && nc < 8;
+                    if (inside) overBoard = true;
+                    if (!inside || gridState[nr * 8 + nc] !== null) canPlace = false;
                 }
+                return { row, col, canPlace, overBoard };
+            }
+
+            trySnap() {
+                this.removeFromGrid();
+                const { row, col, canPlace } = this.dropTarget();
 
                 if (canPlace) {
                     this.isSnapped = true;
@@ -1422,6 +1595,8 @@
                     if (document.getElementById('play-view').classList.contains('hidden-view')) return;
 
                     e.preventDefault();
+                    // 已經選取的積木再點一下（沒有拖動）= 旋轉，手機上不用再伸手去按旋轉鍵
+                    tapState = { piece: this, wasSelected: selectedPiece === this, x: e.clientX, y: e.clientY, moved: false };
                     select(this);
                     startTimer();
 
@@ -1499,21 +1674,45 @@
             syncAllPositions(false);
         });
 
+        let tapState = null;
+        const TAP_SLOP = 6;   // 移動不到這麼多 px 視為「點一下」
+
+        /** 拖曳中在盤面上預覽會放到哪幾格 */
+        function showDropPreview(piece) {
+            const cells = document.getElementById('board').children;
+            for (const c of cells) c.classList.remove('drop-ok', 'drop-bad');
+            if (!piece) return;
+            const { row, col, canPlace, overBoard } = piece.dropTarget();
+            if (!overBoard) return;
+            for (const [dr, dc] of piece.blocks) {
+                const nr = row + dr, nc = col + dc;
+                if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) continue;
+                cells[nr * 8 + nc].classList.add(canPlace ? 'drop-ok' : 'drop-bad');
+            }
+        }
+
         document.addEventListener('pointermove', (e) => {
             if (!activeDragPiece) return;
             e.preventDefault();
+            if (tapState && Math.hypot(e.clientX - tapState.x, e.clientY - tapState.y) > TAP_SLOP) tapState.moved = true;
             activeDragPiece.x = e.clientX - dragOffsetX + window.scrollX;
             activeDragPiece.y = e.clientY - dragOffsetY + window.scrollY;
             activeDragPiece.updatePos();
+            showDropPreview(activeDragPiece);
         }, { passive: false });
 
         // 🌟 終極修復：同時監聽 pointerup 與 pointercancel 以防中斷
         const releasePiece = (e) => {
             if (!activeDragPiece) return;
-            activeDragPiece.el.classList.remove('dragging');
-            activeDragPiece.isDragging = false;
-            activeDragPiece.trySnap();
+            const piece = activeDragPiece;
+            piece.el.classList.remove('dragging');
+            piece.isDragging = false;
+            showDropPreview(null);
+            piece.trySnap();
             activeDragPiece = null;
+            const tap = tapState; tapState = null;
+            if (e.type === 'pointerup' && tap && tap.piece === piece && tap.wasSelected && !tap.moved) piece.rotate();
+            updateProgress();
         };
         document.addEventListener('pointerup', releasePiece);
         document.addEventListener('pointercancel', releasePiece);
@@ -1523,6 +1722,22 @@
             selectedPiece = p;
             if (p) { p.el.classList.add('selected'); document.getElementById('rotateBtn').disabled = false; document.getElementById('flipBtn').disabled = false; }
             else { document.getElementById('rotateBtn').disabled = true; document.getElementById('flipBtn').disabled = true; }
+            updateProgress();
+        }
+
+        /** 按鈕下方那一行：已經放了幾塊，加上當下最有用的一句操作提示 */
+        function updateProgress() {
+            const placed = pieces.filter(p => p.isSnapped).length;
+            const progress = document.getElementById('p-progress');
+            if (!progress) return;
+            progress.textContent = `${placed} / 12`;
+            const touch = window.matchMedia('(pointer: coarse)').matches;
+            let tip;
+            if (placed === 12) tip = '完成！';
+            else if (selectedPiece) tip = touch ? '再點一下這塊可以旋轉' : '再點一下或按 R 旋轉，F 翻面';
+            else if (placed === 0) tip = isMobileView ? '把下方積木拖到盤面上' : '把右邊積木拖到盤面上';
+            else tip = `還剩 ${12 - placed} 塊，加油`;
+            document.getElementById('p-tip').textContent = tip;
         }
 
         // ==========================================
@@ -1568,6 +1783,8 @@
             const solved = pieces.length > 0 && pieces.every(p => p.isSnapped);
             // 拿起任何一塊就不再算過關：戰績按鈕跟著藏起來（舊版會一直留著）
             document.getElementById('shareBtn').style.visibility = solved ? 'visible' : 'hidden';
+            document.getElementById('p-status').style.visibility = solved ? 'hidden' : 'visible';
+            updateProgress();
             document.getElementById('timer-badge').classList.toggle('ready', solved);
             if (!solved || hasWon) return;
             hasWon = true;
@@ -1598,6 +1815,7 @@
         }
 
         function fireConfetti() {
+            if (typeof confetti !== 'function') return;   // CDN 被擋時照樣能過關
             var count = 200;
             var defaults = { origin: { y: 0.7 }, zIndex: 10001 };
 
@@ -1616,13 +1834,26 @@
 
         document.getElementById('rotateBtn').onclick = () => selectedPiece?.rotate();
         document.getElementById('flipBtn').onclick = () => selectedPiece?.flip();
-        document.getElementById('resetBtn').onclick = () => { pieces.forEach(p => p.fullReset()); select(null); checkWin(); };
+        // 重排會把擺好的積木全部打回托盤：盤面上有積木時要連按兩下才執行，避免誤觸
+        const resetBtn = document.getElementById('resetBtn');
+        let resetTimer = null;
+        const disarmReset = () => { clearTimeout(resetTimer); resetTimer = null; resetBtn.classList.remove('confirming'); resetBtn.textContent = '🧹 重排'; };
+        resetBtn.onclick = () => {
+            if (pieces.some(p => p.isSnapped) && !resetTimer) {
+                resetBtn.classList.add('confirming');
+                resetBtn.textContent = '再按一次';
+                resetTimer = setTimeout(disarmReset, 2500);
+                return;
+            }
+            disarmReset();
+            pieces.forEach(p => p.fullReset()); select(null); checkWin();
+        };
 
         let isTextHidden = false;
         document.getElementById('toggleTextBtn').onclick = () => {
             isTextHidden = !isTextHidden;
             document.getElementById('board').classList.toggle('hide-text', isTextHidden);
-            document.getElementById('toggleTextBtn').innerText = isTextHidden ? "👁️ 顯示文字" : "👁️ 隱藏文字";
+            document.getElementById('toggleTextBtn').textContent = isTextHidden ? "👁️ 顯示文字" : "👁️ 隱藏文字";
         };
 
         // --- 📸 畫布引擎 (Canvas Score Card Generator) ---
@@ -1631,26 +1862,26 @@
             const cellSize = 40, padding = 25, headerHeight = 130, boardSize = cellSize * 8;
             canvas.width = boardSize + padding * 2; canvas.height = boardSize + headerHeight + padding * 2;
 
-            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 28px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Pentomino 每日挑戰', canvas.width / 2, 45);
 
             const timeStr = document.getElementById('timer').innerText, dateStr = document.getElementById('target-date').innerText;
             ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 18px "Segoe UI", sans-serif'; ctx.fillText(`📅 ${dateStr}`, canvas.width / 2, 80); ctx.fillText(`⏱️ 耗時: ${timeStr}`, canvas.width / 2, 110);
 
             const startX = padding, startY = headerHeight;
-            ctx.fillStyle = '#1e293b'; ctx.fillRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
-            ctx.strokeStyle = '#334155'; ctx.lineWidth = 2; ctx.strokeRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
+            ctx.fillStyle = '#0a0a14'; ctx.fillRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
+            ctx.strokeStyle = '#262640'; ctx.lineWidth = 2; ctx.strokeRect(startX - 6, startY - 6, boardSize + 12, boardSize + 12);
 
             for (let i = 0; i < 64; i++) {
                 const r = Math.floor(i / 8), c = i % 8, x = startX + c * cellSize, y = startY + r * cellSize, val = gridState[i];
                 if (val === 'BLOCK') {
-                    ctx.fillStyle = '#0f172a'; ctx.fillRect(x, y, cellSize, cellSize);
-                    ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-                    ctx.fillStyle = '#3b82f6'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(calendarLayout[r][c], x + cellSize / 2, y + cellSize / 2);
+                    ctx.fillStyle = '#2e2108'; ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(calendarLayout[r][c], x + cellSize / 2, y + cellSize / 2);
                 } else if (val) {
                     ctx.fillStyle = pieceColors[val]; ctx.fillRect(x, y, cellSize, cellSize); ctx.lineWidth = 2;
                     const topSame = r > 0 && gridState[i - 8] === val, bottomSame = r < 7 && gridState[i + 8] === val, leftSame = c > 0 && gridState[i - 1] === val, rightSame = c < 7 && gridState[i + 1] === val;
-                    ctx.strokeStyle = '#0f172a';
+                    ctx.strokeStyle = '#05050a';
                     if (!topSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); ctx.stroke(); }
                     if (!bottomSame) { ctx.beginPath(); ctx.moveTo(x, y + cellSize); ctx.lineTo(x + cellSize, y + cellSize); ctx.stroke(); }
                     if (!leftSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); ctx.stroke(); }
@@ -1659,8 +1890,8 @@
                     if (topSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); ctx.stroke(); }
                     if (leftSame) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); ctx.stroke(); }
                 } else {
-                    ctx.fillStyle = '#cbd5e1'; ctx.fillRect(x, y, cellSize, cellSize);
-                    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.strokeRect(x, y, cellSize, cellSize);
+                    ctx.fillStyle = '#17172a'; ctx.fillRect(x, y, cellSize, cellSize);
+                    ctx.strokeStyle = '#0a0a14'; ctx.lineWidth = 1; ctx.strokeRect(x, y, cellSize, cellSize);
                 }
             }
             return canvas.toDataURL("image/png");
@@ -1725,7 +1956,7 @@
 
         document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.piece-container') && !e.target.closest('.controls')) select(null); });
 
-        setTimeout(() => { initPlay(); syncAllPositions(false); showTodayRecord(); }, 50);
+        setTimeout(() => { initPlay(); syncAllPositions(false); showTodayRecord(); updateProgress(); }, 50);
 
         // ==========================================
         //  💡 模組 2：自由解答 (Solver Mode)
@@ -1853,7 +2084,7 @@
 
             // grid 為 null 時只畫障礙物；否則畫出該解的骨牌與輪廓
             function paintBoard(grid) {
-                const outerLine = '3px solid #0f172a';
+                const outerLine = '3px solid #05050a';
                 const innerLine = '1px solid rgba(255,255,255,0.2)';
 
                 for (let i = 0; i < 64; i++) {
