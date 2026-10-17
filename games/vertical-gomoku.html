@@ -806,6 +806,23 @@
         [data-theme="light"] .btn.btn-primary { background: #ffb02e; border: 2px solid #1d2b12; color: #1d2b12; }
         [data-theme="light"] .rules { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
         [data-theme="light"] .rules summary { color: #1d2b12; }
+        /* 棋盤：果汁橘的玩具棋盤＋奶油色洞，棋子維持原本的青色／粉色，加黑框 */
+        :root[data-theme="light"] {
+            --p1: #22d3ee; --p1-hi: #cffafe;
+            --p2: #f472b6; --p2-hi: #fce7f3;
+            --board: #ffb02e; --board-hi: #ffc94d; --hole: #fff8e6;
+        }
+        [data-theme="light"] .board-frame { background: #ffb02e; border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; }
+        [data-theme="light"] .cell { background: #fff8e6; box-shadow: inset 0 0 0 2.5px #1d2b12, inset 0 4px 0 2px rgba(29, 43, 18, 0.12); }
+        [data-theme="light"] .cell::after { box-shadow: inset 0 0 0 2.5px #1d2b12, inset -4px -5px 0 rgba(0, 0, 0, 0.12); }
+        [data-theme="light"] .cell.last::after { outline-color: #1d2b12; }
+        [data-theme="light"] .cell.win::after { outline-color: #d93a2f; }
+        [data-theme="light"] .board-base { background: #1d2b12; border: 0; box-shadow: none; }
+        /* 文字用深一點的青／粉，白底上才看得清楚 */
+        [data-theme="light"] .score-num.p1, [data-theme="light"] .log-row.p1 { color: #0e7490; }
+        [data-theme="light"] .score-num.p2, [data-theme="light"] .log-row.p2 { color: #be185d; }
+        [data-theme="light"] .player-chip { box-shadow: 0 0 0 2px #1d2b12; }
+        [data-theme="light"] .column-btn { color: #1d2b12; }
     </style>
     <link rel="stylesheet" href="../assets/theme.css">
 </head>

@@ -834,6 +834,11 @@
         [data-theme="light"] .btn.btn-primary { background: #ffb02e; border: 2px solid #1d2b12; color: #1d2b12; }
         [data-theme="light"] .rules { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
         [data-theme="light"] .rules summary { color: #1d2b12; }
+        /* X 維持青色、O 維持粉色，調深一點白底才看得清楚 */
+        :root[data-theme="light"] { --x-color: #0891b2; --o-color: #db2777; }
+        [data-theme="light"] .mark-x path, [data-theme="light"] .mark-o circle { filter: none; }
+        [data-theme="light"] .turn-chip.x { background: #e0f7fb; }
+        [data-theme="light"] .turn-chip.o { background: #fdeef6; }
     </style>
     <link rel="stylesheet" href="../assets/theme.css">
 </head>
