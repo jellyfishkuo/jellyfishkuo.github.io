@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- IR-tree：外框裡兩個子框；左邊的框缺關鍵字被跳過（灰、打叉），右邊的框裡有符合的店；右上角是節點掛的倒排表 -->
+  <rect x="8" y="14" width="44" height="34" rx="3" fill="none" stroke="#818cf8" stroke-width="2"/>
+  <rect x="12" y="19" width="16" height="15" rx="2" fill="#8a9580" fill-opacity="0.3" stroke="#8a9580" stroke-width="1.6" stroke-dasharray="2.5 2"/>
+  <path d="M16 23 L24 30 M24 23 L16 30" stroke="#f87171" stroke-width="2" stroke-linecap="round"/>
+  <rect x="30" y="26" width="18" height="18" rx="2" fill="#2dd4bf" fill-opacity="0.14" stroke="#2dd4bf" stroke-width="2"/>
+  <circle cx="35" cy="31" r="2.6" fill="#22d3ee"/>
+  <circle cx="43" cy="38" r="2.6" fill="#22d3ee"/>
+  <circle cx="36" cy="40" r="2.2" fill="#c9d6bb"/>
+  <rect x="42" y="6" width="17" height="16" rx="2.5" fill="#f3f8ec" stroke="#f59e0b" stroke-width="1.6"/>
+  <path d="M45.5 11 H55.5 M45.5 14.5 H53 M45.5 18 H55.5" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="20" cy="53" r="2.4" fill="#1d2b12"/>
+  <circle cx="20" cy="53" r="5.5" fill="none" stroke="#22c55e" stroke-width="1.6" stroke-dasharray="2.5 2"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 四元樹的格子：左上那塊再切一次，虛線框是範圍查詢 -->
+  <rect x="12" y="12" width="40" height="40" rx="2" fill="none" stroke="#c9d6bb" stroke-width="2"/>
+  <g stroke="#c9d6bb" stroke-width="1.8">
+    <line x1="32" y1="12" x2="32" y2="52"/><line x1="12" y1="32" x2="52" y2="32"/>
+    <line x1="22" y1="12" x2="22" y2="32"/><line x1="12" y1="22" x2="32" y2="22"/>
+  </g>
+  <rect x="27" y="27" width="21" height="18" fill="#22d3ee" fill-opacity="0.12" stroke="#22d3ee" stroke-width="2" stroke-dasharray="3 2.2"/>
+  <circle cx="17" cy="17" r="2.8" fill="#60a5fa"/>
+  <rect x="24.5" y="14.5" width="5" height="5" rx="1" fill="#f472b6"/>
+  <polygon points="17,24 20.5,29.5 13.5,29.5" fill="#d6a46c"/>
+  <circle cx="42" cy="20" r="2.8" fill="#60a5fa"/>
+  <circle cx="36" cy="38" r="3" fill="#facc15"/>
+  <polygon points="43,34 46.5,37.5 43,41 39.5,37.5" fill="#facc15"/>
+  <rect x="17.5" y="40.5" width="5" height="5" rx="1" fill="#f472b6"/>
+</svg>

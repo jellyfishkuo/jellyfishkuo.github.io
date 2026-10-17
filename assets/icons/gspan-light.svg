@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 一個小分子圖：青色是找到的子圖，紫色是最右路徑，橘色是剛接上的邊 -->
+  <g stroke-width="3.2" stroke-linecap="round">
+    <line x1="16" y1="44" x2="30" y2="30" stroke="#06b6d4"/>
+    <line x1="30" y1="30" x2="48" y2="38" stroke="#a78bfa"/>
+    <line x1="30" y1="30" x2="30" y2="13" stroke="#06b6d4"/>
+    <line x1="48" y1="38" x2="44" y2="54" stroke="#f59e0b"/>
+    <line x1="16" y1="44" x2="44" y2="54" stroke="#c9d6bb"/>
+  </g>
+  <g stroke-width="2.2">
+    <circle cx="16" cy="44" r="6" fill="#f3f8ec" stroke="#8a9580"/>
+    <circle cx="30" cy="30" r="6" fill="#f3f8ec" stroke="#8a9580"/>
+    <circle cx="30" cy="13" r="5.5" fill="#f3f8ec" stroke="#f87171"/>
+    <circle cx="48" cy="38" r="6" fill="#f3f8ec" stroke="#8a9580"/>
+    <circle cx="44" cy="54" r="5.5" fill="#f3f8ec" stroke="#60a5fa"/>
+  </g>
+</svg>

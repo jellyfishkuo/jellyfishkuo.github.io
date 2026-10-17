@@ -38,6 +38,8 @@
 - 研究 Demo 改的是樣板：`cd tools/theme && python3 lightify.py --prefix ../ ../research/*/*.tpl ../../research/*.html`，再重新產生各頁。
 - JS 產生的顏色不用改程式：`theme.js` 會把畫面上 `fill`/`stroke`/`style=` 的顏色換成同樣的 `var()`；顏色要先被 lightify 登記過（掃整個檔案）才有淺色值。
 
+- `icons_light.py`：產生研究 Demo 圖示的淺色版 `assets/icons/<name>-light.svg`（首頁淺色「研究實驗室」用，白底墨框、鮮豔色保留）。新增 Demo 或改圖示後重跑。
+
 ## set-online/：SET 多人連線的本機測試環境
 
 SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測試時改成本機的：

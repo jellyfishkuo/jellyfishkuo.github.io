@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 兩排 TID 集合（小方格），取交集後只剩兩邊都有的格子 -->
+  <g fill="#22d3ee"><rect x="10" y="12" width="8" height="8" rx="2"/><rect x="22" y="12" width="8" height="8" rx="2"/><rect x="46" y="12" width="8" height="8" rx="2"/></g>
+  <rect x="34" y="12" width="8" height="8" rx="2" fill="#c9d6bb"/>
+  <g fill="#818cf8"><rect x="22" y="26" width="8" height="8" rx="2"/><rect x="34" y="26" width="8" height="8" rx="2"/><rect x="46" y="26" width="8" height="8" rx="2"/></g>
+  <rect x="10" y="26" width="8" height="8" rx="2" fill="#c9d6bb"/>
+  <line x1="10" y1="40.5" x2="54" y2="40.5" stroke="#c9d6bb" stroke-width="2" stroke-linecap="round"/>
+  <g fill="#c9d6bb"><rect x="10" y="45" width="8" height="8" rx="2"/><rect x="34" y="45" width="8" height="8" rx="2"/></g>
+  <g fill="#facc15"><rect x="22" y="45" width="8" height="8" rx="2"/><rect x="46" y="45" width="8" height="8" rx="2"/></g>
+</svg>

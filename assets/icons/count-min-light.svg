@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 左邊一個商品，經過 3 個雜湊函數，在 d × w 的計數表每一列各點亮一格；最矮的那格（黃）就是估計值 -->
+  <circle cx="10" cy="32" r="3.5" fill="#facc15"/>
+  <path d="M14 32 L19 19 M14 32 H19 M14 32 L19 45" fill="none" stroke="#8a9580" stroke-width="1.8" stroke-linecap="round"/>
+  <g fill="#f3f8ec">
+    <rect x="21" y="14" width="8" height="10" rx="2"/><rect x="31" y="14" width="8" height="10" rx="2"/><rect x="51" y="14" width="8" height="10" rx="2"/>
+    <rect x="21" y="27" width="8" height="10" rx="2"/><rect x="41" y="27" width="8" height="10" rx="2"/><rect x="51" y="27" width="8" height="10" rx="2"/>
+    <rect x="21" y="40" width="8" height="10" rx="2"/><rect x="31" y="40" width="8" height="10" rx="2"/><rect x="41" y="40" width="8" height="10" rx="2"/>
+  </g>
+  <rect x="41" y="14" width="8" height="10" rx="2" fill="#22d3ee"/>
+  <rect x="31" y="27" width="8" height="10" rx="2" fill="#f59e0b"/>
+  <rect x="51" y="40" width="8" height="10" rx="2" fill="#22d3ee"/>
+  <rect x="31" y="27" width="8" height="10" rx="2" fill="none" stroke="#1d2b12" stroke-width="1.2"/>
+</svg>

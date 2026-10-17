@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 上：一棵小 UP-Tree；下：虛線是 TWU，紫色是 UP-Tree 算出的較緊上界，黃線是門檻 -->
+  <line x1="32" y1="12" x2="20" y2="27" stroke="#c9d6bb" stroke-width="2.5"/>
+  <line x1="32" y1="12" x2="44" y2="27" stroke="#f59e0b" stroke-width="2.5"/>
+  <line x1="44" y1="27" x2="44" y2="36" stroke="#f59e0b" stroke-width="2.5"/>
+  <circle cx="32" cy="12" r="4" fill="#c9d6bb"/>
+  <circle cx="20" cy="27" r="6" fill="#f3f8ec" stroke="#c9d6bb" stroke-width="2"/>
+  <circle cx="44" cy="27" r="6" fill="#f3f8ec" stroke="#f59e0b" stroke-width="2.5"/>
+  <circle cx="44" cy="36" r="4.5" fill="#f3f8ec" stroke="#22d3ee" stroke-width="2.5"/>
+  <rect x="9" y="48" width="46" height="8" rx="3" fill="none" stroke="#22d3ee" stroke-width="1.6" stroke-dasharray="3 2.5"/>
+  <rect x="9" y="48" width="31" height="8" rx="3" fill="#7c3aed"/>
+  <line x1="34" y1="45" x2="34" y2="59" stroke="#facc15" stroke-width="2.2"/>
+</svg>
