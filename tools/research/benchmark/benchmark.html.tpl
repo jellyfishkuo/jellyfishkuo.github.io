@@ -154,6 +154,7 @@
         .run-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.8rem; }
         .prog { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin-top: 0.8rem; border: 1px solid var(--border); }
         .prog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.2s; }
+        [data-theme="light"] .prog i { background: #ffb02e; }  /* 淺色用實心果汁橘，漸層換色後會變黃轉綠 */
         .prog-text { font-size: 0.82rem; color: var(--muted); margin-top: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* ── 圖 ── */
