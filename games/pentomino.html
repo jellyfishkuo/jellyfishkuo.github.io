@@ -1380,6 +1380,7 @@
                 this.originalBlocks = JSON.parse(JSON.stringify(data.blocks));
                 this.blocks = JSON.parse(JSON.stringify(data.blocks));
                 this.trayR = data.trayR; this.trayC = data.trayC;
+                this.homeR = data.trayR; this.homeC = data.trayC;   // 托盤上旋轉會改 trayR/C，重排時要回到這裡
                 this.isSnapped = false; this.gridPos = { r: -1, c: -1 };
                 this.x = 0; this.y = 0; this.isDragging = false;
                 this.el = document.createElement('div'); this.el.className = 'piece-container';
@@ -1422,7 +1423,7 @@
 
             resetToTray() { this.isSnapped = false; this.removeFromGrid(); syncAllPositions(true); }
 
-            fullReset() { this.removeFromGrid(); this.blocks = JSON.parse(JSON.stringify(this.originalBlocks)); this.normalize(); this.draw(); this.resetToTray(); }
+            fullReset() { this.removeFromGrid(); this.trayR = this.homeR; this.trayC = this.homeC; this.blocks = JSON.parse(JSON.stringify(this.originalBlocks)); this.normalize(); this.draw(); this.resetToTray(); }
 
             removeFromGrid() {
                 if (this.gridPos.r !== -1) {
