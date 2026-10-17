@@ -17,6 +17,9 @@
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--lt-05050a, #05050a); }
+        /* 整頁（含空白處、文字、面板）連點兩下都不會放大；雙指縮放照樣可以用。
+           touch-action 會跟祖先取交集，所以設在 html 上就涵蓋所有元素 */
+        html, body { touch-action: manipulation; }
         /* 永遠預留捲軸的位置：自由解答比每日挑戰長，只有一邊出現捲軸時，
            整頁會被擠窄、置中的頁首和分頁就左右跳一下（桌機才看得到） */
         @media (hover: hover) and (pointer: fine) {
