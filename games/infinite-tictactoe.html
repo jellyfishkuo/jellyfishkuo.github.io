@@ -836,11 +836,18 @@
         [data-theme="light"] .rules summary { color: #1d2b12; }
         /* 標題的彩色字：淺色用果汁橘實心（紫青漸層自動換色後會變成黃轉綠，看起來髒） */
         [data-theme="light"] .gradient { background: none; -webkit-text-fill-color: #f08000; color: #f08000; }
-        /* X 維持青色、O 維持粉色，調深一點白底才看得清楚 */
-        :root[data-theme="light"] { --x-color: #0891b2; --o-color: #db2777; }
-        [data-theme="light"] .mark-x path, [data-theme="light"] .mark-o circle { filter: none; }
-        [data-theme="light"] .turn-chip.x { background: #e0f7fb; }
-        [data-theme="light"] .turn-chip.o { background: #fdeef6; }
+        /* X 青色、O 粉色，跟立式五子棋的棋子同一組亮色，外面描一圈黑框才在白底上跳出來 */
+        :root[data-theme="light"] { --x-color: #22d3ee; --o-color: #f472b6; }
+        [data-theme="light"] .mark-x path, [data-theme="light"] .mark-o circle {
+            filter: drop-shadow(1.5px 0 0 #1d2b12) drop-shadow(-1.5px 0 0 #1d2b12) drop-shadow(0 1.5px 0 #1d2b12) drop-shadow(0 -1.5px 0 #1d2b12);
+        }
+        /* 比分：格子用棋子的顏色當底，數字黑色，跟棋子一樣是貼紙感 */
+        [data-theme="light"] .score-box:has(.score-num.x) { background: #22d3ee; border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .score-box:has(.score-num.o) { background: #f472b6; border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .score-box:has(.score-num.x) *,
+        [data-theme="light"] .score-box:has(.score-num.o) * { color: #1d2b12; }
+        [data-theme="light"] .turn-chip.x { background: #22d3ee; color: #1d2b12; border: 2px solid #1d2b12; }
+        [data-theme="light"] .turn-chip.o { background: #f472b6; color: #1d2b12; border: 2px solid #1d2b12; }
     </style>
     <link rel="stylesheet" href="../assets/theme.css">
 </head>

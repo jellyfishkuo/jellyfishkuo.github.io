@@ -821,8 +821,13 @@
         [data-theme="light"] .cell.win::after { outline-color: #d93a2f; }
         [data-theme="light"] .board-base { background: #1d2b12; border: 0; box-shadow: none; }
         /* 文字用深一點的青／粉，白底上才看得清楚 */
-        [data-theme="light"] .score-num.p1, [data-theme="light"] .log-row.p1 { color: #0e7490; }
-        [data-theme="light"] .score-num.p2, [data-theme="light"] .log-row.p2 { color: #be185d; }
+        [data-theme="light"] .log-row.p1 { color: #0e7490; }
+        [data-theme="light"] .log-row.p2 { color: #be185d; }
+        /* 比分：格子用棋子的顏色當底，數字黑色（跟井字棋一樣） */
+        [data-theme="light"] .score-box:has(.score-num.p1) { background: #22d3ee; border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .score-box:has(.score-num.p2) { background: #f472b6; border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .score-box:has(.score-num.p1) *,
+        [data-theme="light"] .score-box:has(.score-num.p2) * { color: #1d2b12; }
         [data-theme="light"] .player-chip { box-shadow: 0 0 0 2px #1d2b12; }
         [data-theme="light"] .column-btn { color: #1d2b12; }
     </style>
