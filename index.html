@@ -100,13 +100,31 @@
         .nav-links a { text-decoration: none; color: var(--muted); font-size: 0.9rem; transition: color 0.2s; }
         .nav-links a:hover { color: var(--accent2); }
 
-        .theme-btn, .menu-btn {
+        .theme-switch {
+            position: relative; flex: none; display: flex; padding: 3px; gap: 0; cursor: pointer; font: inherit;
+            border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+        }
+        .theme-switch .opt { position: relative; z-index: 1; width: 34px; height: 30px; display: grid; place-items: center; color: var(--muted); transition: color 0.25s; }
+        .theme-switch svg { width: 18px; height: 18px; }
+        .theme-switch .thumb {
+            position: absolute; top: 3px; left: 3px; width: 34px; height: 30px; border-radius: 999px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2)); transition: transform 0.25s;
+            transform: translateX(34px);           /* 深色：亮在月亮那格 */
+        }
+        .theme-switch .opt[data-set="dark"] { color: #fff; }
+        [data-theme="light"] .theme-switch { border: 2px solid var(--ink); background: #fff; box-shadow: 2px 2px 0 var(--ink); }
+        [data-theme="light"] .theme-switch .thumb { transform: none; background: var(--juice); border: 2px solid var(--ink); top: 1px; left: 1px; width: 38px; height: 34px; }
+        [data-theme="light"] .theme-switch .opt { color: #8a9580; }
+        [data-theme="light"] .theme-switch .opt[data-set="light"] { color: var(--ink); }
+        @media (prefers-reduced-motion: reduce) { .theme-switch .thumb { transition: none; } }
+
+        .menu-btn {
             flex: none; width: 38px; height: 38px; display: grid; place-items: center;
             border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
             color: var(--text); cursor: pointer; font: inherit;
         }
-        .theme-btn svg, .menu-btn svg { width: 20px; height: 20px; }
-        .theme-btn:focus-visible, .menu-btn:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+        .menu-btn svg { width: 20px; height: 20px; }
+        .theme-switch:focus-visible, .menu-btn:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
         .menu-btn { display: none; }
         .mobile-menu {
             display: none; position: absolute; right: clamp(16px, 5vw, 40px); top: 60px; min-width: 170px;
@@ -123,7 +141,7 @@
         [data-theme="light"] nav { background: rgba(233, 247, 217, 0.94); border-bottom: 2.5px solid var(--ink); }
         [data-theme="light"] .nav-links a { color: var(--ink); font-weight: 700; }
         [data-theme="light"] .nav-links a:hover { color: #b35c00; }
-        [data-theme="light"] .theme-btn, [data-theme="light"] .menu-btn,
+        [data-theme="light"] .menu-btn,
         [data-theme="light"] .mobile-menu { border: 2px solid var(--ink); background: #fff; box-shadow: 2px 2px 0 var(--ink); }
         [data-theme="light"] .mobile-menu a { font-weight: 700; }
 
@@ -249,7 +267,10 @@
         [data-theme="light"] .chip { border: 2px solid var(--ink); color: var(--ink); background: #fff; font-weight: 700; }
         [data-theme="light"] .chip.active { background: var(--juice); }
 
-        .demos { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); column-gap: 28px; }
+        .demos {
+            list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); column-gap: 32px;
+            border: 1px solid var(--line); border-radius: 14px; background: rgba(12, 12, 26, 0.7); padding: 4px clamp(10px, 2.4vw, 24px);
+        }
         .demo { min-width: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
         .demo a { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 4px; text-decoration: none; }
         .demo a:hover b { color: var(--accent2); }
@@ -339,10 +360,11 @@
                     <li><a href="#achievements">競賽</a></li>
                     <li><a href="#contact">聯絡</a></li>
                 </ul>
-                <button class="theme-btn" id="themeBtn" type="button">
-                    <!-- 深色時顯示太陽（按了變淺色），淺色時顯示月亮 -->
-                    <svg class="only-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
-                    <svg class="only-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+                <!-- 太陽、月亮都擺出來；目前的模式底下有一塊亮色，點哪一邊就切到哪一邊 -->
+                <button class="theme-switch" id="themeBtn" type="button" aria-label="深色模式">
+                    <span class="thumb" aria-hidden="true"></span>
+                    <span class="opt" data-set="light" title="淺色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg></span>
+                    <span class="opt" data-set="dark" title="深色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>
                 </button>
                 <button class="menu-btn" id="menuBtn" type="button" aria-label="選單" aria-expanded="false" aria-controls="mobileMenu">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -585,11 +607,13 @@
         // ── 深色／淺色切換 ──
         const themeBtn = document.getElementById('themeBtn');
         function syncThemeBtn() {
-            const dark = window.jfkTheme.get() === 'dark';
-            themeBtn.setAttribute('aria-label', dark ? '切換成淺色' : '切換成深色');
-            themeBtn.title = dark ? '切換成淺色' : '切換成深色';
+            themeBtn.setAttribute('aria-pressed', window.jfkTheme.get() === 'dark');
         }
-        themeBtn.addEventListener('click', () => window.jfkTheme.toggle());
+        // 點太陽就淺色、點月亮就深色；用鍵盤按（沒點在圖示上）就切到另一種
+        themeBtn.addEventListener('click', e => {
+            const opt = e.target.closest('.opt');
+            if (opt) window.jfkTheme.set(opt.dataset.set); else window.jfkTheme.toggle();
+        });
         document.addEventListener('themechange', syncThemeBtn);
         syncThemeBtn();
 
