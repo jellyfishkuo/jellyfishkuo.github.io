@@ -196,6 +196,12 @@
 
         /* 彩帶 */
         .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+            /* 淺色：中間的「轉！」是果汁橘實心按鈕＋黑框（自動換色會把紫色漸層換成一團深咖啡） */
+        [data-theme="light"] .spin-btn { background: #ffb02e; border: 3px solid #1d2b12; color: #1d2b12; font-family: 'Noto Sans TC', sans-serif; font-weight: 900; box-shadow: 3px 3px 0 #1d2b12; }
+        [data-theme="light"] .spin-btn:disabled { filter: none; background: #ffd27a; }
+        [data-theme="light"] .pointer { filter: drop-shadow(2px 2px 0 #1d2b12); }
+        [data-theme="light"] .pointer path { stroke: #1d2b12; stroke-width: 2.5; }
+        [data-theme="light"] .pointer circle { fill: #d93a2f; }
     </style>
     <link rel="stylesheet" href="../assets/theme.css">
 </head>
@@ -208,7 +214,7 @@
         <div class="layout">
             <div class="card">
                 <div class="wheel-box">
-                    <svg class="pointer" id="pointer" viewBox="0 0 34 42" aria-hidden="true">
+                    <svg class="pointer" id="pointer" viewBox="0 0 34 42" aria-hidden="true" data-keep-color>
                         <path d="M17 41 L3 9 A14 14 0 1 1 31 9 Z" fill="#fff" />
                         <circle cx="17" cy="14" r="5" fill="#7c3aed" />
                     </svg>
