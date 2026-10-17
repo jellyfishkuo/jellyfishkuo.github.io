@@ -154,6 +154,11 @@
         .run-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.8rem; }
         .prog { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin-top: 0.8rem; border: 1px solid var(--border); }
         .prog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.2s; }
+        /* 淺色：四種做法的顏色另外挑（自動換算的會變土黃、暗紫），白底上鮮豔又分得開 */
+        html:root[data-theme="light"] {
+            --c-level: #f08000; --c-tree: #0891b2; --c-vert: #7c3aed;
+            --lt-f59e0b: #f08000; --lt-06b6d4: #0891b2; --lt-a78bfa: #7c3aed; --lt-f472b6: #db2777;
+        }
         [data-theme="light"] .prog i { background: #ffb02e; }  /* 淺色用實心果汁橘，漸層換色後會變黃轉綠 */
         .prog-text { font-size: 0.82rem; color: var(--muted); margin-top: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
