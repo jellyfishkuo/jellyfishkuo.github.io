@@ -15,6 +15,11 @@
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: #05050a; }
+        /* 永遠預留捲軸的位置：自由解答比每日挑戰長，只有一邊出現捲軸時，
+           整頁會被擠窄、置中的頁首和分頁就左右跳一下（桌機才看得到） */
+        @media (hover: hover) and (pointer: fine) {
+            html { scrollbar-gutter: stable; }
+        }
         /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
         ::selection { background: #7c3aed; color: #fff; -webkit-text-fill-color: #fff; }
 
