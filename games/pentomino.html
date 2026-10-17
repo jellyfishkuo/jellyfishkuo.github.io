@@ -1121,6 +1121,9 @@
         [data-theme="light"] .s-cell.s-blocked .s-cal { color: #1d2b12; }
         [data-theme="light"] .cell.drop-ok { background: rgba(92, 201, 143, 0.45); box-shadow: inset 0 0 0 2px #2f8a12; }
         [data-theme="light"] .cell.drop-bad { background: rgba(217, 58, 47, 0.25); box-shadow: inset 0 0 0 2px #d93a2f; }
+        /* 骨牌方格：跟深色一樣上亮下暗（自動換色會把白色亮面換成墨色，骨牌看起來髒髒的） */
+        [data-theme="light"] .p-block,
+        [data-theme="light"] .s-cell.s-piece { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.06)); }
         [data-theme="light"] .piece-container.selected { filter: drop-shadow(0 0 0 #1d2b12) drop-shadow(3px 3px 0 #1d2b12); }
         /* 日期、計時、進度這些小標籤：橘底黑字 */
         [data-theme="light"] .p-date { background: #ffb02e; border-color: #1d2b12; color: #1d2b12; }
