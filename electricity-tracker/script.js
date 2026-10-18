@@ -275,22 +275,35 @@
     }
     if (!target) return;
 
-    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    // 優先讓「歷史紀錄」標題貼在提示下方；那一筆不在第一頁時才改成置中
+    var sectionEl = historyList.closest(".history-section");
+    var offset = 16;
+    if (toastEl.classList.contains("show")) {
+      offset = toastEl.getBoundingClientRect().bottom + 12;
+    }
+    var sectionTop = sectionEl.getBoundingClientRect().top + window.scrollY - offset;
+    var targetBottom = target.getBoundingClientRect().bottom + window.scrollY;
+    if (targetBottom - sectionTop <= window.innerHeight - 16) {
+      window.scrollTo({ top: Math.max(0, sectionTop), behavior: "smooth" });
+    } else {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     target.classList.remove("highlight");
     void target.offsetWidth;
     target.classList.add("highlight");
   }
 
-  /** 新增紀錄成功後的共同流程：提示 → 提示消失 → 捲到該筆紀錄 */
+  /**
+   * 新增紀錄成功後的共同流程：馬上捲到歷史紀錄裡的那一筆，
+   * 提示固定在畫面上方，捲完之後還看得到多用了幾度
+   */
   function announceNewRecord(record) {
     var info = describeDiff(record.id);
     showToast("已記錄 " + record.reading + info.text, {
       type: info.warn ? "warn" : "success",
-      duration: info.warn ? 3000 : 2000,
-      onHide: function () {
-        scrollToRecord(record.id);
-      }
+      duration: info.warn ? 4000 : 3000
     });
+    scrollToRecord(record.id);
   }
 
   // ---------------------------------------------------------
