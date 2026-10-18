@@ -192,7 +192,7 @@
         <p class="intro">
             這裡的 Demo 看起來主題很多，其實大部分都從同一個起點長出來：<b>Apriori</b> 的「不頻繁的組合，包含它的更大組合也一定不頻繁」。
             之後的方法有的換資料結構（樹、垂直格式、清單），有的換問題（看順序、看利潤、資料一直進來、資料有位置）。
-            下面的圖把 30 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
+            下面的圖把 33 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
             想一次比較，最下面有<b>比較表</b>。大部分 Demo 用的都是同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），換頁時可以直接對照數字。
         </p>
 
@@ -203,15 +203,15 @@
                 <span class="hint"><span class="scroll-hint">圖可以在框裡左右滑動。</span>滑鼠移到方框上，會亮出它的來源和後續。</span>
             </div>
             <div class="graph-scroll" id="graph-scroll">
-<svg class="graph" viewBox="0 0 900 864" width="900" height="864" role="img" aria-label="演算法關係圖：箭頭代表改良自或延伸自">
+<svg class="graph" viewBox="0 0 900 922" width="900" height="922" role="img" aria-label="演算法關係圖：箭頭代表改良自或延伸自">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#a78bfa"/></marker><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#22d3ee"/></marker><marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" fill="#fbbf24"/></marker></defs>
 <g class="band"><rect x="4" y="6" width="892" height="82" rx="12" fill="#22c55e" fill-opacity="0.07" stroke="#22c55e" stroke-opacity="0.35"/><text x="16" y="25" fill="#22c55e" class="band-t">增量資料庫</text></g>
 <g class="band"><rect x="4" y="98" width="572" height="142" rx="12" fill="#8b5cf6" fill-opacity="0.07" stroke="#8b5cf6" stroke-opacity="0.35"/><text x="16" y="117" fill="#8b5cf6" class="band-t">頻繁樣式</text></g>
 <g class="band"><rect x="4" y="250" width="572" height="142" rx="12" fill="#c084fc" fill-opacity="0.07" stroke="#c084fc" stroke-opacity="0.35"/><text x="16" y="269" fill="#c084fc" class="band-t">規則與序列</text></g>
 <g class="band"><rect x="586" y="250" width="310" height="142" rx="12" fill="#f472b6" fill-opacity="0.07" stroke="#f472b6" stroke-opacity="0.35"/><text x="598" y="269" fill="#f472b6" class="band-t">圖形</text></g>
 <g class="band"><rect x="4" y="402" width="892" height="186" rx="12" fill="#f59e0b" fill-opacity="0.07" stroke="#f59e0b" stroke-opacity="0.35"/><text x="16" y="421" fill="#f59e0b" class="band-t">高效益樣式</text></g>
-<g class="band"><rect x="4" y="598" width="892" height="92" rx="12" fill="#06b6d4" fill-opacity="0.07" stroke="#06b6d4" stroke-opacity="0.35"/><text x="16" y="617" fill="#06b6d4" class="band-t">資料串流</text></g>
-<g class="band"><rect x="4" y="700" width="892" height="158" rx="12" fill="#60a5fa" fill-opacity="0.07" stroke="#60a5fa" stroke-opacity="0.35"/><text x="16" y="719" fill="#60a5fa" class="band-t">空間資料</text></g>
+<g class="band"><rect x="4" y="598" width="892" height="150" rx="12" fill="#06b6d4" fill-opacity="0.07" stroke="#06b6d4" stroke-opacity="0.35"/><text x="16" y="617" fill="#06b6d4" class="band-t">資料串流</text></g>
+<g class="band"><rect x="4" y="758" width="892" height="158" rx="12" fill="#60a5fa" fill-opacity="0.07" stroke="#60a5fa" stroke-opacity="0.35"/><text x="16" y="777" fill="#60a5fa" class="band-t">空間資料</text></g>
 <g class="legend"><rect x="590" y="98" width="306" height="94" rx="12" fill="#0b0b14" stroke="#262640"/><path class="e" d="M600,120 L640,120" marker-end="url(#ar)"/><text x="652" y="124" class="lg">改良自／延伸自</text><path class="e dash" d="M600,146 L640,146" marker-end="url(#ar2)"/><text x="652" y="150" class="lg">借用同一個想法</text><rect x="600" y="162" width="40" height="20" rx="5" fill="#151527" stroke="#8b5cf6"/><text x="652" y="176" class="lg">點方框進入那個 Demo</text></g>
 <g class="edges">
 <path class="e" data-s="apriori" data-t="fp" d="M146,162.2 C172,162.2 168,138.0 192,138.0" marker-end="url(#ar)"><title>Apriori → FP-Growth：不再一層一層猜候選，改成在樹上長</title></path>
@@ -226,17 +226,20 @@
 <path class="e" data-s="twophase" data-t="upgrowth" d="M330,465.0 L402,465.0" marker-end="url(#ar)"><title>Two-Phase → UP-Growth：一樣兩階段，但上界比 TWU 緊</title></path>
 <path class="e" data-s="fp" data-t="upgrowth" d="M330,147.0 C371,147.0 363,465.0 402,465.0" marker-end="url(#ar)"><title>FP-Growth → UP-Growth：UP-Tree 的建法跟 FP-tree 一樣</title></path>
 <path class="e" data-s="upgrowth" data-t="huiminer" d="M540,465.0 L578,465.0" marker-end="url(#ar)"><title>UP-Growth → HUI-Miner：不再兩階段：不用候選、不用回頭驗證</title></path>
-<path class="e" data-s="huiminer" data-t="efim" d="M716,462.0 C735,462.0 731,436.0 748,436.0" marker-end="url(#ar)"><title>HUI-Miner → EFIM：不再為每個組合建 list，改用投影資料庫和更緊的上界</title></path>
-<path class="e" data-s="huiminer" data-t="topk" d="M716,468.0 C735,468.0 731,496.0 748,496.0" marker-end="url(#ar)"><title>HUI-Miner → Top-k TKO：一樣用 utility list，加上會往上調的門檻</title></path>
+<path class="e" data-s="huiminer" data-t="efim" d="M716,459.0 C735,459.0 731,436.0 748,436.0" marker-end="url(#ar)"><title>HUI-Miner → EFIM：不再為每個組合建 list，改用投影資料庫和更緊的上界</title></path>
+<path class="e" data-s="huiminer" data-t="topk" d="M716,465.0 C735,465.0 731,496.0 748,496.0" marker-end="url(#ar)"><title>HUI-Miner → Top-k TKO：一樣用 utility list，加上會往上調的門檻</title></path>
 <path class="e" data-s="apriori" data-t="fup" d="M146,157.0 C172,157.0 168,48.0 192,48.0" marker-end="url(#ar)"><title>Apriori → FUP：把 Apriori 改成只處理新增的那幾筆</title></path>
 <path class="e" data-s="fp" data-t="cantree" d="M330,129.0 C371,129.0 363,48.0 402,48.0" marker-end="url(#ar)"><title>FP-Growth → CanTree：FP-tree 改成固定順序，挖法照搬</title></path>
 <path class="e" data-s="fp" data-t="pfp" d="M330,135.0 C371,135.0 363,138.0 402,138.0" marker-end="url(#ar)"><title>FP-Growth → PFP-tree 週期性：建樹、條件模式基底照 FP-Growth，節點改記 tid 清單</title></path>
 <path class="e" data-s="prefixspan" data-t="uspan" d="M540,293.0 C562,293.0 558,545.0 578,545.0" marker-end="url(#ar)"><title>PrefixSpan → USpan 高效益序列：一樣的 I-接、S-接深度優先，只是次數換成效益</title></path>
 <path class="e" data-s="huiminer" data-t="uspan" d="M648,486.0 L648,522.0" marker-end="url(#ar)"><title>HUI-Miner → USpan 高效益序列：TWU → SWU、剩餘效益 → ru</title></path>
 <path class="e" data-s="cantree" data-t="ihup" d="M540,48.0 L578,48.0" marker-end="url(#ar)"><title>CanTree → IHUP：一樣用固定順序的樹，新交易直接插</title></path>
+<path class="e" data-s="huiminer" data-t="foth" d="M716,471.0 C735,471.0 731,562.0 748,562.0" marker-end="url(#ar)"><title>HUI-Miner → FOTH 論文 2024：同一棵搜尋樹與上界，把 join 換成自我傳播</title></path>
 <path class="e dash" data-s="bloom" data-t="cms" d="M580,652.0 L542,652.0" marker-end="url(#ar2)"><title>Bloom Filter → Count-Min Sketch：一樣把東西用好幾個雜湊撒進格子，只是格子改成計數</title></path>
 <path class="e dash" data-s="bloom" data-t="hll" d="M716,652.0 L748,652.0" marker-end="url(#ar2)"><title>Bloom Filter → HyperLogLog：一樣把東西雜湊進格子，改問「有幾個不同的」</title></path>
-<path class="e" data-s="rtree" data-t="irtree" d="M472,775.0 L472,803.0" marker-end="url(#ar)"><title>R-tree → IR-tree 關鍵字：R-tree 每個節點多掛一份倒排表</title></path>
+<path class="e" data-s="sw" data-t="huops" d="M78,673.0 L78,697.0" marker-end="url(#ar)"><title>滑動視窗 → HUOPS 論文 2025：一樣只看最近的視窗，改成一批一批進出</title></path>
+<path class="e" data-s="sw" data-t="swupa" d="M146,652.0 C172,652.0 168,720.0 192,720.0" marker-end="url(#ar)"><title>滑動視窗 → SWUPA 論文 2026：一樣只看最近的資料，改成一批一批滑</title></path>
+<path class="e" data-s="rtree" data-t="irtree" d="M472,833.0 L472,861.0" marker-end="url(#ar)"><title>R-tree → IR-tree 關鍵字：R-tree 每個節點多掛一份倒排表</title></path>
 </g>
 <a class="node" href="apriori.html" data-id="apriori" aria-label="Apriori"><title>Apriori：一層一層合併、剪枝、計數，後面幾乎每個方法都從它出發。</title><rect x="10" y="149" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="78" y="171" class="nt">Apriori</text><text x="78" y="186" class="ny">1994</text></a>
 <a class="node" href="fp-growth.html" data-id="fp" aria-label="FP-Growth"><title>FP-Growth：把交易壓成一棵樹，只掃兩次、不產生候選。</title><rect x="194" y="117" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="262" y="139" class="nt">FP-Growth</text><text x="262" y="154" class="ny">2000</text></a>
@@ -257,17 +260,20 @@
 <a class="node" href="periodic.html" data-id="pfp" aria-label="PFP-tree"><title>PFP-tree：不只要常出現，還要出現得規律：樹上記 tid 才算得出週期。</title><rect x="404" y="117" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="472" y="139" class="nt">PFP-tree 週期性</text><text x="472" y="154" class="ny">2009</text></a>
 <a class="node" href="uspan.html" data-id="uspan" aria-label="USpan"><title>USpan：序列樣式加上數量 × 利潤，多種對應取最大。</title><rect x="580" y="524" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="648" y="546" class="nt">USpan 高效益序列</text><text x="648" y="561" class="ny">2012</text></a>
 <a class="node" href="ihup.html" data-id="ihup" aria-label="IHUP"><title>IHUP：CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。</title><rect x="580" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="648" y="49" class="nt">IHUP</text><text x="648" y="64" class="ny">2009</text></a>
+<a class="node" href="foth.html" data-id="foth" aria-label="FOTH"><title>FOTH：不 join：每筆交易自己拆出子集合接上去。</title><rect x="750" y="541" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="818" y="563" class="nt">FOTH 論文 2024</text><text x="818" y="578" class="ny">2024</text></a>
 <a class="node" href="sliding-window.html" data-id="sw" aria-label="滑動視窗"><title>滑動視窗：只看最近 W 筆，一進一出即時更新頻繁樣式。</title><rect x="10" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="78" y="653" class="nt">滑動視窗</text></a>
 <a class="node" href="stream-counting.html" data-id="lossy" aria-label="Lossy Counting／Space-Saving"><title>Lossy Counting／Space-Saving：記憶體不夠時近似計數，誤差有上限。</title><rect x="194" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="262" y="645" class="nt nt2">Lossy Counting</text><text x="262" y="658" class="nt nt2">Space-Saving</text><text x="262" y="669" class="ny">2002·2005</text></a>
 <a class="node" href="count-min.html" data-id="cms" aria-label="Count-Min"><title>Count-Min：不記名稱、只記格子，任何商品都查得到。</title><rect x="404" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="472" y="653" class="nt">Count-Min Sketch</text><text x="472" y="668" class="ny">2005</text></a>
 <a class="node" href="bloom-filter.html" data-id="bloom" aria-label="Bloom Filter"><title>Bloom Filter：用很少的位元判斷「有沒有看過」，只會誤判成可能在。</title><rect x="580" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="648" y="653" class="nt">Bloom Filter</text><text x="648" y="668" class="ny">1970</text></a>
 <a class="node" href="hyperloglog.html" data-id="hll" aria-label="HyperLogLog"><title>HyperLogLog：幾百個位元組估計有幾個不同的，誤差約 1.04/√m。</title><rect x="750" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="818" y="653" class="nt">HyperLogLog</text><text x="818" y="668" class="ny">2007</text></a>
-<a class="node" href="spatial.html" data-id="quad" aria-label="四元樹"><title>四元樹：把地圖依密度切格子，範圍查詢整塊跳過。</title><rect x="10" y="733" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="78" y="755" class="nt">四元樹</text><text x="78" y="770" class="ny">1974</text></a>
-<a class="node" href="spatial.html" data-id="coloc" aria-label="共位樣式"><title>共位樣式：頻繁樣式搬到地圖上：哪幾種店總是開在一起。</title><rect x="194" y="733" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="262" y="755" class="nt">共位樣式</text><text x="262" y="770" class="ny">2004</text></a>
-<a class="node" href="rtree.html" data-id="rtree" aria-label="R-tree"><title>R-tree：依資料包框的平衡樹，最近 k 家店一下就找到。</title><rect x="404" y="733" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="472" y="755" class="nt">R-tree</text><text x="472" y="770" class="ny">1984</text></a>
-<a class="node" href="dbscan.html" data-id="dbscan" aria-label="DBSCAN"><title>DBSCAN：依密度分群，不用先說幾群，還會標出雜訊。</title><rect x="580" y="733" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="648" y="755" class="nt">DBSCAN</text><text x="648" y="770" class="ny">1996</text></a>
-<a class="node" href="skyline.html" data-id="skyline" aria-label="Skyline"><title>Skyline：又便宜又近：找出不被任何一家全面打敗的店。</title><rect x="750" y="733" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="818" y="755" class="nt">Skyline BNL・SFS</text><text x="818" y="770" class="ny">2001·2003</text></a>
-<a class="node" href="ir-tree.html" data-id="irtree" aria-label="IR-tree"><title>IR-tree：R-tree 掛上倒排表，關鍵字湊不齊的框整個跳過。</title><rect x="404" y="805" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="472" y="827" class="nt">IR-tree 關鍵字</text><text x="472" y="842" class="ny">2009</text></a>
+<a class="node" href="sw-huop.html" data-id="huops" aria-label="HUOPS"><title>HUOPS：佔有率版的 utility list 搬上滑動視窗，舊批次整組刪。</title><rect x="10" y="699" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="78" y="721" class="nt">HUOPS 論文 2025</text><text x="78" y="736" class="ny">2025</text></a>
+<a class="node" href="uncertain-sw.html" data-id="swupa" aria-label="SWUPA"><title>SWUPA：不確定資料＋滑動視窗：期望支持度、兩種上界剪枝。</title><rect x="194" y="699" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="262" y="721" class="nt">SWUPA 論文 2026</text><text x="262" y="736" class="ny">2026</text></a>
+<a class="node" href="spatial.html" data-id="quad" aria-label="四元樹"><title>四元樹：把地圖依密度切格子，範圍查詢整塊跳過。</title><rect x="10" y="791" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="78" y="813" class="nt">四元樹</text><text x="78" y="828" class="ny">1974</text></a>
+<a class="node" href="spatial.html" data-id="coloc" aria-label="共位樣式"><title>共位樣式：頻繁樣式搬到地圖上：哪幾種店總是開在一起。</title><rect x="194" y="791" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="262" y="813" class="nt">共位樣式</text><text x="262" y="828" class="ny">2004</text></a>
+<a class="node" href="rtree.html" data-id="rtree" aria-label="R-tree"><title>R-tree：依資料包框的平衡樹，最近 k 家店一下就找到。</title><rect x="404" y="791" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="472" y="813" class="nt">R-tree</text><text x="472" y="828" class="ny">1984</text></a>
+<a class="node" href="dbscan.html" data-id="dbscan" aria-label="DBSCAN"><title>DBSCAN：依密度分群，不用先說幾群，還會標出雜訊。</title><rect x="580" y="791" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="648" y="813" class="nt">DBSCAN</text><text x="648" y="828" class="ny">1996</text></a>
+<a class="node" href="skyline.html" data-id="skyline" aria-label="Skyline"><title>Skyline：又便宜又近：找出不被任何一家全面打敗的店。</title><rect x="750" y="791" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="818" y="813" class="nt">Skyline BNL・SFS</text><text x="818" y="828" class="ny">2001·2003</text></a>
+<a class="node" href="ir-tree.html" data-id="irtree" aria-label="IR-tree"><title>IR-tree：R-tree 掛上倒排表，關鍵字湊不齊的框整個跳過。</title><rect x="404" y="863" width="136" height="42" rx="9" fill="#151527" stroke="#60a5fa"/><text x="472" y="885" class="nt">IR-tree 關鍵字</text><text x="472" y="900" class="ny">2009</text></a>
 </svg>
             </div>
             <div class="groups" id="groups">
@@ -294,6 +300,7 @@
 <li><a class="nm" href="efim.html">EFIM</a><span class="yr">2015</span><p>投影＋合併交易，上界更緊、記憶體更省。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 <li><a class="nm" href="top-k-hui.html">Top-k TKO</a><span class="yr">2016</span><p>不用猜門檻，排行榜裝滿後門檻自動往上升。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 <li><a class="nm" href="uspan.html">USpan 高效益序列</a><span class="yr">2012</span><p>序列樣式加上數量 × 利潤，多種對應取最大。</p><div class="froms"><span class="from ">改良自 PrefixSpan</span><span class="from ">改良自 HUI-Miner</span></div></li>
+<li><a class="nm" href="foth.html">FOTH 論文 2024</a><span class="yr">2024</span><p>不 join：每筆交易自己拆出子集合接上去。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 </ul></section>
 <section class="grp" style="--gc:#22c55e"><h3>增量資料庫</h3><ul>
 <li><a class="nm" href="incremental.html">FUP</a><span class="yr">1996</span><p>新交易進來時只更新受影響的部分，結果跟重算一樣。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
@@ -306,6 +313,8 @@
 <li><a class="nm" href="count-min.html">Count-Min Sketch</a><span class="yr">2005</span><p>不記名稱、只記格子，任何商品都查得到。</p><div class="froms"><span class="from dash">借用 Bloom Filter</span></div></li>
 <li><a class="nm" href="bloom-filter.html">Bloom Filter</a><span class="yr">1970</span><p>用很少的位元判斷「有沒有看過」，只會誤判成可能在。</p></li>
 <li><a class="nm" href="hyperloglog.html">HyperLogLog</a><span class="yr">2007</span><p>幾百個位元組估計有幾個不同的，誤差約 1.04/√m。</p><div class="froms"><span class="from dash">借用 Bloom Filter</span></div></li>
+<li><a class="nm" href="sw-huop.html">HUOPS 論文 2025</a><span class="yr">2025</span><p>佔有率版的 utility list 搬上滑動視窗，舊批次整組刪。</p><div class="froms"><span class="from ">改良自 滑動視窗</span></div></li>
+<li><a class="nm" href="uncertain-sw.html">SWUPA 論文 2026</a><span class="yr">2026</span><p>不確定資料＋滑動視窗：期望支持度、兩種上界剪枝。</p><div class="froms"><span class="from ">改良自 滑動視窗</span></div></li>
 </ul></section>
 <section class="grp" style="--gc:#60a5fa"><h3>空間資料</h3><ul>
 <li><a class="nm" href="spatial.html">四元樹</a><span class="yr">1974</span><p>把地圖依密度切格子，範圍查詢整塊跳過。</p></li>
@@ -338,7 +347,7 @@
 <li><a class="nm" href="efim.html">EFIM</a><p>投影資料庫加更緊的上界，現在常用的快方法。</p></li>
 <li><a class="nm" href="top-k-hui.html">Top-k TKO</a><p>不知道門檻設多少時，直接要前 k 名。</p></li>
 </ol>
-<p class="route-next">走完可以接著看：<a class="ex" href="uspan.html">USpan 高效益序列</a>、<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a>、<a class="ex" href="ihup.html">IHUP</a></p>
+<p class="route-next">走完可以接著看：<a class="ex" href="foth.html">FOTH 論文 2024</a>、<a class="ex" href="uspan.html">USpan 高效益序列</a>、<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a>、<a class="ex" href="ihup.html">IHUP</a></p>
 </div>
 <div class="card route" style="--rc:#06b6d4"><h2>串流與空間路線</h2><p class="route-sub">資料停不下來，或資料有位置</p><ol>
 <li><a class="nm" href="sliding-window.html">滑動視窗</a><p>只看最近 W 筆，一進一出怎麼更新。</p></li>
@@ -348,7 +357,7 @@
 <li><a class="nm" href="rtree.html">R-tree</a><p>依資料包框的索引，找最近的 k 家店。</p></li>
 <li><a class="nm" href="dbscan.html">DBSCAN</a><p>用密度把地圖上的點分群。</p></li>
 </ol>
-<p class="route-next">走完可以接著看：<a class="ex" href="bloom-filter.html">Bloom Filter</a>、<a class="ex" href="hyperloglog.html">HyperLogLog</a>、<a class="ex" href="skyline.html">Skyline BNL・SFS</a>、<a class="ex" href="ir-tree.html">IR-tree 關鍵字</a></p>
+<p class="route-next">走完可以接著看：<a class="ex" href="bloom-filter.html">Bloom Filter</a>、<a class="ex" href="hyperloglog.html">HyperLogLog</a>、<a class="ex" href="sw-huop.html">HUOPS 論文 2025</a>、<a class="ex" href="uncertain-sw.html">SWUPA 論文 2026</a>、<a class="ex" href="skyline.html">Skyline BNL・SFS</a>、<a class="ex" href="ir-tree.html">IR-tree 關鍵字</a></p>
 </div>
         </div>
 
@@ -376,6 +385,7 @@
 <tr><th scope="row"><a class="nm" href="efim.html">EFIM</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>投影資料庫並合併相同的交易，用子樹效益、局部效益兩個更緊的上界，靠 utility-bin 陣列一次算完</td><td class="mono">原始資料 2 次，之後掃越來越小的投影資料庫</td><td class="c-no">不會</td><td>投影資料庫、utility-bin 陣列</td><td>資料大、要又快又省記憶體</td></tr>
 <tr><th scope="row"><a class="nm" href="top-k-hui.html">Top-k TKO</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>不給門檻，直接要前 k 名：最小堆積裝目前的前 k 名，門檻邊挖邊往上調</td><td class="mono">2 次（跟 HUI-Miner 一樣）</td><td class="c-no">不會</td><td>utility list、最小堆積</td><td>不知道門檻該設多少</td></tr>
 <tr><th scope="row"><a class="nm" href="uspan.html">USpan 高效益序列</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>序列裡同一個樣式可能有好幾種對應，取最賺的；每位顧客一張效益矩陣，在 q-序列樹上用 I-接、S-接長，SWU 剪候選、SPU 剪子樹</td><td class="mono">原始資料 1 次（算 SWU、建效益矩陣），之後只查矩陣</td><td class="c-no">不會（樣式成長）</td><td>效益矩陣（每格 u、ru）</td><td>購買有先後順序、又想看賺多少（回購、套餐升級路徑）</td></tr>
+<tr><th scope="row"><a class="nm" href="foth.html">FOTH 論文 2024</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>商品組合編成二進位，每筆交易的 IndexSet 自己拆出子集合、接到同編碼的 IndexSet 後面，取代 utility list 的 join；mining area 的 U+RU 當上界剪</td><td class="mono">2 次（算 TWU、建 IndexSet）</td><td class="c-no">不會（one-phase）</td><td>IndexSet（vector + fixedPos）＋紅黑樹</td><td>稠密資料、高效益樣式很長時；稀疏資料反而慢、記憶體較多</td></tr>
 <tr><th scope="row"><a class="nm" href="incremental.html">FUP</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>舊樣式只數新進來的交易；新冒出的候選先用引理篩，只有少數要回頭掃舊資料</td><td class="mono">每一層掃新資料 1 次，有新候選通過引理時才回頭掃舊資料（範例：新資料 3 次、舊資料 1 次）</td><td class="c-yes">會（照 Apriori 產生，再用引理篩）</td><td>上次的結果：頻繁樣式和次數</td><td>一批一批新增、新資料跟舊資料長得差不多</td></tr>
 <tr><th scope="row"><a class="nm" href="cantree.html">CanTree</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>商品照事先定好的固定順序插進樹，新交易直接沿一條路徑加次數，不用重排重建</td><td class="mono">每筆交易只讀 1 次（不用先數次數）</td><td class="c-no">不會（挖的時候跟 FP-Growth 一樣）</td><td>CanTree（存所有商品）</td><td>資料一直新增、門檻常常改</td></tr>
 <tr><th scope="row"><a class="nm" href="ihup.html">IHUP</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>交易照固定的字典序插進樹、節點記 TWU，新交易只沿一條路徑加上自己的 TU；要結果時用 TWU 像 FP-Growth 一樣挖候選，再掃一次驗證</td><td class="mono">新交易插入時讀 1 次＋每次挖掃 1 次驗證（範例挖 2 次共 2 次；每次從頭跑 Two-Phase 要 8 次）</td><td class="c-yes">會（TWU ≥ 門檻的組合，跟 Two-Phase 一樣多）</td><td>IHUP-tree（存所有商品）、條件樹，另外保留交易供驗證</td><td>交易一直新增、要常常拿高效益結果</td></tr>
@@ -384,6 +394,8 @@
 <tr><th scope="row"><a class="nm" href="count-min.html">Count-Min Sketch</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>d 列 × w 欄的格子，每列用雜湊算出一格 +1，查詢取 d 格的最小值，只會多算</td><td class="mono">單趟</td><td class="c-no">不會</td><td>d × w 計數表、d 個雜湊函數</td><td>任何商品都要能查、分店的表要能相加</td></tr>
 <tr><th scope="row"><a class="nm" href="bloom-filter.html">Bloom Filter</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>m 格位元、k 個雜湊；登錄時把 k 格設成 1，查詢時 k 格都是 1 才說「可能在」，有 0 就一定不在</td><td class="mono">單趟</td><td class="c-no">不會</td><td>m 格位元陣列、k 個雜湊函數</td><td>快速判斷「看過沒有」，可以接受偶爾誤判成「可能在」</td></tr>
 <tr><th scope="row"><a class="nm" href="hyperloglog.html">HyperLogLog</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>雜湊成 32 位元，前 p 位選暫存器、剩下開頭幾個 0 記成 ρ，每格留最大值；用調和平均估計有幾個不同的，人少時改用 linear counting</td><td class="mono">單趟</td><td class="c-no">不會</td><td>m = 2^p 個小暫存器、一個雜湊函數</td><td>只要知道「有幾個不同的」，或要把各分店的結果合併</td></tr>
+<tr><th scope="row"><a class="nm" href="sw-huop.html">HUOPS 論文 2025</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>樣式在出現的交易裡佔整筆效益的比例取平均（佔有率）；HUOPS-List 照批次分組，舊批次整組刪，要挖時照支持度重排、算剩餘佔有率，再用 UBUO1、UBUO2 剪枝（list 合併跟 HUI-Miner 同一套）</td><td class="mono">單趟（每批讀 1 次；挖時只讀 list）</td><td class="c-no">不會（list 合併）</td><td>HUOPS-List（節點記 sumUo、sumRuo，entry 照批次分組）、tempArray</td><td>只在乎最近的資料，想找佔整筆消費比例高的組合</td></tr>
+<tr><th scope="row"><a class="nm" href="uncertain-sw.html">SWUPA 論文 2026</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>每個商品一條 (TID, 機率) 串列（像 Eclat 的垂直格式加上機率），一批一批滑動視窗、從前面刪掉最舊的一批；合併前用 ExpSup×MaxEP 剪枝，合併中用 ppCLw 提早停</td><td class="mono">單趟：每批進來、離開各處理一次</td><td class="c-no">不會（串列深度優先合併）</td><td>SWUPA-List（TID、機率、ExpSup、MaxEP）</td><td>資料帶信心值或機率（感測器、辨識），只想看最近的趨勢</td></tr>
 <tr><th scope="row"><a class="nm" href="spatial.html">四元樹</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>依空間從中線切成四塊，點多的地方切細，範圍查詢時整塊跳過不相干的格子</td><td class="mono">—（不是交易資料；建樹時每個點插入一次）</td><td class="c-na">—</td><td>四元樹</td><td>點分布不平均、要做範圍查詢</td></tr>
 <tr><th scope="row"><a class="nm" href="spatial.html">共位樣式</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>用「距離 ≤ r」取代交易，算參與指數 PI，照 Apriori 一層一層剪</td><td class="mono">—（每一層找一次列實例）</td><td class="c-yes">會（跟 Apriori 一樣合併＋剪枝）</td><td>鄰近關係、列實例</td><td>想知道哪幾種店總是開在彼此附近</td></tr>
 <tr><th scope="row"><a class="nm" href="rtree.html">R-tree</a></th><td><span class="gtag" style="--gc:#60a5fa">空間資料</span></td><td>用剛好包住一群點的框（MBR）建平衡樹；kNN 用優先佇列依距離一路打開最近的框</td><td class="mono">—（建樹時每個點插入一次）</td><td class="c-na">—</td><td>R-tree、優先佇列</td><td>資料庫裡的地圖資料、找最近的 k 個</td></tr>
@@ -425,7 +437,7 @@
 
     <script>
         // 圖上每條箭頭 [來源, 目標]，由 build.py 產生
-        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["fp", "pfp"], ["prefixspan", "uspan"], ["huiminer", "uspan"], ["cantree", "ihup"], ["bloom", "cms"], ["bloom", "hll"], ["rtree", "irtree"]];
+        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["fp", "pfp"], ["prefixspan", "uspan"], ["huiminer", "uspan"], ["cantree", "ihup"], ["huiminer", "foth"], ["bloom", "cms"], ["bloom", "hll"], ["sw", "huops"], ["sw", "swupa"], ["rtree", "irtree"]];
 
         (function setupGraphFocus() {
             const svg = document.querySelector('svg.graph');

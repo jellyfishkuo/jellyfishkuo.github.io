@@ -31,13 +31,13 @@ GROUPS = [
     ('rule',    '規則與序列',  '#c084fc', (4, 250, 572, 142)),
     ('graph',   '圖形',        '#f472b6', (586, 250, 310, 142)),
     ('hui',     '高效益樣式',  '#f59e0b', (4, 402, 892, 186)),
-    ('stream',  '資料串流',    '#06b6d4', (4, 598, 892, 92)),
-    ('spatial', '空間資料',    '#60a5fa', (4, 700, 892, 158)),
+    ('stream',  '資料串流',    '#06b6d4', (4, 598, 892, 150)),
+    ('spatial', '空間資料',    '#60a5fa', (4, 758, 892, 158)),
 ]
 GMAP = {g[0]: g for g in GROUPS}
 # 清單和比較表用的順序（圖上的排法是為了箭頭好畫，跟這個不同）
 LIST_ORDER = [GMAP[g] for g in ('freq', 'rule', 'graph', 'hui', 'inc', 'stream', 'spatial')]
-SVG_W, SVG_H = 900, 864
+SVG_W, SVG_H = 900, 922
 
 # 欄的中心 x
 A, B, C, D, E = 78, 262, 472, 648, 818
@@ -169,6 +169,12 @@ NODES = [
          struct='IHUP-tree（存所有商品）、條件樹，另外保留交易供驗證', fit='交易一直新增、要常常拿高效益結果',
          short='CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。',
          frm=[('cantree', 'solid', '一樣用固定順序的樹，新交易直接插')]),
+    dict(id='foth', name='FOTH', sub='論文 2024', year='2024', page='foth', group='hui', x=E, y=562,
+         idea='商品組合編成二進位，每筆交易的 IndexSet 自己拆出子集合、接到同編碼的 IndexSet 後面，取代 utility list 的 join；mining area 的 U+RU 當上界剪',
+         scans='2 次（算 TWU、建 IndexSet）', cand='不會（one-phase）',
+         struct='IndexSet（vector + fixedPos）＋紅黑樹', fit='稠密資料、高效益樣式很長時；稀疏資料反而慢、記憶體較多',
+         short='不 join：每筆交易自己拆出子集合接上去。',
+         frm=[('huiminer', 'solid', '同一棵搜尋樹與上界，把 join 換成自我傳播')]),
     # 串流
     dict(id='sw', name='滑動視窗', year='', page='sliding-window', group='stream', x=A, y=652,
          idea='只看最近 W 筆：進來那筆的子集合 +1、離開那筆的 −1，其他組合不用動',
@@ -197,33 +203,45 @@ NODES = [
          struct='m = 2^p 個小暫存器、一個雜湊函數', fit='只要知道「有幾個不同的」，或要把各分店的結果合併',
          short='幾百個位元組估計有幾個不同的，誤差約 1.04/√m。',
          frm=[('bloom', 'dash', '一樣把東西雜湊進格子，改問「有幾個不同的」')]),
+    dict(id='huops', name='HUOPS', sub='論文 2025', year='2025', page='sw-huop', group='stream', x=A, y=720,
+         idea='樣式在出現的交易裡佔整筆效益的比例取平均（佔有率）；HUOPS-List 照批次分組，舊批次整組刪，要挖時照支持度重排、算剩餘佔有率，再用 UBUO1、UBUO2 剪枝（list 合併跟 HUI-Miner 同一套）',
+         scans='單趟（每批讀 1 次；挖時只讀 list）', cand='不會（list 合併）',
+         struct='HUOPS-List（節點記 sumUo、sumRuo，entry 照批次分組）、tempArray', fit='只在乎最近的資料，想找佔整筆消費比例高的組合',
+         short='佔有率版的 utility list 搬上滑動視窗，舊批次整組刪。',
+         frm=[('sw', 'solid', '一樣只看最近的視窗，改成一批一批進出')]),
+    dict(id='swupa', name='SWUPA', sub='論文 2026', year='2026', page='uncertain-sw', group='stream', x=B, y=720,
+         idea='每個商品一條 (TID, 機率) 串列（像 Eclat 的垂直格式加上機率），一批一批滑動視窗、從前面刪掉最舊的一批；合併前用 ExpSup×MaxEP 剪枝，合併中用 ppCLw 提早停',
+         scans='單趟：每批進來、離開各處理一次', cand='不會（串列深度優先合併）',
+         struct='SWUPA-List（TID、機率、ExpSup、MaxEP）', fit='資料帶信心值或機率（感測器、辨識），只想看最近的趨勢',
+         short='不確定資料＋滑動視窗：期望支持度、兩種上界剪枝。',
+         frm=[('sw', 'solid', '一樣只看最近的資料，改成一批一批滑')]),
     # 空間
-    dict(id='quad', name='四元樹', year='1974', page='spatial', group='spatial', x=A, y=754,
+    dict(id='quad', name='四元樹', year='1974', page='spatial', group='spatial', x=A, y=812,
          idea='依空間從中線切成四塊，點多的地方切細，範圍查詢時整塊跳過不相干的格子',
          scans='—（不是交易資料；建樹時每個點插入一次）', cand='—',
          struct='四元樹', fit='點分布不平均、要做範圍查詢',
          short='把地圖依密度切格子，範圍查詢整塊跳過。'),
-    dict(id='coloc', name='共位樣式', year='2004', page='spatial', group='spatial', x=B, y=754,
+    dict(id='coloc', name='共位樣式', year='2004', page='spatial', group='spatial', x=B, y=812,
          idea='用「距離 ≤ r」取代交易，算參與指數 PI，照 Apriori 一層一層剪',
          scans='—（每一層找一次列實例）', cand='會（跟 Apriori 一樣合併＋剪枝）',
          struct='鄰近關係、列實例', fit='想知道哪幾種店總是開在彼此附近',
          short='頻繁樣式搬到地圖上：哪幾種店總是開在一起。'),
-    dict(id='rtree', name='R-tree', year='1984', page='rtree', group='spatial', x=C, y=754,
+    dict(id='rtree', name='R-tree', year='1984', page='rtree', group='spatial', x=C, y=812,
          idea='用剛好包住一群點的框（MBR）建平衡樹；kNN 用優先佇列依距離一路打開最近的框',
          scans='—（建樹時每個點插入一次）', cand='—',
          struct='R-tree、優先佇列', fit='資料庫裡的地圖資料、找最近的 k 個',
          short='依資料包框的平衡樹，最近 k 家店一下就找到。'),
-    dict(id='dbscan', name='DBSCAN', year='1996', page='dbscan', group='spatial', x=D, y=754,
+    dict(id='dbscan', name='DBSCAN', year='1996', page='dbscan', group='spatial', x=D, y=812,
          idea='圈裡鄰居夠多的是核心點，沿著核心點把鄰居一圈一圈拉進來長成一群',
          scans='—（每個點做 1 次 ε 範圍查詢）', cand='—',
          struct='佇列（可再加四元樹、R-tree 加速找鄰居）', fit='不知道要分幾群、群的形狀奇怪、有雜訊',
          short='依密度分群，不用先說幾群，還會標出雜訊。'),
-    dict(id='skyline', name='Skyline', sub='BNL・SFS', year='2001·2003', page='skyline', group='spatial', x=E, y=754,
+    dict(id='skyline', name='Skyline', sub='BNL・SFS', year='2001·2003', page='skyline', group='spatial', x=E, y=812,
          idea='找出沒有被任何一家「每一項都不輸、至少一項更好」打敗的點；BNL 用視窗兩兩比較，SFS 先排序讓視窗只進不出',
          scans='視窗放得下就 1 輪；放不下要再讀暫存檔', cand='—',
          struct='視窗（目前還沒被打敗的點）、暫存檔', fit='多個條件一起挑（又便宜又近），不想自己訂權重',
          short='又便宜又近：找出不被任何一家全面打敗的店。'),
-    dict(id='irtree', name='IR-tree', sub='關鍵字', year='2009', page='ir-tree', group='spatial', x=C, y=826,
+    dict(id='irtree', name='IR-tree', sub='關鍵字', year='2009', page='ir-tree', group='spatial', x=C, y=884,
          idea='R-tree 的每個節點多記一份倒排表；查詢時關鍵字湊不齊的子樹整個跳過，湊得齊的依距離進優先佇列',
          scans='—（只打開距離近、關鍵字齊的節點）', cand='—',
          struct='R-tree＋每個節點的倒排表、優先佇列', fit='找「最近、而且有這些關鍵字」的 k 個地點',
@@ -265,9 +283,9 @@ ROUTES = [
     ]),
 ]
 ROUTE_EXTRA = {  # 路線走完可以接著看的
-    '串流與空間路線': ['bloom', 'hll', 'skyline', 'irtree'],
+    '串流與空間路線': ['bloom', 'hll', 'huops', 'swupa', 'skyline', 'irtree'],
     '入門路線': ['gsp', 'spade', 'gspan', 'pfp'],
-    '高效益路線': ['uspan', 'fup', 'cantree', 'ihup'],
+    '高效益路線': ['foth', 'uspan', 'fup', 'cantree', 'ihup'],
 }
 
 # ── 產生 HTML 片段 ──────────────────────────────────────────

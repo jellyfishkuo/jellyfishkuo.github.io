@@ -30,7 +30,7 @@
 
 ## 研究互動 Demo
 
-共 28 個，大部分用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔）當例子。每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。首頁 Research 區可以點主題標籤篩選。
+共 31 個（其中 3 個是讀論文做的，頁面附書目與 DOI），大部分用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔）當例子。每個 Demo 都能一步一步看演算法怎麼跑，Java / Python 程式碼逐行高亮，程式檔放在 [`research/code/`](research/code/) 可直接執行。首頁 Research 區可以點主題標籤篩選。
 
 - [研究地圖](research/overview.html)：所有演算法「改良自誰」的關係圖、建議閱讀順序、比較表。
 - [效能比賽場](research/benchmark.html)：在瀏覽器裡產生上萬筆隨機交易，實際跑頻繁／高效益樣式演算法，畫出門檻對時間的圖。
@@ -39,9 +39,9 @@
 |---|---|
 | 頻繁樣式 | [Apriori](research/apriori.html)、[FP-Growth](research/fp-growth.html)、[Eclat](research/eclat.html)、[封閉與最大樣式（CHARM）](research/closed-patterns.html)、[週期性頻繁樣式（PFP-tree）](research/periodic.html)、[gSpan 圖形樣式](research/gspan.html) |
 | 關聯規則・序列 | [關聯規則：信賴度與提升度](research/association-rules.html)、[序列樣式 PrefixSpan](research/prefixspan.html)、[GSP 與 SPADE](research/gsp-spade.html) |
-| 高效益樣式 | [Two-Phase](research/two-phase.html)、[UP-Growth](research/up-growth.html)、[HUI-Miner](research/high-utility.html)、[EFIM](research/efim.html)、[Top-k 高效益樣式](research/top-k-hui.html)、[USpan 高效益序列](research/uspan.html) |
+| 高效益樣式 | [Two-Phase](research/two-phase.html)、[UP-Growth](research/up-growth.html)、[HUI-Miner](research/high-utility.html)、[EFIM](research/efim.html)、[Top-k 高效益樣式](research/top-k-hui.html)、[USpan 高效益序列](research/uspan.html)、[📄 FOTH（Inf. Sci. 2024）](research/foth.html) |
 | 增量資料庫 | [FUP](research/incremental.html)、[CanTree](research/cantree.html)、[IHUP 增量高效益樣式](research/ihup.html) |
-| 資料串流 | [滑動視窗](research/sliding-window.html)、[Lossy Counting・Space-Saving](research/stream-counting.html)、[Count-Min Sketch](research/count-min.html)、[Bloom Filter](research/bloom-filter.html)、[HyperLogLog](research/hyperloglog.html) |
+| 資料串流 | [滑動視窗](research/sliding-window.html)、[Lossy Counting・Space-Saving](research/stream-counting.html)、[Count-Min Sketch](research/count-min.html)、[Bloom Filter](research/bloom-filter.html)、[HyperLogLog](research/hyperloglog.html)、[📄 HUOPS 滑動視窗佔有率（Inf. Sci. 2025）](research/sw-huop.html)、[📄 SWUPA 滑動視窗不確定樣式（ESWA 2026）](research/uncertain-sw.html) |
 | 空間資料 | [四元樹與共位樣式](research/spatial.html)、[R-tree 與 kNN 查詢](research/rtree.html)、[IR-tree 空間關鍵字查詢](research/ir-tree.html)、[DBSCAN 密度分群](research/dbscan.html)、[Skyline：BNL 與 SFS](research/skyline.html) |
 
 ### 幾個從這些專案裡算出來的結果
