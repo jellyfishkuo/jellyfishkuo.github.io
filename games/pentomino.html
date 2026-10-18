@@ -47,7 +47,13 @@
             --mono: 'Space Mono', ui-monospace, monospace;
 
             /* 兩個模式的棋盤都由這個變數推導，切換分頁時盤面尺寸完全一致 */
-            --cell-size: 50px;
+            /* 桌機：格子依視窗高度縮放，讓盤面、旋轉／翻面鍵、托盤不用捲動就看得到
+               ① (100dvh - 345px) / 8：盤面上方的標題、分頁、表頭約 240px，下方到旋轉鍵約 90px（實測 8 格 + 335px）
+               ② (100dvh - 230px) / 10：托盤是 10 格高，上方約 150px、下方留 80px
+               ③ (100vw - 215px) / 20：三欄（托盤 6 格 ×2 + 盤面 8 格）加上框線、內距與捲軸要塞得進寬度，
+                  不然盤面會被擠偏，切換分頁時左右差幾 px
+               最大 50px，最小 30px */
+            --cell-size: max(30px, min(50px, (100dvh - 345px) / 8, (100dvh - 230px) / 10, (100vw - 215px) / 20));
             --board-pad: 8px;
             --board-frame: calc(var(--cell-size) * 8 + var(--board-pad) * 2);
         }
@@ -66,6 +72,10 @@
         /* 格子取整數 px：小數寬度的格子會讓拖上去的積木和格線差半像素，
            兩個模式看起來就不完全一樣（不支援 round() 的瀏覽器維持上面的寫法） */
         @supports (width: round(down, 10.5px, 1px)) {
+            :root {
+                --cell-size: round(down, max(30px, min(50px, (100dvh - 345px) / 8, (100dvh - 230px) / 10, (100vw - 215px) / 20)), 1px);
+            }
+
             @media (max-width: 1190px) {
                 :root {
                     --cell-size: round(down, min(9vw, 4.6dvh, 44px), 1px);
@@ -593,6 +603,19 @@
             /* 下限要比兩個模式的表頭內容都高（實測最高 78.7px），
                否則內容較多的那一邊會把表頭撐高、棋盤就跟著往下移 */
             min-height: 80px;
+        }
+
+        /* 桌機矮螢幕的格子會縮小、面板跟著變窄，說明文字會折成更多行把表頭撐高。
+           表頭寬度不夠時，兩個模式一起收起補充說明，表頭高度才會一致 */
+        .s-head {
+            container-type: inline-size;
+        }
+
+        @container (max-width: 330px) {
+            .p-hint,
+            .s-sub-more {
+                display: none;
+            }
         }
 
         .s-title {
