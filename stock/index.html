@@ -109,7 +109,12 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .day { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) 6.5em; gap: 8px; align-items: center; font-size: .86rem; padding: 4px; }
 .day .d { color: var(--muted); line-height: 1.2; }
 .day .d small { display: block; font-size: .72rem; }
+.day .mid { min-width: 0; display: grid; gap: 3px; }
 .day .barwrap { height: 10px; position: relative; }
+.day .ops { font-size: .72rem; line-height: 1.3; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .6em; }
+.day .ops span { white-space: nowrap; }
+.day .ops b { font-weight: 700; }
+.per .n.op { color: var(--muted); font-size: .76rem; white-space: normal; }
 .day .barwrap i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .day .barwrap i.up { background: var(--up); } .day .barwrap i.down { background: var(--down); }
 .day .barwrap::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 1px solid var(--line); }
@@ -630,11 +635,22 @@ function renderDays() {
           el("span", { class: "pct num " + cls(Math.sign(pct || 0)), text: pct == null ? "" : (pct > 0 ? "▲" : pct < 0 ? "▼" : "") + Math.abs(pct).toFixed(2) + "%" }),
           el("span", { class: "amt num " + cls(v), text: sign(v) + fmt0(Math.abs(v)) })));
       }
+      // 當天自己的操作
+      const ops = state.trades.filter(t => t.date === r.d).sort((a, b) => (a.seq || 0) - (b.seq || 0));
+      const lots = n => (n % 1000 === 0 ? n / 1000 + " 張" : n.toLocaleString("zh-TW") + " 股");
+      for (const t of ops) {
+        const m = tradeMoney(t, state.settings);
+        per.append(el("div", { class: "miss" }, el("span", { class: "n op",
+          text: `${t.side === "buy" ? "買進" : "賣出"} ${t.code} ${names.get(t.code)?.name || ""} ${lots(t.shares)} @${fmtP(t.price)}，${t.side === "buy" ? "付" : "收"} ${fmt0(m.total)}` })));
+      }
       if (r.missing.length) per.append(el("div", { class: "miss" }, el("span", { class: "n", text: `沒有收盤價：${r.missing.join("、")}` })));
       box.append(el("details", { class: "dayd" },
         el("summary", { class: "day" },
           el("span", { class: "d num" }, document.createTextNode(`${Number(r.d.slice(5, 7))}/${Number(r.d.slice(8, 10))}`), el("small", { text: "週" + WD[dt.getDay()] })),
-          el("div", { class: "barwrap" }, bar),
+          el("div", { class: "mid" }, el("div", { class: "barwrap" }, bar),
+            ops.length ? el("div", { class: "ops" }, ...ops.map(t => el("span", {},
+              el("b", { class: t.side === "buy" ? "up" : "down", text: t.side === "buy" ? "買" : "賣" }),
+              document.createTextNode(" " + t.code)))) : null),
           el("span", { class: "v num " + cls(r.pl), text: sign(r.pl) + fmt0(Math.abs(r.pl)) })),
         per));
     }
