@@ -54,6 +54,6 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 
 ## stock/：股票庫存的收盤價
 
-`python3 tools/stock/fetch_quotes.py` 抓證交所（上市）和櫃買中心（上櫃）當天收盤價，寫到 `stock/data/latest.json`、每檔的歷史 `stock/data/hist/<代號>.json` 和 `stock/data/names.json`（代號→名稱，打代號自動帶名稱用）。平常由 GitHub Actions（`.github/workflows/stock-quotes.yml`）每個交易日台灣時間 17:10 自動跑並 commit；要手動補跑就到 Actions 頁按 Run workflow。
+`python3 tools/stock/fetch_quotes.py` 抓證交所（上市）和櫃買中心（上櫃）當天收盤價，寫到 `stock/data/latest.json`、每檔的歷史 `stock/data/hist/<代號>.json` 和 `stock/data/names.json`（代號→名稱，打代號自動帶名稱用）。平常由 GitHub Actions（`.github/workflows/stock-quotes.yml`）每個交易日台灣時間 15:40、17:10、19:40、22:10 各跑一次並 commit（收盤價用指定日期的 MI_INDEX／櫃買每日行情，還沒公布就等下一次；OpenAPI 傍晚常常還是前一天的，只拿來更新名稱）；要手動補跑就到 Actions 頁按 Run workflow。
 
 更早的歷史用 `python3 tools/stock/backfill.py 2025-01-01`（或 Actions 的「台股歷史收盤價補抓」，填開始日期）補；已經補過的日子會跳過。

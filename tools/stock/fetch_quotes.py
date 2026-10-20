@@ -7,6 +7,11 @@
     stock/data/hist/<代號>.json  每檔每天的收盤價（見 hist.py；更早的用 backfill.py 補）
     stock/data/names.json       {代號: 名稱}，打代號時自動帶名稱用（下市的舊名稱會留著）
 沒有新資料（假日、已經抓過）就什麼都不改。
+
+收盤價一定用「指定日期」的證交所 MI_INDEX／櫃買中心每日收盤行情（backfill.py 的 twse()、tpex()），
+這兩個查今天、今天還沒公布就是空的。OpenAPI 只拿來更新名稱：它在傍晚常常還是前一天的資料，
+又沒有日期欄位，以前直接拿來當今天的收盤價，結果上市股票記成前一天的價格。
+上市、上櫃都抓到才寫入，沒抓到就等下一次排程（workflow 一天跑好幾次）。
 """
 import datetime
 import json
@@ -16,7 +21,8 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hist import add_days  # noqa: E402
+from hist import HIST, add_days  # noqa: E402
+from backfill import tpex, twse  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 OUT = os.path.join(ROOT, "stock", "data")
@@ -80,11 +86,7 @@ def fetch():
 
 
 def main():
-    q, names, date = fetch()
-    if len(q) < 300:
-        sys.exit(f"只抓到 {len(q)} 檔，不寫入")
-    if not date:
-        date = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
+    _, names, _ = fetch()
     os.makedirs(OUT, exist_ok=True)
     npath = os.path.join(OUT, "names.json")
     old_names = {}
@@ -96,6 +98,28 @@ def main():
         with open(npath, "w", encoding="utf-8") as f:
             json.dump(dict(sorted(merged.items())), f, ensure_ascii=False, separators=(",", ":"))
         print("名稱", len(merged), "檔")
+
+    day = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).date()
+    if len(sys.argv) > 1:
+        day = datetime.date.fromisoformat(sys.argv[1])
+    date = day.isoformat()
+    a = twse(day)
+    b = tpex(day)
+    print(date, "上市", len(a), "上櫃", len(b))
+    if len(a) < 300 or len(b) < 300:
+        print("還沒公布（或今天沒開盤），先不寫入", date)
+        return
+    q = {**b, **a}
+    # 漲跌抓不到（例如除息寫「除息」）就用前一天收盤價補
+    for code, v in q.items():
+        if v[1] is None:
+            v[1] = 0
+            path = os.path.join(HIST, code + ".json")
+            if os.path.exists(path):
+                with open(path, encoding="utf-8") as f:
+                    prev = [k for k in json.load(f).items() if k[0] < date]
+                if prev:
+                    v[1] = round(v[0] - max(prev)[1][0], 2)
     path = os.path.join(OUT, "latest.json")
     old = {}
     if os.path.exists(path):
@@ -109,6 +133,7 @@ def main():
                       f, ensure_ascii=False, separators=(",", ":"))
         print("寫入", date, len(q), "檔")
     print("每檔歷史更新", add_days({date: q}), "檔")
+
 
 if __name__ == "__main__":
     main()

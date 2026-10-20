@@ -56,10 +56,18 @@ def pick_table(js, code_word, close_word):
     return None, []
 
 
+def same_day(js, day):
+    """回傳的日期跟要查的不一樣（還沒公布時有的會給最近一天）就不要用"""
+    d = re.sub(r"\D", "", str((js or {}).get("date") or "")) if isinstance(js, dict) else ""
+    if len(d) == 7:
+        d = str(int(d[:3]) + 1911) + d[3:]
+    return len(d) != 8 or d == f"{day:%Y%m%d}"
+
+
 def twse(day):
     js = get(f"https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date={day:%Y%m%d}&type=ALLBUT0999&response=json")
     f, rows = pick_table(js, "證券代號", "收盤價")
-    if not f:
+    if not f or not same_day(js, day):
         return {}
     ic, ip = f.index("證券代號"), f.index("收盤價")
     isg = next((i for i, x in enumerate(f) if "漲跌(+/-)" in x), None)
@@ -81,6 +89,8 @@ def tpex(day):
     js = get("https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?"
              + urllib.parse.urlencode({"date": f"{day:%Y/%m/%d}", "type": "EW", "response": "json"}))
     f, rows = pick_table(js, "代號", "收盤")
+    if f and not same_day(js, day):
+        return {}
     if f:
         ic = next(i for i, x in enumerate(f) if "代號" in x)
         ip = next(i for i, x in enumerate(f) if "收盤" in x)
