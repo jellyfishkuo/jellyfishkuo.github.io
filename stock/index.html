@@ -51,6 +51,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 [data-theme="light"] nav.tabs { border: 2px solid #1d2b12; background: #f6fbef; }
 [data-theme="light"] nav.tabs button[aria-selected="true"] { background: #ffb02e; color: #1d2b12; box-shadow: none; }
 [data-theme="light"] .price-row a { color: #0e7490; }
+[data-theme="light"] input[type="date"] { background: #fff; color: #1d2b12; border-color: #1d2b12; }
 :root[data-theme="dark"] { --accent: #06b6d4; --accent-ink: #04161a; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -143,6 +144,8 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .form h2, .box h2 { font-size: 1rem; margin: 0; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (min-width: 620px) { .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fields.txfields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fields .wide { grid-column: 1 / -1; }
 .field { display: grid; gap: 4px; min-width: 0; align-content: start; }
 .field label { font-size: .78rem; color: var(--muted); }
 .fname { font-size: .82rem; font-weight: 700; min-height: 1.4em; overflow-wrap: anywhere; }
@@ -247,12 +250,12 @@ details summary { cursor: pointer; font-weight: 700; }
         <button type="button" class="buy" id="sideBuy" aria-pressed="true">買進</button>
         <button type="button" class="sell" id="sideSell" aria-pressed="false">賣出</button>
       </div>
-      <div class="fields">
+      <div class="fields txfields">
         <div class="field"><label for="fDate">成交日期</label><input type="date" id="fDate" required></div>
-        <div class="field"><label for="fCode">股票代號</label><input id="fCode" inputmode="text" autocomplete="off" placeholder="2330" list="codeList"><span class="fname none" id="fName" aria-live="polite">&nbsp;</span></div>
-        <div class="field"><label for="fShares">股數（1 張 = 1000 股）</label><input id="fShares" type="number" inputmode="numeric" min="1" step="1" placeholder="1000"></div>
+        <div class="field"><label for="fCode">股票代號</label><input id="fCode" type="text" inputmode="text" autocomplete="off" placeholder="2330" list="codeList"><span class="fname none" id="fName" aria-live="polite">&nbsp;</span></div>
+        <div class="field"><label for="fShares">股數（1 張＝1000）</label><input id="fShares" type="number" inputmode="numeric" min="1" step="1" placeholder="1000"></div>
         <div class="field"><label for="fPrice">成交價</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1000"></div>
-        <div class="field"><label for="fKind">類型（決定交易稅）</label>
+        <div class="field wide"><label for="fKind">類型（決定交易稅）</label>
           <select id="fKind">
             <option value="stock">一般股票（稅 0.3%）</option>
             <option value="etf">ETF（稅 0.1%）</option>
@@ -285,8 +288,9 @@ details summary { cursor: pointer; font-weight: 700; }
         <div class="field"><label for="sDisc">券商折扣（6 折填 6，沒折扣填 10）</label><input id="sDisc" type="number" step="0.01" min="0" max="10" inputmode="decimal"></div>
         <div class="field"><label for="sMin">整股最低手續費（元）</label><input id="sMin" type="number" step="1" min="0" inputmode="numeric"></div>
         <div class="field"><label for="sMinOdd">零股最低手續費（元）</label><input id="sMinOdd" type="number" step="1" min="0" inputmode="numeric"></div>
+        <div class="field"><label for="sRound">手續費的小數</label><select id="sRound"><option value="0">無條件捨去</option><option value="1">四捨五入</option></select></div>
       </div>
-      <div class="note">成交金額小數先捨去，手續費 = 成交金額 × 費率 × 折扣，小數無條件捨去，不到最低就收最低。交易稅只有賣出時收：一般股票 0.3%、ETF 0.1%、債券 ETF 目前免徵。券商算法可能略有不同，對帳單上的數字可以直接填在「實際手續費」。</div>
+      <div class="note">成交金額小數先捨去，手續費 = 成交金額 × 費率 × 折扣，小數照上面的設定捨去或四捨五入，不到最低就收最低。交易稅只有賣出時收：一般股票 0.3%、ETF 0.1%、債券 ETF 目前免徵。券商算法可能略有不同，對帳單上的數字可以直接填在「實際手續費」。</div>
       <div class="note" id="setPreview"></div>
     </div>
     <div class="box">
@@ -316,7 +320,7 @@ details summary { cursor: pointer; font-weight: 700; }
 <script>
 /* ---------- 計算（純函式） ---------- */
 const TAX = { stock: 0.003, etf: 0.001, bond: 0 };
-const DEFAULT_SETTINGS = { feeRate: 0.001425, discount: 1, minFee: 20, minFeeOdd: 1 };
+const DEFAULT_SETTINGS = { feeRate: 0.001425, discount: 1, minFee: 20, minFeeOdd: 1, feeRound: 0 };
 
 function guessKind(code) {
   code = String(code || "").toUpperCase();
@@ -326,7 +330,8 @@ function guessKind(code) {
 }
 function calcFee(amount, shares, s) {
   if (!(amount > 0)) return 0;
-  const raw = Math.floor(amount * s.feeRate * s.discount + 1e-9);
+  const x = amount * s.feeRate * s.discount;
+  const raw = s.feeRound ? Math.round(x) : Math.floor(x + 1e-9);
   const min = shares % 1000 === 0 ? s.minFee : s.minFeeOdd;
   return Math.max(raw, min);
 }
@@ -821,7 +826,7 @@ function renderSettings() {
   const setIf = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v; };
   setIf("sRate", +(s.feeRate * 100).toFixed(6));
   setIf("sDisc", +(s.discount * 10).toFixed(4));
-  setIf("sMin", s.minFee); setIf("sMinOdd", s.minFeeOdd);
+  setIf("sMin", s.minFee); setIf("sMinOdd", s.minFeeOdd); setIf("sRound", String(s.feeRound ? 1 : 0));
   const ex = calcFee(100000, 1000, s);
   $("setPreview").textContent = `照現在的設定，買 10 萬元的股票手續費是 ${fmt0(ex)} 元；買 1 股 50 元的零股手續費是 ${fmt0(calcFee(50, 1, s))} 元。`;
 }
@@ -832,9 +837,10 @@ function readSettings() {
   if ($("sDisc").value !== "" && d > 0 && d <= 10) s.discount = d / 10;
   if ($("sMin").value !== "" && mn >= 0) s.minFee = Math.round(mn);
   if ($("sMinOdd").value !== "" && mo >= 0) s.minFeeOdd = Math.round(mo);
+  s.feeRound = $("sRound").value === "1" ? 1 : 0;
   state.settings = s; save(); render(); updatePreview();
 }
-for (const id of ["sRate", "sDisc", "sMin", "sMinOdd"]) $(id).addEventListener("change", readSettings);
+for (const id of ["sRate", "sDisc", "sMin", "sMinOdd", "sRound"]) $(id).addEventListener("change", readSettings);
 
 /* ---------- 備份、清空、範例 ---------- */
 $("copyBackup").addEventListener("click", () => {
