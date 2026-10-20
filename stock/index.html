@@ -159,6 +159,10 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .err { color: var(--up); font-size: .85rem; min-height: 1.3em; }
 
 .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.txday { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; margin-top: 14px; padding: 6px 10px; background: var(--soft); border-radius: 8px; font-size: .88rem; }
+.txday:first-child { margin-top: 0; }
+.txday span { color: var(--muted); }
+.txday + .tx { border-top: 0; }
 .tx { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .tx:first-of-type { border-top: 0; }
 .side { font-size: .78rem; font-weight: 700; border-radius: 6px; padding: 2px 7px; color: #fff; }
@@ -666,7 +670,22 @@ function renderTx() {
   const s = state.settings;
   const sorted = state.trades.slice().sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : b.seq - a.seq));
   if (!sorted.length) { list.append(el("div", { class: "empty" }, el("span", { text: "還沒有交易紀錄，用上面的表單記第一筆。" }))); return; }
+  const WD = "日一二三四五六";
+  let lastDate = null;
   for (const t of sorted) {
+    if (t.date !== lastDate) {
+      lastDate = t.date;
+      const same = sorted.filter(x => x.date === t.date);
+      const paid = same.filter(x => x.side === "buy").reduce((a, x) => a + tradeMoney(x, s).total, 0);
+      const got = same.filter(x => x.side === "sell").reduce((a, x) => a + tradeMoney(x, s).total, 0);
+      const parts = [];
+      if (paid) parts.push(`買進付 ${fmt0(paid)}`);
+      if (got) parts.push(`賣出收 ${fmt0(got)}`);
+      const dt = new Date(t.date + "T00:00:00");
+      list.append(el("div", { class: "txday" },
+        el("b", { class: "num", text: `${t.date.replace(/-/g, "/")}（${WD[dt.getDay()]}）` }),
+        el("span", { class: "num", text: parts.join("・") })));
+    }
     const m = tradeMoney(t, s);
     const detail = t.side === "buy" ? `手續費 ${fmt0(m.fee)}` : `手續費 ${fmt0(m.fee)}・稅 ${fmt0(m.tax)}`;
     const delBtn = el("button", { class: "btn small danger", type: "button", text: pendingDelete === t.id ? "確定刪除？" : "刪除" });
@@ -679,7 +698,7 @@ function renderTx() {
       el("span", { class: "side " + t.side, text: t.side === "buy" ? "買" : "賣" }),
       el("div", { class: "main" },
         el("div", {}, el("span", { class: "mono", text: t.code + " " }), document.createTextNode(t.name || "")),
-        el("div", { class: "d num", text: `${t.date}・${fmt0(t.shares)} 股 @ ${fmtP(t.price)}` })),
+        el("div", { class: "d num", text: `${fmt0(t.shares)} 股 @ ${fmtP(t.price)}` })),
       el("div", { class: "amt" },
         el("div", { class: "num", text: (t.side === "buy" ? "付 " : "收 ") + fmt0(m.total) }),
         el("div", { class: "s num", text: detail })),
