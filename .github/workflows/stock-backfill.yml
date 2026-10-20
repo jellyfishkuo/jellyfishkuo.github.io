@@ -1,0 +1,48 @@
+# 手動觸發：補過去每天的收盤價（股票庫存頁的每日損益用）
+name: 台股歷史收盤價補抓
+
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "從哪天開始補（YYYY-MM-DD）"
+        required: true
+        default: "2025-01-01"
+      until:
+        description: "補到哪天（空白＝昨天）"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-quotes
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 tools/stock/backfill.py "$SINCE" $UNTIL
+        timeout-minutes: 220
+        env:
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+      - name: Commit
+        if: always()
+        env:
+          SINCE: ${{ inputs.since }}
+        run: |
+          git add stock/data
+          if git diff --cached --quiet; then echo "沒有變動"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git commit -m "股票：補歷史收盤價 $SINCE 起"
+          git pull --rebase origin main
+          git push

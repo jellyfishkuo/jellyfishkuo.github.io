@@ -234,7 +234,7 @@ details summary { cursor: pointer; font-weight: 700; }
       <div class="note" id="dRange"></div>
     </div>
     <div id="dayList" class="panel"></div>
-    <div class="note">每天收盤後自動算：前一天的庫存 × 當天漲跌，當天有買賣的另外算進去（含手續費和稅）。點某一天可以看每檔賺賠。紀錄存在這個瀏覽器裡，從自動抓股價開始（2026/10/19）才有資料。</div>
+    <div class="note">每天收盤後自動算：前一天的庫存 × 當天漲跌，當天有買賣的另外算進去（含手續費和稅）。點某一天可以看每檔賺賠。從你第一筆交易那天開始算。</div>
   </section>
 
   <!-- 交易 -->
@@ -555,7 +555,9 @@ function renderDays() {
   $("dWin").textContent = rows.filter(r => r.pl > 0.5).length + " 天";
   $("dLose").textContent = rows.filter(r => r.pl < -0.5).length + " 天";
   const last = rows[rows.length - 1].d, first = rows[0].d;
-  $("dRange").textContent = `${last.replace(/-/g, "/")} 到 ${first.replace(/-/g, "/")}，共 ${rows.length} 個交易日`;
+  const firstTrade = state.trades.reduce((m, t) => (!m || t.date < m ? t.date : m), "");
+  $("dRange").textContent = `${last.replace(/-/g, "/")} 到 ${first.replace(/-/g, "/")}，共 ${rows.length} 個交易日`
+    + (firstTrade && firstTrade < last ? `（第一筆交易是 ${firstTrade.replace(/-/g, "/")}，更早的收盤價還沒有資料）` : "");
   const max = Math.max(...rows.map(r => Math.abs(r.pl)), 1);
   const names = computeHoldings(state.trades, state.settings).all;
   const WD = "日一二三四五六";
@@ -877,26 +879,29 @@ async function loadQuotes() {
     const d = await getQuoteFile("latest");
     if (!d || !d.q || !/^\d{4}-\d{2}-\d{2}$/.test(d.date || "")) return;
     quotes = d;
+    render();
+    /* 每日損益：下載自己有交易的那幾檔的歷史收盤價（data/hist/代號.json），從第一筆交易那天開始算 */
     const codes = [...new Set(state.trades.map(t => t.code))];
     const firstDate = state.trades.reduce((m, t) => (!m || t.date < m ? t.date : m), "");
-    let changed = false;
-    const need = date => {
-      const h = state.qhist[date];
-      return !h || codes.some(c => !(c in h) && state.trades.some(t => t.code === c && t.date <= date));
-    };
-    const setDay = (date, q) => { const o = {}; for (const c of codes) o[c] = q[c] || null; state.qhist[date] = o; changed = true; };
-    if (firstDate && d.date >= firstDate && need(d.date)) setDay(d.date, d.q);
-    const days = (Array.isArray(d.days) ? d.days : []).filter(x => x !== d.date && firstDate && x >= firstDate).sort().reverse();
-    for (const day of days.filter(need).slice(0, 40)) {
-      try {
-        const ds = await getQuoteFile("d" + day.replace(/-/g, ""));
-        if (ds && ds.q) setDay(day, ds.q);
-      } catch (e) {}
+    if (!codes.length) return;
+    const hists = await Promise.all(codes.map(c => getQuoteFile("hist/" + encodeURIComponent(c)).catch(() => ({}))));
+    const qhist = {};
+    codes.forEach((c, i) => {
+      for (const [date, v] of Object.entries(hists[i] || {})) {
+        if (date < firstDate || !Array.isArray(v)) continue;
+        (qhist[date] = qhist[date] || {})[c] = v;
+      }
+    });
+    if (d.date >= firstDate) {
+      qhist[d.date] = qhist[d.date] || {};
+      for (const c of codes) if (d.q[c]) qhist[d.date][c] = d.q[c];
     }
-    const keep = Object.keys(state.qhist).sort().reverse().slice(0, 1500);
-    for (const k of Object.keys(state.qhist)) if (!keep.includes(k)) { delete state.qhist[k]; changed = true; }
-    if (changed && !state.example) save();
-    render();
+    if (Object.keys(qhist).length) {
+      const changed = JSON.stringify(qhist) !== JSON.stringify(state.qhist);
+      state.qhist = qhist;
+      if (changed && !state.example) save();
+      render();
+    }
   } catch (e) {}
 }
 

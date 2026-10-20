@@ -3,8 +3,8 @@
 由 .github/workflows/stock-quotes.yml 每個交易日收盤後執行；也可以手動跑：
     python3 tools/stock/fetch_quotes.py
 輸出：
-    stock/data/latest.json      {"date", "fetchedAt", "days": [...], "q": {代號: [收盤價, 漲跌]}}
-    stock/data/dYYYYMMDD.json   {"date", "q"}，只留最近 120 個交易日
+    stock/data/latest.json      {"date", "fetchedAt", "q": {代號: [收盤價, 漲跌]}}
+    stock/data/hist/<代號>.json  每檔每天的收盤價（見 hist.py；更早的用 backfill.py 補）
     stock/data/names.json       {代號: 名稱}，打代號時自動帶名稱用（下市的舊名稱會留著）
 沒有新資料（假日、已經抓過）就什麼都不改。
 """
@@ -15,9 +15,11 @@ import re
 import sys
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hist import add_days  # noqa: E402
+
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 OUT = os.path.join(ROOT, "stock", "data")
-KEEP_DAYS = 120
 # 股票、ETF、特別股；權證（6 碼 03xxxx～08xxxx、7xxxxx）不需要，省掉一大半檔案大小
 WANTED = re.compile(r"^(\d{4}[A-Z]?|00\d{2,4}[A-Z]?)$")
 SOURCES = [
@@ -99,21 +101,14 @@ def main():
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             old = json.load(f)
-        if old.get("date") == date and old.get("q") == q:
-            print("沒有新資料", date)
-            return
-    days = sorted(set(old.get("days", [])) | {date})[-KEEP_DAYS:]
-    dump = lambda obj, name: json.dump(obj, open(os.path.join(OUT, name), "w", encoding="utf-8"),
-                                       ensure_ascii=False, separators=(",", ":"))
-    dump({"date": date, "q": q}, "d" + date.replace("-", "") + ".json")
-    dump({"date": date, "fetchedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-          "days": days, "q": q}, "latest.json")
-    keep = {"d" + d.replace("-", "") + ".json" for d in days}
-    for name in os.listdir(OUT):
-        if name.startswith("d") and name.endswith(".json") and name not in keep:
-            os.remove(os.path.join(OUT, name))
-    print("寫入", date, len(q), "檔")
-
+    if old.get("date") == date and old.get("q") == q:
+        print("沒有新資料", date)
+    else:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"date": date, "fetchedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "q": q},
+                      f, ensure_ascii=False, separators=(",", ":"))
+        print("寫入", date, len(q), "檔")
+    print("每檔歷史更新", add_days({date: q}), "檔")
 
 if __name__ == "__main__":
     main()
