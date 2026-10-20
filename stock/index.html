@@ -105,7 +105,7 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .banner { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: .86rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 
 nav.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
-nav.tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; padding: 9px 4px; border-radius: 9px; cursor: pointer; }
+nav.tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; padding: 9px 2px; white-space: nowrap; font-size: clamp(.82rem, 3.9vw, .95rem); border-radius: 9px; cursor: pointer; }
 nav.tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
 .panel { display: grid; gap: 12px; }
@@ -255,15 +255,15 @@ details summary { cursor: pointer; font-weight: 700; }
         <div class="field"><label for="fCode">股票代號</label><input id="fCode" type="text" inputmode="text" autocomplete="off" placeholder="2330" list="codeList"><span class="fname none" id="fName" aria-live="polite">&nbsp;</span></div>
         <div class="field"><label for="fShares">股數（1 張＝1000）</label><input id="fShares" type="number" inputmode="numeric" min="1" step="1" placeholder="1000"></div>
         <div class="field"><label for="fPrice">成交價</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1000"></div>
-        <div class="field wide"><label for="fKind">類型（決定交易稅）</label>
+        <div class="field"><label for="fKind">類型（交易稅）</label>
           <select id="fKind">
-            <option value="stock">一般股票（稅 0.3%）</option>
-            <option value="etf">ETF（稅 0.1%）</option>
-            <option value="bond">債券 ETF（免稅）</option>
+            <option value="stock">股票 0.3%</option>
+            <option value="etf">ETF 0.1%</option>
+            <option value="bond">債券ETF 免稅</option>
           </select>
         </div>
-        <div class="field"><label for="fFee">實際手續費（選填）</label><input id="fFee" type="number" inputmode="numeric" min="0" step="1" placeholder="自動算"></div>
-        <div class="field" id="fTaxWrap"><label for="fTax">實際交易稅（選填）</label><input id="fTax" type="number" inputmode="numeric" min="0" step="1" placeholder="自動算"></div>
+        <div class="field"><label for="fFee">實際手續費</label><input id="fFee" type="number" inputmode="numeric" min="0" step="1" placeholder="自動算"></div>
+        <div class="field" id="fTaxWrap"><label for="fTax">實際交易稅</label><input id="fTax" type="number" inputmode="numeric" min="0" step="1" placeholder="自動算"></div>
       </div>
       <datalist id="codeList"></datalist>
       <div class="preview num" id="preview">填好股數和成交價，這裡會算出手續費和總金額。</div>
