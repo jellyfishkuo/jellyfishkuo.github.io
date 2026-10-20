@@ -61,7 +61,8 @@ def fetch():
         n = 0
         for r in rows:
             code = str(r.get(kc, "")).strip().upper()
-            name = str(r.get(kn, "") or "").strip()
+            # 名稱欄位名稱兩邊不一樣，櫃買中心的也改過，找不到就用任何名字有 Name 的欄位
+            name = str(r.get(kn) or next((v for k, v in r.items() if "Name" in k and v), "") or "").strip()
             if WANTED.match(code) and name:
                 names[code] = name
             p, ch = num(r.get(kp)), num(r.get(kd))
@@ -72,7 +73,7 @@ def fetch():
             d = to_date(r.get("Date"))
             if d:
                 dates.append(d)
-        print(url, n, "檔")
+        print(url, n, "檔", "欄位：" + ",".join(rows[0].keys()) if rows else "")
     return q, names, (max(dates) if dates else None)
 
 
