@@ -182,10 +182,16 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .err { color: var(--up); font-size: .85rem; min-height: 1.3em; }
 
 .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
-.txday { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; margin-top: 14px; padding: 6px 10px; background: var(--soft); border-radius: 8px; font-size: .88rem; }
-.txday:first-child { margin-top: 0; }
+#txList { display: grid; gap: 14px; }
+.txgroup { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.txgroup > .tx { margin: 0 10px; }
+@media (max-width: 360px) { .box:has(> #txList) { padding: 10px 8px; } .txgroup > .tx { margin: 0 8px; gap: 4px 8px; } }
+.txday { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; padding: 8px 10px; background: var(--soft); border-bottom: 1px solid var(--line); font-size: .88rem; }
+.txday b { font-size: .98rem; }
 .txday span { color: var(--muted); }
 .txday + .tx { border-top: 0; }
+[data-theme="light"] .txgroup { border: 2px solid #1d2b12; }
+[data-theme="light"] .txday { background: #ffe3a8; border-bottom: 2px solid #1d2b12; }
 .tx { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .tx:first-of-type { border-top: 0; }
 .side { font-size: .78rem; font-weight: 700; border-radius: 6px; padding: 2px 7px; color: #fff; }
@@ -815,7 +821,7 @@ function renderTx() {
   const sorted = state.trades.slice().sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : b.seq - a.seq));
   if (!sorted.length) { list.append(el("div", { class: "empty" }, el("span", { text: "還沒有交易紀錄，用上面的表單記第一筆。" }))); return; }
   const WD = "日一二三四五六";
-  let lastDate = null;
+  let lastDate = null, group = null;
   for (const t of sorted) {
     if (t.date !== lastDate) {
       lastDate = t.date;
@@ -826,7 +832,9 @@ function renderTx() {
       if (paid) parts.push(`買進付 ${fmt0(paid)}`);
       if (got) parts.push(`賣出收 ${fmt0(got)}`);
       const dt = new Date(t.date + "T00:00:00");
-      list.append(el("div", { class: "txday" },
+      group = el("div", { class: "txgroup" });
+      list.append(group);
+      group.append(el("div", { class: "txday" },
         el("b", { class: "num", text: `${t.date.replace(/-/g, "/")}（${WD[dt.getDay()]}）` }),
         el("span", { class: "num", text: parts.join("・") })));
     }
@@ -838,7 +846,7 @@ function renderTx() {
         state.trades = state.trades.filter(x => x.id !== t.id); pendingDelete = null; save(); render(); toast("已刪除這筆交易");
       } else { pendingDelete = t.id; renderTx(); }
     });
-    list.append(el("div", { class: "tx" },
+    group.append(el("div", { class: "tx" },
       el("span", { class: "side " + t.side, text: t.side === "buy" ? "買" : "賣" }),
       el("div", { class: "main" },
         el("div", {}, el("span", { class: "mono", text: t.code + " " }), document.createTextNode(t.name || "")),
