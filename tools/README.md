@@ -51,3 +51,7 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 4. 跑測試，例如 `python3 t_mp1.py`、`python3 t_resume.py`（多人、斷線重連、再來一局等情境；`mp.py` / `rx.py` / `harness.py` 是共用的輔助函式）
 
 這些測試腳本是一路修 bug 時寫的，有的還假設舊的 UI；跑失敗時先看是不是腳本跟不上頁面。
+
+## stock/：股票庫存的收盤價
+
+`python3 tools/stock/fetch_quotes.py` 抓證交所（上市）和櫃買中心（上櫃）當天收盤價，寫到 `stock/data/latest.json` 和 `stock/data/dYYYYMMDD.json`（只留最近 60 個交易日）。平常由 GitHub Actions（`.github/workflows/stock-quotes.yml`）每個交易日台灣時間 17:10 自動跑並 commit；要手動補跑就到 Actions 頁按 Run workflow。

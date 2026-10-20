@@ -1,0 +1,33 @@
+# 每個交易日收盤後抓台股收盤價，寫進 stock/data/（股票庫存頁用）
+name: 台股收盤價
+
+on:
+  schedule:
+    - cron: "10 9 * * 1-5"   # 台灣時間 17:10
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-quotes
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 tools/stock/fetch_quotes.py
+      - name: Commit
+        run: |
+          git add stock/data
+          if git diff --cached --quiet; then echo "沒有變動"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git commit -m "股票：更新收盤價 $(python3 -c 'import json;print(json.load(open("stock/data/latest.json"))["date"])')"
+          git pull --rebase origin main
+          git push

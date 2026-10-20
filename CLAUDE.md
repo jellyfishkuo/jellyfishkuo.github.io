@@ -22,6 +22,7 @@ assets/icons/<name>.svg + -32.png + -180.png   每個作品的圖示（64×64、
 games/                  單檔遊戲／工具（HTML+CSS+JS 同一檔），以及 *-detail.html 技術介紹頁（由 tools/detail 產生）
 research/               研究互動 Demo（由 tools/research 產生）與 research/code/ 可執行的 Java / Python
 electricity-tracker/    電費紀錄（index.html + script.js + style.css）
+stock/                  股票庫存（擁有者自己用，不放首頁、不放 README；noindex）。交易存 localStorage `jfk-stock-portfolio-v1`；收盤價由 .github/workflows/stock-quotes.yml 每個交易日 17:10 跑 tools/stock/fetch_quotes.py 寫進 stock/data/
 tools/                  產生頁面的原始檔與測試，見 tools/README.md
 ```
 
