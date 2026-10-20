@@ -143,9 +143,9 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .form h2, .box h2 { font-size: 1rem; margin: 0; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (min-width: 620px) { .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.field { display: grid; gap: 4px; min-width: 0; }
-.field label, .field .flabel { font-size: .78rem; color: var(--muted); }
-.fname { padding: 8px 2px; font-weight: 700; min-height: 2.4em; overflow-wrap: anywhere; }
+.field { display: grid; gap: 4px; min-width: 0; align-content: start; }
+.field label { font-size: .78rem; color: var(--muted); }
+.fname { font-size: .82rem; font-weight: 700; min-height: 1.4em; overflow-wrap: anywhere; }
 .fname.none { font-weight: 400; color: var(--muted); }
 .field input, .field select { width: 100%; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
@@ -249,8 +249,7 @@ details summary { cursor: pointer; font-weight: 700; }
       </div>
       <div class="fields">
         <div class="field"><label for="fDate">成交日期</label><input type="date" id="fDate" required></div>
-        <div class="field"><label for="fCode">股票代號</label><input id="fCode" inputmode="text" autocomplete="off" placeholder="2330" list="codeList"></div>
-        <div class="field"><span class="flabel">名稱（照交易所自動帶）</span><div class="fname" id="fName" aria-live="polite">打代號就會出現</div></div>
+        <div class="field"><label for="fCode">股票代號</label><input id="fCode" inputmode="text" autocomplete="off" placeholder="2330" list="codeList"><span class="fname none" id="fName" aria-live="polite">&nbsp;</span></div>
         <div class="field"><label for="fShares">股數（1 張 = 1000 股）</label><input id="fShares" type="number" inputmode="numeric" min="1" step="1" placeholder="1000"></div>
         <div class="field"><label for="fPrice">成交價</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1000"></div>
         <div class="field"><label for="fKind">類型（決定交易稅）</label>
@@ -724,7 +723,7 @@ function resetForm() {
   $("txForm").reset(); $("fDate").value = todayStr(); $("fKind").value = "stock";
   $("formTitle").textContent = "記一筆交易"; $("saveTx").textContent = "記下來"; $("cancelEdit").hidden = true;
   $("formErr").textContent = ""; setSide("buy");
-  $("fName").textContent = "打代號就會出現"; $("fName").classList.add("none");
+  $("fName").textContent = "\u00a0"; $("fName").classList.add("none");
 }
 function startEdit(t) {
   editingId = t.id;
@@ -759,7 +758,7 @@ function fillName() {
   const code = $("fCode").value.trim().toUpperCase();
   const name = code ? nameOf(code) : "";
   const box = $("fName");
-  box.textContent = name || (!code ? "打代號就會出現" : code.length < 4 ? "…" : stockNames ? "查不到這個代號" : "名稱讀取中…");
+  box.textContent = name || (code.length >= 4 ? (stockNames ? "查不到這個代號" : "名稱讀取中…") : "\u00a0");
   box.classList.toggle("none", !name);
   const known = computeHoldings(state.trades, state.settings).all.get(code);
   if (known) $("fKind").value = known.kind;
