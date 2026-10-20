@@ -144,7 +144,9 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (min-width: 620px) { .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .field { display: grid; gap: 4px; min-width: 0; }
-.field label { font-size: .78rem; color: var(--muted); }
+.field label, .field .flabel { font-size: .78rem; color: var(--muted); }
+.fname { padding: 8px 2px; font-weight: 700; min-height: 2.4em; overflow-wrap: anywhere; }
+.fname.none { font-weight: 400; color: var(--muted); }
 .field input, .field select { width: 100%; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
 .seg button { font: inherit; font-weight: 700; border: 0; padding: 7px; background: var(--bg); color: var(--muted); cursor: pointer; }
@@ -248,7 +250,7 @@ details summary { cursor: pointer; font-weight: 700; }
       <div class="fields">
         <div class="field"><label for="fDate">成交日期</label><input type="date" id="fDate" required></div>
         <div class="field"><label for="fCode">股票代號</label><input id="fCode" inputmode="text" autocomplete="off" placeholder="2330" list="codeList"></div>
-        <div class="field"><label for="fName">名稱</label><input id="fName" autocomplete="off" placeholder="台積電"></div>
+        <div class="field"><span class="flabel">名稱（照交易所自動帶）</span><div class="fname" id="fName" aria-live="polite">打代號就會出現</div></div>
         <div class="field"><label for="fShares">股數（1 張 = 1000 股）</label><input id="fShares" type="number" inputmode="numeric" min="1" step="1" placeholder="1000"></div>
         <div class="field"><label for="fPrice">成交價</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1000"></div>
         <div class="field"><label for="fKind">類型（決定交易稅）</label>
@@ -695,7 +697,7 @@ function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(
 function readForm() {
   const code = $("fCode").value.trim().toUpperCase();
   const t = {
-    date: $("fDate").value, code, name: $("fName").value.trim(), side,
+    date: $("fDate").value, code, name: nameOf(code), side,
     shares: Math.round(Number($("fShares").value)), price: Number($("fPrice").value), kind: $("fKind").value,
     fee: $("fFee").value === "" ? null : Number($("fFee").value),
     tax: side === "sell" && $("fTax").value !== "" ? Number($("fTax").value) : null,
@@ -718,17 +720,18 @@ function updatePreview() {
     : `成交金額 ${fmt0(m.amount)} − 手續費 ${fmt0(m.fee)} − 交易稅 ${fmt0(m.tax)} ＝ 拿回 ${fmt0(m.total)} 元`;
 }
 function resetForm() {
-  editingId = null; autoName = "";
+  editingId = null;
   $("txForm").reset(); $("fDate").value = todayStr(); $("fKind").value = "stock";
   $("formTitle").textContent = "記一筆交易"; $("saveTx").textContent = "記下來"; $("cancelEdit").hidden = true;
   $("formErr").textContent = ""; setSide("buy");
+  $("fName").textContent = "打代號就會出現"; $("fName").classList.add("none");
 }
 function startEdit(t) {
   editingId = t.id;
-  $("fDate").value = t.date; $("fCode").value = t.code; $("fName").value = t.name;
+  $("fDate").value = t.date; $("fCode").value = t.code;
   $("fShares").value = t.shares; $("fPrice").value = t.price; $("fKind").value = t.kind;
   $("fFee").value = t.fee ?? ""; $("fTax").value = t.tax ?? "";
-  autoName = t.name;
+  fillName();
   $("formTitle").textContent = "編輯交易"; $("saveTx").textContent = "儲存修改"; $("cancelEdit").hidden = false;
   setSide(t.side); showTab("tx");
   $("txForm").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -737,15 +740,28 @@ $("sideBuy").addEventListener("click", () => setSide("buy"));
 $("sideSell").addEventListener("click", () => setSide("sell"));
 $("cancelEdit").addEventListener("click", resetForm);
 for (const id of ["fShares", "fPrice", "fKind", "fFee", "fTax", "fCode"]) $(id).addEventListener("input", updatePreview);
-/* 打代號自動帶名稱：先用自己記過的名字，沒有就用 data/names.json（每天跟收盤價一起抓） */
-let stockNames = null, autoName = "";
-fetch("data/names.json", { cache: "no-cache" }).then(r => (r.ok ? r.json() : null)).then(d => { if (d && typeof d === "object") { stockNames = d; fillName(); } }).catch(() => {});
+/* 股票名稱一律用交易所的正式名稱（data/names.json，每天跟收盤價一起更新，改名也會跟著變） */
+let stockNames = null;
+function nameOf(code) {
+  if (stockNames && stockNames[code]) return stockNames[code];
+  const known = computeHoldings(state.trades, state.settings).all.get(code);
+  return (known && known.name) || "";
+}
+fetch("data/names.json", { cache: "no-cache" }).then(r => (r.ok ? r.json() : null)).then(d => {
+  if (!d || typeof d !== "object") return;
+  stockNames = d;
+  let changed = false;
+  for (const t of state.trades) if (d[t.code] && t.name !== d[t.code]) { t.name = d[t.code]; changed = true; }
+  if (changed && !state.example) save();
+  render(); fillName();
+}).catch(() => {});
 function fillName() {
   const code = $("fCode").value.trim().toUpperCase();
+  const name = code ? nameOf(code) : "";
+  const box = $("fName");
+  box.textContent = name || (!code ? "打代號就會出現" : code.length < 4 ? "…" : stockNames ? "查不到這個代號" : "名稱讀取中…");
+  box.classList.toggle("none", !name);
   const known = computeHoldings(state.trades, state.settings).all.get(code);
-  const name = (known && known.name) || (stockNames && stockNames[code]) || "";
-  const cur = $("fName").value;
-  if (cur === "" || cur === autoName) { $("fName").value = name; autoName = name; }
   if (known) $("fKind").value = known.kind;
   else if (code.length >= 4) $("fKind").value = guessKind(code);
   updatePreview();
