@@ -77,6 +77,20 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .today { font-weight: 700; font-size: 1.05rem; margin-top: 2px; }
 .today .s { font-size: .78rem; color: var(--muted); font-weight: 500; margin-left: 6px; }
 .days { display: grid; gap: 2px; }
+.range { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.range button { font: inherit; font-size: .78rem; font-weight: 700; border: 0; background: transparent; color: var(--muted); padding: 5px 9px; cursor: pointer; }
+.range button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.chart-info { font-size: clamp(.74rem, 3.4vw, .84rem); min-height: 1.4em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chart-info b { color: var(--ink); }
+.chart { position: relative; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .axis { font-size: 11px; fill: var(--muted); font-family: var(--font-num); }
+.chart .zero { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: 1; opacity: .6; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.chart .area { fill: var(--accent); opacity: .12; }
+.chart .cursor { stroke: var(--ink); stroke-width: 1; opacity: .4; }
+.chart .dot { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
 .month { display: grid; gap: 2px; }
 .month-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 .month-head b { font-size: 1rem; }
@@ -241,6 +255,15 @@ details summary { cursor: pointer; font-weight: 700; }
         <div class="kpi"><div class="s">賠的天數</div><div class="v num down" id="dLose">—</div></div>
       </div>
       <div class="note" id="dRange"></div>
+    </div>
+    <div class="box" id="chartBox" hidden>
+      <div class="bar"><h2 class="grow">累計損益</h2>
+        <div class="range" role="group" aria-label="期間">
+          <button type="button" data-range="30">1 個月</button><button type="button" data-range="90">3 個月</button><button type="button" data-range="0">全部</button>
+        </div>
+      </div>
+      <div class="chart-info num" id="chartInfo">&nbsp;</div>
+      <div class="chart" id="chart"></div>
     </div>
     <div id="dayList" class="panel"></div>
     <div class="note">每天收盤後自動算：前一天的庫存 × 當天漲跌，當天有買賣的另外算進去（含手續費和稅）。點某一天可以看每檔賺賠。從你第一筆交易那天開始算。</div>
@@ -553,6 +576,7 @@ function renderDays() {
   }
   list.replaceChildren();
   const setV = (id, n) => setMoney($(id), n, true);
+  $("chartBox").hidden = rows.length < 2;
   if (!rows.length) {
     for (const id of ["dMonth", "dAll"]) setV(id, null);
     $("dWin").textContent = "—"; $("dLose").textContent = "—"; $("dRange").textContent = "";
@@ -569,6 +593,7 @@ function renderDays() {
   const firstTrade = state.trades.reduce((m, t) => (!m || t.date < m ? t.date : m), "");
   $("dRange").textContent = `${last.replace(/-/g, "/")} 到 ${first.replace(/-/g, "/")}，共 ${rows.length} 個交易日`
     + (firstTrade && firstTrade < last ? `（第一筆交易是 ${firstTrade.replace(/-/g, "/")}，更早的收盤價還沒有資料）` : "");
+  drawChart(rows.slice().reverse());
   const max = Math.max(...rows.map(r => Math.abs(r.pl)), 1);
   const names = computeHoldings(state.trades, state.settings).all;
   const WD = "日一二三四五六";
@@ -605,6 +630,81 @@ function renderDays() {
     list.append(box);
   }
 }
+/* 累計損益折線圖：每天的賺賠一路加起來；點或滑過圖可以看那天的數字 */
+let chartRange = 90, chartRows = [];
+try { const r = Number(localStorage.getItem(LS_KEY + "-range")); if ([0, 30, 90].includes(r)) chartRange = r; } catch (e) {}
+function drawChart(asc) {
+  if (asc) chartRows = asc;
+  const box = $("chart");
+  for (const b of document.querySelectorAll(".range button")) b.setAttribute("aria-pressed", Number(b.dataset.range) === chartRange);
+  let rows = chartRows;
+  if (chartRange && rows.length) {
+    const from = new Date(rows[rows.length - 1].d + "T00:00:00"); from.setDate(from.getDate() - chartRange);
+    const iso = from.toISOString().slice(0, 10);
+    const cut = rows.filter(r => r.d > iso);
+    if (cut.length >= 2) rows = cut;
+  }
+  let sum = 0;
+  const base = chartRows.slice(0, chartRows.indexOf(rows[0])).reduce((a, r) => a + r.pl, 0);
+  sum = base;
+  const pts = rows.map(r => ({ d: r.d, pl: r.pl, c: (sum += r.pl) }));
+  box.replaceChildren();
+  if (pts.length < 2) return;
+  const W = Math.max(280, Math.round(box.clientWidth || 320)), H = 190, R = 6, T = 10, B = 22;
+  let lo = Math.min(0, ...pts.map(p => p.c)), hi = Math.max(0, ...pts.map(p => p.c));
+  if (hi - lo < 1) hi = lo + 1;
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const tick = v => (Math.abs(v) < 0.5 ? "0" : sign(v) + fmt0(Math.abs(v)));
+  const L = 10 + 6.6 * Math.max(...[hi - pad, lo + pad, 0].map(v => tick(v).length));
+  const x = i => L + (W - L - R) * i / (pts.length - 1);
+  const y = v => T + (H - T - B) * (hi - v) / (hi - lo);
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+  const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "累計損益折線圖" });
+  /* 格線：上下兩條＋ 0 */
+  for (const v of [hi - pad, lo + pad]) if (Math.abs(v) > 0.5) {
+    svg.append(mk("line", { class: "grid", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+    const t = mk("text", { class: "axis", x: L - 6, y: y(v) + 4, "text-anchor": "end" }); t.textContent = tick(v); svg.append(t);
+  }
+  svg.append(mk("line", { class: "zero", x1: L, x2: W - R, y1: y(0), y2: y(0) }));
+  const zt = mk("text", { class: "axis", x: L - 6, y: y(0) + 4, "text-anchor": "end" }); zt.textContent = "0"; svg.append(zt);
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.c).toFixed(1)}`).join("");
+  svg.append(mk("path", { class: "area", d: `${path}L${x(pts.length - 1).toFixed(1)},${y(0).toFixed(1)}L${x(0).toFixed(1)},${y(0).toFixed(1)}Z` }));
+  svg.append(mk("path", { class: "line", d: path }));
+  const md = d => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const lab = (txt, xx, anchor) => { const t = mk("text", { class: "axis", x: xx, y: H - 6, "text-anchor": anchor }); t.textContent = txt; svg.append(t); };
+  lab((pts[0].d.slice(0, 4) !== pts[pts.length - 1].d.slice(0, 4) ? pts[0].d.slice(2, 4) + "/" : "") + md(pts[0].d), L, "start");
+  lab(md(pts[pts.length - 1].d), W - R, "end");
+  const cursor = mk("line", { class: "cursor", y1: T, y2: H - B, x1: 0, x2: 0, visibility: "hidden" });
+  const dot = mk("circle", { class: "dot", r: 4, cx: x(pts.length - 1), cy: y(pts[pts.length - 1].c) });
+  svg.append(cursor, dot);
+  box.append(svg);
+  const info = $("chartInfo");
+  const show = i => {
+    const p = pts[i];
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.c));
+    cursor.setAttribute("x1", x(i)); cursor.setAttribute("x2", x(i)); cursor.setAttribute("visibility", "visible");
+    info.replaceChildren(el("b", { text: p.d.replace(/-/g, "/") + " " }),
+      el("span", { class: cls(p.c), text: `累計 ${sign(p.c)}${fmt0(Math.abs(p.c))}` }),
+      document.createTextNode("・當天 "), el("span", { class: cls(p.pl), text: sign(p.pl) + fmt0(Math.abs(p.pl)) }));
+  };
+  show(pts.length - 1); cursor.setAttribute("visibility", "hidden");
+  const pick = e => {
+    const r = svg.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width * W;
+    show(Math.max(0, Math.min(pts.length - 1, Math.round((px - L) / (W - L - R) * (pts.length - 1)))));
+  };
+  svg.addEventListener("pointermove", pick);
+  svg.addEventListener("pointerdown", pick);
+  svg.addEventListener("pointerleave", () => { show(pts.length - 1); cursor.setAttribute("visibility", "hidden"); });
+}
+for (const b of document.querySelectorAll(".range button")) b.addEventListener("click", () => {
+  chartRange = Number(b.dataset.range);
+  try { localStorage.setItem(LS_KEY + "-range", String(chartRange)); } catch (e) {}
+  drawChart();
+});
+let chartResize;
+window.addEventListener("resize", () => { clearTimeout(chartResize); chartResize = setTimeout(() => drawChart(), 150); });
 function renderHoldings(holdings) {
   const list = $("holdList"); list.replaceChildren();
   const s = state.settings;
@@ -817,6 +917,7 @@ function showTab(name) {
     $("panel-" + n).hidden = n !== name;
   }
   try { localStorage.setItem(LS_KEY + "-tab", name); } catch (e) {}
+  if (name === "day") drawChart();
 }
 for (const n of ["hold", "day", "tx", "set"]) $("tab-" + n).addEventListener("click", () => showTab(n));
 $("goAdd").addEventListener("click", () => { resetForm(); showTab("tx"); $("fCode").focus(); });
