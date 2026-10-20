@@ -285,7 +285,7 @@ details summary { cursor: pointer; font-weight: 700; }
         <div class="field"><label for="sMin">整股最低手續費（元）</label><input id="sMin" type="number" step="1" min="0" inputmode="numeric"></div>
         <div class="field"><label for="sMinOdd">零股最低手續費（元）</label><input id="sMinOdd" type="number" step="1" min="0" inputmode="numeric"></div>
       </div>
-      <div class="note">手續費 = 成交金額 × 費率 × 折扣，小數無條件捨去，不到最低就收最低。交易稅只有賣出時收：一般股票 0.3%、ETF 0.1%、債券 ETF 目前免徵。券商算法可能略有不同，對帳單上的數字可以直接填在「實際手續費」。</div>
+      <div class="note">成交金額小數先捨去，手續費 = 成交金額 × 費率 × 折扣，小數無條件捨去，不到最低就收最低。交易稅只有賣出時收：一般股票 0.3%、ETF 0.1%、債券 ETF 目前免徵。券商算法可能略有不同，對帳單上的數字可以直接填在「實際手續費」。</div>
       <div class="note" id="setPreview"></div>
     </div>
     <div class="box">
@@ -334,7 +334,8 @@ function calcTax(amount, kind) {
   return Math.floor(amount * (TAX[kind] ?? TAX.stock) + 1e-9);
 }
 function tradeMoney(t, s) {
-  const amount = Math.round(t.shares * t.price * 100) / 100;
+  // 成交價金小數無條件捨去（券商對帳單的算法），手續費和稅再用整數價金算
+  const amount = Math.floor(Math.round(t.shares * t.price * 100) / 100 + 1e-9);
   const fee = t.fee != null ? t.fee : calcFee(amount, t.shares, s);
   const tax = t.side === "sell" ? (t.tax != null ? t.tax : calcTax(amount, t.kind)) : 0;
   const total = t.side === "buy" ? amount + fee : amount - fee - tax;
@@ -371,7 +372,7 @@ function computeHoldings(trades, s) {
 }
 function valuation(h, price, s) {
   if (!(price > 0)) return null;
-  const mv = Math.round(price * h.shares * 100) / 100;
+  const mv = Math.floor(Math.round(price * h.shares * 100) / 100 + 1e-9);
   const fee = calcFee(mv, h.shares, s);
   const tax = calcTax(mv, h.kind);
   const net = mv - fee - tax;
