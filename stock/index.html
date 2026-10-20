@@ -192,6 +192,9 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .side.buy { background: var(--up); } .side.sell { background: var(--down); }
 .tx .main { min-width: 0; }
 .tx .main .d { font-size: .78rem; color: var(--muted); }
+.tx .now { grid-column: 2 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; font-size: .78rem; color: var(--muted); padding: 4px 8px; background: var(--soft); border-radius: 6px; }
+.tx .now > span { white-space: nowrap; }
+.tx .now b { font-weight: 700; }
 .tx .amt { text-align: right; }
 .tx .amt .s { font-size: .76rem; color: var(--muted); }
 .tx .acts { grid-column: 2 / 4; display: flex; gap: 6px; justify-content: flex-end; }
@@ -792,6 +795,20 @@ function renderHoldings(holdings) {
 }
 
 let pendingDelete = null;
+/* 交易清單：現在的價格跟成交價比，漲跌多少（買的看賺賠價差，賣的看賣掉之後漲還跌） */
+function nowLine(t) {
+  const p = priceOf(t.code);
+  if (!p || p.src === "trade" || !(t.price > 0)) return null;
+  const diff = p.price - t.price, pct = diff / t.price * 100;
+  const c = cls(Math.sign(Math.round(diff * 100)));
+  const arrow = c === "up" ? "▲" : c === "down" ? "▼" : "";
+  const gap = t.shares * diff;
+  return el("div", { class: "now num" },
+    el("span", {}, document.createTextNode(`現價 ${fmtP(p.price)} `), el("b", { class: c, text: arrow + Math.abs(pct).toFixed(2) + "%" })),
+    t.side === "buy"
+      ? el("span", {}, document.createTextNode("價差 "), el("b", { class: cls(gap), text: sign(gap) + fmt0(Math.abs(gap)) }))
+      : el("span", { text: c === "up" ? "賣掉後漲了" : c === "down" ? "賣掉後跌了" : "跟賣價一樣" }));
+}
 function renderTx() {
   const list = $("txList"); list.replaceChildren();
   const s = state.settings;
@@ -829,6 +846,7 @@ function renderTx() {
       el("div", { class: "amt" },
         el("div", { class: "num", text: (t.side === "buy" ? "付 " : "收 ") + fmt0(m.total) }),
         el("div", { class: "s num", text: detail })),
+      nowLine(t),
       el("div", { class: "acts" },
         el("button", { class: "btn small", type: "button", text: "編輯", onclick: () => startEdit(t) }), delBtn)));
   }
