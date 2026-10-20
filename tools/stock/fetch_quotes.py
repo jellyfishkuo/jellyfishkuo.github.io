@@ -4,7 +4,8 @@
     python3 tools/stock/fetch_quotes.py
 輸出：
     stock/data/latest.json      {"date", "fetchedAt", "days": [...], "q": {代號: [收盤價, 漲跌]}}
-    stock/data/dYYYYMMDD.json   {"date", "q"}，只留最近 60 個交易日
+    stock/data/dYYYYMMDD.json   {"date", "q"}，只留最近 120 個交易日
+    stock/data/names.json       {代號: 名稱}，打代號時自動帶名稱用（下市的舊名稱會留著）
 沒有新資料（假日、已經抓過）就什麼都不改。
 """
 import datetime
@@ -16,13 +17,13 @@ import urllib.request
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 OUT = os.path.join(ROOT, "stock", "data")
-KEEP_DAYS = 60
+KEEP_DAYS = 120
 # 股票、ETF、特別股；權證（6 碼 03xxxx～08xxxx、7xxxxx）不需要，省掉一大半檔案大小
 WANTED = re.compile(r"^(\d{4}[A-Z]?|00\d{2,4}[A-Z]?)$")
 SOURCES = [
-    # (網址, 代號欄, 收盤價欄, 漲跌欄)
-    ("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", "Code", "ClosingPrice", "Change"),
-    ("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", "SecuritiesCompanyCode", "Close", "Change"),
+    # (網址, 代號欄, 名稱欄, 收盤價欄, 漲跌欄)
+    ("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", "Code", "Name", "ClosingPrice", "Change"),
+    ("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", "SecuritiesCompanyCode", "CompanyName", "Close", "Change"),
 ]
 
 
@@ -50,8 +51,8 @@ def to_date(d):
 
 
 def fetch():
-    q, dates = {}, []
-    for url, kc, kp, kd in SOURCES:
+    q, names, dates = {}, {}, []
+    for url, kc, kn, kp, kd in SOURCES:
         try:
             rows = get(url)
         except Exception as e:  # 一邊掛了另一邊照樣寫
@@ -60,6 +61,9 @@ def fetch():
         n = 0
         for r in rows:
             code = str(r.get(kc, "")).strip().upper()
+            name = str(r.get(kn, "") or "").strip()
+            if WANTED.match(code) and name:
+                names[code] = name
             p, ch = num(r.get(kp)), num(r.get(kd))
             if not WANTED.match(code) or not p or p <= 0:
                 continue
@@ -69,16 +73,26 @@ def fetch():
             if d:
                 dates.append(d)
         print(url, n, "檔")
-    return q, (max(dates) if dates else None)
+    return q, names, (max(dates) if dates else None)
 
 
 def main():
-    q, date = fetch()
+    q, names, date = fetch()
     if len(q) < 300:
         sys.exit(f"只抓到 {len(q)} 檔，不寫入")
     if not date:
         date = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
     os.makedirs(OUT, exist_ok=True)
+    npath = os.path.join(OUT, "names.json")
+    old_names = {}
+    if os.path.exists(npath):
+        with open(npath, encoding="utf-8") as f:
+            old_names = json.load(f)
+    merged = {**old_names, **names}
+    if merged != old_names:
+        with open(npath, "w", encoding="utf-8") as f:
+            json.dump(dict(sorted(merged.items())), f, ensure_ascii=False, separators=(",", ":"))
+        print("名稱", len(merged), "檔")
     path = os.path.join(OUT, "latest.json")
     old = {}
     if os.path.exists(path):

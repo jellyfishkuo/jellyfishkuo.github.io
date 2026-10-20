@@ -76,8 +76,20 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .today { font-weight: 700; font-size: 1.05rem; margin-top: 2px; }
 .today .s { font-size: .78rem; color: var(--muted); font-weight: 500; margin-left: 6px; }
 .days { display: grid; gap: 2px; }
-.day { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) 6.5em; gap: 8px; align-items: center; font-size: .86rem; padding: 3px 0; }
-.day .d { color: var(--muted); }
+.month { display: grid; gap: 2px; }
+.month-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.month-head b { font-size: 1rem; }
+.month-head .v { font-weight: 700; }
+.month-head .s { font-size: .78rem; color: var(--muted); width: 100%; }
+.dayd > summary { list-style: none; cursor: pointer; font-weight: 400; }
+.dayd > summary::-webkit-details-marker { display: none; }
+.dayd[open] > summary { background: var(--soft); border-radius: 8px; }
+.per { display: grid; gap: 2px; padding: 4px 8px 10px 4.8em; font-size: .82rem; }
+.per div { display: flex; justify-content: space-between; gap: 8px; }
+.per .n { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) 6.5em; gap: 8px; align-items: center; font-size: .86rem; padding: 4px; }
+.day .d { color: var(--muted); line-height: 1.2; }
+.day .d small { display: block; font-size: .72rem; }
 .day .barwrap { height: 10px; position: relative; }
 .day .barwrap i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .day .barwrap i.up { background: var(--up); } .day .barwrap i.down { background: var(--down); }
@@ -91,7 +103,7 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .note { font-size: .8rem; color: var(--muted); }
 .banner { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: .86rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 
-nav.tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
+nav.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
 nav.tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; padding: 9px 4px; border-radius: 9px; cursor: pointer; }
 nav.tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
@@ -190,7 +202,8 @@ details summary { cursor: pointer; font-weight: 700; }
 
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-hold" aria-selected="true">庫存</button>
-    <button role="tab" id="tab-tx" aria-selected="false">交易紀錄</button>
+    <button role="tab" id="tab-day" aria-selected="false">每日損益</button>
+    <button role="tab" id="tab-tx" aria-selected="false">交易</button>
     <button role="tab" id="tab-set" aria-selected="false">設定</button>
   </nav>
 
@@ -207,11 +220,21 @@ details summary { cursor: pointer; font-weight: 700; }
       <div class="bar"><button class="btn primary" id="bulkApply">更新</button><span class="err" id="bulkErr"></span></div>
     </div>
     <div id="holdList" class="panel"></div>
-    <div class="box" id="daysBox" hidden>
-      <div class="bar"><h2 class="grow">每日損益</h2><span class="note" id="monthSum"></span></div>
-      <div class="days" id="dayList"></div>
-      <div class="note">用每天收盤價算：前一天的庫存 × 當天漲跌，當天有買賣的另外算進去（含手續費和稅）。</div>
+  </section>
+
+  <!-- 每日損益 -->
+  <section class="panel" id="panel-day" hidden>
+    <div class="box">
+      <div class="kpis">
+        <div class="kpi"><div class="s">本月累計</div><div class="v num" id="dMonth">—</div></div>
+        <div class="kpi"><div class="s">全部累計</div><div class="v num" id="dAll">—</div></div>
+        <div class="kpi"><div class="s">賺的天數</div><div class="v num up" id="dWin">—</div></div>
+        <div class="kpi"><div class="s">賠的天數</div><div class="v num down" id="dLose">—</div></div>
+      </div>
+      <div class="note" id="dRange"></div>
     </div>
+    <div id="dayList" class="panel"></div>
+    <div class="note">每天收盤後自動算：前一天的庫存 × 當天漲跌，當天有買賣的另外算進去（含手續費和稅）。點某一天可以看每檔賺賠。紀錄存在這個瀏覽器裡，從自動抓股價開始（2026/10/19）才有資料。</div>
   </section>
 
   <!-- 交易 -->
@@ -510,29 +533,63 @@ function render() {
 
 let todayInfo = null;
 function renderDays() {
-  const box = $("daysBox"), list = $("dayList");
-  const dates = Object.keys(state.qhist || {}).sort().reverse().slice(0, 30);
+  const list = $("dayList");
+  const dates = Object.keys(state.qhist || {}).sort().reverse();
   const rows = [];
   for (const d of dates) {
     const r = dailyPL(state.trades, state.settings, d, state.qhist[d]);
-    if (r.any) rows.push({ d, pl: r.pl });
+    if (r.any) rows.push({ d, ...r });
   }
-  box.hidden = rows.length === 0;
-  if (!rows.length) return;
   list.replaceChildren();
+  const setV = (id, n) => setMoney($(id), n, true);
+  if (!rows.length) {
+    for (const id of ["dMonth", "dAll"]) setV(id, null);
+    $("dWin").textContent = "—"; $("dLose").textContent = "—"; $("dRange").textContent = "";
+    list.append(el("div", { class: "box empty" }, el("b", { text: "還沒有每日紀錄" }),
+      el("span", { text: state.trades.length ? "每個交易日收盤後（17:10 左右）會自動算出當天賺賠，之後打開這頁就看得到。" : "先記下你買的股票，之後每個交易日收盤後就會自動算出當天賺賠。" })));
+    return;
+  }
+  const ym0 = rows[0].d.slice(0, 7);
+  setV("dMonth", rows.filter(r => r.d.startsWith(ym0)).reduce((a, r) => a + r.pl, 0));
+  setV("dAll", rows.reduce((a, r) => a + r.pl, 0));
+  $("dWin").textContent = rows.filter(r => r.pl > 0.5).length + " 天";
+  $("dLose").textContent = rows.filter(r => r.pl < -0.5).length + " 天";
+  const last = rows[rows.length - 1].d, first = rows[0].d;
+  $("dRange").textContent = `${last.replace(/-/g, "/")} 到 ${first.replace(/-/g, "/")}，共 ${rows.length} 個交易日`;
   const max = Math.max(...rows.map(r => Math.abs(r.pl)), 1);
-  const ym = rows[0].d.slice(0, 7);
-  const monthSum = rows.filter(r => r.d.startsWith(ym)).reduce((a, r) => a + r.pl, 0);
-  $("monthSum").textContent = `${Number(ym.slice(5))} 月累計 ${sign(monthSum)}${fmt0(Math.abs(monthSum))}`;
-  $("monthSum").className = "note num " + cls(monthSum);
+  const names = computeHoldings(state.trades, state.settings).all;
+  const WD = "日一二三四五六";
+  const months = [];
   for (const r of rows) {
-    const w = Math.abs(r.pl) / max * 50;
-    const bar = el("i", { class: cls(r.pl) });
-    bar.style.width = w + "%"; bar.style.left = r.pl >= 0 ? "50%" : (50 - w) + "%";
-    list.append(el("div", { class: "day" },
-      el("span", { class: "d num", text: `${Number(r.d.slice(5, 7))}/${Number(r.d.slice(8, 10))}` }),
-      el("div", { class: "barwrap" }, bar),
-      el("span", { class: "v num " + cls(r.pl), text: sign(r.pl) + fmt0(Math.abs(r.pl)) })));
+    const ym = r.d.slice(0, 7);
+    if (!months.length || months[months.length - 1].ym !== ym) months.push({ ym, rows: [] });
+    months[months.length - 1].rows.push(r);
+  }
+  for (const m of months) {
+    const sum = m.rows.reduce((a, r) => a + r.pl, 0);
+    const win = m.rows.filter(r => r.pl > 0.5).length, lose = m.rows.filter(r => r.pl < -0.5).length;
+    const box = el("div", { class: "box month" },
+      el("div", { class: "month-head" },
+        el("b", { text: `${m.ym.slice(0, 4)} 年 ${Number(m.ym.slice(5))} 月` }),
+        el("span", { class: "v num " + cls(sum), text: sign(sum) + fmt0(Math.abs(sum)) }),
+        el("span", { class: "s", text: `賺 ${win} 天、賠 ${lose} 天` })));
+    for (const r of m.rows) {
+      const w = Math.abs(r.pl) / max * 50;
+      const bar = el("i", { class: cls(r.pl) });
+      bar.style.width = w + "%"; bar.style.left = r.pl >= 0 ? "50%" : (50 - w) + "%";
+      const dt = new Date(r.d + "T00:00:00");
+      const per = el("div", { class: "per" });
+      for (const [code, v] of Object.entries(r.per).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])))
+        per.append(el("div", {}, el("span", { class: "n", text: `${code} ${names.get(code)?.name || ""}` }), el("span", { class: "num " + cls(v), text: sign(v) + fmt0(Math.abs(v)) })));
+      if (r.missing.length) per.append(el("div", {}, el("span", { class: "n", text: `沒有收盤價：${r.missing.join("、")}` })));
+      box.append(el("details", { class: "dayd" },
+        el("summary", { class: "day" },
+          el("span", { class: "d num" }, document.createTextNode(`${Number(r.d.slice(5, 7))}/${Number(r.d.slice(8, 10))}`), el("small", { text: "週" + WD[dt.getDay()] })),
+          el("div", { class: "barwrap" }, bar),
+          el("span", { class: "v num " + cls(r.pl), text: sign(r.pl) + fmt0(Math.abs(r.pl)) })),
+        per));
+    }
+    list.append(box);
   }
 }
 function renderHoldings(holdings) {
@@ -658,7 +715,7 @@ function updatePreview() {
     : `成交金額 ${fmt0(m.amount)} − 手續費 ${fmt0(m.fee)} − 交易稅 ${fmt0(m.tax)} ＝ 拿回 ${fmt0(m.total)} 元`;
 }
 function resetForm() {
-  editingId = null;
+  editingId = null; autoName = "";
   $("txForm").reset(); $("fDate").value = todayStr(); $("fKind").value = "stock";
   $("formTitle").textContent = "記一筆交易"; $("saveTx").textContent = "記下來"; $("cancelEdit").hidden = true;
   $("formErr").textContent = ""; setSide("buy");
@@ -668,6 +725,7 @@ function startEdit(t) {
   $("fDate").value = t.date; $("fCode").value = t.code; $("fName").value = t.name;
   $("fShares").value = t.shares; $("fPrice").value = t.price; $("fKind").value = t.kind;
   $("fFee").value = t.fee ?? ""; $("fTax").value = t.tax ?? "";
+  autoName = t.name;
   $("formTitle").textContent = "編輯交易"; $("saveTx").textContent = "儲存修改"; $("cancelEdit").hidden = false;
   setSide(t.side); showTab("tx");
   $("txForm").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -676,14 +734,21 @@ $("sideBuy").addEventListener("click", () => setSide("buy"));
 $("sideSell").addEventListener("click", () => setSide("sell"));
 $("cancelEdit").addEventListener("click", resetForm);
 for (const id of ["fShares", "fPrice", "fKind", "fFee", "fTax", "fCode"]) $(id).addEventListener("input", updatePreview);
-$("fCode").addEventListener("change", () => {
+/* 打代號自動帶名稱：先用自己記過的名字，沒有就用 data/names.json（每天跟收盤價一起抓） */
+let stockNames = null, autoName = "";
+fetch("data/names.json", { cache: "no-cache" }).then(r => (r.ok ? r.json() : null)).then(d => { if (d && typeof d === "object") { stockNames = d; fillName(); } }).catch(() => {});
+function fillName() {
   const code = $("fCode").value.trim().toUpperCase();
-  $("fCode").value = code;
   const known = computeHoldings(state.trades, state.settings).all.get(code);
-  if (known) { if (!$("fName").value) $("fName").value = known.name || ""; $("fKind").value = known.kind; }
-  else $("fKind").value = guessKind(code);
+  const name = (known && known.name) || (stockNames && stockNames[code]) || "";
+  const cur = $("fName").value;
+  if (cur === "" || cur === autoName) { $("fName").value = name; autoName = name; }
+  if (known) $("fKind").value = known.kind;
+  else if (code.length >= 4) $("fKind").value = guessKind(code);
   updatePreview();
-});
+}
+$("fCode").addEventListener("input", fillName);
+$("fCode").addEventListener("change", () => { $("fCode").value = $("fCode").value.trim().toUpperCase(); fillName(); });
 $("txForm").addEventListener("submit", e => {
   e.preventDefault();
   const { t, err } = readForm();
@@ -705,13 +770,13 @@ $("txForm").addEventListener("submit", e => {
 
 /* ---------- 分頁 ---------- */
 function showTab(name) {
-  for (const n of ["hold", "tx", "set"]) {
+  for (const n of ["hold", "day", "tx", "set"]) {
     $("tab-" + n).setAttribute("aria-selected", n === name);
     $("panel-" + n).hidden = n !== name;
   }
   try { localStorage.setItem(LS_KEY + "-tab", name); } catch (e) {}
 }
-for (const n of ["hold", "tx", "set"]) $("tab-" + n).addEventListener("click", () => showTab(n));
+for (const n of ["hold", "day", "tx", "set"]) $("tab-" + n).addEventListener("click", () => showTab(n));
 $("goAdd").addEventListener("click", () => { resetForm(); showTab("tx"); $("fCode").focus(); });
 
 /* ---------- 批次股價 ---------- */
@@ -821,14 +886,14 @@ async function loadQuotes() {
     };
     const setDay = (date, q) => { const o = {}; for (const c of codes) o[c] = q[c] || null; state.qhist[date] = o; changed = true; };
     if (firstDate && d.date >= firstDate && need(d.date)) setDay(d.date, d.q);
-    const days = (Array.isArray(d.days) ? d.days : []).filter(x => x !== d.date && firstDate && x >= firstDate).sort().reverse().slice(0, 30);
-    for (const day of days.filter(need).slice(0, 15)) {
+    const days = (Array.isArray(d.days) ? d.days : []).filter(x => x !== d.date && firstDate && x >= firstDate).sort().reverse();
+    for (const day of days.filter(need).slice(0, 40)) {
       try {
         const ds = await getQuoteFile("d" + day.replace(/-/g, ""));
         if (ds && ds.q) setDay(day, ds.q);
       } catch (e) {}
     }
-    const keep = Object.keys(state.qhist).sort().reverse().slice(0, 60);
+    const keep = Object.keys(state.qhist).sort().reverse().slice(0, 1500);
     for (const k of Object.keys(state.qhist)) if (!keep.includes(k)) { delete state.qhist[k]; changed = true; }
     if (changed && !state.example) save();
     render();
@@ -840,7 +905,7 @@ async function loadQuotes() {
   const cached = lsGet();
   if (cached) state = normalize(cached);
   resetForm();
-  try { const tab = localStorage.getItem(LS_KEY + "-tab"); if (tab === "tx" || tab === "set") showTab(tab); } catch (e) {}
+  try { const tab = localStorage.getItem(LS_KEY + "-tab"); if (tab === "day" || tab === "tx" || tab === "set") showTab(tab); } catch (e) {}
   render();
   setSync(cached ? "已存在這台裝置" : "還沒有資料");
   loadQuotes();
