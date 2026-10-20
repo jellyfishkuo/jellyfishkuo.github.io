@@ -100,7 +100,11 @@ header.top { display: flex; align-items: baseline; justify-content: space-betwee
 .dayd > summary::-webkit-details-marker { display: none; }
 .dayd[open] > summary { background: var(--soft); border-radius: 8px; }
 .per { display: grid; gap: 2px; padding: 4px 8px 10px 4.8em; font-size: .82rem; }
-.per div { display: flex; justify-content: space-between; gap: 8px; }
+.per div { display: grid; grid-template-columns: minmax(0, 1fr) auto 5.2em; gap: 8px; align-items: baseline; }
+.per div.miss { grid-template-columns: minmax(0, 1fr); }
+.per .pct { font-size: .76rem; text-align: right; }
+.per .amt { text-align: right; }
+@media (max-width: 420px) { .per { padding-left: 1.2em; } }
 .per .n { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .day { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) 6.5em; gap: 8px; align-items: center; font-size: .86rem; padding: 4px; }
 .day .d { color: var(--muted); line-height: 1.2; }
@@ -572,7 +576,7 @@ function renderDays() {
   const rows = [];
   for (const d of dates) {
     const r = dailyPL(state.trades, state.settings, d, state.qhist[d]);
-    if (r.any) rows.push({ d, ...r });
+    if (r.any) rows.push({ d, q: state.qhist[d], ...r });
   }
   list.replaceChildren();
   const setV = (id, n) => setMoney($(id), n, true);
@@ -581,7 +585,7 @@ function renderDays() {
     for (const id of ["dMonth", "dAll"]) setV(id, null);
     $("dWin").textContent = "—"; $("dLose").textContent = "—"; $("dRange").textContent = "";
     list.append(el("div", { class: "box empty" }, el("b", { text: "還沒有每日紀錄" }),
-      el("span", { text: state.trades.length ? "每個交易日收盤後（17:10 左右）會自動算出當天賺賠，之後打開這頁就看得到。" : "先記下你買的股票，之後每個交易日收盤後就會自動算出當天賺賠。" })));
+      el("span", { text: state.trades.length ? "每個交易日收盤後（傍晚）會自動算出當天賺賠，之後打開這頁就看得到。" : "先記下你買的股票，之後每個交易日收盤後就會自動算出當天賺賠。" })));
     return;
   }
   const ym0 = rows[0].d.slice(0, 7);
@@ -618,8 +622,15 @@ function renderDays() {
       const dt = new Date(r.d + "T00:00:00");
       const per = el("div", { class: "per" });
       for (const [code, v] of Object.entries(r.per).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])))
-        per.append(el("div", {}, el("span", { class: "n", text: `${code} ${names.get(code)?.name || ""}` }), el("span", { class: "num " + cls(v), text: sign(v) + fmt0(Math.abs(v)) })));
-      if (r.missing.length) per.append(el("div", {}, el("span", { class: "n", text: `沒有收盤價：${r.missing.join("、")}` })));
+      {
+        // 當天漲跌幅＝漲跌 ÷ 前一天收盤價
+        const c = r.q && r.q[code], prev = c ? c[0] - c[1] : 0;
+        const pct = prev > 0 ? c[1] / prev * 100 : null;
+        per.append(el("div", {}, el("span", { class: "n", text: `${code} ${names.get(code)?.name || ""}` }),
+          el("span", { class: "pct num " + cls(Math.sign(pct || 0)), text: pct == null ? "" : (pct > 0 ? "▲" : pct < 0 ? "▼" : "") + Math.abs(pct).toFixed(2) + "%" }),
+          el("span", { class: "amt num " + cls(v), text: sign(v) + fmt0(Math.abs(v)) })));
+      }
+      if (r.missing.length) per.append(el("div", { class: "miss" }, el("span", { class: "n", text: `沒有收盤價：${r.missing.join("、")}` })));
       box.append(el("details", { class: "dayd" },
         el("summary", { class: "day" },
           el("span", { class: "d num" }, document.createTextNode(`${Number(r.d.slice(5, 7))}/${Number(r.d.slice(8, 10))}`), el("small", { text: "週" + WD[dt.getDay()] })),
