@@ -346,7 +346,8 @@
         [data-theme="light"] footer { background: var(--ink); color: #e9f7d9; border-top: 0; }
 
         /* ── 住在右下角的寵物（資料讀 games/pet.html 的 jfk-pet-v1） ── */
-        .hpet { position: fixed; right: 12px; bottom: 12px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+        /* 位置由 JS 用 transform 控制：在視窗下方慢慢走來走去（固定在視窗上，捲動時一直看得到） */
+        .hpet { position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none; transition-property: transform; transition-timing-function: linear; will-change: transform; }
         .hpet > * { pointer-events: auto; }
         .hpet-me {
             --w: 60px; position: relative; width: var(--w); aspect-ratio: 56 / 46; padding: 0; border: 0; background: none; cursor: pointer;
@@ -363,7 +364,13 @@
         .hpet-me.flat img { transform: scale(1.18, 0.62); transform-origin: 50% 100%; } /* 餓扁扁 */
         .hpet-me.bump { animation: hpetBump 0.45s; }
         @keyframes hpetBump { 30% { transform: translateY(-10px) scale(1.06, 0.95); } 60% { transform: translateY(0) scale(0.96, 1.04); } }
-        .hpet.min .hpet-me { transform: translateX(62%) rotate(-12deg); opacity: 0.85; }
+        .hpet.min .hpet-me { rotate: -12deg; opacity: 0.85; }
+        .hpet-me.face-r { scale: -1 1; } /* dragon.svg 面向左，往右走時翻過來 */
+        .hpet.walking .hpet-me:not(.egg) img { animation: hpetStep 0.7s ease-in-out infinite; }
+        .hpet.walking .hpet-me.egg svg { animation: hpetRoll 1.4s ease-in-out infinite; }
+        @keyframes hpetStep { 50% { transform: translateY(-3px); } }
+        @keyframes hpetRoll { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+        .hpet.on-left .hpet-say { right: auto; left: 0; }
         .hpet-say {
             position: absolute; right: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(250px, calc(100vw - 24px));
             padding: 9px 12px; border-radius: 14px; background: var(--surface-solid); border: 1px solid var(--line); color: var(--text);
@@ -844,20 +851,71 @@
             };
             const pick = a => a[Math.floor(Math.random() * a.length)];
             let hideT = 0;
-            const setMin = v => { box.classList.toggle('min', v); try { localStorage.setItem('jfk-pet-home', v ? 'min' : ''); } catch (e) { /* 不記也沒關係 */ } };
+
+            // ── 在視窗下方慢慢散步：走一段、停幾秒、再走；講話、收起來、餓扁扁時不走 ──
+            const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const SPEED = 22;                       // 每秒幾 px，慢慢走才不會搶視線
+            let pos = null, walkT = 0;
+            const view = () => ({ w: document.documentElement.clientWidth, h: window.innerHeight });
+            const size = () => { const r = me.getBoundingClientRect(); return { w: r.width, h: r.height }; };
+            function place(p, sec) {
+                box.style.transitionDuration = (sec || 0) + 's';
+                box.style.transform = 'translate(' + Math.round(p.x) + 'px,' + Math.round(p.y) + 'px)';
+                box.classList.toggle('on-left', p.x + size().w / 2 < view().w / 2);
+                pos = p;
+            }
+            function corner() { const v = view(), z = size(); return box.classList.contains('min') ? { x: v.w - z.w * 0.4, y: v.h - z.h - 10 } : { x: v.w - z.w - 12, y: v.h - z.h - 12 }; }
+            function clampPos(p) { const v = view(), z = size(); return { x: Math.max(8, Math.min(v.w - z.w - 8, p.x)), y: Math.max(8, Math.min(v.h - z.h - 8, p.y)) }; }
+            // 走到一半被叫住：停在現在的位置
+            function freeze() {
+                clearTimeout(walkT);
+                box.classList.remove('walking');
+                const m = new DOMMatrixReadOnly(getComputedStyle(box).transform);
+                place({ x: m.m41, y: m.m42 }, 0);
+            }
+            function canWalk() { return !calm && !document.hidden && !box.classList.contains('min') && !bubble.classList.contains('show') && !(xp && !full); }
+            function wander() {
+                clearTimeout(walkT);
+                if (!canWalk()) { walkT = setTimeout(wander, 3000); return; }
+                const v = view(), z = size();
+                const band = Math.min(140, v.h * 0.2);          // 只在視窗最下面這條走，不擋中間的內容
+                let tx, tries = 0;
+                do { tx = 8 + Math.random() * Math.max(0, v.w - z.w - 16); } while (Math.abs(tx - pos.x) < 60 && ++tries < 5);
+                const ty = v.h - z.h - 8 - Math.random() * band;
+                const sec = Math.hypot(tx - pos.x, ty - pos.y) / SPEED;
+                me.classList.toggle('face-r', tx > pos.x);
+                box.classList.add('walking');
+                place(clampPos({ x: tx, y: ty }), sec);
+                walkT = setTimeout(() => {
+                    box.classList.remove('walking');
+                    walkT = setTimeout(wander, 2500 + Math.random() * 5000);
+                }, sec * 1000);
+            }
+            const setMin = v => {
+                box.classList.toggle('min', v);
+                try { localStorage.setItem('jfk-pet-home', v ? 'min' : ''); } catch (e) { /* 不記也沒關係 */ }
+                freeze(); me.classList.remove('face-r'); place(corner(), 1.2);
+                walkT = setTimeout(wander, 4000);
+            };
             try { if (localStorage.getItem('jfk-pet-home') === 'min') box.classList.add('min'); } catch (e) { /* 預設展開 */ }
+            place(corner(), 0);
+            walkT = setTimeout(wander, 2500);
+            window.addEventListener('resize', () => { freeze(); place(box.classList.contains('min') ? corner() : clampPos(pos), 0); walkT = setTimeout(wander, 2000); });
+            const hideBubble = () => { if (bubble.classList.contains('show')) { bubble.classList.remove('show'); walkT = setTimeout(wander, 2500); } };
+
             me.addEventListener('click', e => {
                 e.stopPropagation();
                 if (box.classList.contains('min')) { setMin(false); return; }
+                freeze();
                 me.classList.remove('bump'); void me.offsetWidth; me.classList.add('bump');
                 document.getElementById('hpetLine').textContent = pick(!xp ? LINES.egg : !full ? LINES.flat : full <= 2 ? LINES.hungry : full >= 8 ? LINES.happy : LINES.ok);
                 bubble.classList.add('show');
                 clearTimeout(hideT);
-                hideT = setTimeout(() => bubble.classList.remove('show'), 6000);
+                hideT = setTimeout(hideBubble, 6000);
             });
             bubble.addEventListener('click', e => e.stopPropagation());
             document.getElementById('hpetMin').addEventListener('click', () => { bubble.classList.remove('show'); setMin(true); });
-            document.addEventListener('click', () => bubble.classList.remove('show'));
+            document.addEventListener('click', hideBubble);
         })();
 
         // ── 手機選單 ──
