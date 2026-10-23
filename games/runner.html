@@ -368,9 +368,12 @@
             window.addEventListener('pointercancel', jumpEnd);
             stageBox.addEventListener('contextmenu', function (e) { e.preventDefault(); });
             document.addEventListener('keydown', function (e) {
-                if ((e.code === 'Space' || e.key === 'ArrowUp') && !e.repeat) { e.preventDefault(); jumpStart(); }
+                if (e.code !== 'Space' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                // 按住時瀏覽器會一直送重複的按鍵，每一下都要擋，不然頁面會往下捲
+                e.preventDefault();
+                if (e.key !== 'ArrowDown' && !e.repeat) jumpStart();
             });
-            document.addEventListener('keyup', function (e) { if (e.code === 'Space' || e.key === 'ArrowUp') jumpEnd(); });
+            document.addEventListener('keyup', function (e) { if (e.code === 'Space' || e.key === 'ArrowUp') { e.preventDefault(); jumpEnd(); } });
             // 切到別的分頁就暫停（回來時重新算時間，不會一次掉很多幀）
             document.addEventListener('visibilitychange', function () { if (!document.hidden && state === 'run') last = performance.now(); });
             document.addEventListener('themechange', draw);
