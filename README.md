@@ -27,6 +27,8 @@
 | 河內塔 | 遞迴教學 | [hanoi.html](games/hanoi.html) | （頁面本身就是講解） |
 | 一筆畫 Zip | 隨機出題＋唯一解檢查 / SVG | [zip.html](games/zip.html) | — |
 | 超商店長 | 關聯規則（支持度、信賴度、提升度）/ 模擬 | [store-manager.html](games/store-manager.html) | — |
+| 碩一生模擬器 | 文字冒險 / 數值平衡 | [lab-life.html](games/lab-life.html) | — |
+| 養一隻果汁龍 | 養成 / 串起其他遊戲的獎勵 | [pet.html](games/pet.html) | — |
 | 晚餐吃什麼？ | 轉盤 / Canvas | [dinner-wheel.html](games/dinner-wheel.html) | — |
 | 程式解題紀錄 | 筆記 | [Notion](https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link) | — |
 
@@ -89,6 +91,8 @@
     ├── hanoi.html
     ├── zip.html
     ├── store-manager.html
+    ├── lab-life.html
+    ├── pet.html
     └── dinner-wheel.html
 ```
 

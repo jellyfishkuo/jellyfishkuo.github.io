@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/lab-life.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/lab-life-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/lab-life-180.png">
+    <title>碩一生模擬器</title>
+    <meta name="description" content="資料庫實驗室碩一生的一學期：18 週裡要讀 paper、跑實驗、準備 meeting、修課、休息，還有各種突發事件，最後能不能順利投稿？">
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
+    <script src="../assets/theme.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --gold: #facc15;
+        }
+        :root[data-theme="light"] { --good: #2f8a12; --bad: #d93a2f; --gold: #b45309; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 600px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.3rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+        [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        .card { min-width: 0; padding: 1rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
+        [data-theme="light"] .card { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+
+        /* ── 週數與數值 ── */
+        .week { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin: 1.1rem 0 0.5rem; }
+        .week b { font: 700 1.2rem 'Space Mono', monospace; }
+        .week span { font-size: 0.85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .timeline { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 2px; margin-bottom: 0.8rem; }
+        .timeline i { height: 7px; border-radius: 2px; background: var(--panel-2); }
+        .timeline i.past { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+        .timeline i.exam { box-shadow: 0 0 0 1.5px var(--bad) inset; }
+        [data-theme="light"] .timeline i { background: #fff; border: 1.5px solid #1d2b12; }
+        [data-theme="light"] .timeline i.past { background: #ffb02e; }
+        .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem 0.9rem; }
+        .stat { min-width: 0; }
+        .stat .lab { display: flex; justify-content: space-between; font-size: 0.8rem; white-space: nowrap; }
+        .stat .lab b { font-family: 'Space Mono', monospace; }
+        .stat .bar { height: 9px; border-radius: 999px; background: var(--panel-2); overflow: hidden; margin-top: 2px; }
+        .stat .bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--c); transition: width 0.45s; }
+        [data-theme="light"] .stat .bar { background: #fff; border: 1.5px solid #1d2b12; height: 12px; }
+        .stat .delta { font: 700 0.75rem 'Space Mono', monospace; margin-left: 0.3rem; visibility: hidden; }
+        .stat .delta.show { visibility: visible; }
+        .stat .delta.up { color: var(--good); }
+        .stat .delta.down { color: var(--bad); }
+
+        /* ── 故事框：高度固定，文字長短不會推動下面 ── */
+        .story { margin-top: 0.9rem; height: 10.5em; overflow-y: auto; font-size: 0.95rem; line-height: 1.65; }
+        .story .who { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.2rem; font-family: 'Space Mono', monospace; }
+        .story p + p { margin-top: 0.4rem; }
+        .story .eff { font-size: 0.8rem; color: var(--muted); }
+
+        /* ── 選項區：行動和事件選項放在同一個固定高度的框 ── */
+        .choices { margin-top: 0.8rem; height: 14.5rem; position: relative; }
+        .choices > div { position: absolute; inset: 0; }
+        .choices [hidden] { display: none; }
+        .acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 0.45rem; }
+        .opts { display: flex; flex-direction: column; gap: 0.5rem; justify-content: flex-start; }
+        .btn {
+            font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; padding: 0.45rem 0.6rem; border-radius: 11px; min-width: 0; text-align: left;
+            color: var(--text); background: var(--panel-2); border: 1px solid var(--border); line-height: 1.35;
+        }
+        .btn small { display: block; font-weight: 400; font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .btn:hover:not(:disabled) { border-color: var(--accent2); }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+        .btn.main { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--accent), var(--accent2)); text-align: center; }
+        .opts .btn { padding: 0.75rem 0.9rem; }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .btn small { color: #55624a; }
+        [data-theme="light"] .btn.main { background: #ffb02e; }
+        [data-theme="light"] .btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+
+        /* ── 結局（蓋在畫面上） ── */
+        .modal { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 1rem; background: rgba(5, 5, 10, 0.72); }
+        [data-theme="light"] .modal { background: rgba(29, 43, 18, 0.35); }
+        .modal[hidden] { display: none; }
+        .sheet { width: min(480px, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; text-align: center; }
+        .sheet .em { font-size: 3.4rem; line-height: 1.1; }
+        .sheet h3 { font-size: 1.3rem; margin: 0.3rem 0; }
+        .sheet p { color: var(--muted); font-size: 0.9rem; margin: 0.3rem 0; }
+        .sheet .sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; margin: 0.8rem 0; }
+        .sheet .sum div { padding: 0.35rem; border-radius: 10px; background: var(--panel-2); font-size: 0.75rem; color: var(--muted); }
+        .sheet .sum b { display: block; font: 700 1rem 'Space Mono', monospace; color: var(--text); }
+        [data-theme="light"] .sheet .sum div { background: #f6fbef; border: 1.5px solid #1d2b12; }
+        .sheet .acts2 { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.9rem; }
+        .sheet .acts2 .btn { flex: 1 1 140px; text-align: center; text-decoration: none; }
+
+        /* ── 結局圖鑑、日誌 ── */
+        h2 { font-size: 1rem; margin-bottom: 0.5rem; }
+        .ends { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.45rem; }
+        .end { display: flex; gap: 0.5rem; align-items: center; padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--panel-2); font-size: 0.82rem; min-width: 0; }
+        .end span:first-child { font-size: 1.4rem; flex: none; }
+        .end.locked { color: var(--muted); }
+        [data-theme="light"] .end { background: #f6fbef; border: 1.5px solid #1d2b12; }
+        details { margin-top: 1rem; }
+        details summary { cursor: pointer; font-weight: 700; font-size: 0.92rem; }
+        .log { list-style: none; margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); display: grid; gap: 0.2rem; }
+        .log b { color: var(--text); font-family: 'Space Mono', monospace; margin-right: 0.3rem; }
+        .row2 { display: grid; gap: 1rem; margin-top: 1rem; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>碩一生模擬器<small>資料庫實驗室的一學期，18 週。每週選一件事做，撐過 meeting、期中期末和各種突發狀況，最後能不能順利投稿？</small></h1>
+
+        <div class="week"><b id="wk">第 1 週</b><span id="wk-note"></span></div>
+        <div class="timeline" id="timeline" aria-hidden="true"></div>
+
+        <section class="card">
+            <div class="stats" id="stats"></div>
+            <div class="story" id="story" aria-live="polite"></div>
+        </section>
+
+        <div class="choices">
+            <div class="acts" id="acts"></div>
+            <div class="opts" id="opts" hidden></div>
+        </div>
+
+        <div class="row2">
+            <section class="card">
+                <h2>結局圖鑑 <small id="end-count" style="font-weight:400;color:var(--muted);font-size:0.8rem"></small></h2>
+                <div class="ends" id="ends"></div>
+            </section>
+        </div>
+        <details>
+            <summary>📓 這學期的日誌</summary>
+            <ul class="log" id="log"></ul>
+        </details>
+    </div>
+
+    <div class="modal" id="modal" hidden>
+        <div class="card sheet" id="sheet" role="dialog" aria-modal="true"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script>
+        (function () {
+            var STORE = 'jfk-lab-v1', WEEKS = 18;
+            var $ = function (id) { return document.getElementById(id); };
+            function load() { try { var v = JSON.parse(localStorage.getItem(STORE) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
+            function save() { try { localStorage.setItem(STORE, JSON.stringify(rec)); } catch (e) { /* 不記也能玩 */ } }
+            var rec = load();
+            rec.endings = rec.endings || {};
+
+            var STATS = [ // key、名稱、顏色
+                ['energy', '⚡ 體力', '#22c55e'], ['mood', '😊 心情', '#f472b6'],
+                ['know', '📖 知識', '#60a5fa'], ['prog', '🧪 研究進度', '#a78bfa'],
+                ['boss', '👨‍🏫 老師好感', '#f59e0b'], ['grade', '📝 修課成績', '#22d3ee']
+            ];
+            var ACTIONS = [
+                { id: 'read', t: '📄 讀 paper', d: '知識↑ 體力↓', fx: { know: 10, energy: -10 },
+                  say: ['讀了一篇 VLDB 的論文，終於看懂 Figure 3 在畫什麼。', '照著論文的虛擬碼走了一遍，發現作者少寫了一個 base case。', '把參考文獻追了三層，才知道這個上界是從哪裡來的。'] },
+                { id: 'exp', t: '💻 寫程式跑實驗', d: '進度↑ 體力↓↓', fx: { energy: -15 }, prog: true,
+                  say: ['在 Kosarak 上跑了一整晚，數字終於比 baseline 好看一點。', '寫了新的剪枝條件，候選數少了一半。', '把 Python 版改寫成 Java，快了八倍。'] },
+                { id: 'meet', t: '📊 準備 meeting', d: '老師好感↑ 進度小↑', fx: { boss: 9, prog: 3, energy: -6 },
+                  say: ['投影片做得很清楚，老師說「這個方向可以」。', '把實驗結果畫成圖，老師一看就懂。', '先模擬老師會問的問題，結果真的都被問到了。'] },
+                { id: 'study', t: '📚 唸書寫作業', d: '修課成績↑ 體力↓', fx: { grade: 12, energy: -10 },
+                  say: ['把高等資料庫的作業寫完了，B+ tree 終於不會插錯。', '複習了機率，Count-Min 的誤差證明看懂了。', '跟同學一起討論作業，效率超高。'] },
+                { id: 'rest', t: '😴 好好休息', d: '體力↑↑ 心情↑', fx: { energy: 30, mood: 6 },
+                  say: ['睡了十個小時，世界又亮起來了。', '整天沒開電腦，喝了一瓶蘋果汁補充元氣 🧃', '早睡早起，連走路都變輕快了。'] },
+                { id: 'play', t: '🎮 出去玩', d: '心情↑↑ 體力↓', fx: { mood: 20, energy: -5 },
+                  say: ['跟同學去夜市吃了一輪，回來心情超好。', '解了五題 Zip，腦袋放鬆了。', '去河堤騎腳踏車，吹吹風。'] }
+            ];
+            var EVENTS = [
+                { t: '學長請你幫忙 debug 他的程式，看起來是 utility list 合併的地方怪怪的。', o: [
+                    ['好啊，一起看', { energy: -10, know: 6, boss: 2 }, '花了一個晚上，順便學會了 utility list 的寫法。'],
+                    ['這週真的沒空', { mood: -3 }, '學長說沒關係，但眼神有點落寞。']] },
+                { t: '實驗室的伺服器被別人的實驗佔滿了，你的程式排不上去。', o: [
+                    ['乖乖排隊', { mood: -6 }, '等了三天才輪到你。'],
+                    ['用自己的筆電硬跑', { energy: -10, prog: 3 }, '筆電風扇像要起飛，但還是跑完了。']] },
+                { t: '老師在群組問：「這週可以加開一次 meeting 嗎？」', o: [
+                    ['好的老師！', { boss: 8, energy: -6 }, '多討論一次，方向更清楚了。'],
+                    ['（假裝沒看到）', { boss: -8, mood: 3 }, '隔天被老師點名：「你有看到訊息嗎？」']] },
+                { t: '實驗結果出來了……比 baseline 還慢。', o: [
+                    ['熬夜找原因', { energy: -15, know: 8, prog: 3 }, '原來是 HashMap 一直在擴容，改掉之後快多了。'],
+                    ['先放著，下週再說', { mood: -6 }, '整週心裡都卡著這件事。']] },
+                { t: '在 arXiv 上看到一篇跟你題目超相關的新論文。', o: [
+                    ['仔細讀完', { know: 10, energy: -5 }, '還好他們的方法跟你的不一樣，而且你想到可以比較的地方。'],
+                    ['先存進書籤', {}, '書籤裡又多了一篇「之後再讀」。']] },
+                { t: '同學約你週末去夜市。', o: [
+                    ['去！', { mood: 15, energy: -5 }, '吃了大腸包小腸和烤玉米，超滿足。'],
+                    ['不了，要跑實驗', { prog: 2, mood: -6 }, '實驗多跑了一點，但看到限動有點羨慕。']] },
+                { t: '颱風假！學校停課。', o: [
+                    ['在家寫程式', { prog: 5, mood: -2 }, '外面風雨交加，你的程式碼也寫了好幾百行。'],
+                    ['耍廢一整天', { energy: 20, mood: 10 }, '追了一整季的劇，充飽電了。']] },
+                { t: 'FP-tree 建到一半，記憶體不夠，程式直接 OOM 了。', o: [
+                    ['改成投影資料庫的寫法', { know: 6, prog: 4, energy: -8 }, '照 EFIM 的想法改，記憶體只用了原本的三分之一。'],
+                    ['換一個小一點的資料集', { prog: 2, boss: -4 }, 'meeting 時老師問：「為什麼資料集變小了？」']] },
+                { t: '老師請你幫忙改大學部資料結構的作業。', o: [
+                    ['認真改、寫評語', { energy: -10, boss: 7 }, '老師說你的評語寫得很清楚。'],
+                    ['快速改完', { boss: -5, mood: 2 }, '有學生寄信來問為什麼被扣分。']] },
+                { t: '實驗室聚餐，大家要去吃火鍋。', o: [
+                    ['參加', { mood: 10, boss: 3, energy: -3 }, '老師講了他讀博士時的故事，大家笑翻。'],
+                    ['留在實驗室', { prog: 2, mood: -3 }, '實驗室只剩你跟伺服器的風扇聲。']] },
+                { t: '洗澡的時候，突然想到一個新的剪枝方法！', o: [
+                    ['馬上衝出來記下來', { know: 5, prog: 6 }, '頭髮還在滴水，但筆記寫了滿滿一頁。'],
+                    ['明天再寫', { prog: 1 }, '隔天只記得一半……']] },
+                { t: '一起修課的同學問你要不要組讀書會。', o: [
+                    ['好啊', { grade: 8, mood: 4, energy: -4 }, '大家輪流講，考前不慌了。'],
+                    ['自己讀就好', { grade: 3 }, '讀得比較慢，但也算有進度。']] }
+            ];
+            var LATE_EVENTS = [
+                { t: '投稿系統公告：截止日提前一週！', o: [
+                    ['全力衝刺', { prog: 9, energy: -20, mood: -5 }, '連續幾天寫到半夜，論文初稿終於成形。'],
+                    ['照原本的步調', { mood: -6 }, '心裡有點慌，但還是穩穩做。']] },
+                { t: '老師看完你的初稿，在 PDF 上留了 47 個註解。', o: [
+                    ['一個一個改', { prog: 6, energy: -12, boss: 5 }, '改完之後論文好讀很多。'],
+                    ['先改重要的', { prog: 3, boss: -2 }, '老師說：「其他的也要改喔。」']] }
+            ];
+            var ENDINGS = [
+                ['balance', '🌈', '研究生活平衡大師', '論文投出去了，身體和心情都顧得很好，學弟妹都想知道你怎麼辦到的。', 5],
+                ['top', '🏆', '論文投上頂會', '進度、知識、老師的信任都滿滿，論文投出去後拿到很正面的審稿意見！', 5],
+                ['submit', '📝', '順利投稿', '在學期結束前把論文投出去了，給自己一個大大的讚。', 4],
+                ['steady', '🌱', '穩定前進', '論文還沒寫完，但方向很清楚，下學期就能收成。', 3],
+                ['behind', '😵', '下學期再加油', '這學期有點卡，不過碩一本來就是在找方向，沒關係的。', 2],
+                ['burnout', '🛌', '爆肝的碩一生', '這學期病倒太多次了……記得睡覺比 deadline 重要。', 1]
+            ];
+
+            var S, week, sick, history, pending, weekNote;
+            function newRun() {
+                S = { energy: 80, mood: 70, know: 10, prog: 0, boss: 50, grade: 30 };
+                week = 1; sick = 0; history = []; pending = null; weekNote = '';
+                $('log').textContent = '';
+                drawTimeline(); drawStats({});
+                story('開學了', ['你是資料庫實驗室的碩一新生，研究方向是資料探勘。老師說：「這學期先把題目定下來，有機會的話期末投一篇。」', '第 9 週期中考、第 17 週期末考，每週還有 meeting。選一件事開始吧！']);
+                showActs();
+            }
+            function clamp(v) { return Math.max(0, Math.min(100, Math.round(v))); }
+            // 套用變化；研究進度看知識和心情決定效率
+            function apply(fx) {
+                var d = {};
+                Object.keys(fx).forEach(function (k) {
+                    var v = fx[k];
+                    if (k === 'prog' && v > 0 && S.mood < 30) v = Math.round(v * 0.6);
+                    var old = S[k];
+                    S[k] = clamp(old + v);
+                    d[k] = (d[k] || 0) + S[k] - old;
+                });
+                return d;
+            }
+            function merge(a, b) { Object.keys(b).forEach(function (k) { a[k] = (a[k] || 0) + b[k]; }); return a; }
+
+            function drawTimeline() {
+                var t = $('timeline');
+                t.textContent = '';
+                for (var i = 1; i <= WEEKS; i++) {
+                    var e = document.createElement('i');
+                    e.className = (i < week ? 'past' : '') + (i === 9 || i === 17 ? ' exam' : '');
+                    t.appendChild(e);
+                }
+                $('wk').textContent = week <= WEEKS ? '第 ' + week + ' 週' : '學期結束';
+                var note = week === 9 ? '這週期中考' : week === 17 ? '這週期末考' : week === 18 ? '最後一週：投稿截止' : week === 8 || week === 16 ? '下週考試' : '';
+                $('wk-note').textContent = note;
+            }
+            function drawStats(delta) {
+                var box = $('stats');
+                box.textContent = '';
+                STATS.forEach(function (s) {
+                    var w = document.createElement('div');
+                    w.className = 'stat';
+                    w.style.setProperty('--c', s[2]);
+                    var lab = document.createElement('div');
+                    lab.className = 'lab';
+                    var l = document.createElement('span');
+                    l.textContent = s[1];
+                    var dv = document.createElement('span');
+                    var dd = delta[s[0]] || 0;
+                    dv.className = 'delta' + (dd ? ' show ' + (dd > 0 ? 'up' : 'down') : '');
+                    dv.textContent = dd ? (dd > 0 ? '+' : '') + dd : '0';
+                    l.appendChild(dv);
+                    var v = document.createElement('b');
+                    v.textContent = S[s[0]];
+                    lab.appendChild(l); lab.appendChild(v);
+                    var bar = document.createElement('div');
+                    bar.className = 'bar';
+                    var i = document.createElement('i');
+                    i.style.width = S[s[0]] + '%';
+                    bar.appendChild(i);
+                    w.appendChild(lab); w.appendChild(bar);
+                    box.appendChild(w);
+                });
+            }
+            function story(who, paras) {
+                var box = $('story');
+                box.textContent = '';
+                var w = document.createElement('span');
+                w.className = 'who';
+                w.textContent = who;
+                box.appendChild(w);
+                paras.forEach(function (p) {
+                    var e = document.createElement('p');
+                    if (typeof p === 'string') e.textContent = p;
+                    else { e.textContent = p[0]; e.className = p[1]; }
+                    box.appendChild(e);
+                });
+                box.scrollTop = 0;
+            }
+            function log(text) {
+                var li = document.createElement('li');
+                var b = document.createElement('b');
+                b.textContent = 'W' + week;
+                li.appendChild(b);
+                li.appendChild(document.createTextNode(text));
+                $('log').insertBefore(li, $('log').firstChild);
+            }
+            function fxText(d) {
+                var parts = [];
+                STATS.forEach(function (s) { if (d[s[0]]) parts.push(s[1].split(' ')[1] + (d[s[0]] > 0 ? '+' : '') + d[s[0]]); });
+                return parts.join('、');
+            }
+            function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+            function showActs() {
+                $('opts').hidden = true;
+                var box = $('acts');
+                box.hidden = false;
+                box.textContent = '';
+                ACTIONS.forEach(function (a) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'btn';
+                    b.textContent = a.t;
+                    var sm = document.createElement('small');
+                    sm.textContent = a.d;
+                    b.appendChild(sm);
+                    b.addEventListener('click', function () { doWeek(a); });
+                    box.appendChild(b);
+                });
+            }
+            function showOpts(list) {
+                $('acts').hidden = true;
+                var box = $('opts');
+                box.hidden = false;
+                box.textContent = '';
+                list.forEach(function (o) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'btn' + (o.main ? ' main' : '');
+                    b.textContent = o.label;
+                    if (o.sub) { var sm = document.createElement('small'); sm.textContent = o.sub; b.appendChild(sm); }
+                    b.addEventListener('click', o.go);
+                    box.appendChild(b);
+                });
+            }
+
+            // ── 一週：做選的事 → meeting → 可能有突發事件 → 考試 → 下一週 ──
+            function doWeek(a) {
+                var d = {}, paras = [];
+                if (S.energy <= 0) {
+                    sick++;
+                    d = apply({ energy: 45, mood: -5, boss: -3 });
+                    paras.push('你體力透支，病倒了一整週，什麼都沒辦法做。');
+                    log('病倒休息');
+                } else {
+                    var fx = Object.assign({}, a.fx);
+                    if (a.prog) fx.prog = 8 + Math.round(S.know / 4);
+                    d = apply(fx);
+                    paras.push(pick(a.say));
+                    if (a.prog && S.mood < 30) paras.push(['心情太差，做事效率打了折扣。', 'eff']);
+                    log(a.t.slice(2).trim());
+                }
+                // 每週 meeting
+                var progressed = (d.prog || 0) >= 5 || a.id === 'meet';
+                if (week !== 9 && week !== 17) {
+                    if (progressed) merge(d, apply({ boss: 3 }));
+                    else merge(d, apply({ boss: -4 }));
+                    paras.push(progressed ? 'meeting：老師點點頭，「繼續。」' : 'meeting：老師推了一下眼鏡，「這週有什麼進度嗎？」');
+                    if (S.boss >= 80 && Math.random() < 0.35) {
+                        merge(d, apply({ prog: 5 }));
+                        paras.push('老師給了一個很關鍵的建議，研究進度 +5！');
+                    }
+                }
+                // 考試週
+                if (week === 9 || week === 17) {
+                    var name = week === 9 ? '期中考' : '期末考';
+                    var g = S.grade;
+                    if (g >= 70) { merge(d, apply({ mood: 8 })); paras.push(name + '：題目都寫得出來，考得不錯！'); }
+                    else if (g >= 50) { merge(d, apply({ mood: -4 })); paras.push(name + '：勉強寫完，應該會過吧……'); }
+                    else { merge(d, apply({ mood: -15, energy: -8 })); paras.push(name + '：好多題看不懂，考完整個人都空了。'); }
+                }
+                weekNote = paras;
+                drawStats(d);
+                story('第 ' + week + ' 週', paras.concat([['（' + fxText(d) + '）', 'eff']]));
+                // 突發事件
+                var ev = null;
+                if (week >= 13 && week <= 16 && Math.random() < 0.5) ev = pick(LATE_EVENTS);
+                else if (week > 1 && week < 18 && Math.random() < 0.45) ev = pick(EVENTS);
+                if (ev) {
+                    showOpts([{ label: '⚡ 這週還發生了一件事…', sub: '點一下看看', main: true, go: function () { event(ev); } }]);
+                } else nextWeekButton();
+            }
+            function event(ev) {
+                story('突發事件', [ev.t]);
+                showOpts(ev.o.map(function (o) {
+                    return {
+                        label: o[0], go: function () {
+                            var d = apply(o[1]);
+                            drawStats(d);
+                            story('突發事件', [ev.t, o[2], ['（' + (fxText(d) || '沒有變化') + '）', 'eff']]);
+                            log('事件：' + o[0]);
+                            nextWeekButton();
+                        }
+                    };
+                }));
+            }
+            function nextWeekButton() {
+                showOpts([{ label: week < WEEKS ? '下一週 →' : '學期結束，看結局 🎓', main: true, go: function () {
+                    week++;
+                    if (week > WEEKS) { finish(); return; }
+                    drawTimeline();
+                    drawStats({});
+                    var tip = S.energy <= 0 ? '你已經累到極限了，這週會直接病倒……' : S.energy < 25 ? '你覺得好累，再撐下去可能會病倒。' : S.mood < 30 ? '最近心情很低落，做研究提不起勁。' : week === 18 ? '最後一週！把握機會衝刺。' : week === 9 || week === 17 ? '這週要考試，考的是修課成績。' : '這週要做什麼呢？';
+                    story('第 ' + week + ' 週', [tip]);
+                    showActs();
+                } }]);
+            }
+
+            function finish() {
+                var end;
+                if (sick >= 3) end = ENDINGS[5];
+                else if (S.prog >= 100 && S.mood >= 75 && sick === 0) end = ENDINGS[0];
+                else if (S.prog >= 100 && S.boss >= 70 && S.know >= 60) end = ENDINGS[1];
+                else if (S.prog >= 100) end = ENDINGS[2];
+                else if (S.prog >= 60) end = ENDINGS[3];
+                else end = ENDINGS[4];
+                var extra = [];
+                var juice = end[4];
+                if (S.grade < 50) { extra.push('附帶結局：有一科被當了 😱'); juice = Math.max(1, juice - 1); }
+                if (S.mood < 20) extra.push('附帶結局：需要放一個長長的假。');
+                var isNew = !rec.endings[end[0]];
+                rec.endings[end[0]] = true;
+                rec.runs = (rec.runs || 0) + 1;
+                rec.juice = (rec.juice || 0) + juice;
+                save();
+                drawEnds();
+                var s = $('sheet');
+                s.textContent = '';
+                function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+                s.appendChild(el('div', 'em', end[1]));
+                s.appendChild(el('h3', null, end[2] + (isNew ? '（新結局！）' : '')));
+                s.appendChild(el('p', null, end[3]));
+                extra.forEach(function (x) { s.appendChild(el('p', null, x)); });
+                var sum = el('div', 'sum');
+                [['研究進度', S.prog], ['老師好感', S.boss], ['病倒', sick + ' 次']].forEach(function (x) {
+                    var d = el('div');
+                    d.appendChild(el('b', null, String(x[1])));
+                    d.appendChild(document.createTextNode(x[0]));
+                    sum.appendChild(d);
+                });
+                s.appendChild(sum);
+                s.appendChild(el('p', null, '果汁龍寵物得到 🧃 × ' + juice));
+                var acts = el('div', 'acts2');
+                var again = el('button', 'btn main', '再讀一學期');
+                again.type = 'button';
+                again.addEventListener('click', function () { $('modal').hidden = true; newRun(); });
+                var pet = el('a', 'btn', '去餵果汁龍');
+                pet.href = 'pet.html';
+                acts.appendChild(again); acts.appendChild(pet);
+                s.appendChild(acts);
+                $('modal').hidden = false;
+                again.focus();
+                showOpts([{ label: '再讀一學期', main: true, go: function () { $('modal').hidden = true; newRun(); } }]);
+                if (end[4] >= 4 && window.confetti && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    confetti({ particleCount: 100, spread: 75, origin: { y: 0.6 }, zIndex: 1000 });
+                }
+            }
+            function drawEnds() {
+                var box = $('ends');
+                box.textContent = '';
+                var got = 0;
+                ENDINGS.forEach(function (e) {
+                    var have = !!rec.endings[e[0]];
+                    if (have) got++;
+                    var d = document.createElement('div');
+                    d.className = 'end' + (have ? '' : ' locked');
+                    var a = document.createElement('span');
+                    a.textContent = have ? e[1] : '❔';
+                    var b = document.createElement('span');
+                    b.textContent = have ? e[2] : '還沒解鎖';
+                    d.appendChild(a); d.appendChild(b);
+                    box.appendChild(d);
+                });
+                $('end-count').textContent = got + '/' + ENDINGS.length + '・玩了 ' + (rec.runs || 0) + ' 學期';
+            }
+
+            drawEnds();
+            newRun();
+        })();
+    </script>
+</body>
+
+</html>

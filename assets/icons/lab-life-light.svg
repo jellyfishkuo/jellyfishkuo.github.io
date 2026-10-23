@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 筆電上的論文（紫）、旁邊的學士帽 -->
+  <rect x="11" y="22" width="34" height="22" rx="2.5" fill="#ffffff" stroke="#1d2b12" stroke-width="2"/>
+  <path d="M16 28h18M16 33h24M16 38h14" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M7 47h42l-3 4H10z" fill="#8a9580"/>
+  <path d="M44 14l12 5-12 5-12-5z" fill="#ffb02e" stroke="#1d2b12" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M38 21.5v5c0 2 12 2 12 0v-5" fill="#ffb02e" stroke="#1d2b12" stroke-width="1.5"/>
+  <path d="M56 19v7" stroke="#1d2b12" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

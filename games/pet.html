@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/pet.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/pet-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/pet-180.png">
+    <title>養一隻果汁龍</title>
+    <meta name="description" content="在網站上解 Zip、闖研究關卡、當超商店長、玩碩一生模擬器都能拿到蘋果汁，拿來餵果汁龍，讓牠從蛋孵出來、長大、換造型。">
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
+    <script src="../assets/theme.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --juice: #ffb02e;
+            --good: #22c55e;
+        }
+        :root[data-theme="light"] { --good: #2f8a12; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 560px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.3rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+        h2 { font-size: 1rem; margin-bottom: 0.5rem; }
+        [data-theme="light"] h1, [data-theme="light"] h2 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        .card { min-width: 0; padding: 1rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); margin-top: 1rem; }
+        [data-theme="light"] .card { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+
+        /* ── 名牌 ── */
+        .tag { display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem; }
+        .tag input {
+            flex: 1 1 auto; min-width: 0; font: inherit; font-size: 16px; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 9px;
+            color: var(--text); background: var(--panel); border: 1px solid var(--border);
+        }
+        [data-theme="light"] .tag input { border: 2px solid #1d2b12; background: #fff; }
+        .tag .lv { flex: none; font: 700 0.85rem 'Space Mono', monospace; color: var(--juice); white-space: nowrap; }
+        [data-theme="light"] .tag .lv { color: #b45309; }
+
+        /* ── 果汁龍的房間 ── */
+        .room {
+            position: relative; margin-top: 0.8rem; aspect-ratio: 4 / 3; border-radius: 18px; overflow: hidden;
+            border: 1px solid var(--border); container-type: inline-size; user-select: none; -webkit-user-select: none;
+        }
+        [data-theme="light"] .room { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; }
+        .room[data-bg="grass"] { background: linear-gradient(#bfe7ff 0 62%, #8fd14f 62% 100%); }
+        .room[data-bg="lab"] { background: linear-gradient(#f3efe2 0 64%, #c9a77a 64% 68%, #a8845a 68% 100%); }
+        .room[data-bg="night"] { background: radial-gradient(circle at 80% 18%, #fff7c2 0 5%, transparent 6%), linear-gradient(#141a3a 0 62%, #2c5a2a 62% 100%); }
+        .room[data-bg="beach"] { background: linear-gradient(#9fdcff 0 50%, #3fb7e0 50% 62%, #f7dc9c 62% 100%); }
+        .room[data-bg="space"] { background: radial-gradient(circle at 25% 30%, #fff 0 0.4%, transparent 0.6%), radial-gradient(circle at 70% 20%, #fff 0 0.5%, transparent 0.7%), radial-gradient(circle at 85% 60%, #fff 0 0.4%, transparent 0.6%), radial-gradient(circle at 15% 70%, #c4b5fd 0 0.5%, transparent 0.7%), linear-gradient(#090418, #2a0f52); }
+        .deco { position: absolute; font-size: 9cqw; line-height: 1; pointer-events: none; }
+
+        .pet {
+            position: absolute; left: 50%; bottom: 9%; width: calc(var(--s, 1) * 62cqw); aspect-ratio: 56 / 46;
+            transform: translateX(-50%); cursor: pointer; border: 0; background: none; padding: 0;
+            transition: width 0.6s cubic-bezier(.3, 1.6, .5, 1);
+        }
+        .pet .body { position: absolute; inset: 0; animation: bob 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
+        .pet.chomp .body { animation: chomp 0.5s ease-in-out 2; }
+        .pet.wiggle .body { animation: wiggle 0.4s ease-in-out 2; }
+        .pet img { width: 100%; height: 100%; display: block; }
+        @keyframes bob { 50% { transform: translateY(-3%) scaleY(1.02); } }
+        @keyframes chomp { 50% { transform: scale(1.08, 0.92); } }
+        @keyframes wiggle { 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+        /* 配件：位置用果汁龍圖的百分比（頭頂、眼睛、脖子） */
+        .acc { position: absolute; line-height: 1; transform: translate(-50%, -50%); pointer-events: none; }
+        .acc.hat { left: 37%; top: 6%; }
+        .acc.face { left: 27%; top: 23%; }
+        .acc.neck { left: 46%; top: 54%; }
+        .acc.side { left: 57%; top: 10%; }
+        .acc.hat, .acc.face, .acc.neck, .acc.side { font-size: calc(var(--s, 1) * var(--fs)); }
+        .acc.hat { --fs: 18cqw; } .acc.face { --fs: 13cqw; } .acc.neck { --fs: 14cqw; } .acc.side { --fs: 12cqw; }
+
+        .egg { position: absolute; left: 50%; bottom: 10%; width: 30cqw; transform: translateX(-50%); cursor: pointer; border: 0; background: none; }
+        .egg svg { width: 100%; display: block; animation: rock 2.6s ease-in-out infinite; transform-origin: 50% 90%; }
+        .egg.wiggle svg { animation: wiggle 0.35s ease-in-out 3; }
+        @keyframes rock { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-7deg); } 86% { transform: rotate(6deg); } 94% { transform: rotate(-3deg); } }
+
+        .mood { position: absolute; top: 5%; left: 5%; font-size: 7cqw; line-height: 1; }
+        .float { position: absolute; font-size: 8cqw; pointer-events: none; animation: up 1.1s ease-out forwards; }
+        @keyframes up { to { transform: translateY(-14cqw); opacity: 0; } }
+        .fly { position: absolute; font-size: 10cqw; pointer-events: none; transition: left 0.55s ease-in, top 0.55s ease-in, transform 0.55s; }
+
+        /* 說話框：高度固定，換句話不會推動下面 */
+        .say {
+            margin-top: 0.8rem; height: 3.4em; display: flex; align-items: center; padding: 0 0.9rem; border-radius: 12px;
+            background: var(--panel); border: 1px solid var(--border); font-size: 0.95rem; overflow: hidden;
+        }
+        [data-theme="light"] .say { background: #fff; border: 2px solid #1d2b12; }
+
+        /* ── 狀態與按鈕 ── */
+        .meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.8rem; }
+        .meter { min-width: 0; }
+        .meter .lab { display: flex; justify-content: space-between; gap: 0.3rem; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+        .meter .lab span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .meter .bar { height: 11px; border-radius: 999px; background: var(--panel-2); overflow: hidden; margin-top: 0.2rem; }
+        .meter .bar i { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 0.4s; }
+        .meter.full .bar i { background: linear-gradient(90deg, #ffb02e, #ff8a1f); }
+        .meter.xp .bar i { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+        [data-theme="light"] .meter .bar { border: 2px solid #1d2b12; background: #fff; height: 14px; }
+        [data-theme="light"] .meter.xp .bar i { background: #8fd14f; }
+
+        .acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-top: 0.9rem; }
+        .btn {
+            font: inherit; font-size: clamp(0.8rem, 3.8vw, 0.92rem); font-weight: 700; cursor: pointer; padding: 0.6rem 0.3rem; border-radius: 11px; min-width: 0; white-space: nowrap;
+            color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+        }
+        .btn:disabled { opacity: 0.45; cursor: default; }
+        .btn.main { color: #1d2b12; border-color: transparent; background: linear-gradient(135deg, #ffd166, #ffb02e); }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .btn.main { background: #ffb02e; }
+        [data-theme="light"] .btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+        .btn small { display: block; font-weight: 400; font-size: 0.72rem; opacity: 0.8; }
+
+        /* ── 衣櫃 ── */
+        .closet { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 0.45rem; }
+        .closet button {
+            position: relative; font: inherit; cursor: pointer; aspect-ratio: 1; border-radius: 12px; font-size: 1.7rem; min-width: 0;
+            background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+        }
+        .closet button.on { border-color: var(--juice); box-shadow: 0 0 0 2px var(--juice) inset; }
+        .closet button:disabled { cursor: default; font-size: 0.72rem; color: var(--muted); }
+        .closet button small { position: absolute; left: 0; right: 0; bottom: 3px; font-size: 0.62rem; color: var(--muted); }
+        [data-theme="light"] .closet button { border: 2px solid #1d2b12; background: #fff; }
+        [data-theme="light"] .closet button.on { background: #fff3d6; box-shadow: 2px 2px 0 #1d2b12; }
+        .sub { font-size: 0.8rem; color: var(--muted); margin: 0.8rem 0 0.4rem; }
+
+        /* ── 果汁從哪裡來 ── */
+        .src { list-style: none; display: grid; gap: 0.4rem; }
+        .src li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; align-items: center; font-size: 0.88rem; padding: 0.35rem 0; border-bottom: 1px dashed var(--border); }
+        .src a { color: var(--accent2); font-weight: 700; text-decoration: none; }
+        [data-theme="light"] .src a { color: #0e7490; }
+        .src small { display: block; color: var(--muted); font-size: 0.78rem; }
+        .src b { font-family: 'Space Mono', monospace; color: var(--juice); white-space: nowrap; }
+        [data-theme="light"] .src b { color: #b45309; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .pet .body, .egg svg { animation: none !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>養一隻果汁龍<small>在網站上玩遊戲、闖研究關卡就能拿到蘋果汁 🧃，拿來餵牠，牠會長大、解鎖新造型。</small></h1>
+
+        <div class="tag">
+            <input id="name" maxlength="12" aria-label="幫果汁龍取名字" value="果汁龍">
+            <span class="lv" id="lv">Lv.1</span>
+        </div>
+
+        <div class="room" id="room" data-bg="grass">
+            <div class="mood" id="mood"></div>
+        </div>
+        <div class="say" id="say" aria-live="polite"></div>
+
+        <div class="meters">
+            <div class="meter full"><div class="lab"><span>飽足</span><span id="full-t"></span></div><div class="bar"><i id="full-b"></i></div></div>
+            <div class="meter xp"><div class="lab"><span id="xp-l">長大</span><span id="xp-t"></span></div><div class="bar"><i id="xp-b"></i></div></div>
+        </div>
+
+        <div class="acts">
+            <button type="button" class="btn main" id="feed">🧃 餵果汁<small id="juice-left">剩 0 瓶</small></button>
+            <button type="button" class="btn" id="pat">🤚 摸摸頭<small>免費</small></button>
+            <button type="button" class="btn" id="daily">📅 每日簽到<small id="daily-t">+3 瓶</small></button>
+        </div>
+
+        <section class="card">
+            <h2>衣櫃</h2>
+            <div class="closet" id="closet"></div>
+            <p class="sub">背景</p>
+            <div class="closet" id="bgs"></div>
+        </section>
+
+        <section class="card">
+            <h2>🧃 果汁從哪裡來</h2>
+            <ul class="src" id="src"></ul>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            var KEY = 'jfk-pet-v1';
+            var HOUR = 3600 * 1000;
+            var $ = function (id) { return document.getElementById(id); };
+            function read(k) {
+                try { var v = JSON.parse(localStorage.getItem(k) || '{}'); return v && typeof v === 'object' ? v : {}; }
+                catch (e) { return {}; }
+            }
+            var pet = read(KEY);
+            if (typeof pet.xp !== 'number') pet = { name: '果汁龍', xp: 0, spent: 0, full: 6, fedAt: Date.now(), days: [], hat: '', face: '', neck: '', side: '', bg: 'grass', pats: 0 };
+            function save() { try { localStorage.setItem(KEY, JSON.stringify(pet)); } catch (e) { /* 被擋就只在這次有效 */ } }
+
+            // ── 果汁：從其他遊戲的紀錄算出來，不用改那些遊戲 ──
+            function sources() {
+                var zip = read('jfk-zip-v1'), quest = read('jfk-quest-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1');
+                var stars = 0;
+                if (quest.pages) for (var k in quest.pages) stars += quest.pages[k].stars || 0;
+                return [
+                    { href: 'zip.html', name: '一筆畫 Zip', how: '每解一題 1 瓶', n: zip.solved || 0, juice: zip.solved || 0, unit: '題' },
+                    { href: '../research/quest.html', name: '研究闖關', how: '每顆星星 2 瓶', n: stars, juice: stars * 2, unit: '顆星' },
+                    { href: 'store-manager.html', name: '超商店長', how: '每開完一家店 1～5 瓶（看評等）', n: store.games || 0, juice: store.juice || 0, unit: '家店' },
+                    { href: 'lab-life.html', name: '碩一生模擬器', how: '每玩完一輪 1～5 瓶（看結局）', n: lab.runs || 0, juice: lab.juice || 0, unit: '輪' },
+                    { href: null, name: '每日簽到', how: '每天 3 瓶', n: pet.days.length, juice: pet.days.length * 3, unit: '天' }
+                ];
+            }
+            function earned() { return sources().reduce(function (s, x) { return s + x.juice; }, 0); }
+            function left() { return Math.max(0, earned() - pet.spent); }
+
+            // ── 長大：餵越多越大 ──
+            var STAGES = [[0, '蛋', 0], [3, '果汁龍寶寶', 0.55], [15, '小果汁龍', 0.7], [40, '果汁龍', 0.85], [90, '大果汁龍', 1]];
+            function stage() { var s = STAGES[0]; STAGES.forEach(function (x) { if (pet.xp >= x[0]) s = x; }); return s; }
+            function level() { return 1 + Math.floor(pet.xp / 5); }
+            var ITEMS = [ // 位置、圖示、名稱、幾級解鎖
+                ['side', '🎀', '蝴蝶結', 2], ['face', '🕶️', '墨鏡', 4], ['hat', '🎓', '學士帽', 6], ['neck', '🧣', '圍巾', 8],
+                ['side', '🌸', '小花', 9], ['hat', '🎩', '紳士帽', 11], ['neck', '🏅', '金牌', 13], ['face', '🥽', '實驗護目鏡', 15],
+                ['hat', '👑', '皇冠', 20], ['side', '⭐', '星星', 25]
+            ];
+            var BGS = [['grass', '🌿', '草地', 1], ['lab', '🧪', '實驗室', 5], ['night', '🌙', '夜空', 10], ['beach', '🏖️', '海邊', 16], ['space', '🚀', '外太空', 22]];
+            var DECO = {
+                grass: [['🌼', 8, 80], ['🌳', 82, 42]], lab: [['🧪', 10, 58], ['💻', 80, 58], ['📄', 66, 62]],
+                night: [['✨', 20, 15], ['✨', 55, 28]], beach: [['🌴', 86, 38], ['🐚', 12, 84]], space: [['🪐', 14, 20], ['🛸', 80, 30]]
+            };
+
+            // 飽足：每 4 小時少 1 格
+            function fullness() {
+                var drop = Math.floor((Date.now() - pet.fedAt) / (4 * HOUR));
+                return Math.max(0, Math.min(10, pet.full - drop));
+            }
+            function setFull(v) { pet.full = v; pet.fedAt = Date.now(); }
+
+            var LINES = {
+                egg: ['（蛋輕輕晃了一下）', '（裡面好像有東西在動）', '（蛋殼暖暖的）'],
+                hungry: ['肚子好餓…可以給我一瓶蘋果汁嗎？', '咕嚕咕嚕…', '我想喝果汁 🥺'],
+                ok: ['今天要玩什麼？', '我覺得 FP-tree 比 Apriori 帥', '可以陪我解一題 Zip 嗎？', '你今天有讀 paper 嗎？', '蘋果汁是世界上最好喝的東西'],
+                happy: ['好飽好開心！', '最喜歡你了 💚', '嗝～（蘋果汁的味道）', '我覺得我又長大了一點']
+            };
+            function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+            function say(t) { $('say').textContent = t; }
+            function idleLine() {
+                var f = fullness();
+                if (!pet.xp) return pick(LINES.egg);
+                return pick(f <= 2 ? LINES.hungry : f >= 8 ? LINES.happy : LINES.ok);
+            }
+
+            // ── 畫房間 ──
+            function render(grow) {
+                var room = $('room');
+                room.dataset.bg = pet.bg;
+                room.querySelectorAll('.deco, .pet, .egg').forEach(function (e) { e.remove(); });
+                (DECO[pet.bg] || []).forEach(function (d) {
+                    var s = document.createElement('span');
+                    s.className = 'deco';
+                    s.textContent = d[0];
+                    s.style.left = d[1] + '%';
+                    s.style.top = d[2] + '%';
+                    room.appendChild(s);
+                });
+                var st = stage();
+                if (!pet.xp) {
+                    var egg = document.createElement('button');
+                    egg.type = 'button';
+                    egg.className = 'egg';
+                    egg.setAttribute('aria-label', '蛋');
+                    egg.innerHTML = '<svg viewBox="0 0 60 74" aria-hidden="true"><ellipse cx="30" cy="40" rx="26" ry="32" fill="#fff8e6" stroke="#1d2b12" stroke-width="2.5"/>' +
+                        '<circle cx="20" cy="30" r="5" fill="#9bd72f"/><circle cx="38" cy="22" r="3.5" fill="#9bd72f"/><circle cx="40" cy="48" r="6" fill="#9bd72f"/><circle cx="22" cy="54" r="3" fill="#9bd72f"/></svg>';
+                    egg.addEventListener('click', function () { bump(egg); say(pick(LINES.egg)); });
+                    room.appendChild(egg);
+                } else {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'pet';
+                    b.id = 'pet';
+                    b.setAttribute('aria-label', pet.name);
+                    b.style.setProperty('--s', grow ? STAGES[Math.max(1, STAGES.indexOf(st) - 1)][2] : st[2]);
+                    var body = document.createElement('span');
+                    body.className = 'body';
+                    var img = document.createElement('img');
+                    img.src = '../assets/dragon.svg';
+                    img.alt = '';
+                    body.appendChild(img);
+                    ['hat', 'face', 'neck', 'side'].forEach(function (slot) {
+                        if (!pet[slot]) return;
+                        var a = document.createElement('span');
+                        a.className = 'acc ' + slot;
+                        a.textContent = pet[slot];
+                        body.appendChild(a);
+                    });
+                    b.appendChild(body);
+                    b.addEventListener('click', function () { bump(b); say(idleLine()); });
+                    room.appendChild(b);
+                    if (grow) requestAnimationFrame(function () { requestAnimationFrame(function () { b.style.setProperty('--s', st[2]); }); });
+                }
+                var f = fullness();
+                $('mood').textContent = !pet.xp ? '' : f <= 2 ? '💭🧃' : f >= 8 ? '💚' : '';
+                $('name').value = pet.name;
+                $('lv').textContent = 'Lv.' + level() + '・' + st[1];
+                $('full-t').textContent = f + '/10';
+                $('full-b').style.width = f * 10 + '%';
+                var idx = STAGES.indexOf(st), nx = STAGES[idx + 1];
+                $('xp-l').textContent = nx ? '再 ' + (nx[0] - pet.xp) + ' 瓶長大' : '已經是大果汁龍了';
+                $('xp-t').textContent = pet.xp + ' 瓶';
+                $('xp-b').style.width = (nx ? (pet.xp - st[0]) / (nx[0] - st[0]) * 100 : 100) + '%';
+                $('juice-left').textContent = '剩 ' + left() + ' 瓶';
+                $('feed').disabled = !left();
+                var today = dayKey();
+                var done = pet.days.indexOf(today) >= 0;
+                $('daily').disabled = done;
+                $('daily-t').textContent = done ? '明天再來' : '+3 瓶';
+                drawCloset();
+                drawSources();
+            }
+            function bump(e) {
+                e.classList.remove('wiggle');
+                void e.offsetWidth;
+                e.classList.add('wiggle');
+            }
+            function dayKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+            function floatUp(emoji, x, y) {
+                var s = document.createElement('span');
+                s.className = 'float';
+                s.textContent = emoji;
+                s.style.left = x + '%';
+                s.style.top = y + '%';
+                $('room').appendChild(s);
+                setTimeout(function () { s.remove(); }, 1200);
+            }
+
+            function drawCloset() {
+                var lv = level(), box = $('closet');
+                box.textContent = '';
+                ITEMS.forEach(function (it) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    var ok = lv >= it[3] && pet.xp > 0;
+                    b.disabled = !ok;
+                    b.className = pet[it[0]] === it[1] ? 'on' : '';
+                    b.title = it[2];
+                    if (ok) {
+                        b.textContent = it[1];
+                        b.setAttribute('aria-pressed', pet[it[0]] === it[1]);
+                        b.setAttribute('aria-label', it[2]);
+                        b.addEventListener('click', function () {
+                            pet[it[0]] = pet[it[0]] === it[1] ? '' : it[1];
+                            save(); render();
+                        });
+                    } else b.textContent = '🔒 Lv.' + it[3];
+                    box.appendChild(b);
+                });
+                var bg = $('bgs');
+                bg.textContent = '';
+                BGS.forEach(function (it) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    var ok = lv >= it[3];
+                    b.disabled = !ok;
+                    b.className = pet.bg === it[0] ? 'on' : '';
+                    if (ok) {
+                        b.textContent = it[1];
+                        var sm = document.createElement('small');
+                        sm.textContent = it[2];
+                        b.appendChild(sm);
+                        b.setAttribute('aria-pressed', pet.bg === it[0]);
+                        b.addEventListener('click', function () { pet.bg = it[0]; save(); render(); });
+                    } else b.textContent = '🔒 Lv.' + it[3];
+                    bg.appendChild(b);
+                });
+            }
+            function drawSources() {
+                var ul = $('src');
+                ul.textContent = '';
+                sources().forEach(function (s) {
+                    var li = document.createElement('li');
+                    var d = document.createElement('div');
+                    var name = s.href ? document.createElement('a') : document.createElement('b');
+                    if (s.href) name.href = s.href;
+                    name.textContent = s.name;
+                    if (!s.href) name.style.cssText = 'font-family:inherit;color:inherit';
+                    var sm = document.createElement('small');
+                    sm.textContent = s.how + '・目前 ' + s.n + ' ' + s.unit;
+                    d.appendChild(name); d.appendChild(sm);
+                    var j = document.createElement('b');
+                    j.textContent = '🧃 ' + s.juice;
+                    li.appendChild(d); li.appendChild(j);
+                    ul.appendChild(li);
+                });
+                var li = document.createElement('li');
+                var d = document.createElement('div');
+                d.textContent = '已經餵掉';
+                var j = document.createElement('b');
+                j.textContent = '-' + pet.spent;
+                li.appendChild(d); li.appendChild(j);
+                ul.appendChild(li);
+            }
+
+            // ── 動作 ──
+            $('feed').addEventListener('click', function () {
+                if (!left()) { say('果汁喝完了，去玩一下其他遊戲就能拿到 🧃'); return; }
+                var f = fullness();
+                if (f >= 10 && pet.xp) { say('喝不下了啦…等一下再餵我'); var pb = $('pet'); if (pb) bump(pb); return; }
+                var before = stage();
+                pet.spent++;
+                pet.xp++;
+                setFull(Math.min(10, f + 2));
+                save();
+                var after = stage();
+                // 果汁盒飛過去
+                var room = $('room');
+                var fly = document.createElement('span');
+                fly.className = 'fly';
+                fly.textContent = '🧃';
+                fly.style.left = '86%'; fly.style.top = '70%';
+                room.appendChild(fly);
+                requestAnimationFrame(function () { requestAnimationFrame(function () { fly.style.left = '40%'; fly.style.top = '45%'; fly.style.transform = 'scale(0.4)'; }); });
+                setTimeout(function () {
+                    fly.remove();
+                    if (after !== before) {
+                        render(true);
+                        say(before[0] === 0 ? '蛋破掉了！「' + pet.name + '」出生了 🎉' : '變大了！現在是「' + after[1] + '」');
+                        floatUp('✨', 30, 30); floatUp('✨', 62, 22);
+                    } else {
+                        render();
+                        var pb = $('pet');
+                        if (pb) { pb.classList.remove('chomp'); void pb.offsetWidth; pb.classList.add('chomp'); }
+                        else { var eg = $('room').querySelector('.egg'); if (eg) bump(eg); }
+                        say(pet.xp < 3 ? '（蛋吸收了果汁…還差 ' + (3 - pet.xp) + ' 瓶）' : pick(['咕嘟咕嘟～好好喝！', '蘋果汁最棒了！', '謝謝你 💚', '嗝～']));
+                        floatUp(pet.xp < 3 ? '💧' : '💚', 46, 30);
+                    }
+                    var lvBefore = 1 + Math.floor((pet.xp - 1) / 5);
+                    if (level() > lvBefore) {
+                        var un = ITEMS.filter(function (it) { return it[3] === level(); }).concat(BGS.filter(function (it) { return it[3] === level(); }));
+                        if (un.length) setTimeout(function () { say('升到 Lv.' + level() + '，解鎖了' + un.map(function (u) { return u[1] + u[2]; }).join('、') + '！'); }, 900);
+                    }
+                }, 600);
+            });
+            $('pat').addEventListener('click', function () {
+                pet.pats = (pet.pats || 0) + 1;
+                save();
+                var e = $('pet') || $('room').querySelector('.egg');
+                if (e) bump(e);
+                floatUp('❤️', 40 + Math.random() * 20, 30);
+                say(!pet.xp ? '（蛋好像很開心）' : pick(['嘿嘿～', '再摸一下！', '頭頂最舒服了', '（瞇起眼睛）']));
+            });
+            $('daily').addEventListener('click', function () {
+                var k = dayKey();
+                if (pet.days.indexOf(k) >= 0) return;
+                pet.days.push(k);
+                save();
+                render();
+                say('簽到成功，拿到 3 瓶蘋果汁！');
+                floatUp('🧃', 70, 60);
+            });
+            $('name').addEventListener('change', function () {
+                pet.name = $('name').value.trim().slice(0, 12) || '果汁龍';
+                save();
+                render();
+                say(pet.xp ? '我叫「' + pet.name + '」，記住了！' : '（蛋好像聽到了自己的名字）');
+            });
+
+            render();
+            say(pet.xp ? '「' + pet.name + '」：' + idleLine() : '這是一顆果汁龍的蛋，餵牠 3 瓶蘋果汁就會孵出來。');
+            // 從別的遊戲回來時，重新算果汁
+            window.addEventListener('pageshow', function (e) { if (e.persisted) render(); });
+            window.addEventListener('storage', function () { pet = read(KEY).xp != null ? read(KEY) : pet; render(); });
+            setInterval(function () { render(); }, 5 * 60 * 1000);
+        })();
+    </script>
+</body>
+
+</html>
