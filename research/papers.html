@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/papers.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/papers-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/papers-180.png">
+    <title>論文書架｜果汁龍的研究</title>
+    <meta name="description" content="果汁龍讀過、拿來做互動 Demo 的論文，附白話摘要；以及網站上每個研究 Demo 背後的經典原始論文，從 1970 年排到現在。">
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
+    <script src="../assets/theme.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --link: #22d3ee;
+            /* 主題色（跟研究地圖一樣） */
+            --t-freq: #8b5cf6;
+            --t-rule: #c084fc;
+            --t-hui: #f59e0b;
+            --t-inc: #22c55e;
+            --t-stream: #06b6d4;
+            --t-spatial: #60a5fa;
+        }
+        :root[data-theme="light"] {
+            --link: #0e7490;
+            --t-freq: #6d28d9;
+            --t-rule: #9333ea;
+            --t-hui: #b45309;
+            --t-inc: #15803d;
+            --t-stream: #0e7490;
+            --t-spatial: #1d4ed8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+        a { color: var(--link); }
+        .wrap { max-width: 920px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.1em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 7vw, 2.6rem); line-height: 1.15; margin: 0.2rem 0 0.6rem; }
+        .lead { color: var(--muted); max-width: 680px; }
+        h2 { font-size: 1.25rem; margin: 2.2rem 0 0.3rem; }
+        h2 + .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+        [data-theme="light"] h2 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        [data-theme="light"] h2::before { content: ''; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; background: #e8413c; border: 2px solid #1d2b12; margin-right: 0.45em; vertical-align: 0.05em; }
+
+        /* ── 讀過的論文：大卡片 ── */
+        .mine { display: grid; gap: 1rem; }
+        .paper {
+            position: relative; min-width: 0; padding: 1.1rem 1.1rem 1rem 1.3rem;
+            background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+            border-left: 5px solid var(--c, var(--accent));
+        }
+        [data-theme="light"] .paper { background: #fff; border: 2.5px solid #1d2b12; border-left-width: 9px; border-left-color: var(--c); box-shadow: 4px 4px 0 #1d2b12; }
+        .paper .top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin-bottom: 0.3rem; }
+        .yr { font: 700 0.85rem 'Space Mono', monospace; color: var(--c, var(--accent2)); }
+        .tag {
+            font-size: 0.72rem; padding: 0 0.5rem; border-radius: 999px; white-space: nowrap;
+            color: var(--c); border: 1px solid var(--c);
+        }
+        [data-theme="light"] .tag { border-width: 1.5px; font-weight: 700; }
+        .paper h3 { font-size: 1.12rem; line-height: 1.45; }
+        .paper .zh { color: var(--muted); font-size: 0.92rem; margin: 0.15rem 0 0.5rem; }
+        .cite { font-size: 0.82rem; color: var(--muted); overflow-wrap: anywhere; }
+        .cite i { color: var(--text); font-style: normal; }
+        .paper ul { margin: 0.7rem 0 0.2rem 1.15rem; font-size: 0.93rem; }
+        .paper li { margin: 0.25rem 0; }
+        .acts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+        .acts a {
+            text-decoration: none; font-size: 0.86rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 9px;
+            color: var(--text); border: 1px solid var(--border); background: var(--panel-2);
+        }
+        .acts a.go { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border-color: transparent; }
+        [data-theme="light"] .acts a { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .acts a.go { background: #ffb02e; }
+
+        /* ── 經典論文：主題篩選＋依年代排的時間軸 ── */
+        .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; }
+        .chip {
+            font: inherit; font-size: 0.85rem; padding: 0.25rem 0.75rem; border-radius: 999px; cursor: pointer;
+            color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+        }
+        .chip.on { color: var(--text); border-color: var(--accent); background: rgba(124, 58, 237, 0.2); }
+        [data-theme="light"] .chip { border: 2px solid #1d2b12; color: #1d2b12; background: #fff; font-weight: 700; }
+        [data-theme="light"] .chip.on { background: #ffb02e; }
+        .tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+        .tools input {
+            flex: 1 1 200px; min-width: 0; font: inherit; font-size: 16px; padding: 0.4rem 0.7rem; border-radius: 9px;
+            color: var(--text); background: var(--panel); border: 1px solid var(--border);
+        }
+        [data-theme="light"] .tools input { border: 2px solid #1d2b12; background: #fff; }
+        .count { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+
+        .decade { font: 700 0.95rem 'Space Mono', monospace; color: var(--muted); margin: 1.1rem 0 0.4rem; display: flex; align-items: center; gap: 0.6rem; }
+        .decade::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        [data-theme="light"] .decade::after { height: 2px; background: #1d2b12; opacity: 0.25; }
+        .row {
+            display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); gap: 0.2rem 0.7rem;
+            padding: 0.7rem 0.8rem; margin-bottom: 0.5rem; border-radius: 12px;
+            background: var(--panel); border: 1px solid var(--border);
+        }
+        [data-theme="light"] .row { background: #fff; border: 2px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
+        .row .yr { padding-top: 0.1rem; }
+        .row .body { min-width: 0; }
+        .row .name { font-weight: 700; }
+        .row .name small { font-weight: 400; color: var(--muted); }
+        .row .t { font-size: 0.93rem; line-height: 1.5; overflow-wrap: anywhere; }
+        .row .what { font-size: 0.88rem; color: var(--muted); margin-top: 0.2rem; }
+        .row .acts { margin-top: 0.4rem; gap: 0.4rem 0.9rem; }
+        .row .acts a { padding: 0; border: 0; background: none; box-shadow: none; color: var(--link); font-size: 0.84rem; }
+        .row .tags { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; vertical-align: 0.1em; margin-left: 0.3rem; }
+        .empty { color: var(--muted); padding: 1rem 0; }
+        .note { margin-top: 1.6rem; font-size: 0.85rem; color: var(--muted); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">// PAPER SHELF</div>
+        <h1>論文書架</h1>
+        <p class="lead">我讀過、拿來做成互動 Demo 的論文放在最上面，附白話摘要；下面是網站上每個 Demo 背後的經典原始論文，照年份排，可以看資料探勘這幾十年是怎麼一路改良過來的。</p>
+
+        <h2>我讀過的論文</h2>
+        <p class="sub">每篇都做成可以一步一步操作的 Demo，數字跟論文的範例對得起來。</p>
+        <div class="mine">
+            <article class="paper" style="--c: var(--t-hui)">
+                <div class="top"><span class="yr">2024</span><span class="tag">高效益樣式</span></div>
+                <h3>Efficient high utility itemset mining without the join operation</h3>
+                <p class="zh">FOTH：高效益樣式探勘，乾脆不做 utility list 的 join</p>
+                <p class="cite">Yihe Yan, Xinzheng Niu, Zhiheng Zhang, Philippe Fournier-Viger, Libin Ye, Fan Min. <i>Information Sciences</i>, Vol. 681, Article 121218, 2024.</p>
+                <ul>
+                    <li><b>問題：</b>HUI-Miner 之後的方法大多在想辦法把 join 做快，這篇換個方向，不 join。</li>
+                    <li><b>做法：</b>每個組合編成一個整數；<b>IndexSet</b> 收集同一個組合在每筆交易的效益，處理完再「自我傳播」成少一個商品的子集合，用 fixedPos 避免重複。</li>
+                    <li><b>結果：</b>稠密資料（Chess、Connect…）快很多，因為樣式長；稀疏資料反而比較慢，記憶體也用得比較多。</li>
+                </ul>
+                <div class="acts">
+                    <a class="go" href="foth.html">看互動 Demo →</a>
+                    <a href="https://doi.org/10.1016/j.ins.2024.121218" target="_blank" rel="noopener">DOI</a>
+                </div>
+            </article>
+            <article class="paper" style="--c: var(--t-stream)">
+                <div class="top"><span class="yr">2025</span><span class="tag">資料串流</span><span class="tag" style="--c: var(--t-hui)">高效益樣式</span></div>
+                <h3>Sliding window-based high utility occupancy pattern mining for data streams</h3>
+                <p class="zh">HUOPS：在資料串流上，只看最近幾批的高效益佔有率樣式</p>
+                <p class="cite">Seungwan Park, Taewoong Ryu, Doyoon Kim, Doyoung Kim, Hanju Kim, Myungha Cho, Unil Yun. <i>Information Sciences</i>, Vol. 716, Article 122243, 2025.</p>
+                <ul>
+                    <li><b>問題：</b>之前的 HUOMI 把從頭到現在的交易全算進來，越跑越慢，也看不出最近的趨勢。</li>
+                    <li><b>做法：</b>交易分批、視窗只留最近 W 批；HUOPS-List 照批次分組，舊批次整組拿掉。要結果時才重新排序、算剩餘佔有率。</li>
+                    <li><b>剪枝：</b>兩個上界 UBUO1（便宜、比較鬆）和 UBUO2（要排序、比較緊），都過門檻才往下合併。</li>
+                </ul>
+                <div class="acts">
+                    <a class="go" href="sw-huop.html">看互動 Demo →</a>
+                    <a href="https://doi.org/10.1016/j.ins.2025.122243" target="_blank" rel="noopener">DOI</a>
+                </div>
+            </article>
+            <article class="paper" style="--c: var(--t-stream)">
+                <div class="top"><span class="yr">2026</span><span class="tag">資料串流</span><span class="tag" style="--c: var(--t-freq)">頻繁樣式</span></div>
+                <h3>Uncertainty oriented pattern extracting and analyzing via sliding window control</h3>
+                <p class="zh">SWUPA：每個商品帶一個存在機率，在滑動視窗上找不確定頻繁樣式</p>
+                <p class="cite">Seungwan Park, Doyoung Kim, Seongbin Park, Unil Yun. <i>Expert Systems With Applications</i>, Vol. 297, Article 129309, 2026.</p>
+                <ul>
+                    <li><b>問題：</b>以前的不確定樣式方法（LIU、ILUNA）把累積的資料全算進去，看不出最近的變化。</li>
+                    <li><b>做法：</b>SWUPA-List 記 (TID, 機率)、期望支持度和最大機率；最舊那批的 TID 最小、都在串列前面，砍掉就好。</li>
+                    <li><b>剪枝：</b>overExpSup 合併前就能判斷；ppCLw 合併到一半發現不可能過門檻就停。</li>
+                </ul>
+                <div class="acts">
+                    <a class="go" href="uncertain-sw.html">看互動 Demo →</a>
+                    <a href="https://doi.org/10.1016/j.eswa.2025.129309" target="_blank" rel="noopener">DOI</a>
+                </div>
+            </article>
+        </div>
+
+        <h2>Demo 背後的經典論文</h2>
+        <p class="sub">網站上每個演算法最早是哪篇論文提出的。點標題旁的連結可以看 Demo，或到 Google Scholar 找原文。</p>
+        <div class="chips" id="chips" role="group" aria-label="依主題篩選"></div>
+        <div class="tools">
+            <input type="search" id="q" placeholder="搜尋演算法、作者、年份…" aria-label="搜尋論文">
+            <span class="count" id="count"></span>
+        </div>
+        <div id="list"></div>
+        <p class="note">書目是照論文首次發表的版本寫的（很多後來還有期刊版）。經典論文連到 Google Scholar 搜尋標題，因為會議論文不一定有 DOI。</p>
+    </div>
+
+    <script>
+        (function () {
+            var TOPICS = [
+                ['freq', '頻繁樣式'], ['rule', '關聯規則・序列'], ['hui', '高效益樣式'],
+                ['inc', '增量資料庫'], ['stream', '資料串流'], ['spatial', '空間資料']
+            ];
+            var TNAME = {};
+            TOPICS.forEach(function (t) { TNAME[t[0]] = t[1]; });
+
+            // 新增一篇：照格式加一行就好，畫面會自動依年份排
+            // [年份, 演算法名稱, 主題（可多個）, 論文標題, 作者, 出處, 一句話, Demo 頁面]
+            var PAPERS = [
+                [1970, 'Bloom Filter', ['stream'], 'Space/Time Trade-offs in Hash Coding with Allowable Errors', 'Burton H. Bloom', 'Communications of the ACM, 13(7)', '用一排位元和幾個雜湊函數判斷「有沒有看過」，可能誤報、不會漏報。', 'bloom-filter'],
+                [1974, '四元樹', ['spatial'], 'Quad Trees: A Data Structure for Retrieval on Composite Keys', 'Raphael A. Finkel, Jon Louis Bentley', 'Acta Informatica, 4', '平面一直切成四塊，只往有東西的那塊找。', 'spatial'],
+                [1984, 'R-tree', ['spatial'], 'R-Trees: A Dynamic Index Structure for Spatial Searching', 'Antonin Guttman', 'SIGMOD 1984', '用一層一層的外框矩形把空間物件包起來，查詢時整框跳過。', 'rtree'],
+                [1993, '關聯規則', ['rule'], 'Mining Association Rules between Sets of Items in Large Databases', 'Rakesh Agrawal, Tomasz Imieliński, Arun Swami', 'SIGMOD 1993', '第一次定義「買了 X 的人也會買 Y」這個問題，以及支持度和信賴度。', 'association-rules'],
+                [1994, 'Apriori', ['freq', 'rule'], 'Fast Algorithms for Mining Association Rules', 'Rakesh Agrawal, Ramakrishnan Srikant', 'VLDB 1994', '不頻繁的組合，包含它的大組合也不頻繁；一層一層合併、剪枝、計數。', 'apriori'],
+                [1996, 'GSP', ['rule'], 'Mining Sequential Patterns: Generalizations and Performance Improvements', 'Ramakrishnan Srikant, Rakesh Agrawal', 'EDBT 1996', '把 Apriori 的想法搬到「有先後順序」的序列上。', 'gsp-spade'],
+                [1996, 'FUP', ['inc'], 'Maintenance of Discovered Association Rules in Large Databases: An Incremental Updating Technique', 'David W. Cheung, Jiawei Han, Vincent T. Ng, C. Y. Wong', 'ICDE 1996', '資料庫新增交易時，盡量只看新的那幾筆來更新舊結果。', 'incremental'],
+                [1996, 'DBSCAN', ['spatial'], 'A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise', 'Martin Ester, Hans-Peter Kriegel, Jörg Sander, Xiaowei Xu', 'KDD 1996', '附近點夠多就是核心點，從核心點擴散成一群；不用先決定要分幾群。', 'dbscan'],
+                [1997, 'Eclat', ['freq'], 'New Algorithms for Fast Discovery of Association Rules', 'Mohammed J. Zaki, Srinivasan Parthasarathy, Mitsunori Ogihara, Wei Li', 'KDD 1997', '改成垂直格式：每個商品記出現在哪幾筆，取交集就是支持度。', 'eclat'],
+                [2000, 'FP-Growth', ['freq'], 'Mining Frequent Patterns without Candidate Generation', 'Jiawei Han, Jian Pei, Yiwen Yin', 'SIGMOD 2000', '把交易壓成一棵 FP-tree，只掃兩次資料庫、不產生候選。', 'fp-growth'],
+                [2001, 'PrefixSpan', ['rule'], 'PrefixSpan: Mining Sequential Patterns Efficiently by Prefix-Projected Pattern Growth', 'Jian Pei, Jiawei Han, Behzad Mortazavi-Asl, Helen Pinto, Qiming Chen, Umeshwar Dayal, Mei-Chun Hsu', 'ICDE 2001', '依前綴把序列資料庫投影成越來越小的資料庫，不產生候選。', 'prefixspan'],
+                [2001, 'SPADE', ['rule'], 'SPADE: An Efficient Algorithm for Mining Frequent Sequences', 'Mohammed J. Zaki', 'Machine Learning, 42', '序列版的 Eclat：記 (序列編號, 時間) 清單，用時間先後做 join。', 'gsp-spade'],
+                [2001, 'Skyline（BNL）', ['spatial'], 'The Skyline Operator', 'Stephan Börzsönyi, Donald Kossmann, Konrad Stocker', 'ICDE 2001', '找出「沒有別人每一項都比它好」的點，用一個有限大小的視窗一路比。', 'skyline'],
+                [2002, 'Lossy Counting', ['stream'], 'Approximate Frequency Counts over Data Streams', 'Gurmeet Singh Manku, Rajeev Motwani', 'VLDB 2002', '資料串流記不完全部，分段刪掉少見的計數，誤差有上限。', 'stream-counting'],
+                [2002, 'CHARM', ['freq'], 'CHARM: An Efficient Algorithm for Closed Itemset Mining', 'Mohammed J. Zaki, Ching-Jui Hsiao', 'SDM 2002', '比較兩個樣式的 tidset，用四條性質直接找出封閉樣式。', 'closed-patterns'],
+                [2002, 'gSpan', ['freq'], 'gSpan: Graph-Based Substructure Pattern Mining', 'Xifeng Yan, Jiawei Han', 'ICDM 2002', '用 DFS code 幫每個子圖取唯一的名字，只長最小 code 的那條路。', 'gspan'],
+                [2003, 'Skyline（SFS）', ['spatial'], 'Skyline with Presorting', 'Jan Chomicki, Parke Godfrey, Jarek Gryz, Dongming Liang', 'ICDE 2003', '先排序，視窗裡的點就不會再被後面的點打敗。', 'skyline'],
+                [2004, '共位樣式', ['spatial'], 'Discovering Colocation Patterns from Spatial Data Sets: A General Approach', 'Yan Huang, Shashi Shekhar, Hui Xiong', 'IEEE TKDE, 16(12)', '哪些種類的東西常常出現在彼此附近，用參與指標當門檻。', 'spatial'],
+                [2005, 'Space-Saving', ['stream'], 'Efficient Computation of Frequent and Top-k Elements in Data Streams', 'Ahmed Metwally, Divyakant Agrawal, Amr El Abbadi', 'ICDT 2005', '只用 k 個計數器，新東西擠掉最小的那個，次數只會多算。', 'stream-counting'],
+                [2005, 'Count-Min Sketch', ['stream'], 'An Improved Data Stream Summary: The Count-Min Sketch and its Applications', 'Graham Cormode, S. Muthukrishnan', 'Journal of Algorithms, 55(1)', '幾排雜湊計數器取最小值，用很少的記憶體估次數。', 'count-min'],
+                [2005, 'Two-Phase', ['hui'], 'A Two-Phase Algorithm for Fast Discovery of High Utility Itemsets', 'Ying Liu, Wei-keng Liao, Alok Choudhary', 'PAKDD 2005', '用 TWU 上界先找候選、再掃一次算真正效益。', 'two-phase'],
+                [2007, 'CanTree', ['freq', 'inc'], 'CanTree: A Canonical-Order Tree for Incremental Frequent-Pattern Mining', 'Carson Kai-Sang Leung, Quamrul I. Khan, Zhan Li, Tariqul Hoque', 'Knowledge and Information Systems, 11(3)', '樹上的商品用固定順序排，新交易直接插進去，不用重建。', 'cantree'],
+                [2007, 'HyperLogLog', ['stream'], 'HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm', 'Philippe Flajolet, Éric Fusy, Olivier Gandouet, Frédéric Meunier', 'AofA 2007', '只記雜湊值開頭最多幾個 0，就能估計有幾個不同的東西。', 'hyperloglog'],
+                [2009, 'PFP-tree', ['freq'], 'Discovering Periodic-Frequent Patterns in Transactional Databases', 'Syed Khairuzzaman Tanbeer, Chowdhury Farhan Ahmed, Byeong-Soo Jeong, Young-Koo Lee', 'PAKDD 2009', '不只看出現幾次，也看兩次出現之間最多隔多久。', 'periodic'],
+                [2009, 'IHUP', ['hui', 'inc'], 'Efficient Tree Structures for High Utility Pattern Mining in Incremental Databases', 'Chowdhury Farhan Ahmed, Syed Khairuzzaman Tanbeer, Byeong-Soo Jeong, Young-Koo Lee', 'IEEE TKDE, 21(12)', '高效益樣式的增量版：新交易插進樹，不用整個重掃。', 'ihup'],
+                [2009, 'IR-tree', ['spatial'], 'Efficient Retrieval of the Top-k Most Relevant Spatial Web Objects', 'Gao Cong, Christian S. Jensen, Dingming Wu', 'PVLDB, 2(1)', 'R-tree 的每個節點再掛一份關鍵字索引，同時看距離和文字。', 'ir-tree'],
+                [2010, 'UP-Growth', ['hui'], 'UP-Growth: An Efficient Algorithm for High Utility Itemset Mining', 'Vincent S. Tseng, Cheng-Wei Wu, Bai-En Shie, Philip S. Yu', 'KDD 2010', '把交易放進 UP-tree，用比 TWU 更緊的估計值減少候選。', 'up-growth'],
+                [2012, 'HUI-Miner', ['hui'], 'Mining High Utility Itemsets without Candidate Generation', 'Mengchi Liu, Junfeng Qu', 'CIKM 2012', 'utility list 記每筆的效益和剩餘效益，join 之後直接算，不產生候選。', 'high-utility'],
+                [2012, 'USpan', ['hui', 'rule'], 'USpan: An Efficient Algorithm for Mining High Utility Sequential Patterns', 'Junfu Yin, Zhigang Zheng, Longbing Cao', 'KDD 2012', '序列加上效益：用 utility matrix 和字典序樹找高效益序列。', 'uspan'],
+                [2015, 'EFIM', ['hui'], 'EFIM: A Highly Efficient Algorithm for High-Utility Itemset Mining', 'Souleymane Zida, Philippe Fournier-Viger, Jerry Chun-Wei Lin, Cheng-Wei Wu, Vincent S. Tseng', 'MICAI 2015', '投影資料庫＋合併相同交易，加上兩個更緊的上界。', 'efim'],
+                [2016, 'TKO', ['hui'], 'Efficient Algorithms for Mining Top-K High Utility Itemsets', 'Vincent S. Tseng, Cheng-Wei Wu, Philippe Fournier-Viger, Philip S. Yu', 'IEEE TKDE, 28(1)', '不用設門檻，直接要效益最高的 k 個，門檻邊挖邊往上調。', 'top-k-hui']
+            ];
+
+            var $ = function (id) { return document.getElementById(id); };
+            var topic = 'all';
+            try { var saved = localStorage.getItem('jfk-papers-topic'); if (saved && (saved === 'all' || TNAME[saved])) topic = saved; } catch (e) { /* 被擋就用全部 */ }
+
+            // 篩選鈕
+            [['all', '全部']].concat(TOPICS).forEach(function (t) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'chip';
+                b.dataset.topic = t[0];
+                b.textContent = t[1];
+                b.addEventListener('click', function () {
+                    topic = t[0];
+                    try { localStorage.setItem('jfk-papers-topic', topic); } catch (e) { /* 不記也沒關係 */ }
+                    render();
+                });
+                $('chips').appendChild(b);
+            });
+            $('q').addEventListener('input', render);
+
+            function node(tag, cls, text) {
+                var e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text != null) e.textContent = text;
+                return e;
+            }
+            function link(href, text, ext) {
+                var a = node('a', null, text);
+                a.href = href;
+                if (ext) { a.target = '_blank'; a.rel = 'noopener'; }
+                return a;
+            }
+
+            function render() {
+                document.querySelectorAll('#chips .chip').forEach(function (b) {
+                    var on = b.dataset.topic === topic;
+                    b.classList.toggle('on', on);
+                    b.setAttribute('aria-pressed', on);
+                });
+                var q = $('q').value.trim().toLowerCase();
+                var rows = PAPERS.filter(function (p) {
+                    if (topic !== 'all' && p[2].indexOf(topic) < 0) return false;
+                    if (!q) return true;
+                    return [p[0], p[1], p[3], p[4], p[5], p[6]].join(' ').toLowerCase().indexOf(q) >= 0;
+                }).sort(function (a, b) { return a[0] - b[0]; });
+
+                var list = $('list');
+                list.textContent = '';
+                $('count').textContent = rows.length + ' 篇';
+                if (!rows.length) { list.appendChild(node('p', 'empty', '找不到符合的論文，換個關鍵字試試。')); return; }
+                var lastDecade = null;
+                rows.forEach(function (p) {
+                    var dec = Math.floor(p[0] / 10) * 10;
+                    if (dec !== lastDecade) { list.appendChild(node('div', 'decade', dec + 's')); lastDecade = dec; }
+                    var c = 'var(--t-' + p[2][0] + ')';
+                    var row = node('article', 'row');
+                    row.style.setProperty('--c', c);
+                    row.appendChild(node('span', 'yr', String(p[0])));
+                    var body = node('div', 'body');
+                    var name = node('div', 'name', p[1]);
+                    var tags = node('span', 'tags');
+                    p[2].forEach(function (t) {
+                        var tg = node('span', 'tag', TNAME[t]);
+                        tg.style.setProperty('--c', 'var(--t-' + t + ')');
+                        tags.appendChild(tg);
+                    });
+                    name.appendChild(tags);
+                    body.appendChild(name);
+                    body.appendChild(node('div', 't', p[3]));
+                    body.appendChild(node('div', 'cite', p[4] + '. ' + p[5] + '.'));
+                    body.appendChild(node('div', 'what', p[6]));
+                    var acts = node('div', 'acts');
+                    acts.appendChild(link(p[7] + '.html', '看 Demo →'));
+                    acts.appendChild(link('https://scholar.google.com/scholar?q=' + encodeURIComponent('"' + p[3] + '"'), 'Google Scholar ↗', true));
+                    body.appendChild(acts);
+                    row.appendChild(body);
+                    list.appendChild(row);
+                });
+            }
+            render();
+        })();
+    </script>
+</body>
+
+</html>
