@@ -83,6 +83,14 @@
             display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none;
             border-radius: 14px; border: 1px solid var(--border); background: var(--cell); cursor: pointer;
         }
+        .board-box.following #board { cursor: crosshair; }
+        .board-box::after {
+            content: '線跟著滑鼠走中・點一下停'; position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%); z-index: 2;
+            padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; white-space: nowrap; pointer-events: none;
+            background: var(--accent, #7c3aed); color: #fff; visibility: hidden;
+        }
+        .board-box.following::after { visibility: visible; }
+        [data-theme="light"] .board-box::after { background: #ffb02e; color: #1d2b12; border: 2px solid #1d2b12; font-weight: 700; }
         [data-theme="light"] #board { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; }
         #board .gl { stroke: var(--grid); stroke-width: 2; }
         #board .wall { stroke: var(--wall); stroke-width: 9; stroke-linecap: round; }
@@ -173,8 +181,9 @@
                 <li>從 <b>1</b> 按下去開始拖，經過 2、3、4… 照順序走到最後一個數字。</li>
                 <li>每一格都要剛好走過一次，粗線是牆，不能穿過去。</li>
                 <li>拖回頭可以收回；點路線上的任一格，會從那裡重新接著畫。</li>
+                <li>用電腦玩：不用一直按著滑鼠，<b>點一下線的尾端</b>，線就會跟著滑鼠走，再點一下停。也可以用方向鍵或 WASD 一格一格走。</li>
             </ol>
-            <p>每一題都是隨機產生，再用解題程式確認只有一種解，想玩幾題就玩幾題。網址後面的題號可以分享，朋友打開會拿到同一題。電腦可以用方向鍵走、Backspace 退一步。</p>
+            <p>每一題都是隨機產生，再用解題程式確認只有一種解，想玩幾題就玩幾題。網址後面的題號可以分享，朋友打開會拿到同一題。電腦按 Backspace 退一步、Esc 停止跟隨。</p>
             <p id="pid" class="pid"></p>
         </section>
     </div>
@@ -512,50 +521,74 @@
             }
 
             // ── 滑鼠／手指 ──
-            var dragging = false;
-            function cellAt(e) {
+            // 手機：按住拖。電腦：也可以「點一下」進入跟隨模式，不用一直按著，線會跟著滑鼠走，再點一下停。
+            var dragging = false, following = false, downCell = -1, movedCell = false;
+            var boardBox = board.parentNode;
+            function cellAt(e, strict) {
                 var r = board.getBoundingClientRect();
-                var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-                if (x < 0 || y < 0 || x >= 1 || y >= 1) return -1;
-                return Math.floor(y * P.n) * P.n + Math.floor(x * P.n);
+                var x = (e.clientX - r.left) / r.width * P.n, y = (e.clientY - r.top) / r.height * P.n;
+                if (x < 0 || y < 0 || x >= P.n || y >= P.n) return -1;
+                // 移動中只認格子中間的部分，滑鼠停在格線附近抖動時不會一下前進一下收回
+                if (strict) { var fx = x % 1, fy = y % 1; if (fx < 0.18 || fx > 0.82 || fy < 0.18 || fy > 0.82) return -1; }
+                return Math.floor(y) * P.n + Math.floor(x);
+            }
+            function setFollow(v) {
+                following = v;
+                boardBox.classList.toggle('following', v);
+            }
+            function moveTo(e) {
+                var c = cellAt(e, true);
+                if (c < 0 || c === path[path.length - 1]) return;
+                movedCell = true;
+                // 拖回上一格＝收回一步
+                if (path.length > 1 && c === path[path.length - 2]) { pop(); changed(); return; }
+                if (onPath[c] >= 0) return;               // 拖過自己的路線不要整段收掉，只有點下去才收
+                if (goTo(c)) changed();
             }
             board.addEventListener('pointerdown', function (e) {
                 if (!P || won) return;
+                if (e.button > 0) return;
+                if (following) { setFollow(false); e.preventDefault(); return; }
                 var c = cellAt(e);
                 if (c < 0) return;
-                dragging = true;
+                dragging = true; downCell = c; movedCell = false;
                 try { board.setPointerCapture(e.pointerId); } catch (err) { /* 舊瀏覽器 */ }
                 if (goTo(c)) changed();
                 e.preventDefault();
             });
             board.addEventListener('pointermove', function (e) {
-                if (!dragging) return;
-                var c = cellAt(e);
-                if (c < 0) return;
-                // 拖回上一格＝收回一步
-                if (path.length > 1 && c === path[path.length - 2]) { pop(); changed(); return; }
-                if (onPath[c] >= 0) return;               // 拖過自己的路線不要整段收掉，只有點下去才收
-                if (goTo(c)) changed();
+                if (!(dragging || following) || !P || won) return;
+                // 滑鼠移很快時，瀏覽器會把中間經過的位置合併起來；逐一走過，線才會照著滑鼠的軌跡
+                var list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+                if (!list.length) list = [e];
+                for (var i = 0; i < list.length; i++) moveTo(list[i]);
             });
-            function endDrag() { dragging = false; }
+            function endDrag(e) {
+                if (!dragging) return;
+                dragging = false;
+                // 電腦上沒拖動、只是點一下：開始跟隨滑鼠
+                if (e && e.type === 'pointerup' && e.pointerType === 'mouse' && !movedCell && !won && downCell === path[path.length - 1]) setFollow(true);
+            }
             board.addEventListener('pointerup', endDrag);
             board.addEventListener('pointercancel', endDrag);
+            document.addEventListener('pointerdown', function (e) { if (following && !board.contains(e.target)) setFollow(false); });
 
             document.addEventListener('keydown', function (e) {
                 if (!P || won || e.target.closest && e.target.closest('input,textarea')) return;
-                var d = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
+                var d = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3, w: 0, d: 1, s: 2, a: 3, W: 0, D: 1, S: 2, A: 3 }[e.key];
                 if (d != null) {
                     var head = path[path.length - 1], v = stepOf(P.n, head, d);
                     if (v >= 0 && path.length > 1 && v === path[path.length - 2]) { pop(); changed(); }
                     else if (v >= 0 && canStep(head, v)) { push(v); changed(); }
                     e.preventDefault();
                 } else if (e.key === 'Backspace' && path.length > 1) { pop(); changed(); e.preventDefault(); }
+                else if (e.key === 'Escape') setFollow(false);
             });
 
             // ── 按鈕 ──
             $('undo').addEventListener('click', function () { if (P && !won && path.length > 1) { pop(); changed(); } });
-            $('reset').addEventListener('click', function () { if (P) restart(); });
-            $('new').addEventListener('click', function () { newPuzzle(); });
+            $('reset').addEventListener('click', function () { setFollow(false); if (P) restart(); });
+            $('new').addEventListener('click', function () { setFollow(false); newPuzzle(); });
             $('hint').addEventListener('click', function () {
                 if (!P || won) return;
                 // 從頭比對正確路線，錯的部分收掉，再標出下一格
@@ -590,7 +623,7 @@
                 $('solved').textContent = '已解 ' + (stats.solved || 0) + ' 題';
             }
             function win() {
-                won = true; tEnd = Date.now(); clearInterval(timer); tick();
+                won = true; setFollow(false); tEnd = Date.now(); clearInterval(timer); tick();
                 var s = elapsed();
                 stats.solved = (stats.solved || 0) + 1;
                 stats.best = stats.best || {};

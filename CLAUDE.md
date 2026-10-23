@@ -37,7 +37,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `games/game-set.html` | SET：單人、電腦對手、**多人連線（最多 6 人）**。房主權威制；WebRTC（PeerJS，自訂 iceServers 時要自己列 TURN）打不通 10 秒後改走 MQTT 備援（EMQX、HiveMQ）。暱稱、等待室、全員同意才重新開始、斷線同房號重回（同暱稱合併紀錄）、配對亮 0.8 秒＋上方縮圖提示、同一局鎖定牌面排法。 |
 | `games/1A2B.html`、`infinite-tictactoe.html`、`vertical-gomoku.html`、`coc-card.html` | 各有技術介紹頁 |
 | `games/hanoi.html` | 河內塔：自己玩（任意盤面的最佳提示）＋ 看遞迴怎麼解（Python/JS/C++ 逐行高亮、呼叫堆疊） |
-| `games/zip.html` | 一筆畫（像 LinkedIn Zip）：題目無限多，不做每天一題（使用者要求）。出題器：backbite 隨機一筆畫路線 → 放數字、加牆 → 解題器確認唯一解 → 拿掉多餘數字；題號 `#大小-難度-種子` 放網址可分享。紀錄存 localStorage `jfk-zip-v1` |
+| `games/zip.html` | 一筆畫（像 LinkedIn Zip）：題目無限多，不做每天一題（使用者要求）。出題器：backbite 隨機一筆畫路線 → 放數字、加牆 → 解題器確認唯一解 → 拿掉多餘數字；題號 `#大小-難度-種子` 放網址可分享。紀錄存 localStorage `jfk-zip-v1`。電腦：點一下線的尾端進入「跟隨滑鼠」模式（不用按住），移動時只認格子中間 64%（格線附近抖動不會前進又收回），並逐一處理 `getCoalescedEvents()`；方向鍵／WASD 也能走 |
 | `games/store-manager.html` | 超商店長：5 週，每週隨機的顧客模型（每週一樣「大家都買」的陷阱商品＋幾條隱藏規則），玩家看 80 張收據、用分析工具看支持度／信賴度／提升度，挑最多兩組優惠（每組廣告費 $150）；效果＝只買其中一樣的客人依「真正的提升度」順手多買。評等是跟每週最佳兩組比的比例。紀錄 localStorage `jfk-store-v1`（`best`、`games`、`juice` 給寵物）；`?seed=` 固定題目方便測試 |
 | `games/lab-life.html` | 碩一生模擬器：18 週，每週選一件事（讀 paper、跑實驗、準備 meeting、唸書、休息、出去玩），之後 meeting、第 9／17 週考試、隨機事件（第 13～16 週有投稿相關事件）。實驗進度 = 8 + 知識/4，心情 <30 打六折；體力 0 會病倒一週。6 種結局（圖鑑）。紀錄 localStorage `jfk-lab-v1`（`runs`、`endings`、`juice`）。**不要寫喝咖啡**，補體力用蘋果汁 |
 | `games/pet.html` | 養一隻果汁龍：果汁＝其他遊戲紀錄算出來的（Zip 每題 1、研究闖關每顆星 2、超商店長 `juice`、碩一生模擬器 `juice`、跑酷 `juice`、每日簽到 3）減掉已餵的，不用改其他遊戲；新增會給果汁的遊戲時改 `sources()`。餵食長大（蛋→寶寶→小→果汁龍→大，`STAGES`；滿 3 瓶才孵化，判斷一律用 `hatched()`，不要用 `pet.xp` 是不是 0），等級解鎖配件（emoji 疊在 dragon.svg 上）和背景。飽足每 4 小時少 1。localStorage `jfk-pet-v1`。首頁右下角也有一隻（index.html 的 `.hpet`，只讀不寫，自己有一份 STAGES，改大小規則時兩邊一起改；收起狀態存 `jfk-pet-home`） |
