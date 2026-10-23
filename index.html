@@ -358,7 +358,7 @@
         .hpet-me.egg { aspect-ratio: 60 / 74; }
         .hpet-me img, .hpet-me svg { width: 100%; height: 100%; display: block; }
         .hpet-me .acc { position: absolute; line-height: 1; transform: translate(-50%, -50%); pointer-events: none; }
-        .hpet-me .acc.hat { left: 37%; top: 6%; font-size: 29cqw; }
+        .hpet-me .acc.hat { left: 37%; top: 2%; font-size: 29cqw; }
         .hpet-me .acc.face { left: 27%; top: 23%; font-size: 21cqw; }
         .hpet-me .acc.neck { left: 46%; top: 54%; font-size: 22.6cqw; }
         .hpet-me .acc.side { left: 57%; top: 10%; font-size: 19.4cqw; }
@@ -367,9 +367,10 @@
         @keyframes hpetBump { 30% { transform: translateY(-10px) scale(1.06, 0.95); } 60% { transform: translateY(0) scale(0.96, 1.04); } }
         .hpet.min .hpet-me { rotate: -12deg; opacity: 0.85; }
         .hpet-me.face-r { scale: -1 1; } /* dragon.svg 面向左，往右走時翻過來 */
-        .hpet.walking .hpet-me:not(.egg) img { animation: hpetStep 0.7s ease-in-out infinite; }
+        /* 走路的上下晃動加在整隻（含帽子等配件）上，用獨立的 translate 屬性，不會跟點一下的 bump 動畫打架 */
+        .hpet.walking .hpet-me:not(.egg) { animation: hpetStep 0.7s ease-in-out infinite; }
         .hpet.walking .hpet-me.egg svg { animation: hpetRoll 1.4s ease-in-out infinite; }
-        @keyframes hpetStep { 50% { transform: translateY(-3px); } }
+        @keyframes hpetStep { 50% { translate: 0 -3px; } }
         @keyframes hpetRoll { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
         .hpet.on-left .hpet-say { right: auto; left: 0; }
         .hpet-say {
