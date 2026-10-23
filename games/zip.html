@@ -524,26 +524,61 @@
             // 手機：按住拖。電腦：也可以「點一下」進入跟隨模式，不用一直按著，線會跟著滑鼠走，再點一下停。
             var dragging = false, following = false, downCell = -1, movedCell = false;
             var boardBox = board.parentNode;
-            function cellAt(e, strict) {
+            function gridPt(e) {
                 var r = board.getBoundingClientRect();
-                var x = (e.clientX - r.left) / r.width * P.n, y = (e.clientY - r.top) / r.height * P.n;
-                if (x < 0 || y < 0 || x >= P.n || y >= P.n) return -1;
-                // 移動中只認格子中間的部分，滑鼠停在格線附近抖動時不會一下前進一下收回
-                if (strict) { var fx = x % 1, fy = y % 1; if (fx < 0.18 || fx > 0.82 || fy < 0.18 || fy > 0.82) return -1; }
-                return Math.floor(y) * P.n + Math.floor(x);
+                return { x: (e.clientX - r.left) / r.width * P.n, y: (e.clientY - r.top) / r.height * P.n };
+            }
+            function cellAt(e) {
+                var q = gridPt(e);
+                if (q.x < 0 || q.y < 0 || q.x >= P.n || q.y >= P.n) return -1;
+                return Math.floor(q.y) * P.n + Math.floor(q.x);
             }
             function setFollow(v) {
                 following = v;
                 boardBox.classList.toggle('following', v);
             }
-            function moveTo(e) {
-                var c = cellAt(e, true);
-                if (c < 0 || c === path[path.length - 1]) return;
-                movedCell = true;
-                // 拖回上一格＝收回一步
-                if (path.length > 1 && c === path[path.length - 2]) { pop(); changed(); return; }
-                if (onPath[c] >= 0) return;               // 拖過自己的路線不要整段收掉，只有點下去才收
-                if (goTo(c)) changed();
+            // 滑鼠移很快時，兩次事件之間可能跨過好幾格、甚至斜斜切過格子的角。
+            // 把上一個位置到這個位置的線段切成小段，經過的每一格都依序處理，線才跟得上。
+            var lastPt = null;
+            function traceTo(q) {
+                if (!lastPt) lastPt = q;
+                var dx = q.x - lastPt.x, dy = q.y - lastPt.y;
+                var steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 0.1));
+                var any = false;
+                for (var i = 1; i <= steps; i++) {
+                    if (enter(lastPt.x + dx * i / steps, lastPt.y + dy * i / steps)) any = true;
+                }
+                lastPt = q;
+                return any;
+            }
+            function adj(a, b) {
+                var n = P.n;
+                return Math.abs(Math.floor(a / n) - Math.floor(b / n)) + Math.abs(a % n - b % n) === 1;
+            }
+            function enter(x, y) {
+                if (won || x < 0 || y < 0 || x >= P.n || y >= P.n) return false;
+                var n = P.n, c = Math.floor(y) * n + Math.floor(x), head = path[path.length - 1];
+                if (c === head) return false;
+                var fx = x % 1, fy = y % 1, deep = fx > 0.22 && fx < 0.78 && fy > 0.22 && fy < 0.78;
+                // 退回上一格＝收回一步；要走進格子中間才算，在格線附近抖動不會一直收回又前進
+                if (path.length > 1 && c === path[path.length - 2]) { if (!deep) return false; pop(); return true; }
+                if (onPath[c] >= 0) return false;            // 劃過自己的路線不收，只有點下去才收
+                if (adj(head, c)) { if (canStep(head, c)) { push(c); return true; } return false; }
+                var hr = Math.floor(head / n), hc = head % n, cr = Math.floor(c / n), cc = c % n;
+                if (Math.abs(hr - cr) === 1 && Math.abs(hc - cc) === 1) {
+                    // 斜斜切過角落：補上中間那一格。轉彎時人會切掉「正前方那格」的角，所以先試沿著原本方向的那格
+                    var mids = [hr * n + cc, cr * n + hc], k;
+                    if (path.length > 1 && head - path[path.length - 2] === mids[1] - head) mids.reverse();
+                    for (k = 0; k < 2; k++) {
+                        if (!canStep(head, mids[k])) continue;
+                        push(mids[k]);
+                        if (canStep(mids[k], c)) { push(c); return true; }
+                        pop();
+                    }
+                    for (k = 0; k < 2; k++) if (canStep(head, mids[k])) { push(mids[k]); return true; }
+                    return false;
+                }
+                return goTo(c);
             }
             board.addEventListener('pointerdown', function (e) {
                 if (!P || won) return;
@@ -551,7 +586,7 @@
                 if (following) { setFollow(false); e.preventDefault(); return; }
                 var c = cellAt(e);
                 if (c < 0) return;
-                dragging = true; downCell = c; movedCell = false;
+                dragging = true; downCell = c; movedCell = false; lastPt = gridPt(e);
                 try { board.setPointerCapture(e.pointerId); } catch (err) { /* 舊瀏覽器 */ }
                 if (goTo(c)) changed();
                 e.preventDefault();
@@ -561,7 +596,9 @@
                 // 滑鼠移很快時，瀏覽器會把中間經過的位置合併起來；逐一走過，線才會照著滑鼠的軌跡
                 var list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
                 if (!list.length) list = [e];
-                for (var i = 0; i < list.length; i++) moveTo(list[i]);
+                var moved = false;
+                for (var i = 0; i < list.length; i++) if (traceTo(gridPt(list[i]))) moved = true;
+                if (moved) { movedCell = true; changed(); }
             });
             function endDrag(e) {
                 if (!dragging) return;
