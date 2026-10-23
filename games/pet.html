@@ -11,6 +11,7 @@
     <meta name="description" content="在網站上解 Zip、闖研究關卡、當超商店長、玩碩一生模擬器都能拿到蘋果汁，拿來餵果汁龍，讓牠從蛋孵出來、長大、換造型。">
     <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/dragon-hold.js"></script>
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -200,6 +201,8 @@
         <section class="card">
             <h2>衣櫃</h2>
             <div class="closet" id="closet"></div>
+            <p class="sub">手上拿的</p>
+            <div class="closet" id="holds"></div>
             <p class="sub">背景</p>
             <div class="closet" id="bgs"></div>
         </section>
@@ -332,7 +335,7 @@
                     var body = document.createElement('span');
                     body.className = 'body';
                     var img = document.createElement('img');
-                    img.src = '../assets/dragon.svg';
+                    img.src = jfkDragonURL(pet.hold);
                     img.alt = '';
                     body.appendChild(img);
                     ['hat', 'face', 'neck', 'side'].forEach(function (slot) {
@@ -429,6 +432,30 @@
                     } else b.textContent = '🔒 Lv.' + it[3];
                     box.appendChild(b);
                 });
+                // 手上拿的：一次拿一樣，不能空手（沒選過就是蘋果汁）
+                var hb = $('holds');
+                hb.textContent = '';
+                JFK_HOLDS.forEach(function (it) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    var ok = lv >= it[3] && hatched(), on = (pet.hold || 'juice') === it[0];
+                    b.disabled = !ok;
+                    b.className = on ? 'on' : '';
+                    b.title = it[2];
+                    if (ok) {
+                        b.textContent = it[1];
+                        var sm = document.createElement('small');
+                        sm.textContent = it[2];
+                        b.appendChild(sm);
+                        b.setAttribute('aria-pressed', on);
+                        b.setAttribute('aria-label', it[2]);
+                        b.addEventListener('click', function () {
+                            pet.hold = it[0]; save(); render();
+                            say(it[0] === 'juice' ? '還是蘋果汁最好喝！' : '換拿' + it[2] + '了，好看嗎？');
+                        });
+                    } else b.textContent = '🔒 Lv.' + it[3];
+                    hb.appendChild(b);
+                });
                 var bg = $('bgs');
                 bg.textContent = '';
                 BGS.forEach(function (it) {
@@ -510,7 +537,7 @@
                     }
                     var lvBefore = 1 + Math.floor((pet.xp - 1) / 5);
                     if (level() > lvBefore) {
-                        var un = ITEMS.filter(function (it) { return it[3] === level(); }).concat(BGS.filter(function (it) { return it[3] === level(); }));
+                        var un = ITEMS.filter(function (it) { return it[3] === level(); }).concat(JFK_HOLDS.filter(function (it) { return it[3] === level(); }), BGS.filter(function (it) { return it[3] === level(); }));
                         if (un.length) setTimeout(function () { say('升到 Lv.' + level() + '，解鎖了' + un.map(function (u) { return u[1] + u[2]; }).join('、') + '！'); }, 900);
                     }
                 }, 600);

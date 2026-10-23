@@ -11,6 +11,7 @@
     <meta name="description" content="點一下跳、按住跳更高，幫果汁龍躲開 bug、deadline 和 OOM，沿路撿蘋果汁。撿到的果汁可以拿去餵你的果汁龍寵物。">
     <meta name="jfk-paint" content="off"><!-- 畫布自己依主題畫 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/dragon-hold.js"></script>
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -105,7 +106,7 @@
             var rec = load();
 
             var dragon = new Image();
-            dragon.src = '../assets/dragon.svg';
+            dragon.src = jfkDragonURL(jfkPetHold()); // 跟寵物手上拿的一樣
             dragon.onload = function () { if (state !== 'run') draw(); };
 
             // 世界用固定的單位：地面高度、重力都以「畫面高度 = 100」來算，換螢幕大小不影響手感

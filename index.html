@@ -17,6 +17,7 @@
     <meta property="og:image" content="https://jellyfishkuo.github.io/assets/logo-180.png">
     <!-- 先決定深色／淺色，畫面才不會先閃另一種顏色 -->
     <script src="assets/theme.js"></script>
+    <script src="assets/dragon-hold.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
@@ -828,7 +829,7 @@
                 me.style.setProperty('--w', Math.round(40 + 32 * sz) + 'px');
                 if (!full) me.classList.add('flat');
                 const img = document.createElement('img');
-                img.src = 'assets/dragon.svg';
+                img.src = jfkDragonURL(jfkPetHold());
                 img.alt = '';
                 me.appendChild(img);
                 ['hat', 'face', 'neck', 'side'].forEach(slot => {
