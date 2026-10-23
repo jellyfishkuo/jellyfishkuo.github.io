@@ -10,6 +10,7 @@
     <title>Apriori 頻繁樣式探勘</title>
     <meta name="description" content="一步一步看 Apriori 怎麼從超商交易紀錄找出常一起買的商品組合：合併、剪枝、計數、篩選，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

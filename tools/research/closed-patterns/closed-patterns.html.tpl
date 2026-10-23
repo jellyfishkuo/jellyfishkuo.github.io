@@ -10,6 +10,7 @@
     <title>封閉與最大頻繁樣式 CHARM</title>
     <meta name="description" content="頻繁樣式太多怎麼辦？比較全部頻繁、封閉、最大三種答案，再一步一步看 CHARM 怎麼用 tidset 的四條性質直接找出封閉樣式，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

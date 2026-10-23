@@ -10,6 +10,7 @@
     <title>Bloom Filter：這張發票登錄過了嗎</title>
     <meta name="description" content="只用 m 個位元和 k 個雜湊函數判斷「有沒有看過」：一步一步看發票怎麼被登錄進位元陣列、查詢時為什麼看到第一個 0 就能停、誤判是怎麼來的、最佳 k 怎麼算，以及可以刪除的 Counting Bloom Filter，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

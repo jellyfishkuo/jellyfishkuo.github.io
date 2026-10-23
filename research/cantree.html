@@ -10,6 +10,7 @@
     <title>CanTree 增量 FP-tree</title>
     <meta name="description" content="一步一步看 CanTree 怎麼用固定的標準順序插入交易：新交易進來直接插、沿路次數 +1、不用重排重建，要挖的時候再用 FP-Growth 的條件模式基底挖；和 FP-tree 比較順序與節點數，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

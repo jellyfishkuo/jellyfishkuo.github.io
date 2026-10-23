@@ -10,6 +10,7 @@
     <title>HyperLogLog：今天來了幾位不同的會員</title>
     <meta name="description" content="只用 m 個小暫存器估計串流裡有幾個「不同的」東西：一步一步看會員卡號怎麼雜湊、前 p 個位元決定第幾格、開頭幾個 0 變成 ρ、暫存器只留最大值，再用調和平均與 linear counting 算出估計值；可以一次灌入十萬次來店看誤差，以及兩家分店的 HLL 怎麼合併，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

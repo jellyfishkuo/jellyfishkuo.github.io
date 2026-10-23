@@ -10,6 +10,7 @@
     <title>DBSCAN 密度分群</title>
     <meta name="description" content="在地圖上一步一步看 DBSCAN 怎麼用「ε 範圍內的鄰居夠不夠多」找出核心點、用佇列把群長出來、標出雜訊，月牙和圓環也分得開，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

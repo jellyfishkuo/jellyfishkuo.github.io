@@ -10,6 +10,7 @@
     <title>Eclat 頻繁樣式探勘</title>
     <meta name="description" content="一步一步看 Eclat 怎麼把超商交易轉成垂直格式（每個商品出現在哪幾筆交易），用 TID 集合取交集、深度優先找出所有頻繁樣式，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

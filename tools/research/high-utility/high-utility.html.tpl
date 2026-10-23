@@ -10,6 +10,7 @@
     <title>HUI-Miner 高效益樣式探勘</title>
     <meta name="description" content="一步一步看 HUI-Miner 怎麼用 TWU 和 utility list 找出「賺得多」而不只是「買得多」的商品組合：TWU 剪枝、iutil／rutil 上界、集合列舉樹，Java 與 Python 程式碼逐行對照，並和 Apriori 的結果比較。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

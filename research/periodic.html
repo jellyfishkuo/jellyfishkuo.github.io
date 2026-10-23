@@ -10,6 +10,7 @@
     <title>週期性頻繁樣式探勘（PFP-tree）</title>
     <meta name="description" content="一步一步看 PFP-tree 怎麼找出「夠常出現、而且出現得夠規律」的商品組合：算每個組合的支持度與最大週期、建樹時把 tid 記在尾節點、挖的時候把 tid 往上交，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

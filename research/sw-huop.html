@@ -10,6 +10,7 @@
     <title>滑動視窗高效益佔有率樣式（HUOPS）</title>
     <meta name="description" content="一步一步看 HUOPS（Information Sciences 2025）怎麼在資料串流上用滑動視窗找高效益佔有率樣式：交易一批一批進來、最舊的一批整批移出，HUOPS-List 怎麼更新、重整、用 UBUO1／UBUO2 兩個上界剪枝，每個視窗都和暴力法對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

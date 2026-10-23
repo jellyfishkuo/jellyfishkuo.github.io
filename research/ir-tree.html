@@ -10,6 +10,7 @@
     <title>IR-tree 空間關鍵字查詢</title>
     <meta name="description" content="在街區地圖上點一個位置、勾選要買的商品，一步一步看 IR-tree 怎麼查每個節點的倒排表，把湊不齊關鍵字的框整個跳過，再依距離找出最近的 k 家店；跟「先找最近再檢查」、「先查倒排表再排序」比較打開的節點與檢查的店家數，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

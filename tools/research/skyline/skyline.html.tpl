@@ -10,6 +10,7 @@
     <title>Skyline 查詢：BNL 與 SFS</title>
     <meta name="description" content="用一張「價格 × 距離」的店家散布圖，一步一步看 BNL 怎麼用有限的視窗和暫存檔找出 skyline，以及 SFS 先排序後視窗只進不出、比較次數少多少，Java 與 Python 程式碼逐行對照。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

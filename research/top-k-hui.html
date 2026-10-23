@@ -10,6 +10,7 @@
     <title>Top-k 高效益樣式探勘</title>
     <meta name="description" content="不用猜門檻，直接要效益最高的前 k 名：一步一步看 TKO 怎麼在 HUI-Miner 的 utility list 上，用最小堆積維護前 k 名、邊挖邊把門檻往上調、剪枝越來越狠，Java 與 Python 程式碼逐行對照，並比較早知道門檻時要做多少事。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

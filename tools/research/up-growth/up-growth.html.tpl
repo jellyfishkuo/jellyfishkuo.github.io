@@ -10,6 +10,7 @@
     <title>UP-Growth 高效益樣式探勘</title>
     <meta name="description" content="一步一步看 UP-Growth 怎麼用一棵 UP-Tree 找高效益樣式：DGU 刪掉不夠的商品、DGN 讓節點只記到自己為止的效益，挖條件樹時再用 DLU、DLN 收緊上界，最後掃一次資料庫驗證候選。Java 與 Python 程式碼逐行對照，並和 Two-Phase、HUI-Miner 比較。">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */

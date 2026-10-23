@@ -81,6 +81,8 @@
 - 題目框要短：選項最多 4 個、長選項（像路徑清單）最多 3 個；手機 375px 時題目框高度最好不要比最長的說明多太多（關掉練習模式也會預留這個高度）。
 - 驗證：寫 `quiz_test.py`（照 apriori 的），至少 100 組隨機資料，每一題用 Python 自己算（或暴力法）對答案，並檢查選項不重複、至少 2 個；再用 playwright 在 375 / 1280 把練習模式打開、隨機作答從頭走到尾：每個 `.card` 位置不變（包括開關練習模式、題目打開、作答後）、沒有 pageerror、`scrollWidth` 等於視窗寬。
 
+**研究闖關**：模板 `<head>` 在 theme.js 後面加 `<script src="../assets/quest.js" defer></script>`，再把新 Demo 加進 `research/quest.html` 的 `WORLDS`。quest.js 靠 `.quiz`／`.done`／`.miss`／`.quiz-toggle` 這幾個 class 判斷答題，不要改名。
+
 ## 回報
 
 最後回覆：做了哪些檔案、步驟流程摘要（列出每種步驟）、驗證結果（數字）、截圖路徑、已知限制。簡潔即可。
