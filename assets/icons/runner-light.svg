@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="13" fill="#ffffff" stroke="#1d2b12" stroke-width="2.5"/>
+  <!-- 跳在半空的綠色小龍，下面一隻紅色 bug，地平線 -->
+  <path d="M8 52h48" stroke="#1d2b12" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M16 30c0-7 6-12 13-12 5 0 8 2 10 5l6-1-2 5c1 6-4 11-11 11h-6l-3 4-2-1 1-4c-4-1-6-4-6-7z" fill="#9bd72f" stroke="#1d2b12" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M19 22l1-6 4 3 2-6 3 5 3-5 1 6" fill="#9bd72f" stroke="#1d2b12" stroke-width="1.6" stroke-linejoin="round"/>
+  <circle cx="36" cy="25" r="2" fill="#1d2b12"/>
+  <path d="M16 32l-6 3 5 1" fill="#9bd72f"/>
+  <ellipse cx="44" cy="48" rx="6" ry="4" fill="#ff4d3d" stroke="#1d2b12" stroke-width="1.8"/>
+  <circle cx="51" cy="46" r="2.6" fill="#ef4444"/>
+  <path d="M40 45l-2-3M44 44v-3M48 45l2-3" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M8 22l5 1M6 28l6 0" stroke="#0e7490" stroke-width="2" stroke-linecap="round"/>
+</svg>

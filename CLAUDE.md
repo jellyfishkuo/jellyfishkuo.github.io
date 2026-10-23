@@ -40,7 +40,8 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `games/zip.html` | 一筆畫（像 LinkedIn Zip）：題目無限多，不做每天一題（使用者要求）。出題器：backbite 隨機一筆畫路線 → 放數字、加牆 → 解題器確認唯一解 → 拿掉多餘數字；題號 `#大小-難度-種子` 放網址可分享。紀錄存 localStorage `jfk-zip-v1` |
 | `games/store-manager.html` | 超商店長：5 週，每週隨機的顧客模型（每週一樣「大家都買」的陷阱商品＋幾條隱藏規則），玩家看 80 張收據、用分析工具看支持度／信賴度／提升度，挑最多兩組優惠（每組廣告費 $150）；效果＝只買其中一樣的客人依「真正的提升度」順手多買。評等是跟每週最佳兩組比的比例。紀錄 localStorage `jfk-store-v1`（`best`、`games`、`juice` 給寵物）；`?seed=` 固定題目方便測試 |
 | `games/lab-life.html` | 碩一生模擬器：18 週，每週選一件事（讀 paper、跑實驗、準備 meeting、唸書、休息、出去玩），之後 meeting、第 9／17 週考試、隨機事件（第 13～16 週有投稿相關事件）。實驗進度 = 8 + 知識/4，心情 <30 打六折；體力 0 會病倒一週。6 種結局（圖鑑）。紀錄 localStorage `jfk-lab-v1`（`runs`、`endings`、`juice`）。**不要寫喝咖啡**，補體力用蘋果汁 |
-| `games/pet.html` | 養一隻果汁龍：果汁＝其他遊戲紀錄算出來的（Zip 每題 1、研究闖關每顆星 2、超商店長 `juice`、碩一生模擬器 `juice`、每日簽到 3）減掉已餵的，不用改其他遊戲；新增會給果汁的遊戲時改 `sources()`。餵食長大（蛋→寶寶→小→果汁龍→大，`STAGES`），等級解鎖配件（emoji 疊在 dragon.svg 上）和背景。飽足每 4 小時少 1。localStorage `jfk-pet-v1` |
+| `games/pet.html` | 養一隻果汁龍：果汁＝其他遊戲紀錄算出來的（Zip 每題 1、研究闖關每顆星 2、超商店長 `juice`、碩一生模擬器 `juice`、跑酷 `juice`、每日簽到 3）減掉已餵的，不用改其他遊戲；新增會給果汁的遊戲時改 `sources()`。餵食長大（蛋→寶寶→小→果汁龍→大，`STAGES`；滿 3 瓶才孵化，判斷一律用 `hatched()`，不要用 `pet.xp` 是不是 0），等級解鎖配件（emoji 疊在 dragon.svg 上）和背景。飽足每 4 小時少 1。localStorage `jfk-pet-v1`。首頁右下角也有一隻（index.html 的 `.hpet`，只讀不寫，自己有一份 STAGES，改大小規則時兩邊一起改；收起狀態存 `jfk-pet-home`） |
+| `games/runner.html` | 果汁龍跑酷：canvas，世界座標以畫面高 = 100 計，換螢幕手感不變。點一下跳、按住（最多 0.26 秒）重力變小跳更高；地上 🐛／📅／OOM、空中 ✉️（400m 後才有雙 bug 與 OOM）；🍎 無敵 4 秒。碰撞框比圖小一圈。紀錄 localStorage `jfk-runner-v1`（`best`、`runs`、`juice`，每次最多算 10 瓶給寵物） |
 | `games/dinner-wheel.html` | 晚餐轉盤：選項存 localStorage（`dinner-wheel-v1`），新增預設選項時調 `DEFAULTS_VERSION` 與 `ADDED_IN`，舊使用者會自動補上；轉盤文字由 `fitLabel()` 依扇形寬度與中間按鈕縮字，放不下才加「…」 |
 | `electricity-tracker/` | 電費紀錄：localStorage `electricityMeterRecords_v1`；4 位數電表 9999→0000 視為繞圈；跨天用電依時間平均分配；匯入時整理 Excel 改過的日期格式 |
 | `research/apriori.html`、`fp-growth.html`、`eclat.html`、`closed-patterns.html`、`association-rules.html`、`prefixspan.html`、`two-phase.html`、`up-growth.html`、`high-utility.html`、`top-k-hui.html`、`incremental.html`、`cantree.html`、`sliding-window.html`、`stream-counting.html`、`count-min.html`、`spatial.html`、`rtree.html`、`dbscan.html`、`efim.html`、`gsp-spade.html`、`gspan.html`、`bloom-filter.html`、`skyline.html`、`periodic.html`、`uspan.html`、`ihup.html`、`hyperloglog.html`、`ir-tree.html`、`foth.html`、`sw-huop.html`、`uncertain-sw.html` | 研究 Demo（31 個；最後 3 個是擁有者讀過的論文做的，頁面有「📄 論文」卡放書目與 DOI，不放 PDF；首頁 Research 的主題標籤可以篩選；新增 Demo 時卡片要加 `data-topics`）：大多用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），一步一步看＋Java/Python 逐行高亮＋可下載執行。每個 Demo 都有「🎯 練習模式」（猜下一步，規格見 `tools/research/BRIEF.md`；新 Demo 也要寫自己的 `quizFor` 和 `quiz_test.py`） |
@@ -48,7 +49,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `research/papers.html` | 論文書架：上面是擁有者讀過、做成 Demo 的論文（手寫卡片，新增讀過的論文要加一張）；下面是經典論文，資料在頁面 JS 的 `PAPERS` 陣列（一行一篇，新增 Demo 時補上原始論文），連 Google Scholar 搜尋，不放 DOI（會議論文常沒有）。首頁 Research 標題下方第三個入口 |
 | `research/overview.html`、`benchmark.html` | 研究地圖（關係圖＋閱讀路線＋比較表，`tools/research/overview/build.py` 自己有一份演算法清單，新增 Demo 時要補）與效能比賽場（Web Worker 實跑，`tools/research/benchmark/algos.js`）；首頁 Research 標題下方兩個入口 |
 
-首頁 About 的「自己做的小工具與遊戲」數字（目前 13）在新增 Projects 作品時要跟著改。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
+首頁 About 的「自己做的小工具與遊戲」數字（目前 14）在新增 Projects 作品時要跟著改。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
 ## 開發慣例與踩過的坑
 

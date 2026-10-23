@@ -344,6 +344,40 @@
         footer { border-top: 1px solid rgba(255, 255, 255, 0.06); padding: 22px 0; color: var(--muted); font-size: 0.8rem; }
         footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
         [data-theme="light"] footer { background: var(--ink); color: #e9f7d9; border-top: 0; }
+
+        /* ── 住在右下角的寵物（資料讀 games/pet.html 的 jfk-pet-v1） ── */
+        .hpet { position: fixed; right: 12px; bottom: 12px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+        .hpet > * { pointer-events: auto; }
+        .hpet-me {
+            --w: 60px; position: relative; width: var(--w); aspect-ratio: 56 / 46; padding: 0; border: 0; background: none; cursor: pointer;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45)); transition: transform 0.35s cubic-bezier(.3, 1.5, .5, 1);
+            -webkit-tap-highlight-color: transparent; container-type: inline-size;
+        }
+        .hpet-me.egg { aspect-ratio: 60 / 74; }
+        .hpet-me img, .hpet-me svg { width: 100%; height: 100%; display: block; }
+        .hpet-me .acc { position: absolute; line-height: 1; transform: translate(-50%, -50%); pointer-events: none; }
+        .hpet-me .acc.hat { left: 37%; top: 6%; font-size: 29cqw; }
+        .hpet-me .acc.face { left: 27%; top: 23%; font-size: 21cqw; }
+        .hpet-me .acc.neck { left: 46%; top: 54%; font-size: 22.6cqw; }
+        .hpet-me .acc.side { left: 57%; top: 10%; font-size: 19.4cqw; }
+        .hpet-me.bump { animation: hpetBump 0.45s; }
+        @keyframes hpetBump { 30% { transform: translateY(-10px) scale(1.06, 0.95); } 60% { transform: translateY(0) scale(0.96, 1.04); } }
+        .hpet.min .hpet-me { transform: translateX(62%) rotate(-12deg); opacity: 0.85; }
+        .hpet-say {
+            position: absolute; right: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(250px, calc(100vw - 24px));
+            padding: 9px 12px; border-radius: 14px; background: var(--surface-solid); border: 1px solid var(--line); color: var(--text);
+            font-size: 0.85rem; line-height: 1.5; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            visibility: hidden; opacity: 0; transform: translateY(6px); transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+        }
+        .hpet-say.show { visibility: visible; opacity: 1; transform: none; }
+        .hpet-say b { display: block; font-size: 0.75rem; color: var(--accent2); }
+        .hpet-say .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+        .hpet-say a { color: var(--accent2); font-size: 0.8rem; text-decoration: none; white-space: nowrap; }
+        .hpet-say button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 0.75rem; cursor: pointer; padding: 2px 0; white-space: nowrap; }
+        [data-theme="light"] .hpet-me { filter: drop-shadow(3px 3px 0 var(--ink)); }
+        [data-theme="light"] .hpet-say { border: 2.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); font-weight: 500; }
+        [data-theme="light"] .hpet-say b, [data-theme="light"] .hpet-say a { color: #3f8f12; font-weight: 700; }
+        footer { padding-bottom: 76px; }
     </style>
 </head>
 
@@ -454,6 +488,13 @@
                         <h3><a href="games/pet.html">養一隻果汁龍</a></h3>
                         <p>玩網站上的遊戲拿蘋果汁，餵牠長大、換造型</p>
                         <div class="links"><a class="go" href="games/pet.html">去看牠 →</a></div>
+                    </article>
+                    <article class="tile">
+                        <img class="only-dark" src="assets/icons/runner.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/runner-light.svg" alt="" width="38" height="38">
+                        <span class="tag">跑酷</span>
+                        <h3><a href="games/runner.html">果汁龍跑酷</a></h3>
+                        <p>躲 bug、deadline、OOM，撿蘋果汁餵寵物</p>
+                        <div class="links"><a class="go" href="games/runner.html">直接玩 →</a></div>
                     </article>
                     <article class="tile">
                         <img class="only-dark" src="assets/icons/dinner-wheel.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/dinner-wheel-light.svg" alt="" width="38" height="38">
@@ -590,7 +631,7 @@
                         <p>真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
                         <p>課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。</p>
                         <div class="stats">
-                            <div class="stat"><b>13</b><span>自己做的小工具與遊戲</span></div>
+                            <div class="stat"><b>14</b><span>自己做的小工具與遊戲</span></div>
                             <div class="stat"><b>100+</b><span>演算法解題紀錄</span></div>
                             <div class="stat"><b>4+</b><span>熟悉資料庫系統</span></div>
                             <div class="stat"><b>10</b><span>程式競賽獲獎</span></div>
@@ -646,6 +687,15 @@
     <footer>
         <div class="wrap"><span>© 2026 果汁龍</span><span>ginakuo0923@gmail.com</span></div>
     </footer>
+
+    <!-- 右下角的寵物：點牠會講話 -->
+    <div class="hpet" id="hpet">
+        <div class="hpet-say" id="hpetSay" role="status" aria-live="polite">
+            <b id="hpetName">果汁龍</b><span id="hpetLine"></span>
+            <div class="row"><button type="button" id="hpetMin">收到角落</button><a href="games/pet.html">去看牠 →</a></div>
+        </div>
+        <button type="button" class="hpet-me" id="hpetMe" aria-label="我的果汁龍"></button>
+    </div>
 
     <script>
         // ── 深色／淺色切換 ──
@@ -746,6 +796,65 @@
                 if (!expanded) document.getElementById('research').scrollIntoView();
             });
             render();
+        })();
+
+
+        // ── 右下角的寵物：讀 games/pet.html 存的資料，只看不改 ──
+        (function () {
+            const box = document.getElementById('hpet'), me = document.getElementById('hpetMe'), bubble = document.getElementById('hpetSay');
+            const read = k => { try { const v = JSON.parse(localStorage.getItem(k) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
+            const pet = read('jfk-pet-v1');
+            const xp0 = typeof pet.xp === 'number' ? pet.xp : 0;
+            const xp = xp0 >= 3 ? xp0 : 0; // 喝滿 3 瓶才孵出來，之前都還是蛋
+            // 跟 pet.html 的 STAGES 一樣：餵越多越大
+            const STAGES = [[0, 0], [3, 0.55], [15, 0.7], [40, 0.85], [90, 1]];
+            let sz = 0;
+            STAGES.forEach(x => { if (xp >= x[0]) sz = x[1]; });
+            const full = !xp ? 10 : Math.max(0, Math.min(10, (pet.full || 0) - Math.floor((Date.now() - (pet.fedAt || 0)) / (4 * 3600e3))));
+            if (!xp) {
+                me.classList.add('egg');
+                me.style.setProperty('--w', '34px');
+                me.innerHTML = '<svg viewBox="0 0 60 74" aria-hidden="true"><ellipse cx="30" cy="40" rx="26" ry="32" fill="#fff8e6" stroke="#1d2b12" stroke-width="2.5"/>' +
+                    '<circle cx="20" cy="30" r="5" fill="#9bd72f"/><circle cx="38" cy="22" r="3.5" fill="#9bd72f"/><circle cx="40" cy="48" r="6" fill="#9bd72f"/><circle cx="22" cy="54" r="3" fill="#9bd72f"/></svg>';
+            } else {
+                me.style.setProperty('--w', Math.round(40 + 32 * sz) + 'px');
+                const img = document.createElement('img');
+                img.src = 'assets/dragon.svg';
+                img.alt = '';
+                me.appendChild(img);
+                ['hat', 'face', 'neck', 'side'].forEach(slot => {
+                    if (typeof pet[slot] !== 'string' || !pet[slot]) return;
+                    const a = document.createElement('span');
+                    a.className = 'acc ' + slot;
+                    a.textContent = pet[slot];
+                    me.appendChild(a);
+                });
+            }
+            const nm = typeof pet.name === 'string' && pet.name.trim() ? pet.name.trim().slice(0, 12) : '果汁龍';
+            document.getElementById('hpetName').textContent = xp ? nm : '一顆蛋';
+            me.setAttribute('aria-label', xp ? nm : '一顆蛋');
+            const LINES = {
+                egg: ['（蛋晃了一下）去「養一隻果汁龍」把我孵出來嘛', '（裡面好像有東西在動）', '玩網站上的遊戲可以拿到蘋果汁，餵我就會孵出來喔'],
+                hungry: ['肚子好餓……可以去餵我一瓶蘋果汁嗎？', '咕嚕咕嚕……', '我想喝蘋果汁 🥺 去跑酷撿幾瓶嘛'],
+                ok: ['今天要玩什麼？', '要不要去跑酷撿蘋果汁？', '我覺得 FP-tree 比 Apriori 帥', '可以陪我解一題 Zip 嗎？', '你今天有讀 paper 嗎？', '研究闖關還有星星沒拿喔'],
+                happy: ['好飽好開心！', '最喜歡你了 💚', '嗝～（蘋果汁的味道）', '我覺得我又長大了一點']
+            };
+            const pick = a => a[Math.floor(Math.random() * a.length)];
+            let hideT = 0;
+            const setMin = v => { box.classList.toggle('min', v); try { localStorage.setItem('jfk-pet-home', v ? 'min' : ''); } catch (e) { /* 不記也沒關係 */ } };
+            try { if (localStorage.getItem('jfk-pet-home') === 'min') box.classList.add('min'); } catch (e) { /* 預設展開 */ }
+            me.addEventListener('click', e => {
+                e.stopPropagation();
+                if (box.classList.contains('min')) { setMin(false); return; }
+                me.classList.remove('bump'); void me.offsetWidth; me.classList.add('bump');
+                document.getElementById('hpetLine').textContent = pick(!xp ? LINES.egg : full <= 2 ? LINES.hungry : full >= 8 ? LINES.happy : LINES.ok);
+                bubble.classList.add('show');
+                clearTimeout(hideT);
+                hideT = setTimeout(() => bubble.classList.remove('show'), 6000);
+            });
+            bubble.addEventListener('click', e => e.stopPropagation());
+            document.getElementById('hpetMin').addEventListener('click', () => { bubble.classList.remove('show'); setMin(true); });
+            document.addEventListener('click', () => bubble.classList.remove('show'));
         })();
 
         // ── 手機選單 ──

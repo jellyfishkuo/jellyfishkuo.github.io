@@ -219,7 +219,7 @@
 
             // ── 果汁：從其他遊戲的紀錄算出來，不用改那些遊戲 ──
             function sources() {
-                var zip = read('jfk-zip-v1'), quest = read('jfk-quest-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1');
+                var zip = read('jfk-zip-v1'), quest = read('jfk-quest-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1'), run = read('jfk-runner-v1');
                 var stars = 0;
                 if (quest.pages) for (var k in quest.pages) stars += quest.pages[k].stars || 0;
                 return [
@@ -227,6 +227,7 @@
                     { href: '../research/quest.html', name: '研究闖關', how: '每顆星星 2 瓶', n: stars, juice: stars * 2, unit: '顆星' },
                     { href: 'store-manager.html', name: '超商店長', how: '每開完一家店 1～5 瓶（看評等）', n: store.games || 0, juice: store.juice || 0, unit: '家店' },
                     { href: 'lab-life.html', name: '碩一生模擬器', how: '每玩完一輪 1～5 瓶（看結局）', n: lab.runs || 0, juice: lab.juice || 0, unit: '輪' },
+                    { href: 'runner.html', name: '果汁龍跑酷', how: '沿路撿到的 🧃（每次最多 10 瓶）', n: run.runs || 0, juice: run.juice || 0, unit: '次' },
                     { href: null, name: '每日簽到', how: '每天 3 瓶', n: pet.days.length, juice: pet.days.length * 3, unit: '天' }
                 ];
             }
@@ -237,6 +238,8 @@
             var STAGES = [[0, '蛋', 0], [3, '果汁龍寶寶', 0.55], [15, '小果汁龍', 0.7], [40, '果汁龍', 0.85], [90, '大果汁龍', 1]];
             function stage() { var s = STAGES[0]; STAGES.forEach(function (x) { if (pet.xp >= x[0]) s = x; }); return s; }
             function level() { return 1 + Math.floor(pet.xp / 5); }
+            // 喝滿 3 瓶才孵出來；之前（0～2 瓶）都還是蛋
+            function hatched() { return pet.xp >= STAGES[1][0]; }
             var ITEMS = [ // 位置、圖示、名稱、幾級解鎖
                 ['side', '🎀', '蝴蝶結', 2], ['face', '🕶️', '墨鏡', 4], ['hat', '🎓', '學士帽', 6], ['neck', '🧣', '圍巾', 8],
                 ['side', '🌸', '小花', 9], ['hat', '🎩', '紳士帽', 11], ['neck', '🏅', '金牌', 13], ['face', '🥽', '實驗護目鏡', 15],
@@ -265,7 +268,7 @@
             function say(t) { $('say').textContent = t; }
             function idleLine() {
                 var f = fullness();
-                if (!pet.xp) return pick(LINES.egg);
+                if (!hatched()) return pick(LINES.egg);
                 return pick(f <= 2 ? LINES.hungry : f >= 8 ? LINES.happy : LINES.ok);
             }
 
@@ -283,7 +286,7 @@
                     room.appendChild(s);
                 });
                 var st = stage();
-                if (!pet.xp) {
+                if (!hatched()) {
                     var egg = document.createElement('button');
                     egg.type = 'button';
                     egg.className = 'egg';
@@ -318,7 +321,7 @@
                     if (grow) requestAnimationFrame(function () { requestAnimationFrame(function () { b.style.setProperty('--s', st[2]); }); });
                 }
                 var f = fullness();
-                $('mood').textContent = !pet.xp ? '' : f <= 2 ? '💭🧃' : f >= 8 ? '💚' : '';
+                $('mood').textContent = !hatched() ? '' : f <= 2 ? '💭🧃' : f >= 8 ? '💚' : '';
                 $('name').value = pet.name;
                 $('lv').textContent = 'Lv.' + level() + '・' + st[1];
                 $('full-t').textContent = f + '/10';
@@ -358,7 +361,7 @@
                 ITEMS.forEach(function (it) {
                     var b = document.createElement('button');
                     b.type = 'button';
-                    var ok = lv >= it[3] && pet.xp > 0;
+                    var ok = lv >= it[3] && hatched();
                     b.disabled = !ok;
                     b.className = pet[it[0]] === it[1] ? 'on' : '';
                     b.title = it[2];
@@ -423,7 +426,7 @@
             $('feed').addEventListener('click', function () {
                 if (!left()) { say('果汁喝完了，去玩一下其他遊戲就能拿到 🧃'); return; }
                 var f = fullness();
-                if (f >= 10 && pet.xp) { say('喝不下了啦…等一下再餵我'); var pb = $('pet'); if (pb) bump(pb); return; }
+                if (f >= 10 && hatched()) { say('喝不下了啦…等一下再餵我'); var pb = $('pet'); if (pb) bump(pb); return; }
                 var before = stage();
                 pet.spent++;
                 pet.xp++;
@@ -465,7 +468,7 @@
                 var e = $('pet') || $('room').querySelector('.egg');
                 if (e) bump(e);
                 floatUp('❤️', 40 + Math.random() * 20, 30);
-                say(!pet.xp ? '（蛋好像很開心）' : pick(['嘿嘿～', '再摸一下！', '頭頂最舒服了', '（瞇起眼睛）']));
+                say(!hatched() ? '（蛋好像很開心）' : pick(['嘿嘿～', '再摸一下！', '頭頂最舒服了', '（瞇起眼睛）']));
             });
             $('daily').addEventListener('click', function () {
                 var k = dayKey();
@@ -480,11 +483,11 @@
                 pet.name = $('name').value.trim().slice(0, 12) || '果汁龍';
                 save();
                 render();
-                say(pet.xp ? '我叫「' + pet.name + '」，記住了！' : '（蛋好像聽到了自己的名字）');
+                say(hatched() ? '我叫「' + pet.name + '」，記住了！' : '（蛋好像聽到了自己的名字）');
             });
 
             render();
-            say(pet.xp ? '「' + pet.name + '」：' + idleLine() : '這是一顆果汁龍的蛋，餵牠 3 瓶蘋果汁就會孵出來。');
+            say(hatched() ? '「' + pet.name + '」：' + idleLine() : '這是一顆果汁龍的蛋，餵牠 3 瓶蘋果汁就會孵出來。');
             // 從別的遊戲回來時，重新算果汁
             window.addEventListener('pageshow', function (e) { if (e.persisted) render(); });
             window.addEventListener('storage', function () { pet = read(KEY).xp != null ? read(KEY) : pet; render(); });

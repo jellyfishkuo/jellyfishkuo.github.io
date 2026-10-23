@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/runner.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/runner-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/runner-180.png">
+    <title>果汁龍跑酷</title>
+    <meta name="description" content="點一下跳、按住跳更高，幫果汁龍躲開 bug、deadline 和 OOM，沿路撿蘋果汁。撿到的果汁可以拿去餵你的果汁龍寵物。">
+    <meta name="jfk-paint" content="off"><!-- 畫布自己依主題畫 -->
+    <script src="../assets/theme.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.3rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+        [data-theme="light"] h1, [data-theme="light"] h2 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+
+        .stage {
+            position: relative; margin-top: 1rem; width: 100%; aspect-ratio: 16 / 9; max-height: 62vh; border-radius: 16px; overflow: hidden;
+            border: 1px solid var(--border); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer;
+        }
+        @media (max-width: 600px) { .stage { aspect-ratio: 4 / 3; } }
+        [data-theme="light"] .stage { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; }
+        #game { display: block; width: 100%; height: 100%; }
+
+        .bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-top: 0.9rem; }
+        .bar div { padding: 0.45rem; border-radius: 12px; text-align: center; background: var(--panel); border: 1px solid var(--border); min-width: 0; }
+        [data-theme="light"] .bar div { background: #fff; border: 2px solid #1d2b12; }
+        .bar b { display: block; font: 700 1.05rem 'Space Mono', monospace; white-space: nowrap; }
+        .bar span { font-size: 0.75rem; color: var(--muted); }
+
+        .how { margin-top: 1.2rem; font-size: 0.9rem; color: var(--muted); }
+        .how h2 { font-size: 1rem; color: var(--text); margin-bottom: 0.3rem; }
+        .how ul { padding-left: 1.2rem; }
+        .how li { margin: 0.2rem 0; }
+        .how a { color: var(--accent2); }
+        [data-theme="light"] .how a { color: #0e7490; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>果汁龍跑酷<small>點一下跳、按住跳更高。躲開 bug、deadline 和 OOM，沿路撿蘋果汁 🧃</small></h1>
+
+        <div class="stage" id="stage" role="application" aria-label="跑酷遊戲：點一下或按空白鍵跳">
+            <canvas id="game"></canvas>
+        </div>
+
+        <div class="bar">
+            <div><b id="best">0 m</b><span>最遠紀錄</span></div>
+            <div><b id="runs">0</b><span>跑了幾次</span></div>
+            <div><b id="juice">0 🧃</b><span>給寵物的果汁</span></div>
+        </div>
+
+        <section class="how">
+            <h2>怎麼玩</h2>
+            <ul>
+                <li>手機：點畫面跳，<b>按住久一點跳更高</b>。電腦：空白鍵或 ↑。</li>
+                <li>🐛 bug、📅 deadline、💥 OOM 在地上，要跳過去；✉️ 老師的訊息會飛過來，不要剛好跳起來撞到。</li>
+                <li>🍎 金蘋果：吃到之後 4 秒無敵。</li>
+                <li>每撿一瓶 🧃 就能拿去 <a href="pet.html">餵果汁龍</a>（每次最多算 10 瓶）。越跑越快，跑越遠分數越高。</li>
+            </ul>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            var STORE = 'jfk-runner-v1', JUICE_CAP = 10;
+            var $ = function (id) { return document.getElementById(id); };
+            var cv = $('game'), ctx = cv.getContext('2d'), stageBox = $('stage');
+            function load() { try { var v = JSON.parse(localStorage.getItem(STORE) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
+            function save() { try { localStorage.setItem(STORE, JSON.stringify(rec)); } catch (e) { /* 不記也能玩 */ } }
+            var rec = load();
+
+            var dragon = new Image();
+            dragon.src = '../assets/dragon.svg';
+            dragon.onload = function () { if (state !== 'run') draw(); };
+
+            // 世界用固定的單位：地面高度、重力都以「畫面高度 = 100」來算，換螢幕大小不影響手感
+            var W = 0, H = 0, DPR = 1, U = 1;
+            function resize() {
+                var r = stageBox.getBoundingClientRect();
+                DPR = Math.min(2, window.devicePixelRatio || 1);
+                cv.width = Math.round(r.width * DPR);
+                cv.height = Math.round(r.height * DPR);
+                W = r.width / r.height * 100;   // 畫面寬度（單位）
+                H = 100;
+                U = r.height / 100 * DPR;       // 1 單位幾個像素
+                draw();
+            }
+
+            var GROUND = 80, GRAV = 480, JUMP = 160, HOLD_GRAV = 0.42, HOLD_MAX = 0.26;
+            var P, obs, items, speed, dist, got, t, state = 'ready', spawnIn, itemIn, holding = false, holdT = 0, inv = 0, shake = 0, parts = [];
+            function reset() {
+                P = { x: 14, y: GROUND, vy: 0, w: 15, h: 12.3, ground: true };
+                obs = []; items = []; parts = [];
+                speed = 42; dist = 0; got = 0; t = 0; spawnIn = 1.2; itemIn = 0.8; inv = 0; shake = 0;
+            }
+            reset();
+
+            var GROUND_OBS = [
+                { e: '🐛', w: 7, h: 6, name: 'bug' },
+                { e: '📅', w: 7.5, h: 9, name: 'deadline' },
+                { e: 'OOM', w: 13, h: 8, name: 'OOM', box: true },
+                { e: '🐛🐛', w: 13, h: 6, name: 'bugs' }
+            ];
+            function spawn() {
+                var lvl = Math.min(1, dist / 1500);
+                if (dist > 250 && Math.random() < 0.18 + lvl * 0.12) {
+                    // 飛過來的訊息：高度剛好在跳起來的位置
+                    obs.push({ e: '✉️', w: 7, h: 6, x: W + 5, y: GROUND - 18 - Math.random() * 8, fly: true });
+                } else {
+                    var k = GROUND_OBS[Math.floor(Math.random() * (dist > 400 ? 4 : 2))];
+                    obs.push({ e: k.e, w: k.w, h: k.h, x: W + 5, y: GROUND, box: k.box });
+                }
+                // 間隔跟著速度縮短，但一定留得出起跳的距離
+                var minGap = 0.75 - lvl * 0.2;
+                spawnIn = minGap + Math.random() * (1.1 - lvl * 0.4);
+            }
+            function spawnItem() {
+                var gold = dist > 300 && Math.random() < 0.07;
+                items.push({ e: gold ? '🍎' : '🧃', gold: gold, x: W + 5, y: GROUND - 6 - Math.random() * 30, w: 6, h: 6 });
+                itemIn = 0.9 + Math.random() * 1.6;
+            }
+
+            function jumpStart() {
+                if (state === 'ready' || state === 'over') { if (state === 'over' && t < 0.5) return; start(); return; }
+                holding = true;
+                if (P.ground) { P.vy = -JUMP; P.ground = false; holdT = 0; puff(P.x + 6, GROUND, 4); }
+            }
+            function jumpEnd() { holding = false; }
+            function start() {
+                reset();
+                state = 'run';
+                last = performance.now();
+                requestAnimationFrame(loop);
+            }
+
+            function hit(a, b, pad) {
+                // a 的 y 是腳底（底邊），寬高都縮一點，擦邊不算
+                return a.x + pad < b.x + b.w - pad && a.x + a.w - pad > b.x + pad &&
+                    a.y - a.h + pad < b.y && a.y - pad > b.y - b.h;
+            }
+            function puff(x, y, n) {
+                for (var i = 0; i < n; i++) parts.push({ x: x, y: y, vx: -10 - Math.random() * 20, vy: -10 - Math.random() * 20, life: 0.4 + Math.random() * 0.3, e: '' });
+            }
+            function pop(x, y, text) { parts.push({ x: x, y: y, vx: 0, vy: -25, life: 0.8, e: text }); }
+
+            var last = 0;
+            function loop(now) {
+                if (state !== 'run') return;
+                var dt = Math.min(0.033, (now - last) / 1000);
+                last = now;
+                step(dt);
+                draw();
+                if (state === 'run') requestAnimationFrame(loop);
+            }
+            function step(dt) {
+                t += dt;
+                speed = Math.min(95, 42 + dist / 40);
+                dist += speed * dt / 4;
+                // 跳：按住時重力變小，最多 HOLD_MAX 秒
+                var g = GRAV;
+                if (!P.ground && holding && P.vy < 0 && holdT < HOLD_MAX) { g *= HOLD_GRAV; holdT += dt; }
+                P.vy += g * dt;
+                P.y += P.vy * dt;
+                if (P.y >= GROUND) { if (!P.ground) puff(P.x + 6, GROUND, 3); P.y = GROUND; P.vy = 0; P.ground = true; }
+                if (inv > 0) inv -= dt;
+                if (shake > 0) shake -= dt;
+
+                spawnIn -= dt; if (spawnIn <= 0) spawn();
+                itemIn -= dt; if (itemIn <= 0) spawnItem();
+                var dx = speed * dt;
+                obs.forEach(function (o) { o.x -= dx * (o.fly ? 1.25 : 1); });
+                items.forEach(function (o) { o.x -= dx; });
+                obs = obs.filter(function (o) { return o.x + o.w > -5; });
+                items = items.filter(function (o) { return o.x + o.w > -5 && !o.taken; });
+                parts.forEach(function (p) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; });
+                parts = parts.filter(function (p) { return p.life > 0; });
+
+                // 碰撞框比圖小一圈（尾巴、手上的果汁不算），擦到邊不會死
+                var box = { x: P.x + 2.5, y: P.y, w: P.w - 5, h: P.h - 1.5 };
+                items.forEach(function (o) {
+                    if (!o.taken && hit(box, o, 1)) {
+                        o.taken = true;
+                        if (o.gold) { inv = 4; pop(o.x, o.y - 6, '無敵！'); }
+                        else { got++; pop(o.x, o.y - 6, '+1'); }
+                    }
+                });
+                if (inv <= 0) {
+                    for (var i = 0; i < obs.length; i++) {
+                        if (hit(box, obs[i], 2.2)) { gameOver(obs[i]); return; }
+                    }
+                }
+            }
+            var LINES = {
+                bug: '被 bug 絆倒了', bugs: '一次遇到兩個 bug……', deadline: '撞上 deadline', OOM: '記憶體爆了（OOM）', mail: '被老師的訊息叫住了'
+            };
+            var lastHit = '';
+            function gameOver(o) {
+                state = 'over';
+                shake = 0.3;
+                t = 0;
+                lastHit = o.fly ? LINES.mail : o.e === 'OOM' ? LINES.OOM : o.e === '📅' ? LINES.deadline : o.e === '🐛🐛' ? LINES.bugs : LINES.bug;
+                var m = Math.floor(dist);
+                var gain = Math.min(JUICE_CAP, got);
+                rec.runs = (rec.runs || 0) + 1;
+                rec.juice = (rec.juice || 0) + gain;
+                var isBest = m > (rec.best || 0);
+                if (isBest) rec.best = m;
+                rec.lastBest = isBest;
+                save();
+                hud();
+                draw();
+                over = { m: m, got: got, gain: gain, best: isBest };
+            }
+            var over = null;
+            function hud() {
+                $('best').textContent = (rec.best || 0) + ' m';
+                $('runs').textContent = rec.runs || 0;
+                $('juice').textContent = (rec.juice || 0) + ' 🧃';
+            }
+
+            // ── 畫面 ──
+            function light() { return document.documentElement.dataset.theme === 'light'; }
+            function X(v) { return v * U; }
+            function emoji(e, x, yBottom, size) {
+                ctx.font = X(size) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(e, X(x), X(yBottom));
+            }
+            function draw() {
+                if (!W) return;
+                var L = light();
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                if (shake > 0) ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6);
+                // 天空
+                var g = ctx.createLinearGradient(0, 0, 0, X(GROUND));
+                if (L) { g.addColorStop(0, '#bfe7ff'); g.addColorStop(1, '#e9f7d9'); }
+                else { g.addColorStop(0, '#0b0b1f'); g.addColorStop(1, '#1c1240'); }
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, cv.width, cv.height);
+                // 遠景：雲或星星（慢慢往左）
+                var off = (dist * 0.6) % (W + 40);
+                ctx.fillStyle = L ? 'rgba(255,255,255,0.9)' : 'rgba(196,181,253,0.7)';
+                for (var i = 0; i < 6; i++) {
+                    var cx = ((i * 37 + 10) - off + (W + 40) * 3) % (W + 40) - 20, cy = 10 + (i * 17) % 35;
+                    if (L) { ctx.beginPath(); ctx.ellipse(X(cx), X(cy), X(7), X(2.6), 0, 0, Math.PI * 2); ctx.fill(); }
+                    else { ctx.fillRect(X(cx), X(cy), X(0.7), X(0.7)); ctx.fillRect(X(cx + 15), X(cy + 8), X(0.5), X(0.5)); }
+                }
+                // 地面
+                ctx.fillStyle = L ? '#8fd14f' : '#1e1e33';
+                ctx.fillRect(0, X(GROUND), cv.width, cv.height);
+                ctx.fillStyle = L ? '#1d2b12' : '#7c3aed';
+                ctx.fillRect(0, X(GROUND), cv.width, Math.max(2, X(0.6)));
+                ctx.fillStyle = L ? 'rgba(29,43,18,0.25)' : 'rgba(124,58,237,0.35)';
+                var go = (dist * 4) % 12;
+                for (var x = -go; x < W; x += 12) ctx.fillRect(X(x), X(GROUND + 5), X(4), X(0.6));
+
+                // 果汁、障礙物
+                items.forEach(function (o) { emoji(o.e, o.x + o.w / 2, o.y + 0.5, 7); });
+                obs.forEach(function (o) {
+                    if (o.box) {
+                        ctx.fillStyle = L ? '#ff4d3d' : '#ef4444';
+                        ctx.fillRect(X(o.x), X(o.y - o.h), X(o.w), X(o.h));
+                        if (L) { ctx.strokeStyle = '#1d2b12'; ctx.lineWidth = X(0.6); ctx.strokeRect(X(o.x), X(o.y - o.h), X(o.w), X(o.h)); }
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '700 ' + X(4.4) + 'px "Space Mono", monospace';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText('OOM', X(o.x + o.w / 2), X(o.y - o.h / 2));
+                    } else emoji(o.e, o.x + o.w / 2, o.y + 0.6, o.h * 1.15);
+                });
+
+                // 果汁龍（無敵時一閃一閃）
+                if (dragon.complete && dragon.naturalWidth && !(inv > 0 && Math.floor(inv * 10) % 2)) {
+                    var bob = P.ground && state === 'run' ? Math.abs(Math.sin(t * 14)) * 0.8 : 0;
+                    var sq = P.ground ? 1 : 1.05;
+                    // dragon.svg 面向左邊，障礙物從右邊來，所以左右翻過來畫
+                    ctx.save();
+                    ctx.translate(X(P.x + P.w), 0);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(dragon, 0, X(P.y - P.h * sq - bob), X(P.w), X(P.h * sq));
+                    ctx.restore();
+                }
+                if (inv > 0) emoji('✨', P.x + P.w, P.y - P.h, 5);
+                // 粒子、+1
+                parts.forEach(function (p) {
+                    ctx.globalAlpha = Math.max(0, p.life / 0.8);
+                    if (p.e) {
+                        ctx.fillStyle = L ? '#b45309' : '#facc15';
+                        ctx.font = '700 ' + X(4) + 'px "Space Mono", monospace';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                        ctx.fillText(p.e, X(p.x), X(p.y));
+                    } else {
+                        ctx.fillStyle = L ? 'rgba(29,43,18,0.35)' : 'rgba(230,230,240,0.35)';
+                        ctx.beginPath(); ctx.arc(X(p.x), X(p.y), X(0.9), 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.globalAlpha = 1;
+                });
+
+                // 分數
+                ctx.fillStyle = L ? '#1d2b12' : '#e6e6f0';
+                ctx.font = '700 ' + X(5) + 'px "Space Mono", monospace';
+                ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+                ctx.fillText(Math.floor(dist) + ' m', X(W - 3), X(3));
+                ctx.textAlign = 'left';
+                ctx.fillText('🧃 ' + got, X(3), X(3));
+
+                // 開始、結束畫面
+                if (state !== 'run') {
+                    ctx.fillStyle = L ? 'rgba(255,255,255,0.78)' : 'rgba(5,5,10,0.6)';
+                    ctx.fillRect(0, 0, cv.width, cv.height);
+                    ctx.fillStyle = L ? '#1d2b12' : '#e6e6f0';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    var big = '900 ' + X(8) + 'px "Noto Sans TC", "PingFang TC", sans-serif';
+                    var small = '400 ' + X(4.6) + 'px "Noto Sans TC", "PingFang TC", sans-serif';
+                    if (state === 'ready') {
+                        ctx.font = big; ctx.fillText('點一下開始', X(W / 2), X(36));
+                        ctx.font = small; ctx.fillText('按住久一點跳更高', X(W / 2), X(50));
+                    } else if (over) {
+                        ctx.font = big; ctx.fillText(lastHit, X(W / 2), X(28));
+                        ctx.font = small;
+                        ctx.fillText(over.m + ' m' + (over.best ? '・新紀錄！' : '') + '　撿到 🧃 ' + over.got + (over.got > over.gain ? '（算 ' + over.gain + ' 瓶）' : ''), X(W / 2), X(42));
+                        ctx.fillText('點一下再跑一次', X(W / 2), X(54));
+                    }
+                }
+                ctx.restore();
+            }
+
+            // ── 輸入：畫面按下就跳，放開停止加高 ──
+            stageBox.addEventListener('pointerdown', function (e) { e.preventDefault(); jumpStart(); });
+            window.addEventListener('pointerup', jumpEnd);
+            window.addEventListener('pointercancel', jumpEnd);
+            stageBox.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+            document.addEventListener('keydown', function (e) {
+                if ((e.code === 'Space' || e.key === 'ArrowUp') && !e.repeat) { e.preventDefault(); jumpStart(); }
+            });
+            document.addEventListener('keyup', function (e) { if (e.code === 'Space' || e.key === 'ArrowUp') jumpEnd(); });
+            // 切到別的分頁就暫停（回來時重新算時間，不會一次掉很多幀）
+            document.addEventListener('visibilitychange', function () { if (!document.hidden && state === 'run') last = performance.now(); });
+            document.addEventListener('themechange', draw);
+            window.addEventListener('resize', resize);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+            hud();
+            resize();
+            // 測試用
+            window.__runner = { get state() { return state; }, get dist() { return dist; }, get got() { return got; }, get P() { return P; }, get obs() { return obs; } };
+        })();
+    </script>
+</body>
+
+</html>
