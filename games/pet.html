@@ -186,7 +186,7 @@
         <div class="say" id="say" aria-live="polite"></div>
 
         <div class="meters">
-            <div class="meter full"><div class="lab"><span>飽足</span><span id="full-t"></span></div><div class="bar"><i id="full-b"></i></div></div>
+            <div class="meter full"><div class="lab"><span id="full-l">飽足</span><span id="full-t"></span></div><div class="bar"><i id="full-b"></i></div></div>
             <div class="meter xp"><div class="lab"><span id="xp-l">長大</span><span id="xp-t"></span></div><div class="bar"><i id="xp-b"></i></div></div>
         </div>
         <p class="full-note" id="full-n"></p>
@@ -272,6 +272,7 @@
             // 飽足條、「還有多久少 1 格」、餓扁扁的樣子；每 30 秒更新一次，不用整個房間重畫
             function showFull() {
                 var f = fullness(), hat = hatched();
+                $('full-l').textContent = pet.glutton ? '飽足・無限胃' : '飽足';
                 $('full-t').textContent = f + '/10';
                 $('full-b').style.width = f * 10 + '%';
                 $('mood').textContent = !hat ? '' : !f ? '💫' : f <= 2 ? '💭🧃' : f >= 8 ? '💚' : '';
@@ -280,7 +281,7 @@
                 if (!hat) { $('full-n').textContent = '蛋不會餓・孵出來後每 10 分鐘少 1 格'; return; }
                 if (!f) { $('full-n').textContent = '餓扁扁了……餵牠一瓶就會鼓起來'; return; }
                 var ms = DROP - (Date.now() - pet.fedAt) % DROP;
-                $('full-n').textContent = '再 ' + dur(ms) + '少 1 格・' + (f >= 10 ? '吃飽了，現在餵不下' : dur((f - 1) * DROP + ms) + '後餓扁扁');
+                $('full-n').textContent = '再 ' + dur(ms) + '少 1 格・' + (f >= 10 ? (pet.glutton ? '吃飽了，但無限胃還能一直餵' : '吃飽了，現在餵不下') : dur((f - 1) * DROP + ms) + '後餓扁扁');
             }
 
             var LINES = {
@@ -378,6 +379,19 @@
                 floatUp('🧃', 30, 30); floatUp('🧃', 50, 20); floatUp('🧃', 68, 32);
                 return true;
             }
+            // 秘密二：3 秒內連點「飽足」這兩個字 5 下，切換「無限胃」（吃飽了也能一直餵），再點 5 下關掉
+            var fullTaps = [];
+            $('full-l').addEventListener('click', function () {
+                var now = Date.now();
+                fullTaps.push(now);
+                fullTaps = fullTaps.filter(function (x) { return now - x < 3000; });
+                if (fullTaps.length < 5) return;
+                fullTaps = [];
+                pet.glutton = !pet.glutton;
+                save();
+                showFull();
+                say(pet.glutton ? '🤫 打開無限胃了，吃飽也能一直喝' : '無限胃關掉了，吃飽就喝不下囉');
+            });
             function bump(e) {
                 e.classList.remove('wiggle');
                 void e.offsetWidth;
@@ -465,7 +479,7 @@
             $('feed').addEventListener('click', function () {
                 if (!left()) { say('果汁喝完了，去玩一下其他遊戲就能拿到 🧃'); return; }
                 var f = fullness();
-                if (f >= 10 && hatched()) { say('喝不下了啦…等一下再餵我'); var pb = $('pet'); if (pb) bump(pb); return; }
+                if (f >= 10 && hatched() && !pet.glutton) { say('喝不下了啦…等一下再餵我'); var pb = $('pet'); if (pb) bump(pb); return; }
                 var before = stage();
                 pet.spent++;
                 pet.xp++;
