@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 超商店面：條紋雨棚、櫥窗，門口一條收據 -->
+  <rect x="12" y="24" width="40" height="28" rx="2" fill="#1e1e33"/>
+  <path d="M9 14h46l-3 11H12z" fill="#ef4444"/>
+  <path d="M18 14l-2 11M27 14l-1 11M37 14l1 11M46 14l2 11" stroke="#fff" stroke-width="3.2"/>
+  <rect x="16" y="30" width="14" height="10" rx="1.5" fill="#22d3ee"/>
+  <rect x="35" y="30" width="12" height="22" rx="1.5" fill="#facc15"/>
+  <circle cx="44" cy="42" r="1.2" fill="#12121c"/>
+  <rect x="16" y="44" width="14" height="3" rx="1.5" fill="#22c55e"/>
+</svg>

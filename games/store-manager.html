@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/store-manager.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/store-manager-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/store-manager-180.png">
+    <title>超商店長：組合優惠大作戰</title>
+    <meta name="description" content="當五週的超商店長：看收據找出哪些商品常被一起買，用支持度、信賴度、提升度挑組合優惠，挑對多賺錢、挑錯白花廣告費。">
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
+    <script src="../assets/theme.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --gold: #facc15;
+            --hl: rgba(6, 182, 212, 0.16);
+            --hl2: rgba(250, 204, 21, 0.22);
+        }
+        :root[data-theme="light"] {
+            --good: #2f8a12;
+            --bad: #d93a2f;
+            --gold: #b45309;
+            --hl: #dff3fb;
+            --hl2: #ffe3a8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 980px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.4rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+        h2 { font-size: 1.02rem; margin-bottom: 0.5rem; display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+        h2 small { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+        [data-theme="light"] h1, [data-theme="light"] h2 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+
+        .card { min-width: 0; padding: 1rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
+        [data-theme="light"] .card { background: #fff; border: 2.5px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+        .btn {
+            font: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer; padding: 0.55rem 1rem; border-radius: 10px;
+            color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+        }
+        .btn:disabled { opacity: 0.45; cursor: default; }
+        .btn.main { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; color: #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        [data-theme="light"] .btn.main { background: #ffb02e; }
+
+        /* ── 上方狀態列 ── */
+        .hud { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 1.1rem 0 0.7rem; }
+        .hud div { padding: 0.5rem 0.6rem; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); text-align: center; min-width: 0; }
+        [data-theme="light"] .hud div { background: #fff; border: 2px solid #1d2b12; }
+        .hud b { display: block; font: 700 1.1rem 'Space Mono', monospace; white-space: nowrap; }
+        .hud span { font-size: 0.75rem; color: var(--muted); }
+        .event {
+            display: flex; gap: 0.6rem; align-items: center; padding: 0.6rem 0.8rem; border-radius: 12px; margin-bottom: 1rem;
+            background: rgba(124, 58, 237, 0.14); border: 1px dashed var(--accent); font-size: 0.9rem; min-height: 3.4em;
+        }
+        [data-theme="light"] .event { background: #fff8e6; border: 2px dashed #1d2b12; }
+        .event .em { font-size: 1.5rem; flex: none; }
+
+        .grid { display: grid; gap: 1rem; }
+        @media (min-width: 860px) {
+            .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+            .grid .wide { grid-column: 1 / -1; }
+        }
+
+        /* ── 收據 ── */
+        .receipts { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 0.35rem; height: 300px; overflow-y: auto; padding-right: 2px; align-content: start; }
+        .rc {
+            display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.45rem; border-radius: 8px; font-size: 1.05rem; line-height: 1.4;
+            background: var(--panel-2); border: 1px solid transparent; min-width: 0;
+        }
+        [data-theme="light"] .rc { background: #f6fbef; border: 1.5px solid #c9d6bb; }
+        .rc small { font: 0.7rem 'Space Mono', monospace; color: var(--muted); flex: none; width: 1.7em; }
+        .rc span { letter-spacing: 1px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .rc.one { background: var(--hl); }
+        .rc.both { background: var(--hl2); border-color: var(--gold); }
+        .legend { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; display: flex; gap: 0.8rem; flex-wrap: wrap; }
+        .legend i { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 3px; vertical-align: -0.1em; margin-right: 0.25em; }
+
+        /* ── 分析工具 ── */
+        .items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.35rem; }
+        .it {
+            font: inherit; cursor: pointer; padding: 0.35rem 0.1rem 0.25rem; border-radius: 10px; min-width: 0;
+            display: flex; flex-direction: column; align-items: center; color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+        }
+        .it .e { font-size: 1.45rem; line-height: 1.2; }
+        .it .n { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+        .it .c { font: 0.68rem 'Space Mono', monospace; color: var(--muted); }
+        .it.sel { border-color: var(--accent2); box-shadow: 0 0 0 2px var(--accent2) inset; background: var(--hl); }
+        [data-theme="light"] .it { border: 2px solid #1d2b12; background: #fff; }
+        [data-theme="light"] .it.sel { background: #dff3fb; box-shadow: 2px 2px 0 #1d2b12; }
+        .stats { margin-top: 0.8rem; padding: 0.7rem 0.8rem; border-radius: 12px; background: var(--panel-2); height: 14.2em; display: flex; flex-direction: column; }
+        [data-theme="light"] .stats { background: #f6fbef; border: 2px solid #1d2b12; }
+        .stats .tip { color: var(--muted); font-size: 0.88rem; margin: auto 0; text-align: center; }
+        .stats .pair { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; font-size: 0.86rem; padding: 0.1rem 0; border-bottom: 1px dashed var(--border); }
+        .srow b { font-family: 'Space Mono', monospace; }
+        .srow.lift b { color: var(--gold); }
+        .stats .add { margin-top: auto; align-self: flex-start; }
+
+        /* ── 決策 ── */
+        .slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.8rem; }
+        .slot {
+            display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; padding: 0.55rem 0.7rem; border-radius: 12px; height: 54px;
+            border: 1.5px dashed var(--border); color: var(--muted); font-size: 0.85rem; min-width: 0;
+        }
+        .slot.on { border-style: solid; border-color: var(--accent); color: var(--text); font-size: 1.15rem; }
+        .slot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        [data-theme="light"] .slot { border: 2px dashed #8a9580; }
+        [data-theme="light"] .slot.on { border: 2px solid #1d2b12; background: #fff8e6; }
+        .slot button { font: inherit; font-size: 0.85rem; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0.1rem 0.3rem; }
+        .decide p { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.8rem; }
+        .decide .go { width: 100%; padding: 0.75rem; font-size: 1rem; }
+
+        /* ── 結果（蓋在畫面上，不推動底下任何區塊） ── */
+        .modal { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 1rem; background: rgba(5, 5, 10, 0.72); }
+        [data-theme="light"] .modal { background: rgba(29, 43, 18, 0.35); }
+        .modal[hidden] { display: none; }
+        .sheet { width: min(520px, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; }
+        .sheet h3 { font-size: 1.2rem; margin-bottom: 0.4rem; }
+        .big { font: 700 2rem 'Space Mono', monospace; }
+        .pos { color: var(--good); }
+        .neg { color: var(--bad); }
+        .res-row { padding: 0.55rem 0; border-bottom: 1px dashed var(--border); font-size: 0.9rem; }
+        .res-row .top { display: flex; justify-content: space-between; gap: 0.5rem; font-weight: 700; font-size: 1.05rem; }
+        .res-row p { color: var(--muted); font-size: 0.84rem; }
+        .sheet .lesson { margin-top: 0.8rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--panel-2); font-size: 0.86rem; }
+        [data-theme="light"] .sheet .lesson { background: #f6fbef; border: 2px solid #1d2b12; }
+        .sheet .acts { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+        .sheet .acts .btn { flex: 1 1 140px; }
+        .grade { font: 800 4rem 'Syne', sans-serif; line-height: 1; color: var(--gold); }
+        .weeks { width: 100%; border-collapse: collapse; margin: 0.6rem 0; font-size: 0.86rem; }
+        .weeks td { padding: 0.25rem 0.2rem; border-bottom: 1px dashed var(--border); }
+        .weeks td:last-child { text-align: right; font-family: 'Space Mono', monospace; }
+
+        details.learn { margin-top: 1.4rem; }
+        details.learn summary { cursor: pointer; font-weight: 700; }
+        details.learn div { margin-top: 0.6rem; font-size: 0.9rem; color: var(--muted); }
+        details.learn li { margin: 0.3rem 0 0.3rem 1.2rem; }
+        details.learn a { color: var(--accent2); }
+        [data-theme="light"] details.learn a { color: #0e7490; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>超商店長<small>當五週的店長：看收據找出哪些東西常被一起買，挑兩組做組合優惠。挑對了多賣很多，挑錯了白花廣告費。</small></h1>
+
+        <div class="hud">
+            <div><b id="h-week">1/5</b><span>週</span></div>
+            <div><b id="h-total">$0</b><span>促銷累計多賺</span></div>
+            <div><b id="h-best">—</b><span>最佳紀錄</span></div>
+        </div>
+        <div class="event" id="event"><span class="em" id="ev-em">🏪</span><span id="ev-text"></span></div>
+
+        <div class="grid">
+            <section class="card">
+                <h2>上週的收據 <small id="rc-count"></small></h2>
+                <div class="receipts" id="receipts"></div>
+                <div class="legend"><span><i style="background:var(--hl)"></i>有其中一樣</span><span><i style="background:var(--hl2)"></i>兩樣都有</span></div>
+            </section>
+
+            <section class="card">
+                <h2>分析工具 <small>點兩樣商品，看它們的關係</small></h2>
+                <div class="items" id="items"></div>
+                <div class="stats" id="stats"></div>
+            </section>
+
+            <section class="card wide decide">
+                <h2>這週的組合優惠 <small>最多兩組，每組廣告費 $<span id="cost"></span></small></h2>
+                <p>做了組合優惠之後，只買其中一樣的客人有機會順手把另一樣也帶走；但兩樣東西本來就沒什麼關係的話，客人不會因此多買。</p>
+                <div class="slots" id="slots"></div>
+                <button type="button" class="btn main go" id="open">🏪 開始營業這一週</button>
+            </section>
+        </div>
+
+        <details class="learn">
+            <summary>📖 支持度、信賴度、提升度是什麼？</summary>
+            <div>
+                <ul>
+                    <li><b>支持度</b>：多少比例的收據有這樣東西（或這組東西）。</li>
+                    <li><b>信賴度 A→B</b>：買了 A 的收據裡，有幾成也買了 B。</li>
+                    <li><b>提升度</b>：信賴度 ÷ B 本來的支持度。等於 1 代表「買 A 跟買不買 B 沒關係」，大於 1 才是真的常一起買。</li>
+                    <li><b>次數太少</b>：只一起出現 1、2 次的組合，提升度很容易算出很大的數字，其實是巧合。</li>
+                    <li><b>陷阱</b>：每週總有一樣東西特別熱賣，幾乎每個人都買，所以「A→它」的信賴度永遠很高，但提升度大約 1，做優惠也不會多賣。</li>
+                </ul>
+                <p>想看演算法怎麼一次算出所有規則，可以玩 <a href="../research/association-rules.html">關聯規則 Demo</a>。</p>
+            </div>
+        </details>
+    </div>
+
+    <div class="modal" id="modal" hidden>
+        <div class="card sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script>
+        (function () {
+            var ITEMS = [ // 圖示、名稱、每賣一個賺多少
+                ['🍙', '飯糰', 10], ['🥛', '牛奶', 12], ['🍞', '麵包', 12], ['🥚', '茶葉蛋', 5], ['🍜', '泡麵', 9],
+                ['🧃', '果汁', 8], ['🍫', '巧克力', 10], ['🍪', '餅乾', 9], ['🧋', '奶茶', 20], ['🍌', '香蕉', 6]
+            ];
+            var N = ITEMS.length, WEEKS = 5, COST = 150, CUSTOMERS = 300, RECEIPTS = 80;
+            var EVENTS = [
+                ['📚', '期中考週', '學生熬夜讀書，有些東西突然常被一起買。'],
+                ['🥶', '寒流來襲', '天氣變冷，大家的購物習慣好像變了一點。'],
+                ['🌀', '颱風前一天', '大家都在囤貨，有些組合特別多。'],
+                ['🏃', '校園運動會', '附近在辦活動，客人買的東西不太一樣。'],
+                ['🎉', '週年慶', '人潮比較多，有新的熱門組合冒出來。'],
+                ['🌧️', '連續下雨', '大家不想出門，一次買比較多樣。'],
+                ['🎮', '新遊戲發售', '玩家熬夜衝等級，宵夜組合變多了。']
+            ];
+            var STORE = 'jfk-store-v1';
+            var $ = function (id) { return document.getElementById(id); };
+            $('cost').textContent = COST;
+
+            function rng(a) {
+                return function () {
+                    a |= 0; a = a + 0x6D2B79F5 | 0;
+                    var t = Math.imul(a ^ a >>> 15, 1 | a);
+                    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+                };
+            }
+            function load() { try { return JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (e) { return {}; } }
+            function save(o) { try { localStorage.setItem(STORE, JSON.stringify(o)); } catch (e) { /* 不記也能玩 */ } }
+
+            // ── 顧客模型（玩家看不到）：每樣商品有自己被買的機率，加上幾條「買了 A 就常順便買 B」 ──
+            function makeGame(seed) {
+                var r = rng(seed);
+                var p = ITEMS.map(function () { return 0.06 + r() * 0.16; });
+                var rules = [];
+                function addRule(list, trap) {
+                    for (var guard = 0; guard < 200; guard++) {
+                        var a = Math.floor(r() * N), b = Math.floor(r() * N);
+                        if (a === b || a === trap || b === trap) continue;
+                        if (list.some(function (x) { return (x[0] === a && x[1] === b) || (x[0] === b && x[1] === a); })) continue;
+                        list.push([a, b, 0.45 + r() * 0.35]);
+                        return;
+                    }
+                }
+                var weeks = [];
+                var evOrder = EVENTS.map(function (e, i) { return i; }).sort(function () { return r() - 0.5; });
+                var base = [];
+                addRule(base, -1); addRule(base, -1);
+                for (var w = 0; w < WEEKS; w++) {
+                    // 每週一樣「大家都買」的陷阱商品，加上一條這週才有的新規則
+                    var trap = Math.floor(r() * N);
+                    var pw = p.slice();
+                    pw[trap] = 0.5;
+                    var rw = base.filter(function (x) { return x[0] !== trap && x[1] !== trap; });
+                    addRule(rw, trap);
+                    if (w >= 2) addRule(rw, trap);   // 後面幾週多一條，變難一點
+                    weeks.push({ p: pw, rules: rw, trap: trap, ev: EVENTS[evOrder[w % EVENTS.length]], seed: Math.floor(r() * 1e9) });
+                }
+                return { seed: seed, weeks: weeks };
+            }
+            function basket(m, r) {
+                var s;
+                do {
+                    s = [];
+                    for (var i = 0; i < N; i++) s[i] = r() < m.p[i];
+                    m.rules.forEach(function (x) { if (s[x[0]] && !s[x[1]] && r() < x[2]) s[x[1]] = true; });
+                } while (s.indexOf(true) < 0);
+                return s;
+            }
+            // 真正的提升度（用很多位模擬客人算），只在結算時拿來決定促銷效果
+            function trueLift(m) {
+                var r = rng(4242), K = 12000, c = new Array(N).fill(0), cc = [];
+                for (var i = 0; i < N; i++) cc.push(new Array(N).fill(0));
+                for (var k = 0; k < K; k++) {
+                    var s = basket(m, r);
+                    for (i = 0; i < N; i++) if (s[i]) { c[i]++; for (var j = 0; j < N; j++) if (s[j]) cc[i][j]++; }
+                }
+                return function (a, b) { return cc[a][b] * K / (c[a] * c[b] || 1); };
+            }
+            // 一組優惠這週多賺多少：只買其中一樣的客人，依提升度有機會把另一樣也帶走
+            function promo(m, lift, a, b) {
+                var L = lift(a, b);
+                var pAdd = Math.min(0.7, 0.4 * Math.max(0, L - 1));
+                var r = rng(m.seed + a * 31 + b * 977), extra = [0, 0], gain = -COST;
+                for (var k = 0; k < CUSTOMERS; k++) {
+                    var s = basket(m, r), u = r();
+                    if (s[a] !== s[b] && u < pAdd) {
+                        var o = s[a] ? 1 : 0;
+                        extra[o]++;
+                        gain += ITEMS[o ? b : a][2];
+                    }
+                }
+                return { a: a, b: b, lift: L, extra: extra, gain: gain };
+            }
+
+            // ── 遊戲狀態 ──
+            var G, week, total, picks, sel, receipts, history;
+            var store = load();
+            function newGame() {
+                G = makeGame(1 + Math.floor(Math.random() * 1e9));
+                week = 0; total = 0; history = [];
+                startWeek();
+            }
+            function startWeek() {
+                var m = G.weeks[week];
+                var r = rng(m.seed ^ 0x5bd1e995);
+                receipts = [];
+                for (var k = 0; k < RECEIPTS; k++) receipts.push(basket(m, r));
+                picks = []; sel = [];
+                $('ev-em').textContent = m.ev[0];
+                $('ev-text').textContent = '第 ' + (week + 1) + ' 週・' + m.ev[1] + '：' + m.ev[2];
+                hud();
+                drawItems();
+                drawReceipts();
+                drawStats();
+                drawSlots();
+            }
+            function hud() {
+                $('h-week').textContent = (week + 1) + '/' + WEEKS;
+                $('h-total').textContent = money(total);
+                $('h-total').className = total > 0 ? 'pos' : total < 0 ? 'neg' : '';
+                $('h-best').textContent = store.best != null ? money(store.best) : '—';
+            }
+            function money(v) { return (v > 0 ? '+$' : v < 0 ? '-$' : '$') + Math.abs(Math.round(v)); }
+            function pairName(a, b) { return ITEMS[a][0] + ITEMS[a][1] + ' + ' + ITEMS[b][0] + ITEMS[b][1]; }
+
+            function count(i) { var c = 0; receipts.forEach(function (s) { if (s[i]) c++; }); return c; }
+            function drawItems() {
+                var box = $('items');
+                box.textContent = '';
+                ITEMS.forEach(function (it, i) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'it' + (sel.indexOf(i) >= 0 ? ' sel' : '');
+                    b.setAttribute('aria-pressed', sel.indexOf(i) >= 0);
+                    var e = document.createElement('span'); e.className = 'e'; e.textContent = it[0];
+                    var n = document.createElement('span'); n.className = 'n'; n.textContent = it[1];
+                    var c = document.createElement('span'); c.className = 'c'; c.textContent = count(i) + ' 張';
+                    b.appendChild(e); b.appendChild(n); b.appendChild(c);
+                    b.addEventListener('click', function () {
+                        var k = sel.indexOf(i);
+                        if (k >= 0) sel.splice(k, 1);
+                        else { sel.push(i); if (sel.length > 2) sel.shift(); }
+                        drawItems(); drawReceipts(); drawStats();
+                    });
+                    box.appendChild(b);
+                });
+            }
+            function drawReceipts() {
+                var box = $('receipts');
+                box.textContent = '';
+                $('rc-count').textContent = receipts.length + ' 張';
+                receipts.forEach(function (s, k) {
+                    var d = document.createElement('div');
+                    var has = sel.filter(function (i) { return s[i]; }).length;
+                    d.className = 'rc' + (sel.length === 2 && has === 2 ? ' both' : has ? ' one' : '');
+                    var no = document.createElement('small'); no.textContent = '#' + (k + 1);
+                    var sp = document.createElement('span');
+                    sp.textContent = ITEMS.filter(function (it, i) { return s[i]; }).map(function (it) { return it[0]; }).join('');
+                    d.appendChild(no); d.appendChild(sp);
+                    box.appendChild(d);
+                });
+            }
+            function row(parent, label, value, cls) {
+                var d = document.createElement('div');
+                d.className = 'srow' + (cls ? ' ' + cls : '');
+                var l = document.createElement('span'); l.textContent = label;
+                var v = document.createElement('b'); v.textContent = value;
+                d.appendChild(l); d.appendChild(v);
+                parent.appendChild(d);
+            }
+            function drawStats() {
+                var box = $('stats');
+                box.textContent = '';
+                if (sel.length < 2) {
+                    var t = document.createElement('p');
+                    t.className = 'tip';
+                    t.textContent = sel.length ? '再點一樣商品，就會算出它們一起出現的次數、信賴度和提升度。' : '點上面兩樣商品，收據裡有它們的會亮起來，這裡會算出它們的關係。';
+                    box.appendChild(t);
+                    return;
+                }
+                var a = sel[0], b = sel[1], n = receipts.length, ca = count(a), cb = count(b), cab = 0;
+                receipts.forEach(function (s) { if (s[a] && s[b]) cab++; });
+                var pair = document.createElement('div');
+                pair.className = 'pair';
+                pair.textContent = pairName(a, b);
+                box.appendChild(pair);
+                row(box, '一起出現', cab + ' / ' + n + ' 張收據');
+                row(box, '信賴度 ' + ITEMS[a][0] + '→' + ITEMS[b][0], ca ? Math.round(cab / ca * 100) + '%' : '—');
+                row(box, '信賴度 ' + ITEMS[b][0] + '→' + ITEMS[a][0], cb ? Math.round(cab / cb * 100) + '%' : '—');
+                row(box, '多賣一個賺', ITEMS[a][0] + '$' + ITEMS[a][2] + '　' + ITEMS[b][0] + '$' + ITEMS[b][2]);
+                row(box, '提升度' + (cab < 3 ? '（才 ' + cab + ' 張，不太準）' : ''), ca && cb ? (cab * n / (ca * cb)).toFixed(2) : '—', 'lift');
+                var add = document.createElement('button');
+                add.type = 'button';
+                add.className = 'btn add';
+                var already = picks.some(function (p) { return (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a); });
+                add.textContent = already ? '✓ 已經在優惠裡' : picks.length >= 2 ? '優惠已滿兩組' : '＋ 做成組合優惠';
+                add.disabled = already || picks.length >= 2;
+                add.addEventListener('click', function () { picks.push([a, b]); drawSlots(); drawStats(); });
+                box.appendChild(add);
+            }
+            function drawSlots() {
+                var box = $('slots');
+                box.textContent = '';
+                for (var k = 0; k < 2; k++) {
+                    var d = document.createElement('div');
+                    var p = picks[k];
+                    d.className = 'slot' + (p ? ' on' : '');
+                    if (p) {
+                        var t = document.createElement('span');
+                        t.textContent = ITEMS[p[0]][0] + ' + ' + ITEMS[p[1]][0];
+                        var x = document.createElement('button');
+                        x.type = 'button';
+                        x.textContent = '✕';
+                        x.setAttribute('aria-label', '取消這組優惠');
+                        x.addEventListener('click', (function (k) { return function () { picks.splice(k, 1); drawSlots(); drawStats(); }; })(k));
+                        d.appendChild(t); d.appendChild(x);
+                    } else d.textContent = '空著（不花錢）';
+                    box.appendChild(d);
+                }
+                $('open').textContent = picks.length ? '🏪 開始營業這一週' : '🏪 這週不做優惠，直接營業';
+            }
+
+            // ── 結算 ──
+            function el(tag, cls, text) {
+                var e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text != null) e.textContent = text;
+                return e;
+            }
+            function openSheet(build) {
+                var s = $('sheet');
+                s.textContent = '';
+                build(s);
+                $('modal').hidden = false;
+                s.scrollTop = 0;
+                var f = s.querySelector('.btn.main');
+                if (f) f.focus();
+            }
+            $('open').addEventListener('click', function () {
+                var m = G.weeks[week], lift = trueLift(m);
+                var mine = picks.map(function (p) { return promo(m, lift, p[0], p[1]); });
+                var all = [];
+                for (var a = 0; a < N; a++) for (var b = a + 1; b < N; b++) all.push(promo(m, lift, a, b));
+                all.sort(function (x, y) { return y.gain - x.gain; });
+                var best = Math.max(0, all[0].gain) + Math.max(0, all[1].gain);
+                var got = mine.reduce(function (s, x) { return s + x.gain; }, 0);
+                total += got;
+                history.push({ ev: m.ev, got: got, best: best });
+                hud();
+                openSheet(function (s) {
+                    s.appendChild(el('h3', null, '第 ' + (week + 1) + ' 週結算'));
+                    var big = el('div', 'big ' + (got > 0 ? 'pos' : got < 0 ? 'neg' : ''), money(got));
+                    s.appendChild(big);
+                    s.appendChild(el('p', null, picks.length ? '組合優惠讓這週多賺（已扣廣告費）' : '這週沒有做優惠，不賺不賠'));
+                    s.lastChild.style.color = 'var(--muted)';
+                    mine.forEach(function (x) {
+                        var d = el('div', 'res-row');
+                        var top = el('div', 'top');
+                        top.appendChild(el('span', null, pairName(x.a, x.b)));
+                        top.appendChild(el('span', x.gain >= 0 ? 'pos' : 'neg', money(x.gain)));
+                        d.appendChild(top);
+                        var why = x.lift >= 1.4
+                            ? '真正的提升度 ' + x.lift.toFixed(2) + '：本來就常一起買，多賣了 ' + x.extra[1] + ' 個' + ITEMS[x.b][1] + '、' + x.extra[0] + ' 個' + ITEMS[x.a][1] + '。'
+                            : '真正的提升度 ' + x.lift.toFixed(2) + '：兩樣東西其實沒什麼關係，客人不會因為優惠多買，廣告費白花了。' + (x.a === m.trap || x.b === m.trap ? '（' + ITEMS[m.trap][1] + '是這週大家都買的熱門商品，信賴度看起來很高是陷阱）' : '');
+                        d.appendChild(el('p', null, why));
+                        s.appendChild(d);
+                    });
+                    var lesson = el('div', 'lesson');
+                    var top2 = all.slice(0, 2).filter(function (x) { return x.gain > 0; });
+                    lesson.textContent = top2.length
+                        ? '這週最好的選擇是 ' + top2.map(function (x) { return pairName(x.a, x.b) + '（提升度 ' + x.lift.toFixed(2) + '，' + money(x.gain) + '）'; }).join('、') + '。'
+                        : '這週沒有任何一組優惠划得來。';
+                    s.appendChild(lesson);
+                    var acts = el('div', 'acts');
+                    var next = el('button', 'btn main', week + 1 < WEEKS ? '下一週 →' : '看總成績 🏆');
+                    next.type = 'button';
+                    next.addEventListener('click', function () {
+                        $('modal').hidden = true;
+                        week++;
+                        if (week < WEEKS) startWeek(); else finish();
+                    });
+                    acts.appendChild(next);
+                    s.appendChild(acts);
+                });
+            });
+
+            function finish() {
+                var best = history.reduce(function (s, h) { return s + h.best; }, 0);
+                var ratio = best > 0 ? total / best : 0;
+                var grade = ratio >= 0.8 ? 'S' : ratio >= 0.6 ? 'A' : ratio >= 0.35 ? 'B' : ratio > 0 ? 'C' : 'D';
+                var title = { S: '資料探勘店長', A: '很會看收據的店長', B: '有點感覺的店長', C: '憑直覺的店長', D: '廣告費燒光光' }[grade];
+                var rec = store.best == null || total > store.best;
+                if (rec) store.best = Math.round(total);
+                store.games = (store.games || 0) + 1;
+                // 果汁龍寵物的果汁：評等越好拿越多（games/pet.html 讀這個數字）
+                store.juice = (store.juice || 0) + { S: 5, A: 4, B: 3, C: 2, D: 1 }[grade];
+                save(store);
+                hud();
+                openSheet(function (s) {
+                    s.appendChild(el('h3', null, '五週結算'));
+                    var g = el('div', 'grade', grade);
+                    s.appendChild(g);
+                    s.appendChild(el('p', null, title + (rec ? '・新紀錄！' : '')));
+                    s.appendChild(el('div', 'big ' + (total > 0 ? 'pos' : total < 0 ? 'neg' : ''), money(total)));
+                    s.appendChild(el('p', null, '最理想的選法可以多賺 ' + money(best) + '，你拿到了 ' + Math.max(0, Math.round(ratio * 100)) + '%。'));
+                    var tb = el('table', 'weeks');
+                    history.forEach(function (h, i) {
+                        var tr = el('tr');
+                        tr.appendChild(el('td', null, '第 ' + (i + 1) + ' 週 ' + h.ev[0] + ' ' + h.ev[1]));
+                        tr.appendChild(el('td', h.got >= 0 ? 'pos' : 'neg', money(h.got)));
+                        tb.appendChild(tr);
+                    });
+                    s.appendChild(tb);
+                    var lesson = el('div', 'lesson', '訣竅：先看提升度，要大於 1 很多才划算；信賴度高但提升度接近 1 的，多半是因為另一樣東西本來就賣很好。提升度差不多時，挑利潤高（像奶茶）、買的人多的組合。');
+                    s.appendChild(lesson);
+                    var acts = el('div', 'acts');
+                    var again = el('button', 'btn main', '再開一家店');
+                    again.type = 'button';
+                    again.addEventListener('click', function () { $('modal').hidden = true; newGame(); });
+                    var demo = el('a', 'btn', '看關聯規則 Demo');
+                    demo.href = '../research/association-rules.html';
+                    demo.style.textAlign = 'center';
+                    demo.style.textDecoration = 'none';
+                    acts.appendChild(again); acts.appendChild(demo);
+                    s.appendChild(acts);
+                });
+                if ((grade === 'S' || grade === 'A') && window.confetti && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    confetti({ particleCount: 100, spread: 75, origin: { y: 0.6 }, zIndex: 1000 });
+                }
+            }
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !$('modal').hidden) {
+                    var b = $('sheet').querySelector('.btn.main');
+                    if (b) b.click();
+                }
+            });
+            // 測試用：固定種子
+            var m = /[?&]seed=(\d+)/.exec(location.search);
+            if (m) { G = makeGame(+m[1]); week = 0; total = 0; history = []; startWeek(); }
+            else newGame();
+        })();
+    </script>
+</body>
+
+</html>

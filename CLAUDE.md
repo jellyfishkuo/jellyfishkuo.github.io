@@ -38,6 +38,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `games/1A2B.html`、`infinite-tictactoe.html`、`vertical-gomoku.html`、`coc-card.html` | 各有技術介紹頁 |
 | `games/hanoi.html` | 河內塔：自己玩（任意盤面的最佳提示）＋ 看遞迴怎麼解（Python/JS/C++ 逐行高亮、呼叫堆疊） |
 | `games/zip.html` | 一筆畫（像 LinkedIn Zip）：題目無限多，不做每天一題（使用者要求）。出題器：backbite 隨機一筆畫路線 → 放數字、加牆 → 解題器確認唯一解 → 拿掉多餘數字；題號 `#大小-難度-種子` 放網址可分享。紀錄存 localStorage `jfk-zip-v1` |
+| `games/store-manager.html` | 超商店長：5 週，每週隨機的顧客模型（每週一樣「大家都買」的陷阱商品＋幾條隱藏規則），玩家看 80 張收據、用分析工具看支持度／信賴度／提升度，挑最多兩組優惠（每組廣告費 $150）；效果＝只買其中一樣的客人依「真正的提升度」順手多買。評等是跟每週最佳兩組比的比例。紀錄 localStorage `jfk-store-v1`（`best`、`games`、`juice` 給寵物）；`?seed=` 固定題目方便測試 |
 | `games/dinner-wheel.html` | 晚餐轉盤：選項存 localStorage（`dinner-wheel-v1`），新增預設選項時調 `DEFAULTS_VERSION` 與 `ADDED_IN`，舊使用者會自動補上；轉盤文字由 `fitLabel()` 依扇形寬度與中間按鈕縮字，放不下才加「…」 |
 | `electricity-tracker/` | 電費紀錄：localStorage `electricityMeterRecords_v1`；4 位數電表 9999→0000 視為繞圈；跨天用電依時間平均分配；匯入時整理 Excel 改過的日期格式 |
 | `research/apriori.html`、`fp-growth.html`、`eclat.html`、`closed-patterns.html`、`association-rules.html`、`prefixspan.html`、`two-phase.html`、`up-growth.html`、`high-utility.html`、`top-k-hui.html`、`incremental.html`、`cantree.html`、`sliding-window.html`、`stream-counting.html`、`count-min.html`、`spatial.html`、`rtree.html`、`dbscan.html`、`efim.html`、`gsp-spade.html`、`gspan.html`、`bloom-filter.html`、`skyline.html`、`periodic.html`、`uspan.html`、`ihup.html`、`hyperloglog.html`、`ir-tree.html`、`foth.html`、`sw-huop.html`、`uncertain-sw.html` | 研究 Demo（31 個；最後 3 個是擁有者讀過的論文做的，頁面有「📄 論文」卡放書目與 DOI，不放 PDF；首頁 Research 的主題標籤可以篩選；新增 Demo 時卡片要加 `data-topics`）：大多用同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），一步一步看＋Java/Python 逐行高亮＋可下載執行。每個 Demo 都有「🎯 練習模式」（猜下一步，規格見 `tools/research/BRIEF.md`；新 Demo 也要寫自己的 `quizFor` 和 `quiz_test.py`） |
@@ -45,7 +46,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `research/papers.html` | 論文書架：上面是擁有者讀過、做成 Demo 的論文（手寫卡片，新增讀過的論文要加一張）；下面是經典論文，資料在頁面 JS 的 `PAPERS` 陣列（一行一篇，新增 Demo 時補上原始論文），連 Google Scholar 搜尋，不放 DOI（會議論文常沒有）。首頁 Research 標題下方第三個入口 |
 | `research/overview.html`、`benchmark.html` | 研究地圖（關係圖＋閱讀路線＋比較表，`tools/research/overview/build.py` 自己有一份演算法清單，新增 Demo 時要補）與效能比賽場（Web Worker 實跑，`tools/research/benchmark/algos.js`）；首頁 Research 標題下方兩個入口 |
 
-首頁 About 的「自己做的小工具與遊戲」數字（目前 10）在新增 Projects 作品時要跟著改。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
+首頁 About 的「自己做的小工具與遊戲」數字（目前 11）在新增 Projects 作品時要跟著改。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
 ## 開發慣例與踩過的坑
 
