@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 404 頁可能出現在任何一層網址底下，所以全部用 / 開頭的絕對路徑 -->
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png">
+    <link rel="apple-touch-icon" href="/assets/logo-180.png">
+    <title>果汁龍迷路了｜404</title>
+    <meta name="robots" content="noindex">
+    <script src="/assets/theme.js"></script>
+    <link rel="stylesheet" href="/assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050f;
+            --panel: #0c0c1a;
+            --border: rgba(124, 58, 237, 0.3);
+            --text: #e2e8f0;
+            --muted: #8b95a8;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --ink: #e2e8f0;
+        }
+        :root[data-theme="light"] {
+            --bg: #e9f7d9;
+            --panel: #ffffff;
+            --border: #1d2b12;
+            --text: #1d2b12;
+            --muted: #55624a;
+            --ink: #1d2b12;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 640px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+
+        /* ── 迷路的場景：虛線腳印繞來繞去，果汁龍在中間左右張望 ── */
+        .scene {
+            position: relative; height: 210px; margin: 0.5rem 0 1.4rem;
+            border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(124, 58, 237, 0.18), transparent 55%),
+                radial-gradient(circle at 80% 70%, rgba(6, 182, 212, 0.14), transparent 55%),
+                var(--panel);
+        }
+        [data-theme="light"] .scene {
+            border-width: 3px; box-shadow: 5px 5px 0 #1d2b12;
+            background:
+                radial-gradient(circle at 15% 85%, #c8ec9a 0 18%, transparent 19%),
+                radial-gradient(circle at 92% 18%, #c8ec9a 0 14%, transparent 15%),
+                #f6fbef;
+        }
+        .scene svg.trail { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .trail path { fill: none; stroke: var(--muted); stroke-width: 2.5; stroke-dasharray: 2 9; stroke-linecap: round; opacity: 0.7; }
+        .sign {
+            position: absolute; font: 700 0.72rem 'Space Mono', monospace; color: var(--muted);
+            border: 1px dashed var(--muted); border-radius: 6px; padding: 1px 7px; white-space: nowrap;
+        }
+        [data-theme="light"] .sign { font-family: 'Noto Sans TC', sans-serif; border: 2px solid #1d2b12; border-style: solid; background: #fff; color: #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+        .sign.s1 { left: 5%; bottom: 12%; transform: rotate(-6deg); }
+        .sign.s2 { right: 5%; bottom: 10%; transform: rotate(5deg); }
+        .sign.s3 { right: 6%; top: 34%; transform: rotate(3deg); }
+
+        .dragon-box {
+            position: absolute; left: 50%; top: 54%; width: 120px; height: 100px;
+            transform: translate(-50%, -50%); cursor: pointer; border: 0; background: none;
+            animation: wander 6s ease-in-out infinite;
+        }
+        .dragon-box img { width: 100%; height: 100%; display: block; animation: look 3s steps(1) infinite; }
+        @keyframes wander {
+            0%, 100% { transform: translate(-80%, -50%); }
+            50% { transform: translate(-20%, -46%); }
+        }
+        /* 左右張望：每隔一段時間轉頭 */
+        @keyframes look {
+            0%, 45% { transform: scaleX(1); }
+            50%, 95% { transform: scaleX(-1); }
+        }
+        .bubble {
+            position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+            max-width: calc(100% - 24px); padding: 4px 12px; border-radius: 14px;
+            background: var(--accent); color: #fff; font-size: 0.85rem; font-weight: 700; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        [data-theme="light"] .bubble { background: #ffb02e; color: #1d2b12; border: 2px solid #1d2b12; box-shadow: 2px 2px 0 #1d2b12; }
+
+        .code {
+            font: 700 clamp(3rem, 16vw, 5rem) 'Syne', sans-serif; line-height: 1;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        [data-theme="light"] .code { background: none; color: #ff9f1c; -webkit-text-stroke: 2px #1d2b12; font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        h1 { font-size: clamp(1.5rem, 6vw, 2rem); margin: 0.4rem 0 0.6rem; font-weight: 900; }
+        p { color: var(--muted); }
+        .path {
+            display: inline-block; max-width: 100%; overflow-wrap: anywhere; vertical-align: bottom;
+            font: 0.85rem 'Space Mono', monospace; color: var(--text);
+            background: rgba(124, 58, 237, 0.15); border-radius: 6px; padding: 0 6px;
+        }
+        [data-theme="light"] .path { background: #fff3d6; }
+
+        .btns { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1.3rem 0 1.6rem; }
+        .btn {
+            flex: 1 1 130px; text-align: center; text-decoration: none; font-weight: 700; font-size: 0.95rem;
+            padding: 0.7rem 0.9rem; border-radius: 12px; color: var(--text);
+            border: 1px solid var(--border); background: var(--panel);
+        }
+        .btn:hover { border-color: var(--accent2); }
+        .btn.main { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border-color: transparent; }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
+        [data-theme="light"] .btn.main { background: #ffb02e; color: #1d2b12; border-color: #1d2b12; }
+        [data-theme="light"] .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #1d2b12; }
+
+        .guess { border-top: 1px dashed var(--border); padding-top: 1rem; }
+        [data-theme="light"] .guess { border-top: 2px dashed #1d2b12; }
+        .guess h2 { font-size: 1rem; margin-bottom: 0.4rem; }
+        .guess ul { list-style: none; display: grid; gap: 0.4rem; }
+        .guess a { color: var(--accent2); text-decoration: none; font-weight: 700; }
+        .guess a:hover { text-decoration: underline; }
+        .guess small { display: block; color: var(--muted); font: 0.75rem 'Space Mono', monospace; overflow-wrap: anywhere; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dragon-box, .dragon-box img { animation: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="/" data-light-label="回果汁龍首頁">← RETURN TO PORTFOLIO</a>
+
+        <div class="scene" aria-hidden="true">
+            <svg class="trail" viewBox="0 0 600 210" preserveAspectRatio="none">
+                <path d="M20 180 C90 120 60 60 150 70 S250 170 300 120 S360 30 430 60 S560 160 590 40" />
+            </svg>
+            <span class="sign s1">← 首頁？</span>
+            <span class="sign s3">研究室 →</span>
+            <span class="sign s2">遊戲區？↓</span>
+            <div class="bubble" id="bubble">咦？這裡是哪裡…</div>
+        </div>
+
+        <div class="code">404</div>
+        <h1>果汁龍迷路了</h1>
+        <p>找不到 <span class="path" id="path"></span> 這個頁面。可能是網址打錯一個字，或是頁面已經搬家了。</p>
+
+        <div class="btns">
+            <a class="btn main" href="/">回首頁</a>
+            <a class="btn" href="/#projects">看作品</a>
+            <a class="btn" href="/#research">研究 Demo</a>
+            <a class="btn" href="/" id="random">隨便帶我去一個</a>
+        </div>
+
+        <div class="guess" id="guess" hidden>
+            <h2>你是不是要找：</h2>
+            <ul id="guess-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var here = decodeURIComponentSafe(location.pathname);
+            document.getElementById('path').textContent = here;
+
+            // 果汁龍：放進場景、點一下換一句話
+            var scene = document.querySelector('.scene');
+            var box = document.createElement('button');
+            box.type = 'button';
+            box.className = 'dragon-box';
+            box.setAttribute('aria-label', '跟果汁龍說話');
+            var img = document.createElement('img');
+            img.src = '/assets/dragon.svg';
+            img.alt = '';
+            box.appendChild(img);
+            scene.appendChild(box);
+            scene.removeAttribute('aria-hidden');
+
+            var lines = ['咦？這裡是哪裡…', '剛剛明明在首頁的…', '地圖拿反了嗎？', '蘋果汁快喝完了', '我先在這裡等你', '要不要按下面的按鈕？', '這裡沒有頁面，只有我'];
+            var bubble = document.getElementById('bubble');
+            var li = 0;
+            box.addEventListener('click', function () {
+                li = (li + 1) % lines.length;
+                bubble.textContent = lines[li];
+            });
+
+            function decodeURIComponentSafe(s) {
+                try { return decodeURIComponent(s); } catch (e) { return s; }
+            }
+
+            // 從首頁抓所有作品和 Demo 的連結：用來猜「你是不是要找」和「隨便帶我去一個」，
+            // 這樣新增頁面時不用回來改這裡
+            fetch('/', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (html) {
+                if (!html) return;
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var seen = {};
+                var pages = [];
+                doc.querySelectorAll('a[href]').forEach(function (a) {
+                    var href = a.getAttribute('href');
+                    if (!/^(games|research|electricity-tracker)\//.test(href) || href.indexOf('#') >= 0) return;
+                    var url = '/' + href;
+                    var b = a.querySelector('b');
+                    var h3 = a.closest('h3');
+                    var title = (b ? b.textContent : h3 ? h3.textContent : a.textContent).trim();
+                    if (!seen[url]) { seen[url] = { url: url, title: title }; pages.push(seen[url]); }
+                    else if (b || h3) seen[url].title = title;
+                });
+                if (!pages.length) return;
+
+                var games = pages.filter(function (p) { return !/-detail\.html$/.test(p.url); });
+                var rand = document.getElementById('random');
+                rand.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    location.href = games[Math.floor(Math.random() * games.length)].url;
+                });
+
+                var key = norm(here);
+                var scored = pages.map(function (p) {
+                    var k = norm(p.url);
+                    var d = dist(key, k);
+                    // 只打了一部分（例如 /apriori）也算接近
+                    var last = key.split('/').pop();
+                    if (last.length >= 3 && k.indexOf(last) >= 0) d = Math.min(d, 1);
+                    return { p: p, d: d, k: k };
+                }).sort(function (a, b) { return a.d - b.d; });
+                // 差太多就不猜；有很接近的，就只列跟最接近的差不多的那幾個
+                var limit = Math.min(Math.max(2, Math.floor(key.length / 4)), scored[0].d + 1);
+                var best = scored.filter(function (s) { return s.d <= limit; }).slice(0, 3);
+                if (!best.length) return;
+                var ul = document.getElementById('guess-list');
+                best.forEach(function (s) {
+                    var item = document.createElement('li');
+                    var a = document.createElement('a');
+                    a.href = s.p.url;
+                    a.textContent = s.p.title || s.p.url;
+                    var small = document.createElement('small');
+                    small.textContent = s.p.url;
+                    a.appendChild(small);
+                    item.appendChild(a);
+                    ul.appendChild(item);
+                });
+                document.getElementById('guess').hidden = false;
+            }).catch(function () { /* 抓不到首頁就只顯示按鈕 */ });
+
+            // 比對前先統一：大小寫、.html、結尾的 / 都不算差別
+            function norm(s) {
+                return s.toLowerCase().replace(/\/index\.html$/, '/').replace(/\.html?$/, '').replace(/\/+$/, '').replace(/^\//, '');
+            }
+            // 編輯距離：差幾個字（打錯、少打、多打）
+            function dist(a, b) {
+                var prev = [], cur = [], i, j;
+                for (j = 0; j <= b.length; j++) prev[j] = j;
+                for (i = 1; i <= a.length; i++) {
+                    cur = [i];
+                    for (j = 1; j <= b.length; j++) {
+                        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+                    }
+                    prev = cur;
+                }
+                return prev[b.length];
+            }
+        })();
+    </script>
+</body>
+
+</html>
