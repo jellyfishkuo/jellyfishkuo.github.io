@@ -360,6 +360,7 @@
         .hpet-me .acc.face { left: 27%; top: 23%; font-size: 21cqw; }
         .hpet-me .acc.neck { left: 46%; top: 54%; font-size: 22.6cqw; }
         .hpet-me .acc.side { left: 57%; top: 10%; font-size: 19.4cqw; }
+        .hpet-me.flat img { transform: scale(1.18, 0.62); transform-origin: 50% 100%; } /* 餓扁扁 */
         .hpet-me.bump { animation: hpetBump 0.45s; }
         @keyframes hpetBump { 30% { transform: translateY(-10px) scale(1.06, 0.95); } 60% { transform: translateY(0) scale(0.96, 1.04); } }
         .hpet.min .hpet-me { transform: translateX(62%) rotate(-12deg); opacity: 0.85; }
@@ -810,7 +811,7 @@
             const STAGES = [[0, 0], [3, 0.55], [15, 0.7], [40, 0.85], [90, 1]];
             let sz = 0;
             STAGES.forEach(x => { if (xp >= x[0]) sz = x[1]; });
-            const full = !xp ? 10 : Math.max(0, Math.min(10, (pet.full || 0) - Math.floor((Date.now() - (pet.fedAt || 0)) / (4 * 3600e3))));
+            const full = !xp ? 10 : Math.max(0, Math.min(10, (pet.full || 0) - Math.floor((Date.now() - (pet.fedAt || 0)) / (10 * 60e3)))); // 跟 pet.html 一樣每 10 分鐘少 1 格
             if (!xp) {
                 me.classList.add('egg');
                 me.style.setProperty('--w', '34px');
@@ -818,6 +819,7 @@
                     '<circle cx="20" cy="30" r="5" fill="#9bd72f"/><circle cx="38" cy="22" r="3.5" fill="#9bd72f"/><circle cx="40" cy="48" r="6" fill="#9bd72f"/><circle cx="22" cy="54" r="3" fill="#9bd72f"/></svg>';
             } else {
                 me.style.setProperty('--w', Math.round(40 + 32 * sz) + 'px');
+                if (!full) me.classList.add('flat');
                 const img = document.createElement('img');
                 img.src = 'assets/dragon.svg';
                 img.alt = '';
@@ -835,6 +837,7 @@
             me.setAttribute('aria-label', xp ? nm : '一顆蛋');
             const LINES = {
                 egg: ['（蛋晃了一下）去「養一隻果汁龍」把我孵出來嘛', '（裡面好像有東西在動）', '玩網站上的遊戲可以拿到蘋果汁，餵我就會孵出來喔'],
+                flat: ['餓扁扁了……去餵我一瓶嘛', '（扁扁地躺著）蘋果汁……'],
                 hungry: ['肚子好餓……可以去餵我一瓶蘋果汁嗎？', '咕嚕咕嚕……', '我想喝蘋果汁 🥺 去跑酷撿幾瓶嘛'],
                 ok: ['今天要玩什麼？', '要不要去跑酷撿蘋果汁？', '我覺得 FP-tree 比 Apriori 帥', '可以陪我解一題 Zip 嗎？', '你今天有讀 paper 嗎？', '研究闖關還有星星沒拿喔'],
                 happy: ['好飽好開心！', '最喜歡你了 💚', '嗝～（蘋果汁的味道）', '我覺得我又長大了一點']
@@ -847,7 +850,7 @@
                 e.stopPropagation();
                 if (box.classList.contains('min')) { setMin(false); return; }
                 me.classList.remove('bump'); void me.offsetWidth; me.classList.add('bump');
-                document.getElementById('hpetLine').textContent = pick(!xp ? LINES.egg : full <= 2 ? LINES.hungry : full >= 8 ? LINES.happy : LINES.ok);
+                document.getElementById('hpetLine').textContent = pick(!xp ? LINES.egg : !full ? LINES.flat : full <= 2 ? LINES.hungry : full >= 8 ? LINES.happy : LINES.ok);
                 bubble.classList.add('show');
                 clearTimeout(hideT);
                 hideT = setTimeout(() => bubble.classList.remove('show'), 6000);

@@ -84,6 +84,9 @@
         .pet.chomp .body { animation: chomp 0.5s ease-in-out 2; }
         .pet.wiggle .body { animation: wiggle 0.4s ease-in-out 2; }
         .pet img { width: 100%; height: 100%; display: block; }
+        /* 餓扁扁：用獨立的 scale 屬性，不會跟 .body 的上下晃動動畫打架；配件一起扁 */
+        .pet .body { transition: scale 0.4s; }
+        .pet.flat .body { scale: 1.18 0.62; }
         @keyframes bob { 50% { transform: translateY(-3%) scaleY(1.02); } }
         @keyframes chomp { 50% { transform: scale(1.08, 0.92); } }
         @keyframes wiggle { 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
@@ -217,7 +220,7 @@
                 catch (e) { return {}; }
             }
             var pet = read(KEY);
-            if (typeof pet.xp !== 'number') pet = { name: '果汁龍', xp: 0, spent: 0, full: 6, fedAt: Date.now(), days: [], hat: '', face: '', neck: '', side: '', bg: 'grass', pats: 0 };
+            if (typeof pet.xp !== 'number') pet = { name: '果汁龍', xp: 0, spent: 0, full: 4, fedAt: Date.now(), days: [], hat: '', face: '', neck: '', side: '', bg: 'grass', pats: 0 };
             function save() { try { localStorage.setItem(KEY, JSON.stringify(pet)); } catch (e) { /* 被擋就只在這次有效 */ } }
 
             // ── 果汁：從其他遊戲的紀錄算出來，不用改那些遊戲 ──
@@ -254,32 +257,36 @@
                 night: [['✨', 20, 15], ['✨', 55, 28]], beach: [['🌴', 86, 38], ['🐚', 12, 84]], space: [['🪐', 14, 20], ['🛸', 80, 30]]
             };
 
-            // 飽足：每 4 小時少 1 格
+            // 飽足：每 10 分鐘少 1 格，掉到 0 不會死，只會餓扁扁。蛋不會餓（停在餵的時候的格數）
+            var DROP = 10 * 60 * 1000;
             function fullness() {
-                var drop = Math.floor((Date.now() - pet.fedAt) / (4 * HOUR));
+                if (!hatched()) return Math.max(0, Math.min(10, pet.full));
+                var drop = Math.floor((Date.now() - pet.fedAt) / DROP);
                 return Math.max(0, Math.min(10, pet.full - drop));
             }
             function setFull(v) { pet.full = v; pet.fedAt = Date.now(); }
-            // 飽足條與「還有多久少 1 格」；每 30 秒更新一次，不用整個房間重畫
+            function dur(ms) {
+                var mins = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(mins / 60), m = mins % 60;
+                return (h ? h + ' 小時' + (m ? ' ' : '') : '') + (m ? m + ' 分' : '');
+            }
+            // 飽足條、「還有多久少 1 格」、餓扁扁的樣子；每 30 秒更新一次，不用整個房間重畫
             function showFull() {
-                if (!hatched()) {
-                    $('full-t').textContent = '—';
-                    $('full-b').style.width = '0%';
-                    $('full-n').textContent = '蛋不會餓，餵滿 3 瓶就孵出來，之後才算飽足';
-                    return;
-                }
-                var f = fullness();
+                var f = fullness(), hat = hatched();
                 $('full-t').textContent = f + '/10';
                 $('full-b').style.width = f * 10 + '%';
-                if (!f) { $('full-n').textContent = '肚子空空的，快餵牠一瓶！'; return; }
-                var ms = 4 * HOUR - (Date.now() - pet.fedAt) % (4 * HOUR);
-                var mins = Math.ceil(ms / 60000), h = Math.floor(mins / 60), m = mins % 60;
-                $('full-n').textContent = '再 ' + (h ? h + ' 小時 ' : '') + m + ' 分少 1 格・' + (f >= 10 ? '吃飽了，現在餵不下' : '約 ' + Math.round((f - 1) * 4 + ms / HOUR) + ' 小時後餓扁');
+                $('mood').textContent = !hat ? '' : !f ? '💫' : f <= 2 ? '💭🧃' : f >= 8 ? '💚' : '';
+                var pb = $('pet');
+                if (pb) pb.classList.toggle('flat', hat && !f);
+                if (!hat) { $('full-n').textContent = '蛋不會餓・孵出來後每 10 分鐘少 1 格'; return; }
+                if (!f) { $('full-n').textContent = '餓扁扁了……餵牠一瓶就會鼓起來'; return; }
+                var ms = DROP - (Date.now() - pet.fedAt) % DROP;
+                $('full-n').textContent = '再 ' + dur(ms) + '少 1 格・' + (f >= 10 ? '吃飽了，現在餵不下' : dur((f - 1) * DROP + ms) + '後餓扁扁');
             }
 
             var LINES = {
                 egg: ['（蛋輕輕晃了一下）', '（裡面好像有東西在動）', '（蛋殼暖暖的）'],
                 hungry: ['肚子好餓…可以給我一瓶蘋果汁嗎？', '咕嚕咕嚕…', '我想喝果汁 🥺'],
+                flat: ['餓扁扁了……', '（扁扁地躺在地上）蘋果汁……', '沒力氣了，給我一瓶就好 🥺'],
                 ok: ['今天要玩什麼？', '我覺得 FP-tree 比 Apriori 帥', '可以陪我解一題 Zip 嗎？', '你今天有讀 paper 嗎？', '蘋果汁是世界上最好喝的東西'],
                 happy: ['好飽好開心！', '最喜歡你了 💚', '嗝～（蘋果汁的味道）', '我覺得我又長大了一點']
             };
@@ -288,7 +295,7 @@
             function idleLine() {
                 var f = fullness();
                 if (!hatched()) return pick(LINES.egg);
-                return pick(f <= 2 ? LINES.hungry : f >= 8 ? LINES.happy : LINES.ok);
+                return pick(!f ? LINES.flat : f <= 2 ? LINES.hungry : f >= 8 ? LINES.happy : LINES.ok);
             }
 
             // ── 畫房間 ──
@@ -340,7 +347,6 @@
                     if (grow) requestAnimationFrame(function () { requestAnimationFrame(function () { b.style.setProperty('--s', st[2]); }); });
                 }
                 var f = fullness();
-                $('mood').textContent = !hatched() ? '' : f <= 2 ? '💭🧃' : f >= 8 ? '💚' : '';
                 $('name').value = pet.name;
                 $('lv').textContent = 'Lv.' + level() + '・' + st[1];
                 showFull();
