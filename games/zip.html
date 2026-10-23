@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/zip.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/zip-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/zip-180.png">
+    <title>一筆畫 Zip</title>
+    <meta name="description" content="從 1 開始照順序連到最後一個數字，一筆畫走過每一格。題目隨機產生、保證只有一種解，想玩幾題就玩幾題。">
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面，不用自動換色 -->
+    <script src="../assets/theme.js"></script>
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            /* 棋盤 */
+            --cell: #0f0f1a;
+            --grid: #262640;
+            --wall: #e6e6f0;
+            --dot: #e6e6f0;
+            --dot-text: #05050a;
+            --line-edge: transparent;
+            --hint: rgba(250, 204, 21, 0.55);
+        }
+        :root[data-theme="light"] {
+            --cell: #ffffff;
+            --grid: #d5e2c6;
+            --wall: #1d2b12;
+            --dot: #1d2b12;
+            --dot-text: #ffffff;
+            --line-edge: #1d2b12;
+            --hint: rgba(232, 65, 60, 0.45);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 520px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.3rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+
+        /* ── 大小／難度 ── */
+        .opts { display: grid; gap: 0.5rem; margin: 1.1rem 0 0.8rem; }
+        .seg { display: flex; gap: 0.35rem; }
+        .seg button {
+            flex: 1; min-width: 0; padding: 0.45rem 0.2rem; font: inherit; font-size: 0.9rem; cursor: pointer;
+            color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
+        }
+        .seg button.on { color: var(--text); border-color: var(--accent); background: rgba(124, 58, 237, 0.18); }
+        [data-theme="light"] .seg button { border: 2px solid #1d2b12; color: #1d2b12; font-weight: 700; }
+        [data-theme="light"] .seg button.on { background: #ffb02e; }
+
+        .status { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+        .status b { color: var(--text); font: 700 1.05rem 'Space Mono', monospace; }
+
+        /* ── 棋盤 ── */
+        .board-box { position: relative; width: min(100%, max(280px, 100vh - 320px)); aspect-ratio: 1; margin: 0 auto; }
+        #board {
+            display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none;
+            border-radius: 14px; border: 1px solid var(--border); background: var(--cell); cursor: pointer;
+        }
+        [data-theme="light"] #board { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; }
+        #board .gl { stroke: var(--grid); stroke-width: 2; }
+        #board .wall { stroke: var(--wall); stroke-width: 9; stroke-linecap: round; }
+        #board .edge { fill: none; stroke: var(--line-edge); stroke-linecap: round; stroke-linejoin: round; }
+        #board .line { fill: none; stroke: url(#zg); stroke-linecap: round; stroke-linejoin: round; }
+        [data-theme="light"] #board .line { stroke: #ffb02e; }
+        #board.done .line { stroke: var(--good); }
+        #board .dot { fill: var(--dot); }
+        #board .num { fill: var(--dot-text); font: 700 36px 'Space Mono', monospace; text-anchor: middle; dominant-baseline: central; }
+        [data-theme="light"] #board .num { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        #board .hint { fill: var(--hint); }
+        .busy {
+            position: absolute; inset: 0; display: grid; place-items: center; border-radius: 14px;
+            background: rgba(5, 5, 10, 0.6); color: var(--text); font-weight: 700; visibility: hidden;
+        }
+        [data-theme="light"] .busy { background: rgba(233, 247, 217, 0.75); }
+        .busy.on { visibility: visible; }
+
+        .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem; margin-top: 1rem; }
+        .tools button, .big {
+            padding: 0.6rem 0.2rem; font: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer; min-width: 0;
+            color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+        }
+        .tools button:hover { border-color: var(--accent2); }
+        .tools button.new, .big { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; }
+        [data-theme="light"] .tools button, [data-theme="light"] .big { border: 2px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; background: #fff; color: #1d2b12; }
+        [data-theme="light"] .tools button.new, [data-theme="light"] .big { background: #ffb02e; }
+        [data-theme="light"] .tools button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #1d2b12; }
+
+        /* 訊息列：高度固定，換訊息不會推動下面 */
+        .msg { height: 4.8em; overflow: hidden; display: flex; align-items: center; gap: 0.6rem; margin-top: 0.8rem; padding: 0.55rem 0.8rem; border-radius: 10px; font-size: 0.92rem; line-height: 1.5; background: var(--panel); border: 1px solid var(--border); }
+        [data-theme="light"] .msg { border: 2px solid #1d2b12; background: #fff; }
+        .msg.win { border-color: var(--good); }
+        .msg > span { flex: 1; min-width: 0; }
+        .msg .big { flex: none; padding: 0.45rem 0.9rem; font-size: 0.9rem; }
+
+        .rules { margin-top: 1.4rem; font-size: 0.9rem; color: var(--muted); }
+        .rules h2 { font-size: 1rem; color: var(--text); margin-bottom: 0.3rem; }
+        .rules ol { padding-left: 1.3rem; }
+        .rules li { margin: 0.15rem 0; }
+        .rules p { margin-top: 0.5rem; }
+        .rules .pid { font: 0.75rem 'Space Mono', monospace; overflow-wrap: anywhere; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>一筆畫 Zip<small>從 1 開始，照順序連到最後一個數字，一筆走過每一格。</small></h1>
+
+        <div class="opts">
+            <div class="seg" id="sizes" role="group" aria-label="大小">
+                <button type="button" data-n="5">5×5</button>
+                <button type="button" data-n="6">6×6</button>
+                <button type="button" data-n="7">7×7</button>
+                <button type="button" data-n="8">8×8</button>
+            </div>
+            <div class="seg" id="levels" role="group" aria-label="難度">
+                <button type="button" data-lv="0">簡單</button>
+                <button type="button" data-lv="1">普通</button>
+                <button type="button" data-lv="2">困難</button>
+            </div>
+        </div>
+
+        <div class="status">
+            <span>⏱ <b id="time">0:00</b></span>
+            <span id="best">最佳 —</span>
+            <span id="solved">已解 0 題</span>
+        </div>
+
+        <div class="board-box">
+            <svg id="board" aria-label="棋盤"></svg>
+            <div class="busy" id="busy">出題中…</div>
+        </div>
+
+        <div class="tools">
+            <button type="button" id="undo">↶ 上一步</button>
+            <button type="button" id="hint">💡 提示</button>
+            <button type="button" id="reset">↺ 重來</button>
+            <button type="button" id="new" class="new">新題目</button>
+        </div>
+
+        <div class="msg" id="msg" aria-live="polite"></div>
+
+        <section class="rules">
+            <h2>怎麼玩</h2>
+            <ol>
+                <li>從 <b>1</b> 按下去開始拖，經過 2、3、4… 照順序走到最後一個數字。</li>
+                <li>每一格都要剛好走過一次，粗線是牆，不能穿過去。</li>
+                <li>拖回頭可以收回；點路線上的任一格，會從那裡重新接著畫。</li>
+            </ol>
+            <p>每一題都是隨機產生，再用解題程式確認只有一種解，想玩幾題就玩幾題。網址後面的題號可以分享，朋友打開會拿到同一題。電腦可以用方向鍵走、Backspace 退一步。</p>
+            <p id="pid" class="pid"></p>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script>
+        /*GEN*/
+        // ── 出題器：隨機一條走遍所有格子的路線 → 放數字和牆 → 用解題器確認只有一種解 ──
+        function mulberry32(a) {
+            return function () {
+                a |= 0; a = a + 0x6D2B79F5 | 0;
+                var t = Math.imul(a ^ a >>> 15, 1 | a);
+                t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+        var DR = [-1, 0, 1, 0], DC = [0, 1, 0, -1];   // 上右下左
+
+        // 格子 a 往方向 d 的鄰居（出界回傳 -1）
+        function stepOf(n, a, d) {
+            var r = Math.floor(a / n) + DR[d], c = a % n + DC[d];
+            return r < 0 || c < 0 || r >= n || c >= n ? -1 : r * n + c;
+        }
+        function dirBetween(n, a, b) {
+            if (b === a - n) return 0;
+            if (b === a + 1 && b % n) return 1;
+            if (b === a + n) return 2;
+            if (b === a - 1 && a % n) return 3;
+            return -1;
+        }
+
+        // 隨機的「一筆畫」路線：從蛇形路線開始，做很多次 backbite（把尾巴咬到旁邊的格子、反轉一段）
+        function randomPath(n, rnd) {
+            var p = [];
+            for (var r = 0; r < n; r++) for (var i = 0; i < n; i++) p.push(r * n + (r % 2 ? n - 1 - i : i));
+            var pos = new Int32Array(n * n);
+            var moves = n * n * 30;
+            for (var m = 0; m < moves; m++) {
+                if (rnd() < 0.5) p.reverse();
+                var L = p.length, e = p[L - 1];
+                var d = Math.floor(rnd() * 4), v = stepOf(n, e, d);
+                if (v < 0) continue;
+                for (var k = 0; k < L; k++) pos[p[k]] = k;
+                var i2 = pos[v];
+                if (i2 === L - 2) continue;
+                // 反轉 p[i2+1 .. L-1]
+                for (var a = i2 + 1, b = L - 1; a < b; a++, b--) { var t = p[a]; p[a] = p[b]; p[b] = t; }
+            }
+            return p;
+        }
+
+        // 解題器：從 1 出發、照順序經過每個數字、走遍所有格子。最多找 limit 組解，超過 budget 步就放棄（回傳 count = -1）
+        function solve(n, walls, clue, limit, budget) {
+            var N2 = n * n, K = 0, start = -1, end = -1;
+            for (var i = 0; i < N2; i++) if (clue[i]) { if (clue[i] === 1) start = i; if (clue[i] > K) { K = clue[i]; end = i; } }
+            var nb = [];                                   // 每格可以走過去的鄰居（扣掉牆）
+            for (i = 0; i < N2; i++) {
+                var list = [];
+                for (var d = 0; d < 4; d++) { var j = stepOf(n, i, d); if (j >= 0 && !walls[i * 4 + d]) list.push(j); }
+                nb.push(list);
+            }
+            var seen = new Uint8Array(N2), path = [start], sols = [], nodes = 0, stack = new Int32Array(N2), mark = new Int32Array(N2), stamp = 0;
+            seen[start] = 1;
+            function ok(h, left) {
+                // 剩下的格子：除了終點，每格至少要有 2 個能走的鄰居；而且全部要跟目前的頭連在一起
+                for (var u = 0; u < N2; u++) {
+                    if (seen[u]) continue;
+                    var deg = 0, l = nb[u];
+                    for (var k = 0; k < l.length; k++) if (!seen[l[k]] || l[k] === h) deg++;
+                    if (deg < (u === end ? 1 : 2)) return false;
+                }
+                stamp++;
+                var top_ = 0, cnt = 0;
+                stack[top_++] = h; mark[h] = stamp;
+                while (top_) {
+                    var x = stack[--top_], lx = nb[x];
+                    for (k = 0; k < lx.length; k++) {
+                        var y = lx[k];
+                        if (!seen[y] && mark[y] !== stamp) { mark[y] = stamp; cnt++; stack[top_++] = y; }
+                    }
+                }
+                return cnt === left;
+            }
+            function dfs(h, nx) {
+                if (++nodes > budget) return true;
+                if (path.length === N2) { sols.push(path.slice()); return sols.length >= limit; }
+                if (h === end) return false;
+                if (!ok(h, N2 - path.length)) return false;
+                var l = nb[h];
+                for (var k = 0; k < l.length; k++) {
+                    var v = l[k];
+                    if (seen[v]) continue;
+                    if (clue[v] && clue[v] !== nx) continue;
+                    seen[v] = 1; path.push(v);
+                    var stop = dfs(v, clue[v] ? nx + 1 : nx);
+                    path.pop(); seen[v] = 0;
+                    if (stop) return true;
+                }
+                return false;
+            }
+            dfs(start, 2);
+            return { count: nodes > budget ? -1 : sols.length, sols: sols };
+        }
+
+        // 依路線上的位置編號（第幾個數字）
+        function cluesFrom(n, path, idxs) {
+            var clue = new Int32Array(n * n);
+            idxs.slice().sort(function (a, b) { return a - b; }).forEach(function (ix, k) { clue[path[ix]] = k + 1; });
+            return clue;
+        }
+
+        // 產生一題。level: 0 簡單（數字多）～ 2 困難（數字盡量少、牆多一點）
+        function generate(n, seed, level) {
+            var rnd = mulberry32(seed);
+            var N2 = n * n, BUDGET = 60000;
+            var path = randomPath(n, rnd);
+            var walls = new Uint8Array(N2 * 4), nWalls = 0;
+            var maxWalls = [0, Math.floor(n / 2), n][level];
+            var idxs = [0, N2 - 1];
+            var extra = Math.max(2, Math.round(N2 / [6, 9, 12][level]));
+            for (var k = 0; k < extra; k++) {
+                var ix = 1 + Math.floor(rnd() * (N2 - 2));
+                if (idxs.indexOf(ix) < 0) idxs.push(ix);
+            }
+            function addWall(a, b) {
+                var d = dirBetween(n, a, b);
+                walls[a * 4 + d] = 1; walls[b * 4 + ((d + 2) % 4)] = 1; nWalls++;
+            }
+            function unique() { return solve(n, walls, cluesFrom(n, path, idxs), 2, BUDGET); }
+            for (var guard = 0; guard < 200; guard++) {
+                var res = unique();
+                if (res.count === 1) break;
+                var alt = null;
+                for (k = 0; k < res.sols.length; k++) {
+                    var s = res.sols[k];
+                    for (var j = 0; j < N2 && s[j] === path[j]; j++);
+                    if (j < N2) { alt = s; break; }
+                }
+                if (alt && nWalls < maxWalls && rnd() < 0.5) { addWall(alt[j - 1], alt[j]); continue; }
+                // 在路線上分歧的地方附近補一個數字
+                var sorted = idxs.slice().sort(function (a, b) { return a - b; });
+                var from = alt ? j : 1, to = N2 - 2;
+                if (alt) for (k = 0; k < sorted.length; k++) if (sorted[k] >= j) { to = sorted[k] - 1; break; }
+                var cand = [];
+                for (k = from; k <= to; k++) if (idxs.indexOf(k) < 0) cand.push(k);
+                if (!cand.length) for (k = 1; k < N2 - 1; k++) if (idxs.indexOf(k) < 0) cand.push(k);
+                idxs.push(cand[Math.floor(rnd() * cand.length)]);
+            }
+            // 拿掉多餘的數字：拿掉之後還是只有一種解就不要它
+            var keepMin = Math.round(N2 / [7, 11, 64][level]);
+            var order = idxs.filter(function (x) { return x !== 0 && x !== N2 - 1; });
+            for (k = order.length - 1; k > 0; k--) { var r = Math.floor(rnd() * (k + 1)); var t = order[k]; order[k] = order[r]; order[r] = t; }
+            for (k = 0; k < order.length && idxs.length > keepMin; k++) {
+                var saved = idxs;
+                idxs = idxs.filter(function (x) { return x !== order[k]; });
+                if (unique().count !== 1) idxs = saved;
+            }
+            return { n: n, path: path, clue: cluesFrom(n, path, idxs), walls: walls, k: idxs.length };
+        }
+        /*END GEN*/
+
+        // ── 遊戲 ──
+        (function () {
+            var SVGNS = 'http://www.w3.org/2000/svg';
+            var STORE = 'jfk-zip-v1';
+            var U = 100;                                   // 一格在 SVG 裡的寬度
+            var board = document.getElementById('board');
+            var $ = function (id) { return document.getElementById(id); };
+
+            var stats = load();
+            var cfg = { n: stats.n || 6, lv: stats.lv != null ? stats.lv : 1 };
+            var P = null;                                  // 目前的題目
+            var path = [], onPath = null, hints = 0, hintCell = -1;
+            var t0 = 0, tEnd = 0, timer = 0, won = false;
+
+            function load() {
+                try { var s = JSON.parse(localStorage.getItem(STORE) || '{}'); return s && typeof s === 'object' ? s : {}; }
+                catch (e) { return {}; }
+            }
+            function save() {
+                try { localStorage.setItem(STORE, JSON.stringify(stats)); } catch (e) { /* 被擋就不記 */ }
+            }
+
+            // ── 題號：大小-難度-種子，放在網址 # 後面，重新整理或分享都是同一題 ──
+            function readHash() {
+                var m = /^#(\d)-(\d)-(\d{1,10})$/.exec(location.hash);
+                if (!m) return null;
+                var n = +m[1], lv = +m[2];
+                if (n < 5 || n > 8 || lv > 2) return null;
+                return { n: n, lv: lv, seed: +m[3] };
+            }
+            function writeHash(n, lv, seed) {
+                try { history.replaceState(null, '', '#' + n + '-' + lv + '-' + seed); } catch (e) { /* file:// 之類的就算了 */ }
+            }
+
+            function newPuzzle(spec) {
+                if (!spec) spec = { n: cfg.n, lv: cfg.lv, seed: 1 + Math.floor(Math.random() * 999999999) };
+                cfg.n = spec.n; cfg.lv = spec.lv;
+                stats.n = cfg.n; stats.lv = cfg.lv; save();
+                syncSeg();
+                $('busy').classList.add('on');
+                // 先讓「出題中」畫出來再開始算（8×8 在手機上可能要一兩秒）
+                setTimeout(function () {
+                    P = generate(spec.n, spec.seed, spec.lv);
+                    P.seed = spec.seed; P.lv = spec.lv;
+                    P.start = P.path[0];
+                    P.K = 0;
+                    for (var i = 0; i < P.clue.length; i++) if (P.clue[i] > P.K) P.K = P.clue[i];
+                    writeHash(spec.n, spec.lv, spec.seed);
+                    $('pid').textContent = '題號 ' + spec.n + '-' + spec.lv + '-' + spec.seed;
+                    $('busy').classList.remove('on');
+                    restart();
+                }, 30);
+            }
+
+            function restart() {
+                path = [P.start]; hints = 0; hintCell = -1; won = false;
+                t0 = 0; tEnd = 0; clearInterval(timer); timer = 0;
+                rebuildOnPath();
+                drawStatic();
+                draw();
+                tick();
+                showBest();
+                say('從 <b>1</b> 開始拖，照順序經過每個數字，最後要把整個棋盤填滿。');
+            }
+
+            function rebuildOnPath() {
+                onPath = new Int32Array(P.n * P.n).fill(-1);
+                for (var i = 0; i < path.length; i++) onPath[path[i]] = i;
+            }
+            // 下一個要經過的數字
+            function nextNum() {
+                var k = 1;
+                for (var i = 0; i < path.length; i++) if (P.clue[path[i]]) k = P.clue[path[i]] + 1;
+                return k;
+            }
+
+            // ── 畫棋盤：格線、牆、數字固定不動；路線每次重畫 ──
+            var gLine, gNums, gHint;
+            function el(tag, attrs, parent) {
+                var e = document.createElementNS(SVGNS, tag);
+                for (var k in attrs) e.setAttribute(k, attrs[k]);
+                if (parent) parent.appendChild(e);
+                return e;
+            }
+            function cx(i) { return (i % P.n) * U + U / 2; }
+            function cy(i) { return Math.floor(i / P.n) * U + U / 2; }
+            function drawStatic() {
+                var n = P.n, W = n * U;
+                board.textContent = '';
+                board.setAttribute('viewBox', '0 0 ' + W + ' ' + W);
+                var defs = el('defs', {}, board);
+                var lg = el('linearGradient', { id: 'zg', gradientUnits: 'userSpaceOnUse', x1: 0, y1: 0, x2: W, y2: W }, defs);
+                el('stop', { offset: '0', 'stop-color': '#7c3aed' }, lg);
+                el('stop', { offset: '1', 'stop-color': '#06b6d4' }, lg);
+                var g = el('g', {}, board);
+                for (var i = 1; i < n; i++) {
+                    el('line', { 'class': 'gl', x1: i * U, y1: 0, x2: i * U, y2: W }, g);
+                    el('line', { 'class': 'gl', x1: 0, y1: i * U, x2: W, y2: i * U }, g);
+                }
+                gHint = el('g', {}, board);
+                gLine = el('g', {}, board);
+                var gw = el('g', {}, board);
+                for (var a = 0; a < n * n; a++) {
+                    var r = Math.floor(a / n), c = a % n;
+                    // 每道牆只畫一次：右邊和下面
+                    if (P.walls[a * 4 + 1]) el('line', { 'class': 'wall', x1: (c + 1) * U, y1: r * U + 6, x2: (c + 1) * U, y2: (r + 1) * U - 6 }, gw);
+                    if (P.walls[a * 4 + 2]) el('line', { 'class': 'wall', x1: c * U + 6, y1: (r + 1) * U, x2: (c + 1) * U - 6, y2: (r + 1) * U }, gw);
+                }
+                gNums = el('g', {}, board);
+                for (a = 0; a < n * n; a++) {
+                    if (!P.clue[a]) continue;
+                    el('circle', { 'class': 'dot', cx: cx(a), cy: cy(a), r: 30 }, gNums);
+                    var t = el('text', { 'class': 'num', x: cx(a), y: cy(a) + 1 }, gNums);
+                    t.textContent = P.clue[a];
+                }
+            }
+            function draw() {
+                gLine.textContent = '';
+                gHint.textContent = '';
+                board.classList.toggle('done', won);
+                if (hintCell >= 0) el('rect', { 'class': 'hint', x: cx(hintCell) - U / 2 + 4, y: cy(hintCell) - U / 2 + 4, width: U - 8, height: U - 8, rx: 14 }, gHint);
+                var pts = path.map(function (i) { return cx(i) + ',' + cy(i); }).join(' ');
+                if (path.length === 1) pts += ' ' + pts;    // 只有一點時也畫出一個圓頭
+                var light = document.documentElement.dataset.theme === 'light';
+                if (light) el('polyline', { 'class': 'edge', points: pts, 'stroke-width': 54 }, gLine);
+                el('polyline', { 'class': 'line', points: pts, 'stroke-width': light ? 46 : 44 }, gLine);
+            }
+            document.addEventListener('themechange', function () { if (P) draw(); });
+
+            // ── 走一步：相鄰、沒有牆、還沒走過、遇到數字要是下一個 ──
+            function canStep(a, b) {
+                if (onPath[b] >= 0) return false;
+                var d = dirBetween(P.n, a, b);
+                if (d < 0 || P.walls[a * 4 + d]) return false;
+                if (P.clue[b] && P.clue[b] !== nextNum()) return false;
+                return true;
+            }
+            function push(b) { onPath[b] = path.length; path.push(b); }
+            function pop() { onPath[path.pop()] = -1; }
+            function truncate(len) { while (path.length > len) pop(); }
+
+            // 拖到某一格：路線上的格子就收回到那裡；不然一步一步往那邊走（手指移太快會跳格）
+            function goTo(c) {
+                if (won) return false;
+                var head = path[path.length - 1];
+                if (c === head) return false;
+                if (onPath[c] >= 0) { truncate(onPath[c] + 1); return true; }
+                var moved = false, n = P.n;
+                for (var guard = 0; guard < 2 * n; guard++) {
+                    head = path[path.length - 1];
+                    if (head === c) break;
+                    var dr = Math.floor(c / n) - Math.floor(head / n), dc = c % n - head % n;
+                    var tries = [];
+                    var vr = dr ? head + (dr > 0 ? n : -n) : -1, vc = dc ? head + (dc > 0 ? 1 : -1) : -1;
+                    if (Math.abs(dr) >= Math.abs(dc)) tries = [vr, vc]; else tries = [vc, vr];
+                    var stepped = false;
+                    for (var k = 0; k < 2; k++) {
+                        var v = tries[k];
+                        if (v >= 0 && canStep(head, v)) { push(v); stepped = moved = true; break; }
+                    }
+                    if (!stepped) break;
+                }
+                return moved;
+            }
+
+            function changed() {
+                if (!t0 && path.length > 1) { t0 = Date.now(); timer = setInterval(tick, 500); }
+                if (hintCell >= 0 && onPath[hintCell] >= 0) hintCell = -1;
+                if (path.length === P.n * P.n && nextNum() > P.K) win();
+                else if (path.length === P.n * P.n) say('格子都走過了，但數字順序不對，退回去調整看看。');
+                else if (P.clue[path[path.length - 1]] === P.K) say('已經到最後一個數字了，可是還有 <b>' + (P.n * P.n - path.length) + '</b> 格沒走到。');
+                else say('下一個要經過 <b>' + nextNum() + '</b>，還剩 <b>' + (P.n * P.n - path.length) + '</b> 格。');
+                draw();
+            }
+
+            // ── 滑鼠／手指 ──
+            var dragging = false;
+            function cellAt(e) {
+                var r = board.getBoundingClientRect();
+                var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+                if (x < 0 || y < 0 || x >= 1 || y >= 1) return -1;
+                return Math.floor(y * P.n) * P.n + Math.floor(x * P.n);
+            }
+            board.addEventListener('pointerdown', function (e) {
+                if (!P || won) return;
+                var c = cellAt(e);
+                if (c < 0) return;
+                dragging = true;
+                try { board.setPointerCapture(e.pointerId); } catch (err) { /* 舊瀏覽器 */ }
+                if (goTo(c)) changed();
+                e.preventDefault();
+            });
+            board.addEventListener('pointermove', function (e) {
+                if (!dragging) return;
+                var c = cellAt(e);
+                if (c < 0) return;
+                // 拖回上一格＝收回一步
+                if (path.length > 1 && c === path[path.length - 2]) { pop(); changed(); return; }
+                if (onPath[c] >= 0) return;               // 拖過自己的路線不要整段收掉，只有點下去才收
+                if (goTo(c)) changed();
+            });
+            function endDrag() { dragging = false; }
+            board.addEventListener('pointerup', endDrag);
+            board.addEventListener('pointercancel', endDrag);
+
+            document.addEventListener('keydown', function (e) {
+                if (!P || won || e.target.closest && e.target.closest('input,textarea')) return;
+                var d = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
+                if (d != null) {
+                    var head = path[path.length - 1], v = stepOf(P.n, head, d);
+                    if (v >= 0 && path.length > 1 && v === path[path.length - 2]) { pop(); changed(); }
+                    else if (v >= 0 && canStep(head, v)) { push(v); changed(); }
+                    e.preventDefault();
+                } else if (e.key === 'Backspace' && path.length > 1) { pop(); changed(); e.preventDefault(); }
+            });
+
+            // ── 按鈕 ──
+            $('undo').addEventListener('click', function () { if (P && !won && path.length > 1) { pop(); changed(); } });
+            $('reset').addEventListener('click', function () { if (P) restart(); });
+            $('new').addEventListener('click', function () { newPuzzle(); });
+            $('hint').addEventListener('click', function () {
+                if (!P || won) return;
+                // 從頭比對正確路線，錯的部分收掉，再標出下一格
+                var k = 0;
+                while (k < path.length && path[k] === P.path[k]) k++;
+                var wrong = path.length - k;
+                truncate(k);
+                hints++;
+                hintCell = P.path[k];
+                changed();
+                say((wrong ? '從第 ' + k + ' 格之後走錯了，先收回 ' + wrong + ' 格。' : '') + '下一步走到亮起來的那一格。（提示 ' + hints + ' 次）');
+            });
+            document.querySelectorAll('#sizes button').forEach(function (b) {
+                b.addEventListener('click', function () { cfg.n = +b.dataset.n; newPuzzle(); });
+            });
+            document.querySelectorAll('#levels button').forEach(function (b) {
+                b.addEventListener('click', function () { cfg.lv = +b.dataset.lv; newPuzzle(); });
+            });
+            function syncSeg() {
+                document.querySelectorAll('#sizes button').forEach(function (b) { b.classList.toggle('on', +b.dataset.n === cfg.n); });
+                document.querySelectorAll('#levels button').forEach(function (b) { b.classList.toggle('on', +b.dataset.lv === cfg.lv); });
+            }
+
+            // ── 計時、紀錄 ──
+            function fmt(s) { return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+            function elapsed() { return t0 ? Math.floor(((tEnd || Date.now()) - t0) / 1000) : 0; }
+            function tick() { $('time').textContent = fmt(elapsed()); }
+            function bestKey() { return P.n + '-' + P.lv; }
+            function showBest() {
+                var b = stats.best && stats.best[bestKey()];
+                $('best').textContent = '最佳 ' + (b != null ? fmt(b) : '—');
+                $('solved').textContent = '已解 ' + (stats.solved || 0) + ' 題';
+            }
+            function win() {
+                won = true; tEnd = Date.now(); clearInterval(timer); tick();
+                var s = elapsed();
+                stats.solved = (stats.solved || 0) + 1;
+                stats.best = stats.best || {};
+                var rec = !hints && (stats.best[bestKey()] == null || s < stats.best[bestKey()]);
+                if (rec) stats.best[bestKey()] = s;
+                save();
+                showBest();
+                $('msg').classList.add('win');
+                $('msg').innerHTML = '<span>🎉 完成！用了 <b>' + fmt(s) + '</b>' + (hints ? '（用了提示，不算紀錄）' : rec ? '，新紀錄！' : '') + '</span>' +
+                    '<button type="button" class="big" id="again">下一題</button>';
+                $('again').addEventListener('click', function () { newPuzzle(); });
+                if (window.confetti && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+                }
+            }
+            function say(html) { $('msg').classList.remove('win'); $('msg').innerHTML = '<span>' + html + '</span>'; }
+
+            newPuzzle(readHash());
+            window.addEventListener('hashchange', function () { var h = readHash(); if (h && (!P || h.seed !== P.seed || h.n !== P.n || h.lv !== P.lv)) newPuzzle(h); });
+        })();
+    </script>
+</body>
+
+</html>

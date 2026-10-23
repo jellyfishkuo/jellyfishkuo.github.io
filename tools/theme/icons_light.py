@@ -63,6 +63,9 @@ PROJECTS = {
     'vertical-gomoku': [('<g fill="#0b1636">', f'<g fill="#fff8e6" stroke="{INK}" stroke-width="1.8">'),
                         ('r="6.5" fill="#facc15"/>', f'r="6.5" fill="#22d3ee" stroke="{INK}" stroke-width="2"/>'),
                         ('r="6.5" fill="#ef4444"/>', f'r="6.5" fill="#f472b6" stroke="{INK}" stroke-width="2"/>')],
+    'zip': [('stroke="#2a2a40"', 'stroke="#c9d6bb"'), ('stroke="#22d3ee"', 'stroke="#ffb02e"'),
+            ('r="5" fill="#ffffff"/>', f'r="5" fill="{INK}"/>'),
+            ('r="5" fill="#facc15"/>', f'r="5" fill="#ff4d3d" stroke="{INK}" stroke-width="2"/>')],
 }
 # 立式五子棋的底板本身就是棋盤：淺色用遊戲淺色版的橘色棋盤
 PROJECT_BG = {'vertical-gomoku': '#ffb02e'}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 4×4 格線 -->
+  <path d="M23 10v44M32 10v44M41 10v44M10 23h44M10 32h44M10 41h44" stroke="#2a2a40" stroke-width="1.5"/>
+  <!-- 一筆畫的路線 -->
+  <path d="M18.5 45.5V18.5h9v18h9v-18h9v27" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- 起點、終點 -->
+  <circle cx="18.5" cy="45.5" r="5" fill="#ffffff"/>
+  <circle cx="45.5" cy="45.5" r="5" fill="#facc15"/>
+</svg>

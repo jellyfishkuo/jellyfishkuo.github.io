@@ -25,6 +25,7 @@
 | 部落衝突卡牌交易站 | 狀態管理 / localStorage | [coc-card.html](games/coc-card.html) | [coc-card-detail.html](games/coc-card-detail.html) |
 | 電費紀錄 | 工具 / Canvas 圖表 | [electricity-tracker/](electricity-tracker/) | [electricity-detail.html](games/electricity-detail.html) |
 | 河內塔 | 遞迴教學 | [hanoi.html](games/hanoi.html) | （頁面本身就是講解） |
+| 一筆畫 Zip | 隨機出題＋唯一解檢查 / SVG | [zip.html](games/zip.html) | — |
 | 晚餐吃什麼？ | 轉盤 / Canvas | [dinner-wheel.html](games/dinner-wheel.html) | — |
 | 程式解題紀錄 | 筆記 | [Notion](https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link) | — |
 
@@ -83,6 +84,7 @@
     ├── coc-card-detail.html
     ├── electricity-detail.html
     ├── hanoi.html
+    ├── zip.html
     └── dinner-wheel.html
 ```
 
