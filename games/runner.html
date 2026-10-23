@@ -156,7 +156,8 @@
             }
 
             function jumpStart() {
-                if (state === 'ready' || state === 'over') { if (state === 'over' && t < 0.5) return; start(); return; }
+                // 剛撞到時手可能還按著，結束後先擋半秒避免誤觸（用真實時間，遊戲停了 t 不會動）
+                if (state === 'ready' || state === 'over') { if (state === 'over' && performance.now() - overAt < 500) return; start(); return; }
                 holding = true;
                 if (P.ground) { P.vy = -JUMP; P.ground = false; holdT = 0; puff(P.x + 6, GROUND, 4); }
             }
@@ -228,11 +229,11 @@
             var LINES = {
                 bug: '被 bug 絆倒了', bugs: '一次遇到兩個 bug……', deadline: '撞上 deadline', OOM: '記憶體爆了（OOM）', mail: '被老師的訊息叫住了'
             };
-            var lastHit = '';
+            var lastHit = '', overAt = 0;
             function gameOver(o) {
                 state = 'over';
                 shake = 0.3;
-                t = 0;
+                overAt = performance.now();
                 lastHit = o.fly ? LINES.mail : o.e === 'OOM' ? LINES.OOM : o.e === '📅' ? LINES.deadline : o.e === '🐛🐛' ? LINES.bugs : LINES.bug;
                 var m = Math.floor(dist);
                 var gain = Math.min(JUICE_CAP, got);
