@@ -180,6 +180,15 @@ textarea { width: 100%; min-height: 6.5em; font-family: var(--font-num); font-si
 .seg button[aria-pressed="true"].sell { background: var(--down); color: #fff; }
 .preview { background: var(--soft); border-radius: 10px; padding: 10px 12px; font-size: .88rem; min-height: 3.2em; }
 .err { color: var(--up); font-size: .85rem; min-height: 1.3em; }
+#multiBox > summary { font-size: 1.02rem; }
+#multiBox[open] > summary { margin-bottom: 2px; }
+.mprev { height: 10.5em; overflow: auto; background: var(--soft); border-radius: 10px; padding: 8px 10px; font-size: .82rem; display: grid; align-content: start; gap: 3px; }
+.mprev .r { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 8px; align-items: baseline; padding: 2px 0; }
+.mprev .r .s { grid-column: 2 / -1; color: var(--muted); font-size: .76rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#multiText { white-space: pre; overflow-x: auto; }
+.mprev .r .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mprev .bad { color: var(--up); }
+.mprev .hint { color: var(--muted); }
 
 .box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
 #txList { display: grid; gap: 14px; }
@@ -318,6 +327,13 @@ details summary { cursor: pointer; font-weight: 700; }
         <button class="btn" type="button" id="cancelEdit" hidden>取消編輯</button>
       </div>
     </form>
+    <details class="box" id="multiBox">
+      <summary>一次記很多筆</summary>
+      <div class="note">一行一筆：<b>日期 代號 買/賣 股數 成交價</b>，中間空白、逗號或 Tab 都可以（從 Excel 複製也行）。日期可以寫 <span class="mono">2026/10/20</span>、<span class="mono">115/10/20</span> 或 <span class="mono">10/20</span>（今年）；跟上一行同一天可以不寫日期。沒寫買賣就當作買進；股數可以寫 <span class="mono">2張</span>；最後多一個數字是實際手續費。</div>
+      <textarea id="multiText" rows="6" aria-label="很多筆交易" placeholder="2026/10/14 0050 買 1000 107&#10;2330 買 100 2400&#10;10/20 0050 賣 500 107.25 76"></textarea>
+      <div class="mprev num" id="multiPrev" aria-live="polite"></div>
+      <div class="bar"><button class="btn primary" type="button" id="multiSave" disabled>全部記下來</button><button class="btn" type="button" id="multiClear">清空</button></div>
+    </details>
     <div class="box">
       <h2>全部交易</h2>
       <div id="txList"></div>
@@ -452,6 +468,57 @@ function dailyPL(trades, s, date, q) {
     else add(t.code, m.total - t.shares * (c[0] - c[1]));
   }
   return { pl, per, missing, any: before.length > 0 || trades.some(t => t.date === date) };
+}
+/* 一次記很多筆：一行一筆「日期 代號 買/賣 股數 成交價 [手續費]」，日期可省略（沿用上一行） */
+function parseTrades(text, today) {
+  const rows = [], bad = [];
+  let lastDate = "";
+  const pad = n => String(n).padStart(2, "0");
+  const toDate = tok => {
+    let m = tok.match(/^(\d{2,4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/) || tok.match(/^(\d{4})(\d{2})(\d{2})$/);
+    let y, mo, d;
+    if (m) { y = Number(m[1]); mo = Number(m[2]); d = Number(m[3]); if (y < 1000) y += 1911; }
+    else if ((m = tok.match(/^(\d{1,2})[\/\-](\d{1,2})$/))) {
+      mo = Number(m[1]); d = Number(m[2]); y = Number(today.slice(0, 4));
+      if (`${y}-${pad(mo)}-${pad(d)}` > today) y--;
+    } else return null;
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    if (dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return "bad";
+    return `${y}-${pad(mo)}-${pad(d)}`;
+  };
+  String(text).split(/\r?\n/).forEach((line, i) => {
+    // 有 Tab（Excel）就用 Tab 分、有空白用空白分，這時逗號當千分位；都沒有才用逗號分
+    const l = line.trim();
+    const sep = /\t/.test(l) ? /\t+/ : /\s/.test(l) ? /\s+/ : /[,，]+/;
+    const toks = l.split(sep).map(x => x.trim().replace(/^[,，]+|[,，]+$/g, "").replace(/[,，]/g, "")).filter(Boolean);
+    if (!toks.length) return;
+    const no = i + 1;
+    let date = "", side = "", rest = [];
+    for (const tok of toks) {
+      const dd = !date && !rest.length ? toDate(tok) : null;
+      if (dd) { date = dd; continue; }
+      if (/^(買進?|B|BUY)$/i.test(tok)) { side = "buy"; continue; }
+      if (/^(賣出?|S|SELL)$/i.test(tok)) { side = "sell"; continue; }
+      rest.push(tok);
+    }
+    if (date === "bad") return bad.push({ no, line, msg: "日期不對" });
+    date = date || lastDate;
+    if (!date) return bad.push({ no, line, msg: "第一行要寫日期" });
+    if (date > today) return bad.push({ no, line, msg: "日期在未來" });
+    lastDate = date;
+    const code = (rest[0] || "").toUpperCase();
+    if (!/^[0-9]{4,6}[A-Z]?$/.test(code)) return bad.push({ no, line, msg: "看不懂股票代號" });
+    const sm = (rest[1] || "").replace(/,/g, "").match(/^(\d+(?:\.\d+)?)(張|股)?$/);
+    const shares = sm ? Math.round(Number(sm[1]) * (sm[2] === "張" ? 1000 : 1)) : 0;
+    if (!(shares > 0)) return bad.push({ no, line, msg: "看不懂股數" });
+    const price = Number((rest[2] || "").replace(/^@/, "").replace(/元$/, ""));
+    if (!(price > 0)) return bad.push({ no, line, msg: "看不懂成交價" });
+    let fee = null;
+    if (rest[3] != null) { fee = Number(rest[3].replace(/元$/, "")); if (!(fee >= 0)) return bad.push({ no, line, msg: "看不懂手續費" }); }
+    if (rest.length > 4) return bad.push({ no, line, msg: "多了看不懂的東西" });
+    rows.push({ no, date, code, side: side || "buy", shares, price, fee });
+  });
+  return { rows, bad };
 }
 function parseBulk(text) {
   const out = [], bad = [];
@@ -929,7 +996,7 @@ fetch("data/names.json", { cache: "no-cache" }).then(r => (r.ok ? r.json() : nul
   let changed = false;
   for (const t of state.trades) if (d[t.code] && t.name !== d[t.code]) { t.name = d[t.code]; changed = true; }
   if (changed && !state.example) save();
-  render(); fillName();
+  render(); fillName(); updateMulti();
 }).catch(() => {});
 function fillName() {
   const code = $("fCode").value.trim().toUpperCase();
@@ -962,6 +1029,48 @@ $("txForm").addEventListener("submit", e => {
   save(); resetForm(); render();
   loadQuotes();
 });
+
+/* ---------- 一次記很多筆 ---------- */
+let multiRows = [];
+function updateMulti() {
+  const { rows, bad } = parseTrades($("multiText").value, todayStr());
+  const box = $("multiPrev"); box.replaceChildren();
+  const known = computeHoldings(state.trades, state.settings).all;
+  multiRows = [];
+  for (const r of rows) {
+    const name = nameOf(r.code);
+    if (stockNames && !stockNames[r.code] && !known.get(r.code)) { bad.push({ no: r.no, line: "", msg: `查不到代號 ${r.code}` }); continue; }
+    const t = { date: r.date, code: r.code, name, side: r.side, shares: r.shares, price: r.price,
+      kind: known.get(r.code)?.kind || guessKind(r.code), fee: r.fee, tax: null };
+    multiRows.push(t);
+    const m = tradeMoney(t, state.settings);
+    box.append(el("div", { class: "r" },
+      el("span", { class: r.side === "buy" ? "up" : "down", text: `${Number(r.date.slice(5, 7))}/${Number(r.date.slice(8))} ${r.side === "buy" ? "買" : "賣"}` }),
+      el("span", { class: "n", text: `${r.code} ${name}` }),
+      el("span", { text: (r.side === "buy" ? "付 " : "收 ") + fmt0(m.total) }),
+      el("span", { class: "s", text: `${fmt0(r.shares)} 股 @ ${fmtP(r.price)}　手續費 ${fmt0(m.fee)}` + (r.side === "sell" ? `・稅 ${fmt0(m.tax)}` : "") })));
+  }
+  bad.sort((a, b) => b.no - a.no);
+  for (const b of bad) box.prepend(el("div", { class: "bad", text: `第 ${b.no} 行：${b.msg}` }));
+  if (!rows.length && !bad.length) box.append(el("div", { class: "hint", text: "貼上或打字後，這裡會先列出每一筆讓你檢查。" }));
+  const btn = $("multiSave");
+  btn.disabled = !multiRows.length || bad.length > 0;
+  btn.textContent = bad.length ? `有 ${bad.length} 行要修正` : multiRows.length ? `全部記下來（${multiRows.length} 筆）` : "全部記下來";
+}
+$("multiText").addEventListener("input", updateMulti);
+$("multiClear").addEventListener("click", () => { $("multiText").value = ""; updateMulti(); });
+$("multiSave").addEventListener("click", () => {
+  if (!multiRows.length) return;
+  if (state.example) clearExample(true);
+  for (const t of multiRows) {
+    state.trades.push({ ...t, id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), seq: state.seq++ });
+    if (!state.prices[t.code]) state.prices[t.code] = { price: t.price, at: null };
+  }
+  toast(`已記下 ${multiRows.length} 筆交易`);
+  $("multiText").value = ""; updateMulti();
+  save(); render(); loadQuotes();
+});
+updateMulti();
 
 /* ---------- 分頁 ---------- */
 function showTab(name) {
