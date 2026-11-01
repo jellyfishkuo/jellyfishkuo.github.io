@@ -8,7 +8,7 @@ const S = {
   g: null, startFen: DEFAULT_POSITION, my: 'w', view: null, thinking: false, token: 0, id: null, over: null, resigned: false, hint: null,
 };
 let app, ui = {};
-const MIN_THINK = 700;   // 電腦每步至少顯示「思考中」這麼久（毫秒）
+const MIN_THINK = 1200;   // 電腦每步至少顯示「思考中」這麼久（毫秒）
 
 const levelOf = () => LEVELS[S.level] || LEVELS[4];
 const engineColor = () => (S.my === 'w' ? 'b' : 'w');

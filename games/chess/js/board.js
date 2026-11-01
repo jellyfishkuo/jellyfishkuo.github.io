@@ -1,6 +1,8 @@
 // 棋盤元件：點兩下或拖曳走棋、合法落點、最後一步、將軍、箭頭、升變選擇、翻轉。
 // 棋規不在這裡判斷，全部交給 chess.js（由外面傳進來的 game）。
 const FILES = 'abcdefgh';
+const ANIM_MS = 650;        // 電腦／對手的棋子滑過去要多久（毫秒）
+const ANIM_MINE_MS = 220;  // 自己用點的走棋（拖曳的不用）
 const PIECE_NAME = { p: '兵', n: '馬', b: '象', r: '車', q: '后', k: '王' };
 const pieceURL = (c, t) => new URL(`../pieces/${c}${t.toUpperCase()}.svg`, import.meta.url).href;
 
@@ -57,7 +59,7 @@ export class Board {
   /** opts.animate：讓這一步的棋子從起點滑到終點（電腦、對手、播放用；自己拖曳的棋不要） */
   setLast(m, opts) {
     this.last = m ? { from: m.from, to: m.to } : null;
-    if (m && opts && opts.animate) this.anim = { from: m.from, to: m.to, flags: m.flags || '' };
+    if (m && opts && opts.animate) this.anim = { from: m.from, to: m.to, flags: m.flags || '', dur: typeof opts.animate === 'number' ? opts.animate : ANIM_MS };
   }
   playAnim() {
     const a = this.anim; this.anim = null;
@@ -69,7 +71,7 @@ export class Board {
       const dx = f.left - t.left, dy = f.top - t.top;
       if (!dx && !dy) return;
       img.style.zIndex = 15;
-      const an = img.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }], { duration: 320, easing: 'cubic-bezier(.25,.8,.35,1)' });
+      const an = img.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }], { duration: a.dur, easing: 'cubic-bezier(.3,.7,.3,1)' });
       an.onfinish = an.oncancel = () => { img.style.zIndex = ''; };
     };
     slide(a.from, a.to);
@@ -137,7 +139,7 @@ export class Board {
     const g = this.opt.getGame(); const p = g.get(s);
     return p && p.color === g.turn() && this.opt.canMove(p.color);
   }
-  async tryMove(from, to) {
+  async tryMove(from, to, dragged = false) {
     const g = this.opt.getGame();
     const legal = g.moves({ square: from, verbose: true }).filter(m => m.to === to);
     if (!legal.length) return false;
@@ -147,7 +149,9 @@ export class Board {
       if (!promotion) { this.render(); return false; }
     }
     this.sel = null;
+    if (!dragged) this.anim = { from, to, flags: legal[0].flags || '', dur: ANIM_MINE_MS };
     const ok = this.opt.onMove({ from, to, promotion });
+    if (ok === false) this.anim = null;
     this.render();
     return ok !== false;
   }
@@ -211,7 +215,7 @@ export class Board {
       if (d.img) { d.img.classList.remove('dragging'); d.img.style.transform = ''; }
       if (!d.moved) { if (d.was) { this.sel = null; this.render(); } return; }
       const s = sqAt(e.clientX, e.clientY);
-      if (s && s !== d.from) this.tryMove(d.from, s).then(ok => { if (!ok) { this.sel = null; this.render(); } });
+      if (s && s !== d.from) this.tryMove(d.from, s, true).then(ok => { if (!ok) { this.sel = null; this.render(); } });
     };
     this.sqEl.addEventListener('pointerup', end);
     this.sqEl.addEventListener('pointercancel', e => { if (drag && drag.img) { drag.img.classList.remove('dragging'); drag.img.style.transform = ''; } drag = null; });
