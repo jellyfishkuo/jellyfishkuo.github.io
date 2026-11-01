@@ -410,7 +410,7 @@
             }
 
             function restart() {
-                path = [P.start]; hints = 0; hintCell = -1; won = false;
+                path = [P.start]; hints = 0; hintCell = -1; won = false; finger = null;
                 t0 = 0; tEnd = 0; clearInterval(timer); timer = 0;
                 rebuildOnPath();
                 drawStatic();
@@ -471,13 +471,42 @@
                     t.textContent = P.clue[a];
                 }
             }
+            // 線的尾端跟著手指：路線本身一格一格算，畫面上多畫一小段，從最後一格的中心連到手指的位置。
+            // 手指往「可以走的下一格」移動就往前伸；往上一格移動就從上一格縮回來。所以線不會一格一格跳。
+            // finger 是棋盤座標（一格 = 1，格子中心在 .5），沒有在拖就是 null。
+            var finger = null;
+            function linePts() {
+                var n = P.n, pts = path.map(function (i) { return [cx(i), cy(i)]; });
+                if (!finger || won) return pts;
+                var h = path[path.length - 1], hx = h % n + 0.5, hy = Math.floor(h / n) + 0.5;
+                var dx = finger.x - hx, dy = finger.y - hy, ax = Math.abs(dx), ay = Math.abs(dy);
+                if (Math.max(ax, ay) < 0.02) return pts;
+                var d = ax >= ay ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+                var len = Math.min(1, ax >= ay ? ax : ay);
+                var v = stepOf(n, h, d);
+                if (v < 0) return pts;
+                if (path.length > 1 && v === path[path.length - 2]) {
+                    // 往回：最後一段只畫到手指那裡
+                    pts.pop();
+                    pts.push([(hx + DC[d] * len) * U, (hy + DR[d] * len) * U]);
+                } else if (canStep(h, v)) {
+                    pts.push([(hx + DC[d] * len) * U, (hy + DR[d] * len) * U]);
+                }
+                return pts;
+            }
+            var drawQueued = false;
+            function requestDraw() {
+                if (drawQueued) return;
+                drawQueued = true;
+                requestAnimationFrame(function () { drawQueued = false; if (P) draw(); });
+            }
             function draw() {
                 gLine.textContent = '';
                 gHint.textContent = '';
                 board.classList.toggle('done', won);
                 if (hintCell >= 0) el('rect', { 'class': 'hint', x: cx(hintCell) - U / 2 + 4, y: cy(hintCell) - U / 2 + 4, width: U - 8, height: U - 8, rx: 14 }, gHint);
-                var pts = path.map(function (i) { return cx(i) + ',' + cy(i); }).join(' ');
-                if (path.length === 1) pts += ' ' + pts;    // 只有一點時也畫出一個圓頭
+                var pts = linePts().map(function (q) { return Math.round(q[0] * 10) / 10 + ',' + Math.round(q[1] * 10) / 10; }).join(' ');
+                if (path.length === 1 && pts.indexOf(' ') < 0) pts += ' ' + pts;    // 只有一點時也畫出一個圓頭
                 var light = document.documentElement.dataset.theme === 'light';
                 if (light) el('polyline', { 'class': 'edge', points: pts, 'stroke-width': 54 }, gLine);
                 el('polyline', { 'class': 'line', points: pts, 'stroke-width': light ? 46 : 44 }, gLine);
@@ -527,7 +556,7 @@
                 else if (path.length === P.n * P.n) say('格子都走過了，但數字順序不對，退回去調整看看。');
                 else if (P.clue[path[path.length - 1]] === P.K) say('已經到最後一個數字了，可是還有 <b>' + (P.n * P.n - path.length) + '</b> 格沒走到。');
                 else say('下一個要經過 <b>' + nextNum() + '</b>，還剩 <b>' + (P.n * P.n - path.length) + '</b> 格。');
-                draw();
+                requestDraw();
             }
 
             // ── 滑鼠／手指 ──
@@ -546,6 +575,7 @@
             function setFollow(v) {
                 following = v;
                 boardBox.classList.toggle('following', v);
+                if (!v && !dragging && finger) { finger = null; requestDraw(); }
             }
             // 滑鼠移很快時，兩次事件之間可能跨過好幾格、甚至斜斜切過格子的角。
             // 把上一個位置到這個位置的線段切成小段，經過的每一格都依序處理，線才跟得上。
@@ -598,7 +628,8 @@
                 if (c < 0) return;
                 dragging = true; downCell = c; movedCell = false; lastPt = gridPt(e);
                 try { board.setPointerCapture(e.pointerId); } catch (err) { /* 舊瀏覽器 */ }
-                if (goTo(c)) changed();
+                finger = lastPt;
+                if (goTo(c)) changed(); else requestDraw();
                 e.preventDefault();
             });
             board.addEventListener('pointermove', function (e) {
@@ -608,11 +639,19 @@
                 if (!list.length) list = [e];
                 var moved = false;
                 for (var i = 0; i < list.length; i++) if (traceTo(gridPt(list[i]))) moved = true;
-                if (moved) { movedCell = true; changed(); }
+                finger = lastPt;
+                if (moved) { movedCell = true; changed(); } else requestDraw();
             });
             function endDrag(e) {
                 if (!dragging) return;
                 dragging = false;
+                // 拖的時候要走進上一格中間才收回（防抖），但線已經縮到手指那裡了；
+                // 放開時手指已經在上一格，就照畫面上看到的收回，不然線會彈回去
+                if (finger && !following && !won && path.length > 1 && e && e.type === 'pointerup') {
+                    var fc = Math.floor(finger.y) * P.n + Math.floor(finger.x);
+                    if (finger.x >= 0 && finger.y >= 0 && finger.x < P.n && finger.y < P.n && fc === path[path.length - 2]) { finger = null; pop(); changed(); }
+                }
+                finger = null; requestDraw();
                 // 電腦上沒拖動、只是點一下：開始跟隨滑鼠
                 if (e && e.type === 'pointerup' && e.pointerType === 'mouse' && !movedCell && !won && downCell === path[path.length - 1]) setFollow(true);
             }
@@ -686,7 +725,12 @@
                     confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
                 }
             }
-            function say(html) { $('msg').classList.remove('win'); $('msg').innerHTML = '<span>' + html + '</span>'; }
+            var lastSay = '';
+            function say(html) {
+                if (html === lastSay && !$('msg').classList.contains('win')) return;   // 拖的時候每一步都會叫，一樣就不重設
+                lastSay = html;
+                $('msg').classList.remove('win'); $('msg').innerHTML = '<span>' + html + '</span>';
+            }
 
             newPuzzle(readHash());
             window.addEventListener('hashchange', function () { var h = readHash(); if (h && (!P || h.seed !== P.seed || h.n !== P.n || h.lv !== P.lv)) newPuzzle(h); });
