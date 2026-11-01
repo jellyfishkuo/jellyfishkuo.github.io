@@ -45,7 +45,7 @@ function judge(engineScoreMine) {
   }
   if (it.goal === 'promote') {
     const q = g.history({ verbose: true }).some(m => m.color === me && m.promotion);
-    if (q && engineScoreMine !== null && engineScoreMine >= 500) return { ok: true, text: '成功升變，而且保住了勝勢 🎉' };
+    if (q && engineScoreMine !== null && engineScoreMine >= 300) return { ok: true, text: '成功升變，而且保住了勝勢 🎉' };
   }
   if (engineScoreMine !== null) {
     if (it.goal === 'draw' && engineScoreMine <= -400) return { ok: false, text: `引擎評估 ${fmtScore({ cp: -engineScoreMine })}（對手觀點）：這個局面已經守不住了。按「悔棋」找找看哪一步出錯。` };
@@ -142,6 +142,7 @@ export default {
     );
     app.tools.append(el('button', { type: 'button', class: 'btn icon', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => app.board.flip() }, '⇅ 翻轉'));
     app.use({ canMove: c => !!S.item && c === S.item.side && !S.thinking && !S.result, onMove });
+    app.engine.ready().catch(() => {});   // 先載入引擎，走第一步時不用等
     const want = params.id && all().find(x => x.id === params.id);
     if (want) select(want);
     else if (S.item) { select(S.item); }

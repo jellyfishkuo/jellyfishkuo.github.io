@@ -7,7 +7,7 @@ import { OPENINGS } from '../data/openings.js';
 
 let app, root;
 const fmtDate = s => { const d = new Date(s); return isNaN(d) ? '' : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-const OUT = { win: '勝', loss: '負', draw: '和', ongoing: '未完' };
+const OUT = { win: '勝', loss: '負', draw: '和', ongoing: '未完', unfinished: '未完' };
 
 async function render() {
   const [games, analyses, stats, attempts, favs, notes] = await Promise.all(['games', 'analyses', 'puzzleStats', 'attempts', 'favorites', 'notes'].map(s => db.all(s).catch(() => [])));
@@ -16,7 +16,7 @@ async function render() {
   if (!saved) root.append(el('div', { class: 'status warn' }, '這個瀏覽器不讓網頁長期存資料（可能是無痕模式），紀錄只會保留到關閉分頁。可以用下面的「下載備份」自己存一份。'));
 
   // ── 總覽 ──
-  const played = games.filter(g => g.outcome !== 'ongoing');
+  const played = games.filter(g => g.outcome !== 'ongoing' && g.outcome !== 'unfinished');
   const w = played.filter(g => g.outcome === 'win').length, l = played.filter(g => g.outcome === 'loss').length, d = played.filter(g => g.outcome === 'draw').length;
   const pz = attempts.filter(a => a.puzzleId);
   const ok = pz.filter(a => a.ok).length;

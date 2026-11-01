@@ -109,8 +109,8 @@ console.log(`candidates: ${list.length} (attack ${list.filter(c => c.kind === 'a
 
 const verFile = path.join(OUT, 'verified.json');
 let ver = fs.existsSync(verFile) ? JSON.parse(fs.readFileSync(verFile)) : {};
-// 防守題候選很多，驗證前 200 個就夠
-const defense = list.filter(c => c.kind === 'defense').slice(0, 200);
+// 防守題候選很多，驗證前 400 個就夠
+const defense = list.filter(c => c.kind === 'defense').slice(0, 400);
 const vtodo = [...list.filter(c => c.kind === 'attack'), ...defense].filter(c => !(c.fen + c.last in ver));
 console.log(`verify: ${vtodo.length} to check`);
 done = 0;
@@ -131,7 +131,7 @@ for (const v of Object.values(ver)) {
 // 手工擺的經典局面（hand_tactics.mjs 驗證過的），題型由人標
 const handFile = path.join(OUT, 'hand.json');
 if (fs.existsSync(handFile)) for (const v of JSON.parse(fs.readFileSync(handFile))) puzzles.push(v);
-// 每個題型最多 45 題，挑解答步數多一點、評估差距大的，難度平均分布
+// 每個題型最多 80 題，挑解答步數多一點、評估差距大的，難度平均分布
 const byTheme = {};
 for (const t of THEME_ORDER) byTheme[t] = [];
 for (const p of puzzles) for (const t of p.themes) byTheme[t].push(p);
@@ -140,7 +140,7 @@ for (const t of THEME_ORDER) {
   const arr = byTheme[t].filter(p => !chosen.has(p.fen + p.moves[0]));
   arr.sort((a, b) => b.moves.length - a.moves.length || a.fen.localeCompare(b.fen));
   const already = [...chosen.values()].filter(p => p.themes.includes(t)).length;
-  for (const p of arr.slice(0, Math.max(0, 45 - already))) chosen.set(p.fen + p.moves[0], p);
+  for (const p of arr.slice(0, Math.max(0, 80 - already))) chosen.set(p.fen + p.moves[0], p);
 }
 // 題號由局面＋解答算出來（FNV-1a），重新產生題庫時同一題的題號不變，使用者的作答紀錄才對得上
 function pid(str) {

@@ -293,6 +293,15 @@ def t_ai(b):
     pg.click('#btn-hint')
     pg.wait_for_function("document.querySelectorAll('#board .arrows line').length > 0", timeout=20000)
     check('提示會畫出建議走法的箭頭', True)
+    # 下到一半重新整理，要接回同一盤
+    pg.click('#btn-new')
+    click_move(pg, 'd2', 'd4')
+    pg.wait_for_function('window.jfkChess.game.history().length >= 2', timeout=30000)
+    pg.wait_for_timeout(300)
+    before = pg.evaluate('window.jfkChess.game.history()')
+    pg.reload()
+    pg.wait_for_function('window.jfkChess && window.jfkChess.game.history().length >= 2', timeout=10000)
+    check('重新整理後接回還沒下完的棋', pg.evaluate('window.jfkChess.game.history()') == before, str(before))
     check('沒有 JS 錯誤', not pg.errors, '; '.join(pg.errors[:2]))
     pg.context.close()
 

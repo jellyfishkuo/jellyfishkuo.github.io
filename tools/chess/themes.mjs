@@ -99,7 +99,10 @@ export function classify(v) {
     // 解答的最後一步：之後的得子已經由引擎確認（最後局面 ≥ +2），只要棋盤上的威脅成立就算
     const lastMove = i === steps.length - 1 && !v.mate;
     const big = t => t.type === 'k' || VAL[t.type] >= 5;
-    if (f.fork && (v.mate ? f.fork.some(t => t.type === 'k') : (f.fork.some(t => later.includes(t.square)) || (lastMove && f.fork.filter(big).length >= 1 && f.fork.length >= 2)))) themes.add('fork');
+    // 吃掉一個沒人保護的大子（≥ 象馬）只是「白吃」，順便攻擊到別的子不算雙重攻擊
+    const m0 = steps[i].m;
+    const freeGrab = m0.captured && VAL[m0.captured] >= 3 && steps[i].before.attackers(m0.to, opp(solver)).length === 0;
+    if (f.fork && !freeGrab && (v.mate ? f.fork.some(t => t.type === 'k') : (f.fork.some(t => later.includes(t.square)) || (lastMove && f.fork.filter(big).length >= 1 && f.fork.length >= 2)))) themes.add('fork');
     if (f.pin && (later.includes(f.pin.a.s) || (lastMove && VAL[f.pin.b.type] >= 5 && steps[i].after.attackers(f.pin.a.s, solver).length > steps[i].after.attackers(f.pin.a.s, opp(solver)).length))) themes.add('pin');
     if (f.skewer && (later.includes(f.skewer.b.s) || (lastMove && steps[i].after.isCheck() && VAL[f.skewer.b.type] >= 3 && !defended(steps[i].after, f.skewer.b.s, opp(solver))))) themes.add('skewer');
     if (f.disc && steps[i].m.piece !== f.disc.by.type && (later.some(s => f.disc.t.some(t => t.square === s)) || (f.disc.t.some(t => t.type === 'k') && (later.length || v.mate)) || (lastMove && f.disc.t.some(big) && (steps[i].after.isCheck() || steps[i].m.captured))))
@@ -180,9 +183,9 @@ export function explain(v) {
       if (f.disc && m.piece !== f.disc.by.type) bits.push(`讓開線路，${f.disc.by.square} 的${NAME[f.disc.by.type]}直接攻擊 ${f.disc.t.map(pieceDesc).join('、')}`);
       if (f.pin && (v.themes || []).includes('pin')) bits.push(`沿線牽制 ${pieceDesc(f.pin.a)}，它後面是${NAME[f.pin.b.type]}`);
       if (f.skewer && (v.themes || []).includes('skewer')) bits.push(`串擊：${NAME[f.skewer.a.type]}被攻擊得讓開，後面 ${pieceDesc(f.skewer.b)} 就露出來`);
-      notes.push({ san: m.san, who: 'me', text: bits.join('，') || '唯一能保持優勢的走法' });
+      notes.push({ san: m.san, who: 'me', text: bits.join('，') || (v.kind === 'defense' ? '唯一不會輸的走法' : '唯一能保持優勢的走法') });
     } else {
-      notes.push({ san: m.san, who: 'opp', text: bits.length ? bits.join('，') : '對手最頑強的回應' });
+      notes.push({ san: m.san, who: 'opp', text: bits.length ? bits.join('，') : '最頑強的回應' });
     }
   }
   const first = steps[1].m;
@@ -192,6 +195,12 @@ export function explain(v) {
   let summary;
   if (v.kind === 'defense') summary = `對手有很強的威脅，這是唯一不會輸掉的走法（其他走法至少輸 3 兵）。走完後引擎評估 ${fmtScore(v.startEval)}（以你這方來看）。`;
   else if (v.mate) summary = `${v.moves.length / 2} 步將死。`;
-  else summary = `走完後子力${v.gain > 0 ? `淨賺 ${v.gain} 兵的價值` : '暫時沒多'}，引擎評估 ${fmtScore(v.startEval)}（以你這方來看），已經是明顯優勢。`;
+  else {
+    // 「淨賺」只有在子力差跟引擎評估差不多時才說（不然代表之後還會被吃回一部分，或優勢是別的原因）
+    const ev = v.startEval && v.startEval.cp !== undefined ? v.startEval.cp / 100 : null;
+    const net = v.gain > 0 && ev !== null && Math.abs(v.gain - ev) <= 1.5;
+    const what = net ? `子力淨賺 ${v.gain} 兵的價值，` : v.gain > 0 && ev !== null && v.gain > ev ? '先吃到子（對手之後還能拿回一部分），' : '';
+    summary = `照這條解答走完，${what}引擎評估 ${fmtScore(v.startEval)}（以你這方來看），已經是明顯優勢。`;
+  }
   return { side: solver, last: sanList[0], hint: hintBits.join('，'), notes, summary };
 }

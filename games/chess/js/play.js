@@ -13,9 +13,35 @@ const MIN_THINK = 1200;   // 電腦每步至少顯示「思考中」這麼久（
 const levelOf = () => LEVELS[S.level] || LEVELS[4];
 const engineColor = () => (S.my === 'w' ? 'b' : 'w');
 
+// 重新整理頁面後，接回最近一盤還沒下完的棋（存在 IndexedDB 的 games，outcome = 'ongoing'）
+async function resumeOrNew() {
+  const fresh = S.id;
+  let last = null;
+  try {
+    const all = await db.all('games');
+    last = all.filter(g => g.mode === 'play' && g.outcome === 'ongoing').sort((a, b) => b.date.localeCompare(a.date))[0];
+  } catch (e) { /* 讀不到就開新局 */ }
+  // 只有在剛開的新局還沒被動過時才換上舊棋
+  if (!last || S.id !== fresh || S.g.history().length > (S.my === 'b' ? 1 : 0)) return;
+  try {
+    S.pick = last.myColor;
+    document.querySelectorAll('.seg button[data-color]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === S.pick)));
+    db.del('games', fresh).catch(() => {});   // 剛開的那盤（電腦可能已經先走一步）不留紀錄
+    S.g = null;
+    newGame(DEFAULT_POSITION, last.pgn);
+    S.id = last.id;                       // 之後存檔覆蓋同一筆，不會多出一盤
+    app.toast('接回上次還沒下完的棋');
+  } catch (e) { newGame(); }
+}
+
 function newGame(fen = DEFAULT_POSITION, pgn = null) {
   S.token++;
   app.engine.stop();
+  // 上一盤沒下完就開新局：標成「未完」，重新整理時不會再被接回來
+  if (S.g && S.id && S.g.history().length && !S.over && !outcome(S.g)) {
+    const oldId = S.id;
+    db.get('games', oldId).then(r => { if (r && r.outcome === 'ongoing') db.put('games', { ...r, outcome: 'unfinished' }); }).catch(() => {});
+  }
   S.my = S.pick;
   app.board.setFlipped(S.my === 'b');
   S.g = new Chess();
@@ -252,7 +278,7 @@ export default {
     app.engine.addEventListener('status', this._st);
     if (params.fen) { S.pick = new Chess(params.fen).turn(); newGame(params.fen); }
     else if (S.g && !params.fresh) { app.board.setFlipped(S.my === 'b'); sync(); maybeEngine(); }
-    else newGame();
+    else { newGame(); resumeOrNew(); }
     app.engine.ready().catch(() => sync());
   },
   unmount() {
