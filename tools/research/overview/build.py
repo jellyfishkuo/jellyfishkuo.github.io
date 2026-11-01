@@ -169,6 +169,12 @@ NODES = [
          struct='IHUP-tree（存所有商品）、條件樹，另外保留交易供驗證', fit='交易一直新增、要常常拿高效益結果',
          short='CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。',
          frm=[('cantree', 'solid', '一樣用固定順序的樹，新交易直接插')]),
+    dict(id='pretk', name='PreTK', sub='論文 2025', year='2025', page='pretk', group='inc', x=E, y=48,
+         idea='兩個 k：前 k_lower 名是答案、到第 k_upper 名的候補一起存在樹上；新一批的 max TWU 小於安全距離就只更新樹，否則從 Global-Utility-List 重挖（單品、GLIU、上次的門檻先把門檻拉高）',
+         scans='每批讀 1 次；重挖也不回頭掃舊交易', cand='不會（utility list）',
+         struct='Global-Utility-List、Global-TWU-Map、GLIU、itemset-tree', fit='交易一直新增、每批不大、要常常拿前 k 名',
+         short='多存幾名候補，小批次進來就不用重挖。',
+         frm=[('ihup', 'solid', '一樣邊加交易邊挖高效益樣式，再加上 Top-k 的門檻拉高與 pre-large 候補')]),
     dict(id='foth', name='FOTH', sub='論文 2024', year='2024', page='foth', group='hui', x=E, y=562,
          idea='商品組合編成二進位，每筆交易的 IndexSet 自己拆出子集合、接到同編碼的 IndexSet 後面，取代 utility list 的 join；mining area 的 U+RU 當上界剪',
          scans='2 次（算 TWU、建 IndexSet）', cand='不會（one-phase）',
@@ -285,7 +291,7 @@ ROUTES = [
 ROUTE_EXTRA = {  # 路線走完可以接著看的
     '串流與空間路線': ['bloom', 'hll', 'huops', 'swupa', 'skyline', 'irtree'],
     '入門路線': ['gsp', 'spade', 'gspan', 'pfp'],
-    '高效益路線': ['foth', 'uspan', 'fup', 'cantree', 'ihup'],
+    '高效益路線': ['foth', 'uspan', 'fup', 'cantree', 'ihup', 'pretk'],
 }
 
 # ── 產生 HTML 片段 ──────────────────────────────────────────

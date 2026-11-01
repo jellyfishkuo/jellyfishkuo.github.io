@@ -192,7 +192,7 @@
         <p class="intro">
             這裡的 Demo 看起來主題很多，其實大部分都從同一個起點長出來：<b>Apriori</b> 的「不頻繁的組合，包含它的更大組合也一定不頻繁」。
             之後的方法有的換資料結構（樹、垂直格式、清單），有的換問題（看順序、看利潤、資料一直進來、資料有位置）。
-            下面的圖把 33 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
+            下面的圖把 34 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
             想一次比較，最下面有<b>比較表</b>。大部分 Demo 用的都是同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），換頁時可以直接對照數字。
         </p>
 
@@ -234,6 +234,7 @@
 <path class="e" data-s="prefixspan" data-t="uspan" d="M540,293.0 C562,293.0 558,545.0 578,545.0" marker-end="url(#ar)"><title>PrefixSpan → USpan 高效益序列：一樣的 I-接、S-接深度優先，只是次數換成效益</title></path>
 <path class="e" data-s="huiminer" data-t="uspan" d="M648,486.0 L648,522.0" marker-end="url(#ar)"><title>HUI-Miner → USpan 高效益序列：TWU → SWU、剩餘效益 → ru</title></path>
 <path class="e" data-s="cantree" data-t="ihup" d="M540,48.0 L578,48.0" marker-end="url(#ar)"><title>CanTree → IHUP：一樣用固定順序的樹，新交易直接插</title></path>
+<path class="e" data-s="ihup" data-t="pretk" d="M716,48.0 L748,48.0" marker-end="url(#ar)"><title>IHUP → PreTK 論文 2025：一樣邊加交易邊挖高效益樣式，再加上 Top-k 的門檻拉高與 pre-large 候補</title></path>
 <path class="e" data-s="huiminer" data-t="foth" d="M716,471.0 C735,471.0 731,562.0 748,562.0" marker-end="url(#ar)"><title>HUI-Miner → FOTH 論文 2024：同一棵搜尋樹與上界，把 join 換成自我傳播</title></path>
 <path class="e dash" data-s="bloom" data-t="cms" d="M580,652.0 L542,652.0" marker-end="url(#ar2)"><title>Bloom Filter → Count-Min Sketch：一樣把東西用好幾個雜湊撒進格子，只是格子改成計數</title></path>
 <path class="e dash" data-s="bloom" data-t="hll" d="M716,652.0 L748,652.0" marker-end="url(#ar2)"><title>Bloom Filter → HyperLogLog：一樣把東西雜湊進格子，改問「有幾個不同的」</title></path>
@@ -260,6 +261,7 @@
 <a class="node" href="periodic.html" data-id="pfp" aria-label="PFP-tree"><title>PFP-tree：不只要常出現，還要出現得規律：樹上記 tid 才算得出週期。</title><rect x="404" y="117" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="472" y="139" class="nt">PFP-tree 週期性</text><text x="472" y="154" class="ny">2009</text></a>
 <a class="node" href="uspan.html" data-id="uspan" aria-label="USpan"><title>USpan：序列樣式加上數量 × 利潤，多種對應取最大。</title><rect x="580" y="524" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="648" y="546" class="nt">USpan 高效益序列</text><text x="648" y="561" class="ny">2012</text></a>
 <a class="node" href="ihup.html" data-id="ihup" aria-label="IHUP"><title>IHUP：CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。</title><rect x="580" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="648" y="49" class="nt">IHUP</text><text x="648" y="64" class="ny">2009</text></a>
+<a class="node" href="pretk.html" data-id="pretk" aria-label="PreTK"><title>PreTK：多存幾名候補，小批次進來就不用重挖。</title><rect x="750" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="818" y="49" class="nt">PreTK 論文 2025</text><text x="818" y="64" class="ny">2025</text></a>
 <a class="node" href="foth.html" data-id="foth" aria-label="FOTH"><title>FOTH：不 join：每筆交易自己拆出子集合接上去。</title><rect x="750" y="541" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="818" y="563" class="nt">FOTH 論文 2024</text><text x="818" y="578" class="ny">2024</text></a>
 <a class="node" href="sliding-window.html" data-id="sw" aria-label="滑動視窗"><title>滑動視窗：只看最近 W 筆，一進一出即時更新頻繁樣式。</title><rect x="10" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="78" y="653" class="nt">滑動視窗</text></a>
 <a class="node" href="stream-counting.html" data-id="lossy" aria-label="Lossy Counting／Space-Saving"><title>Lossy Counting／Space-Saving：記憶體不夠時近似計數，誤差有上限。</title><rect x="194" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="262" y="645" class="nt nt2">Lossy Counting</text><text x="262" y="658" class="nt nt2">Space-Saving</text><text x="262" y="669" class="ny">2002·2005</text></a>
@@ -306,6 +308,7 @@
 <li><a class="nm" href="incremental.html">FUP</a><span class="yr">1996</span><p>新交易進來時只更新受影響的部分，結果跟重算一樣。</p><div class="froms"><span class="from ">改良自 Apriori</span></div></li>
 <li><a class="nm" href="cantree.html">CanTree</a><span class="yr">2007</span><p>固定順序的 FP-tree，新交易來了直接插。</p><div class="froms"><span class="from ">改良自 FP-Growth</span></div></li>
 <li><a class="nm" href="ihup.html">IHUP</a><span class="yr">2009</span><p>CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。</p><div class="froms"><span class="from ">改良自 CanTree</span></div></li>
+<li><a class="nm" href="pretk.html">PreTK 論文 2025</a><span class="yr">2025</span><p>多存幾名候補，小批次進來就不用重挖。</p><div class="froms"><span class="from ">改良自 IHUP</span></div></li>
 </ul></section>
 <section class="grp" style="--gc:#06b6d4"><h3>資料串流</h3><ul>
 <li><a class="nm" href="sliding-window.html">滑動視窗</a><p>只看最近 W 筆，一進一出即時更新頻繁樣式。</p></li>
@@ -347,7 +350,7 @@
 <li><a class="nm" href="efim.html">EFIM</a><p>投影資料庫加更緊的上界，現在常用的快方法。</p></li>
 <li><a class="nm" href="top-k-hui.html">Top-k TKO</a><p>不知道門檻設多少時，直接要前 k 名。</p></li>
 </ol>
-<p class="route-next">走完可以接著看：<a class="ex" href="foth.html">FOTH 論文 2024</a>、<a class="ex" href="uspan.html">USpan 高效益序列</a>、<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a>、<a class="ex" href="ihup.html">IHUP</a></p>
+<p class="route-next">走完可以接著看：<a class="ex" href="foth.html">FOTH 論文 2024</a>、<a class="ex" href="uspan.html">USpan 高效益序列</a>、<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a>、<a class="ex" href="ihup.html">IHUP</a>、<a class="ex" href="pretk.html">PreTK 論文 2025</a></p>
 </div>
 <div class="card route" style="--rc:#06b6d4"><h2>串流與空間路線</h2><p class="route-sub">資料停不下來，或資料有位置</p><ol>
 <li><a class="nm" href="sliding-window.html">滑動視窗</a><p>只看最近 W 筆，一進一出怎麼更新。</p></li>
@@ -389,6 +392,7 @@
 <tr><th scope="row"><a class="nm" href="incremental.html">FUP</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>舊樣式只數新進來的交易；新冒出的候選先用引理篩，只有少數要回頭掃舊資料</td><td class="mono">每一層掃新資料 1 次，有新候選通過引理時才回頭掃舊資料（範例：新資料 3 次、舊資料 1 次）</td><td class="c-yes">會（照 Apriori 產生，再用引理篩）</td><td>上次的結果：頻繁樣式和次數</td><td>一批一批新增、新資料跟舊資料長得差不多</td></tr>
 <tr><th scope="row"><a class="nm" href="cantree.html">CanTree</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>商品照事先定好的固定順序插進樹，新交易直接沿一條路徑加次數，不用重排重建</td><td class="mono">每筆交易只讀 1 次（不用先數次數）</td><td class="c-no">不會（挖的時候跟 FP-Growth 一樣）</td><td>CanTree（存所有商品）</td><td>資料一直新增、門檻常常改</td></tr>
 <tr><th scope="row"><a class="nm" href="ihup.html">IHUP</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>交易照固定的字典序插進樹、節點記 TWU，新交易只沿一條路徑加上自己的 TU；要結果時用 TWU 像 FP-Growth 一樣挖候選，再掃一次驗證</td><td class="mono">新交易插入時讀 1 次＋每次挖掃 1 次驗證（範例挖 2 次共 2 次；每次從頭跑 Two-Phase 要 8 次）</td><td class="c-yes">會（TWU ≥ 門檻的組合，跟 Two-Phase 一樣多）</td><td>IHUP-tree（存所有商品）、條件樹，另外保留交易供驗證</td><td>交易一直新增、要常常拿高效益結果</td></tr>
+<tr><th scope="row"><a class="nm" href="pretk.html">PreTK 論文 2025</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>兩個 k：前 k_lower 名是答案、到第 k_upper 名的候補一起存在樹上；新一批的 max TWU 小於安全距離就只更新樹，否則從 Global-Utility-List 重挖（單品、GLIU、上次的門檻先把門檻拉高）</td><td class="mono">每批讀 1 次；重挖也不回頭掃舊交易</td><td class="c-no">不會（utility list）</td><td>Global-Utility-List、Global-TWU-Map、GLIU、itemset-tree</td><td>交易一直新增、每批不大、要常常拿前 k 名</td></tr>
 <tr><th scope="row"><a class="nm" href="sliding-window.html">滑動視窗</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>只看最近 W 筆：進來那筆的子集合 +1、離開那筆的 −1，其他組合不用動</td><td class="mono">單趟：每筆進來、離開各處理一次</td><td class="c-no">不會</td><td>計數表（視窗裡出現過的組合）</td><td>只在乎最近的資料、商品種類少</td></tr>
 <tr><th scope="row"><a class="nm" href="stream-counting.html">Lossy Counting・Space-Saving</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>Lossy Counting 分桶清掉次數太少的（只少算、最多 εN）；Space-Saving 只用 k 格計數器（只多算、最多 N/k）</td><td class="mono">單趟</td><td class="c-no">不會</td><td>帶誤差的計數表／k 格計數器</td><td>記憶體不夠記每個商品，要找熱門商品、即時排行</td></tr>
 <tr><th scope="row"><a class="nm" href="count-min.html">Count-Min Sketch</a></th><td><span class="gtag" style="--gc:#06b6d4">資料串流</span></td><td>d 列 × w 欄的格子，每列用雜湊算出一格 +1，查詢取 d 格的最小值，只會多算</td><td class="mono">單趟</td><td class="c-no">不會</td><td>d × w 計數表、d 個雜湊函數</td><td>任何商品都要能查、分店的表要能相加</td></tr>
@@ -437,7 +441,7 @@
 
     <script>
         // 圖上每條箭頭 [來源, 目標]，由 build.py 產生
-        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["fp", "pfp"], ["prefixspan", "uspan"], ["huiminer", "uspan"], ["cantree", "ihup"], ["huiminer", "foth"], ["bloom", "cms"], ["bloom", "hll"], ["sw", "huops"], ["sw", "swupa"], ["rtree", "irtree"]];
+        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["fp", "pfp"], ["prefixspan", "uspan"], ["huiminer", "uspan"], ["cantree", "ihup"], ["ihup", "pretk"], ["huiminer", "foth"], ["bloom", "cms"], ["bloom", "hll"], ["sw", "huops"], ["sw", "swupa"], ["rtree", "irtree"]];
 
         (function setupGraphFocus() {
             const svg = document.querySelector('svg.graph');

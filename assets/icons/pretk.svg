@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#12121c" stroke="#3a3a52" stroke-width="2"/>
+  <!-- 排行榜：上面綠色是 Large、橘色虛線下面青色是 Pre-large 候補；右邊是一小批新交易進來 -->
+  <rect x="9" y="12" width="30" height="7" rx="2.5" fill="#22c55e"/>
+  <rect x="9" y="22" width="25" height="7" rx="2.5" fill="#22c55e"/>
+  <line x1="7" y1="33.5" x2="43" y2="33.5" stroke="#f59e0b" stroke-width="2.2" stroke-dasharray="3.5 2.5"/>
+  <rect x="9" y="38" width="20" height="6" rx="2.5" fill="#06b6d4"/>
+  <rect x="9" y="47" width="15" height="6" rx="2.5" fill="#06b6d4" opacity="0.6"/>
+  <rect x="47" y="10" width="9" height="9" rx="2.5" fill="#c084fc"/>
+  <path d="M51.5 23 V44 M46.5 39 L51.5 44 L56.5 39" fill="none" stroke="#c084fc" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
