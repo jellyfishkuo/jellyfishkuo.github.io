@@ -1,8 +1,8 @@
 // 棋盤元件：點兩下或拖曳走棋、合法落點、最後一步、將軍、箭頭、升變選擇、翻轉。
 // 棋規不在這裡判斷，全部交給 chess.js（由外面傳進來的 game）。
 const FILES = 'abcdefgh';
-const ANIM_MS = 650;        // 電腦／對手的棋子滑過去要多久（毫秒）
-const ANIM_MINE_MS = 220;  // 自己用點的走棋（拖曳的不用）
+// 棋子滑過去要多久（毫秒）：電腦、對手、播放都跟自己用點的走棋一樣快
+const ANIM_MS = 220;
 const PIECE_NAME = { p: '兵', n: '馬', b: '象', r: '車', q: '后', k: '王' };
 const pieceURL = (c, t) => new URL(`../pieces/${c}${t.toUpperCase()}.svg`, import.meta.url).href;
 
@@ -149,7 +149,7 @@ export class Board {
       if (!promotion) { this.render(); return false; }
     }
     this.sel = null;
-    if (!dragged) this.anim = { from, to, flags: legal[0].flags || '', dur: ANIM_MINE_MS };
+    if (!dragged) this.anim = { from, to, flags: legal[0].flags || '', dur: ANIM_MS };
     const ok = this.opt.onMove({ from, to, promotion });
     if (ok === false) this.anim = null;
     this.render();

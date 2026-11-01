@@ -181,6 +181,11 @@ def t_rules(b):
     pg.click('#board .sq[data-sq="g1"]')
     dests = pg.evaluate("[...document.querySelectorAll('#board .sq.dest')].map(s => s.dataset.sq).sort()")
     check('選子後顯示合法落點（g1 馬：f3、h3）', dests == ['f3', 'h3'], str(dests))
+    # 落點同時也是「上一步」的格子時，點還是要在格子正中間（以前會被上一步的底色拉到角落）
+    pos = pg.evaluate("""(() => { const b = window.jfkChess.board; b.last = { from: 'f3', to: 'h3' }; b.render();
+        return ['f3', 'h3'].map(s => { const el = document.querySelector(`#board .sq[data-sq="${s}"]`); const cs = getComputedStyle(el, '::after');
+          return [el.classList.contains('last'), parseFloat(cs.left) / el.clientWidth, parseFloat(cs.top) / el.clientHeight, parseFloat(cs.width) / el.clientWidth]; }); })()""")
+    check('落點的點在格子正中間（含上一步的格子）', all(p[0] and abs(p[1] - 0.35) < 0.01 and abs(p[2] - 0.35) < 0.01 and abs(p[3] - 0.3) < 0.01 for p in pos), str(pos))
     pg.click('#board .sq[data-sq="g1"]')
     drag_move(pg, 'g1', 'f3')
     check('拖曳走棋（Nf3）', pg.evaluate('window.jfkChess.game.history()[0]') == 'Nf3')
