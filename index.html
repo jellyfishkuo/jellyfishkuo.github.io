@@ -327,16 +327,39 @@
         .sub-h { font-size: 1rem; margin-top: 1.8rem; }
 
         /* ── 競賽 ── */
-        .ach { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 8px; }
-        /* 電腦上好幾欄時，名字長的卡片會把同一列撐高；每一列都用最高的那張，卡片大小一致 */
-        @media (min-width: 640px) { .ach { grid-auto-rows: 1fr; } }
-        .ach li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid rgba(255, 255, 255, 0.06); }
-        .ach .m { font-size: 1.3rem; text-align: center; line-height: 1; }
-        .ach .y { font-family: var(--mono); color: var(--accent2); font-size: 0.68rem; letter-spacing: 0.08em; display: block; }
-        .ach .t { font-weight: 700; font-size: 0.88rem; line-height: 1.4; display: block; }
-        .ach .a { color: var(--muted); font-size: 0.8rem; display: block; }
-        [data-theme="light"] .ach li { background: #fff; border: 2px solid var(--ink); }
-        [data-theme="light"] .ach .y { color: #2b6b0e; font-weight: 700; }
+        /* 程式競賽：一個比賽一張卡，每一年一個小方塊（左邊色條：金／銀／銅／佳作／參賽） */
+        .ach { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+        @media (min-width: 760px) {
+            .ach { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+            .ach > li { grid-column: span 2; }
+            .ach > li.feat { grid-column: span 3; }
+        }
+        .ach > li { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid rgba(255, 255, 255, 0.07); min-width: 0; }
+        .ach .hd { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; }
+        .ach .m { font-size: 1.5rem; line-height: 1; width: 1.8rem; text-align: center; padding-top: 2px; }
+        .ach .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+        .ach .code { font-family: var(--mono); color: var(--accent2); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; }
+        .ach .sum { font-size: 0.75rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; background: rgba(255, 255, 255, 0.06); color: var(--text); }
+        .ach .t { display: block; margin-top: 2px; font-weight: 700; font-size: 0.92rem; line-height: 1.4; }
+        .ach .yrs { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }   /* 最多 4 年，一行放得下，每張卡的方塊一樣大 */
+        .ach .yrs li { display: flex; flex-direction: column; gap: 1px; padding: 5px 8px; min-width: 0; white-space: nowrap; border-radius: 8px; background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--tier); }
+        .ach .yrs b { font-family: var(--mono); font-size: 0.72rem; font-weight: 400; color: var(--muted); }
+        .ach .yrs span { font-size: 0.85rem; font-weight: 700; }
+        .ach .gold { --tier: #f5c542; } .ach .silver { --tier: #cbd5e1; } .ach .bronze { --tier: #d9894a; }
+        .ach .honor { --tier: #a78bfa; } .ach .part { --tier: #5b6578; }
+        .ach .sum.gold { background: rgba(245, 197, 66, 0.16); color: #f5c542; }
+        .ach .sum.silver { background: rgba(203, 213, 225, 0.14); color: #e2e8f0; }
+        .ach .sum.honor { background: rgba(167, 139, 250, 0.16); color: #c4b5fd; }
+        [data-theme="light"] .ach > li { background: #fff; border: 2.5px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+        [data-theme="light"] .ach .code { color: #2b6b0e; }
+        [data-theme="light"] .ach .yrs li { background: #f4fbec; border: 2px solid var(--ink); border-left: 6px solid var(--tier); }
+        [data-theme="light"] .ach .yrs b { color: var(--muted); font-weight: 700; }
+        [data-theme="light"] .ach .gold { --tier: #f2b705; } [data-theme="light"] .ach .silver { --tier: #a3adb8; } [data-theme="light"] .ach .bronze { --tier: #c56a2b; }
+        [data-theme="light"] .ach .honor { --tier: #8b5cf6; } [data-theme="light"] .ach .part { --tier: #b9c4ae; }
+        [data-theme="light"] .ach .sum { border: 2px solid var(--ink); background: #fff; color: var(--ink); }
+        [data-theme="light"] .ach .sum.gold { background: #ffd34d; color: var(--ink); }
+        [data-theme="light"] .ach .sum.silver { background: #e5e9ee; color: var(--ink); }
+        [data-theme="light"] .ach .sum.honor { background: #e4d9ff; color: var(--ink); }
 
         /* ── 聯絡 ── */
         .contact { text-align: center; }
@@ -672,11 +695,26 @@
                 <div class="sec-label">// 04 — Achievements</div>
                 <h2>程式競賽</h2>
                 <ul class="ach">
-                    <li><span class="m">🥇</span><span><span class="y">2023–2026 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 ×4：2023 第三名、2024 第二名、2025 第二名、2026 第四名</span></span></li>
-                    <li><span class="m">🥈</span><span><span class="y">2023–2025 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">2025 銀牌；2023、2024 銅牌</span></span></li>
-                    <li><span class="m">✦</span><span><span class="y">2024–2025 · NCPC</span><span class="t">全國大專院校電腦軟體設計競賽</span> <span class="a">佳作 ×2：2024、2025</span></span></li>
-                    <li><span class="m">✦</span><span><span class="y">2024 · GiCS</span><span class="t">尋找資安女婕思</span> <span class="a">佳作</span></span></li>
-                    <li><span class="m">◈</span><span><span class="y">2023–2025 · ICPC Regional</span><span class="t">ICPC Asia Regional Programming Contest</span> <span class="a">參賽 ×3：2023 桃園、2024 台中、2025 台中</span></span></li>
+                    <li class="feat">
+                        <div class="hd"><span class="m" aria-hidden="true">🥇</span><div><div class="row"><span class="code">PUPC</span><span class="sum gold">金獎 ×4</span></div><span class="t">全國私立大專校院程式競賽</span></div></div>
+                        <ul class="yrs"><li class="gold"><b>2023</b><span>第三名</span></li><li class="gold"><b>2024</b><span>第二名</span></li><li class="gold"><b>2025</b><span>第二名</span></li><li class="gold"><b>2026</b><span>第四名</span></li></ul>
+                    </li>
+                    <li class="feat">
+                        <div class="hd"><span class="m" aria-hidden="true">🥈</span><div><div class="row"><span class="code">TOPC</span><span class="sum silver">銀牌 ×1・銅牌 ×2</span></div><span class="t">Asia Taiwan Online Programming Contest</span></div></div>
+                        <ul class="yrs"><li class="bronze"><b>2023</b><span>銅牌</span></li><li class="bronze"><b>2024</b><span>銅牌</span></li><li class="silver"><b>2025</b><span>銀牌</span></li></ul>
+                    </li>
+                    <li>
+                        <div class="hd"><span class="m" aria-hidden="true">🏅</span><div><div class="row"><span class="code">NCPC</span><span class="sum honor">佳作 ×2</span></div><span class="t">全國大專院校電腦軟體設計競賽</span></div></div>
+                        <ul class="yrs"><li class="honor"><b>2024</b><span>佳作</span></li><li class="honor"><b>2025</b><span>佳作</span></li></ul>
+                    </li>
+                    <li>
+                        <div class="hd"><span class="m" aria-hidden="true">🛡️</span><div><div class="row"><span class="code">GiCS</span><span class="sum honor">佳作</span></div><span class="t">尋找資安女婕思</span></div></div>
+                        <ul class="yrs"><li class="honor"><b>2024</b><span>佳作</span></li></ul>
+                    </li>
+                    <li>
+                        <div class="hd"><span class="m" aria-hidden="true">🌏</span><div><div class="row"><span class="code">ICPC</span><span class="sum ">參賽 ×3</span></div><span class="t">ICPC Asia Regional Programming Contest</span></div></div>
+                        <ul class="yrs"><li class="part"><b>2023</b><span>桃園站</span></li><li class="part"><b>2024</b><span>台中站</span></li><li class="part"><b>2025</b><span>台中站</span></li></ul>
+                    </li>
                 </ul>
             </div>
         </section>
