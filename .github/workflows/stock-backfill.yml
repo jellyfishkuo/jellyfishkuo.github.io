@@ -1,4 +1,4 @@
-# 手動觸發：補過去每天的收盤價（股票庫存頁的每日損益用）
+# 手動觸發：補過去每天的收盤價（股票庫存頁的每日損益用），寫進 stock-data 分支
 name: 台股歷史收盤價補抓
 
 on:
@@ -26,6 +26,10 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: stock-data
+          path: _stock-data
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -34,15 +38,17 @@ jobs:
         env:
           SINCE: ${{ inputs.since }}
           UNTIL: ${{ inputs.until }}
-      - name: Commit
+          STOCK_DATA_DIR: ${{ github.workspace }}/_stock-data
+      - name: Push stock-data（只留一個 commit）
         if: always()
+        working-directory: _stock-data
         env:
           SINCE: ${{ inputs.since }}
         run: |
-          git add stock/data
+          git add -A
           if git diff --cached --quiet; then echo "沒有變動"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan snapshot
           git commit -m "股票：補歷史收盤價 $SINCE 起"
-          git pull --rebase origin main
-          git push
+          git push -f origin snapshot:stock-data

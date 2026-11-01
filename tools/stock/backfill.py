@@ -1,4 +1,4 @@
-"""補過去每天的收盤價到 stock/data/hist/（每日損益要從第一筆交易那天開始算）。
+"""補過去每天的收盤價到 hist/（資料夾見 hist.py 的 STOCK_DATA_DIR；每日損益要從第一筆交易那天開始算）。
 
     python3 tools/stock/backfill.py 2025-01-01            # 從這天補到昨天
     python3 tools/stock/backfill.py 2025-01-01 2025-01-10 # 指定區間

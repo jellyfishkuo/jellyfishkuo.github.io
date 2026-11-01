@@ -1,11 +1,11 @@
-"""抓台股（上市＋上櫃）當天收盤價，寫到 stock/data/，給 stock/index.html 算市值與當日損益。
+"""抓台股（上市＋上櫃）當天收盤價，寫到資料夾（STOCK_DATA_DIR，見 hist.py；線上是 stock-data 分支），給 stock/index.html 算市值與當日損益。
 
 由 .github/workflows/stock-quotes.yml 每個交易日收盤後執行；也可以手動跑：
     python3 tools/stock/fetch_quotes.py
 輸出：
-    stock/data/latest.json      {"date", "fetchedAt", "q": {代號: [收盤價, 漲跌]}}
-    stock/data/hist/<代號>.json  每檔每天的收盤價（見 hist.py；更早的用 backfill.py 補）
-    stock/data/names.json       {代號: 名稱}，打代號時自動帶名稱用（下市的舊名稱會留著）
+    latest.json      {"date", "fetchedAt", "q": {代號: [收盤價, 漲跌]}}
+    hist/<代號>.json  每檔每天的收盤價（見 hist.py；更早的用 backfill.py 補）
+    names.json       {代號: 名稱}，打代號時自動帶名稱用（下市的舊名稱會留著）
 沒有新資料（假日、已經抓過）就什麼都不改。
 
 收盤價一定用「指定日期」的證交所 MI_INDEX／櫃買中心每日收盤行情（backfill.py 的 twse()、tpex()），
@@ -21,11 +21,10 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hist import HIST, add_days  # noqa: E402
+from hist import DATA, HIST, add_days  # noqa: E402
 from backfill import tpex, twse  # noqa: E402
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-OUT = os.path.join(ROOT, "stock", "data")
+OUT = DATA
 # 股票、ETF、特別股；權證（6 碼 03xxxx～08xxxx、7xxxxx）不需要，省掉一大半檔案大小
 WANTED = re.compile(r"^(\d{4}[A-Z]?|00\d{2,4}[A-Z]?)$")
 SOURCES = [

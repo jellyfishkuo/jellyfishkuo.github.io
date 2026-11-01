@@ -1,12 +1,17 @@
-"""每檔股票的每日收盤紀錄：stock/data/hist/<代號>.json = {"YYYY-MM-DD": [收盤價, 漲跌], ...}
+"""每檔股票的每日收盤紀錄：<資料夾>/hist/<代號>.json = {"YYYY-MM-DD": [收盤價, 漲跌], ...}
 
 頁面只下載自己有交易的那幾檔，用來算從第一筆交易開始每天的賺賠。
 fetch_quotes.py 每天加一天；backfill.py 一次補很多天。
+
+資料夾由環境變數 STOCK_DATA_DIR 指定（GitHub Actions 用 stock-data 分支的工作目錄）；
+沒設的話用 repo 裡的 stock/data/（只給本機測試，main 已經不放資料，見 .gitignore）。
 """
 import json
 import os
 
-HIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "stock", "data", "hist")
+DATA = os.environ.get("STOCK_DATA_DIR") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "stock", "data")
+HIST = os.path.join(DATA, "hist")
 
 
 def add_days(days):

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant-TW">
+<html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -983,14 +983,17 @@ $("sideBuy").addEventListener("click", () => setSide("buy"));
 $("sideSell").addEventListener("click", () => setSide("sell"));
 $("cancelEdit").addEventListener("click", resetForm);
 for (const id of ["fShares", "fPrice", "fKind", "fFee", "fTax", "fCode"]) $(id).addEventListener("input", updatePreview);
-/* 股票名稱一律用交易所的正式名稱（data/names.json，每天跟收盤價一起更新，改名也會跟著變） */
+/* 收盤價與名稱放在 stock-data 分支（GitHub Actions 每個交易日更新，見 .github/workflows/stock-quotes.yml），
+   不放 main，所以從 raw.githubusercontent.com 讀；那邊最多快取 5 分鐘 */
+const STOCK_DATA = "https://raw.githubusercontent.com/jellyfishkuo/jellyfishkuo.github.io/stock-data/";
+/* 股票名稱一律用交易所的正式名稱（names.json，每天跟收盤價一起更新，改名也會跟著變） */
 let stockNames = null;
 function nameOf(code) {
   if (stockNames && stockNames[code]) return stockNames[code];
   const known = computeHoldings(state.trades, state.settings).all.get(code);
   return (known && known.name) || "";
 }
-fetch("data/names.json", { cache: "no-cache" }).then(r => (r.ok ? r.json() : null)).then(d => {
+fetch(STOCK_DATA + "names.json", { cache: "no-cache" }).then(r => (r.ok ? r.json() : null)).then(d => {
   if (!d || typeof d !== "object") return;
   stockNames = d;
   let changed = false;
@@ -1172,9 +1175,9 @@ $("clearExample").addEventListener("click", () => clearExample(false));
 let toastTimer;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2200); }
 
-/* ---------- 自動收盤價：GitHub Actions 每個交易日收盤後寫 data/latest.json 與 data/d日期.json（tools/stock/fetch_quotes.py） ---------- */
+/* ---------- 自動收盤價：GitHub Actions 每個交易日收盤後寫 latest.json 與 hist/代號.json 到 stock-data 分支（tools/stock/fetch_quotes.py） ---------- */
 async function getQuoteFile(name) {
-  const r = await fetch(`data/${name}.json`, { cache: "no-cache" });
+  const r = await fetch(`${STOCK_DATA}${name}.json`, { cache: "no-cache" });
   if (!r.ok) throw new Error(r.status);
   return r.json();
 }
@@ -1184,7 +1187,7 @@ async function loadQuotes() {
     if (!d || !d.q || !/^\d{4}-\d{2}-\d{2}$/.test(d.date || "")) return;
     quotes = d;
     render();
-    /* 每日損益：下載自己有交易的那幾檔的歷史收盤價（data/hist/代號.json），從第一筆交易那天開始算 */
+    /* 每日損益：下載自己有交易的那幾檔的歷史收盤價（hist/代號.json），從第一筆交易那天開始算 */
     const codes = [...new Set(state.trades.map(t => t.code))];
     const firstDate = state.trades.reduce((m, t) => (!m || t.date < m ? t.date : m), "");
     if (!codes.length) return;

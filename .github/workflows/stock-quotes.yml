@@ -1,4 +1,6 @@
-# 每個交易日收盤後抓台股收盤價，寫進 stock/data/（股票庫存頁用）
+# 每個交易日收盤後抓台股收盤價，寫進 stock-data 分支（股票庫存頁從 raw.githubusercontent.com 讀）
+# 資料不放 main：每天會改到兩千多個檔案，放 main 會讓 repo 每天長大。
+# stock-data 分支每次都 force-push 成只有一個 commit，所以不會越來越大。
 name: 台股收盤價
 
 on:
@@ -22,16 +24,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: stock-data
+          path: _stock-data
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python3 tools/stock/fetch_quotes.py
-      - name: Commit
+        env:
+          STOCK_DATA_DIR: ${{ github.workspace }}/_stock-data
+      - name: Push stock-data（只留一個 commit）
+        working-directory: _stock-data
         run: |
-          git add stock/data
+          git add -A
           if git diff --cached --quiet; then echo "沒有變動"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
-          git commit -m "股票：更新收盤價 $(python3 -c 'import json;print(json.load(open("stock/data/latest.json"))["date"])')"
-          git pull --rebase origin main
-          git push
+          git checkout --orphan snapshot
+          git commit -m "股票：收盤價 $(python3 -c 'import json;print(json.load(open("latest.json"))["date"])')"
+          git push -f origin snapshot:stock-data

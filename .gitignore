@@ -9,3 +9,6 @@ tools/set-online/*.log
 
 # 測試截圖（各 Demo 的 test.py 會存在自己的資料夾）
 tools/**/*.png
+
+# 股票收盤價放在 stock-data 分支（GitHub Actions 更新），main 不放；本機跑 tools/stock 時會寫到這裡
+stock/data/
