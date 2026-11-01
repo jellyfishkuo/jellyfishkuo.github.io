@@ -178,6 +178,21 @@
                     <a href="https://doi.org/10.1016/j.ins.2025.122243" target="_blank" rel="noopener">DOI</a>
                 </div>
             </article>
+            <article class="paper" style="--c: var(--t-inc)">
+                <div class="top"><span class="yr">2025</span><span class="tag">增量資料庫</span><span class="tag" style="--c: var(--t-hui)">高效益樣式</span></div>
+                <h3>Efficient mining top-k high utility itemsets in incremental databases based on threshold raising strategies and pre-large concept</h3>
+                <p class="zh">PreTK：資料一批一批進來，多存幾名候補，就不用每批都重挖前 k 名</p>
+                <p class="cite">N.T. Tung, Loan T.T. Nguyen, Trinh D.D. Nguyen, Bao Huynh. <i>Knowledge-Based Systems</i>, Vol. 315, Article 113273, 2025.</p>
+                <ul>
+                    <li><b>問題：</b>之前的增量 top-k 方法（ITHUI）每來一批新交易就整個重挖一次，很浪費。</li>
+                    <li><b>做法：</b>用兩個 k，前 k_lower 名是答案（Large），到第 k_upper 名的當候補（Pre-large），一起存在 itemset-tree 上。新的一批裡最大的 TWU 小於兩個門檻的差，就只更新樹，不用重挖。</li>
+                    <li><b>門檻拉高：</b>真的要重挖時，先用單一商品、GLIU、上次挖完的門檻把起始門檻拉高，少走冤枉路。</li>
+                </ul>
+                <div class="acts">
+                    <a class="go" href="pretk.html">看互動 Demo →</a>
+                    <a href="https://doi.org/10.1016/j.knosys.2025.113273" target="_blank" rel="noopener">DOI</a>
+                </div>
+            </article>
             <article class="paper" style="--c: var(--t-stream)">
                 <div class="top"><span class="yr">2026</span><span class="tag">資料串流</span><span class="tag" style="--c: var(--t-freq)">頻繁樣式</span></div>
                 <h3>Uncertainty oriented pattern extracting and analyzing via sliding window control</h3>
