@@ -79,6 +79,7 @@ PROJECTS = {
     'zip': [('stroke="#2a2a40"', 'stroke="#c9d6bb"'), ('stroke="#22d3ee"', 'stroke="#ffb02e"'),
             ('r="5" fill="#ffffff"/>', f'r="5" fill="{INK}"/>'),
             ('r="5" fill="#facc15"/>', f'r="5" fill="#ff4d3d" stroke="{INK}" stroke-width="2"/>')],
+    'chess': [('<g fill="#ffffff">', f'<g fill="#ffffff" stroke="{INK}" stroke-width="2" stroke-linejoin="round">')],
     'runner': [('stroke="#7c3aed"', f'stroke="{INK}"'),
                ('z" fill="#9bd72f"/>', f'z" fill="#9bd72f" stroke="{INK}" stroke-width="2" stroke-linejoin="round"/>'),
                ('r="2" fill="#12121c"', f'r="2" fill="{INK}"'),

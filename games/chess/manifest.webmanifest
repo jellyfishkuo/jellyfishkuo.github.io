@@ -1,0 +1,13 @@
+{
+  "name": "Jellyfish Chess 西洋棋",
+  "short_name": "Jellyfish Chess",
+  "start_url": "./#play",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1420",
+  "theme_color": "#0d1420",
+  "icons": [
+    { "src": "../../assets/icons/chess-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "../../assets/icons/chess.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

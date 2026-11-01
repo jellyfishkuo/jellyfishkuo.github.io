@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../../assets/icons/chess.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../../assets/icons/chess-32.png">
+    <link rel="apple-touch-icon" href="../../assets/icons/chess-180.png">
+    <title>Jellyfish Chess 西洋棋</title>
+    <meta name="description" content="在瀏覽器裡跟 Stockfish 下西洋棋，做戰術題、分析棋局、研究開局與殘局。全部在你的裝置上執行，不用帳號，資料存在自己的瀏覽器。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="Jellyfish Chess 西洋棋">
+    <meta property="og:description" content="在瀏覽器裡跟 Stockfish 下西洋棋，做戰術題、分析棋局、研究開局與殘局。全部在你的裝置上執行，不用帳號，資料存在自己的瀏覽器。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/games/chess/">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="jfk-paint" content="off"><!-- 棋盤、棋子的顏色自己管，不要被淺色主題換掉 -->
+    <meta name="theme-color" content="#0d1420">
+    <script src="../../assets/theme.js"></script>
+    <link rel="stylesheet" href="../../assets/theme.css">
+    <link rel="stylesheet" href="chess.css">
+    <link rel="manifest" href="manifest.webmanifest">
+</head>
+
+<body>
+    <header class="cx-top">
+        <a class="back" href="../../index.html#projects" title="回到果汁龍的網站" data-light-label="回首頁">← <span class="long">果汁龍的網站</span><span class="short">首頁</span></a>
+        <div class="brand"><img src="../../assets/icons/chess.svg" alt="" width="28" height="28"><span>Jellyfish <b>Chess</b></span></div>
+        <span class="jfk-switch-slot"></span>
+    </header>
+    <nav class="cx-nav" aria-label="Jellyfish Chess 功能">
+        <a href="#play" data-route="play">對弈<small>Play</small></a>
+        <a href="#tactics" data-route="tactics">戰術<small>Tactics</small></a>
+        <a href="#analysis" data-route="analysis">分析<small>Analysis</small></a>
+        <a href="#openings" data-route="openings">開局<small>Openings</small></a>
+        <a href="#endgames" data-route="endgames">殘局<small>Endgames</small></a>
+        <a href="#my" data-route="my">我的<small>My Chess</small></a>
+    </nav>
+
+    <main class="cx-main" id="main">
+        <section class="stage" aria-label="棋盤">
+            <div class="stage-inner">
+                <div class="player" id="p-top"></div>
+                <div class="board-row">
+                    <div class="evalbar" id="evalbar" hidden aria-hidden="true"><div class="fill"></div><span></span></div>
+                    <div id="board"></div>
+                </div>
+                <div class="player" id="p-bottom"></div>
+                <div class="board-tools" id="tools"></div>
+            </div>
+        </section>
+        <aside class="panel" id="panel" aria-live="polite"></aside>
+    </main>
+
+    <footer class="foot">
+        <p>棋規：<a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a>（BSD-2）・引擎：<a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish.js 18</a>（GPLv3，<a href="vendor/stockfish/COPYING.txt">授權條款</a>）・棋子：Colin M.L. Burnett（GPLv2+）。
+            引擎在你的瀏覽器裡執行，不會把棋局傳到任何伺服器。<a href="LICENSES.md">第三方授權說明</a></p>
+    </footer>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+    <dialog class="dlg" id="dlg"></dialog>
+
+    <noscript><p style="padding:20px">這個西洋棋需要開啟 JavaScript 才能使用。</p></noscript>
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>

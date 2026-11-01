@@ -20,6 +20,7 @@
 | Pentomino 8×8 求解器 | 演算法 / 拖曳互動 | [pentomino.html](games/pentomino.html) | [pentomino-detail.html](games/pentomino-detail.html) |
 | 無限井字棋 | 賽局論 / AI | [infinite-tictactoe.html](games/infinite-tictactoe.html) | [infinite-tictactoe-detail.html](games/infinite-tictactoe-detail.html) |
 | 立式五子棋 | 重力棋盤 / AI 搜尋 | [vertical-gomoku.html](games/vertical-gomoku.html) | [vertical-gomoku-detail.html](games/vertical-gomoku-detail.html) |
+| 西洋棋 Jellyfish Chess | Stockfish WASM 對弈・戰術・分析・開局・殘局 | [games/chess/](games/chess/) | — |
 | SET 練功房 | 組合數學 / SVG | [game-set.html](games/game-set.html) | [game-set-detail.html](games/game-set-detail.html) |
 | 1A2B 猜數字 | 邏輯推理 / 資訊論 | [1A2B.html](games/1A2B.html) | [1A2B-detail.html](games/1A2B-detail.html) |
 | 部落衝突卡牌交易站 | 狀態管理 / localStorage | [coc-card.html](games/coc-card.html) | [coc-card-detail.html](games/coc-card-detail.html) |
@@ -95,8 +96,20 @@
     ├── lab-life.html
     ├── pet.html
     ├── runner.html
-    └── dinner-wheel.html
+    ├── dinner-wheel.html
+    └── chess/                 # Jellyfish Chess（多檔：index.html + js/ + data/ + vendor/，見下方說明）
 ```
+
+## Jellyfish Chess（games/chess/）
+
+首頁上只是一張普通的遊戲卡，點進去是一套完整的西洋棋工具。因為功能多、還要放 7 MB 的引擎，這是網站裡少數**不是單檔**的作品：
+
+- **對弈**：跟 Stockfish 18（WebAssembly，跑在 Web Worker）下棋，10 段難度、可調思考時間，悔棋、提示、認輸，FEN／PGN 載入、PGN 匯出，自動存棋譜。
+- **戰術**：雙重攻擊、牽制、串擊、閃擊、引離、消除保護者、殺王、防守戰術；多步驟解答、走錯給提示、解完有解析，收藏、錯題重練、正確率。題目由 `tools/chess/gen_tactics.mjs` 用 Stockfish 自我對弈找出來，每一步都是引擎驗證過的唯一好棋。
+- **分析**：匯入 PGN，逐步評估、標出 Blunder／Mistake／Inaccuracy、最佳走法、變化，評估曲線可以點；即時 MultiPV 分析。
+- **開局**：8 個開局（ECO、主線逐步說明、主要變化、目的、典型戰術、常見錯誤、練習模式）。**殘局**：K+Q、K+R、王兵、對位、Lucena、Philidor，直接對 Stockfish 練。
+- **我的**：對局、戰術紀錄、收藏、筆記、分析結果存在 IndexedDB，可以下載／還原 JSON 備份。不需要帳號。
+- 全部用相對路徑，放在任何子路徑都能跑；Service Worker 會留一份已載入的檔案，離線也能下棋。第三方授權見 [games/chess/LICENSES.md](games/chess/LICENSES.md)。
 
 ## 技術與設計原則
 

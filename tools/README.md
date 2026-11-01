@@ -62,3 +62,12 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 `python3 tools/stock/fetch_quotes.py` 抓證交所（上市）和櫃買中心（上櫃）當天收盤價，寫到 `latest.json`、每檔的歷史 `hist/<代號>.json` 和 `names.json`（代號→名稱，打代號自動帶名稱用）。資料夾由環境變數 `STOCK_DATA_DIR` 指定，沒設就寫到 `stock/data/`（已加進 .gitignore，只給本機測試）。線上的資料放在 **`stock-data` 分支**，`stock/index.html` 從 `raw.githubusercontent.com` 讀；那個分支每次都 force-push 成只有一個 commit，不會越來越大。平常由 GitHub Actions（`.github/workflows/stock-quotes.yml`）每個交易日台灣時間 15:40、17:10、19:40、22:10 各跑一次並推到 stock-data 分支（收盤價用指定日期的 MI_INDEX／櫃買每日行情，還沒公布就等下一次；OpenAPI 傍晚常常還是前一天的，只拿來更新名稱）；要手動補跑就到 Actions 頁按 Run workflow。
 
 更早的歷史用 `python3 tools/stock/backfill.py 2025-01-01`（或 Actions 的「台股歷史收盤價補抓」，填開始日期）補；已經補過的日子會跳過。
+
+## chess/：Jellyfish Chess 的題庫產生器與測試
+
+需要 Node 18+ 與 Python Playwright。引擎直接用網站上的 `games/chess/vendor/stockfish/stockfish-18-lite-single.js`（Node 也能跑），所以測到的就是部署出去的那一份。
+
+- `gen_tactics.mjs [對局數] [平行引擎數]`：產生 `games/chess/data/tactics.js`。Stockfish 低 Skill Level 自我對弈（約 1/3 步數改走淺層搜尋的第 2～6 名）→ 找「只有一步能贏／只有一步不會輸」的局面 → depth 16～18 逐步驗證每一步都是唯一好棋、而且最後真的拿到子力或將死 → `themes.mjs` 依棋盤事實判斷題型並產生中文解析。中間結果在 `out/`，可以中斷後接著跑（已經跑過的對局、驗證過的局面不會重算）。原本打算用 Lichess 公開題庫，但開發環境連不到 database.lichess.org，所以改成自己產生。
+- `check_data.mjs`：檢查開局（每條棋譜合法、「典型戰術／常見錯誤」寫的優劣方向跟 Stockfish 一致）、殘局（起始局面合法，要贏的是勝勢、要守和的是和棋）、戰術題（每步合法）。有錯就以非 0 結束。
+- `test_chess.py [組名…]`：瀏覽器測試（首頁卡片、棋盤、棋規、Stockfish 對弈、PGN、分析、戰術、開局殘局、IndexedDB 備份還原、手機版、GitHub Pages 子路徑、離線）。先開 `python3 -m http.server 8770`。截圖在 `chess/shots/`。
+- `icon.py`：從 `assets/icons/chess.svg` 產生 32／180 px 的 PNG。
