@@ -54,7 +54,30 @@ export class Board {
 
   setFlipped(v) { this.flipped = !!v; this.layout(); }
   flip() { this.setFlipped(!this.flipped); }
-  setLast(m) { this.last = m ? { from: m.from, to: m.to } : null; }
+  /** opts.animate：讓這一步的棋子從起點滑到終點（電腦、對手、播放用；自己拖曳的棋不要） */
+  setLast(m, opts) {
+    this.last = m ? { from: m.from, to: m.to } : null;
+    if (m && opts && opts.animate) this.anim = { from: m.from, to: m.to, flags: m.flags || '' };
+  }
+  playAnim() {
+    const a = this.anim; this.anim = null;
+    if (!a || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    const slide = (from, to) => {
+      const img = this.cells[to] && this.cells[to].querySelector('img.pc');
+      if (!img || !this.cells[from]) return;
+      const f = this.cells[from].getBoundingClientRect(), t = this.cells[to].getBoundingClientRect();
+      const dx = f.left - t.left, dy = f.top - t.top;
+      if (!dx && !dy) return;
+      img.style.zIndex = 15;
+      const an = img.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }], { duration: 320, easing: 'cubic-bezier(.25,.8,.35,1)' });
+      an.onfinish = an.oncancel = () => { img.style.zIndex = ''; };
+    };
+    slide(a.from, a.to);
+    // 易位時車也一起滑
+    const r = a.to[1];
+    if (a.flags.includes('k')) slide('h' + r, 'f' + r);
+    if (a.flags.includes('q')) slide('a' + r, 'd' + r);
+  }
   setArrows(a) { this.arrows = a || []; this.drawArrows(); }
   setMarks(m) { this.marks = m || {}; this.render(); }   // { e4: 'good' | 'bad' | 'hint' }
 
@@ -86,6 +109,7 @@ export class Board {
       cell.setAttribute('aria-label', label);
     }
     this.drawArrows();
+    if (this.anim) this.playAnim();
   }
 
   center(s) {

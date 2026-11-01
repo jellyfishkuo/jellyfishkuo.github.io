@@ -64,7 +64,7 @@ async function engineMove() {
   S.thinking = false;
   let mine = null;
   if (r.lines[0]) { const w = whitePov(r.lines[0].score, S.g.turn()); mine = (S.item.side === 'w' ? 1 : -1) * (w.mate !== undefined ? (w.mate > 0 ? 100000 : -100000) : w.cp); }
-  if (r.best) { const m = applyUci(S.g, r.best); app.board.setLast(m); }
+  if (r.best) { const m = applyUci(S.g, r.best); app.board.setLast(m, { animate: true }); }
   S.result = judge(mine);
   if (S.result) record();
   sync(); app.board.render();

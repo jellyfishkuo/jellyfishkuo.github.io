@@ -62,7 +62,7 @@ function start(p) {
   setTimeout(() => {
     if (tok !== S.tok) return;
     const m = applyUci(S.g, solMoves(p)[0]);
-    app.board.setLast(m); app.board.render(); app.players({ white: p.side === 'w' ? '你' : '對手', black: p.side === 'b' ? '你' : '對手' });
+    app.board.setLast(m, { animate: true }); app.board.render(); app.players({ white: p.side === 'w' ? '你' : '對手', black: p.side === 'b' ? '你' : '對手' });
     S.busy = false;
     setStatus(`輪到你（${p.side === 'w' ? '白' : '黑'}）：找出最好的一步`, '');
     renderHead();
@@ -121,7 +121,7 @@ async function onMove(m) {
   setTimeout(() => {
     if (tok !== S.tok) return;
     const r = applyUci(S.g, sol[S.step]); S.step++;
-    app.board.setLast(r); app.board.setMarks({}); app.setGame(S.g); app.board.render();
+    app.board.setLast(r, { animate: true }); app.board.setMarks({}); app.setGame(S.g); app.board.render();
     app.players({ white: p.side === 'w' ? '你' : '對手', black: p.side === 'b' ? '你' : '對手' });
     S.busy = false;
     setStatus(`對手走 ${r.san}。繼續，找下一步！`, '');
@@ -154,7 +154,7 @@ async function reveal() {
     await new Promise(r => setTimeout(r, 700));
     if (tok !== S.tok) return;
     const m = applyUci(S.g, u); S.step++;
-    app.board.setLast(m); app.board.setArrows([]); app.setGame(S.g); app.board.render();
+    app.board.setLast(m, { animate: true }); app.board.setArrows([]); app.setGame(S.g); app.board.render();
   }
   S.busy = false;
   finish(false);

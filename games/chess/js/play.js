@@ -8,6 +8,7 @@ const S = {
   g: null, startFen: DEFAULT_POSITION, my: 'w', view: null, thinking: false, token: 0, id: null, over: null, resigned: false, hint: null,
 };
 let app, ui = {};
+const MIN_THINK = 700;   // 電腦每步至少顯示「思考中」這麼久（毫秒）
 
 const levelOf = () => LEVELS[S.level] || LEVELS[4];
 const engineColor = () => (S.my === 'w' ? 'b' : 'w');
@@ -50,7 +51,8 @@ function outcome(g) {
 function sync() {
   const g = shown();
   app.setGame(g);
-  app.board.setLast(g.history({ verbose: true }).slice(-1)[0] || null);
+  app.board.setLast(g.history({ verbose: true }).slice(-1)[0] || null, { animate: S.animNext && S.view === null });
+  S.animNext = false;
   app.board.setArrows(S.hint && S.view === null ? [{ from: S.hint.slice(0, 2), to: S.hint.slice(2, 4), color: 'rgba(6,182,212,0.75)' }] : []);
   app.board.render();
   const lv = levelOf();
@@ -80,10 +82,15 @@ async function maybeEngine() {
   S.thinking = true; sync();
   const lv = levelOf();
   try {
+    const t0 = performance.now();
     const r = await app.engine.go({ fen: S.startFen, moves: uciList(S.g), movetime: S.movetime, depth: lv.depth || undefined, skill: lv.skill });
     if (tok !== S.token) return;
+    // 低難度的引擎幾毫秒就回答，棋子會「閃」一下就出現；至少等一下，讓人看得到電腦在走
+    const wait = MIN_THINK - (performance.now() - t0);
+    if (wait > 0) await new Promise(res => setTimeout(res, wait));
+    if (tok !== S.token) return;
     S.thinking = false;
-    if (r.best) applyUci(S.g, r.best);
+    if (r.best) { applyUci(S.g, r.best); S.animNext = true; }
     S.view = null;
     if (outcome(S.g)) finish();
     else save(false);

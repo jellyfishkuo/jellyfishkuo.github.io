@@ -4,7 +4,7 @@ import { OPENINGS } from '../data/openings.js';
 import { db } from './store.js';
 import { el, renderMoves } from './ui.js';
 
-const S = { o: null, line: null, title: '', moves: [], ply: 0, notes: {}, favs: new Set(), drill: false, drillMiss: 0, tok: 0 };
+const S = { shown: -1, userMoved: false, o: null, line: null, title: '', moves: [], ply: 0, notes: {}, favs: new Set(), drill: false, drillMiss: 0, tok: 0 };
 let app, ui = {};
 
 function sansOf(pgn) { const g = new Chess(); g.loadPgn(pgn); return g.history(); }
@@ -27,7 +27,10 @@ function go(n) { S.ply = Math.max(0, Math.min(S.moves.length, n)); render(); }
 function render() {
   const g = posAt(S.ply);
   app.setGame(g);
-  app.board.setLast(g.history({ verbose: true }).slice(-1)[0] || null);
+  // 往前走一步時棋子用滑的（自己在棋盤上走的那步不用，已經在那裡了）
+  const step = S.ply === S.shown + 1 && !S.userMoved;
+  S.shown = S.ply; S.userMoved = false;
+  app.board.setLast(g.history({ verbose: true }).slice(-1)[0] || null, { animate: step });
   app.board.setArrows([]);
   app.board.render();
   app.players({ white: '白方', black: '黑方' });
@@ -64,6 +67,7 @@ function onMove(m) {
     // 一般模式：在棋盤上自由試走就切到「試走」
     const g = posAt(S.ply);
     let mv; try { mv = g.move(m); } catch (e) { return false; }
+    S.userMoved = true;
     if (S.moves[S.ply] === mv.san) { go(S.ply + 1); return true; }
     S.moves = S.moves.slice(0, S.ply).concat(mv.san); S.ply++; S.title = '試走'; S.notes = {};
     render(); ui.note.textContent = '你在試走自己的變化。按主線或其他變化可以回去。'; ui.note.style.visibility = 'visible';
@@ -77,6 +81,7 @@ function onMove(m) {
     app.board.render();
     return false;
   }
+  S.userMoved = true;
   S.ply++; render();
   ui.note.textContent = '✓ ' + (S.notes[S.ply] || '對了！');
   autoReply();

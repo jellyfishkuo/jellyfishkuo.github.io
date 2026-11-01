@@ -22,7 +22,7 @@ export function classify(before, after, mover, bestUci, playedUci) {
   return null;
 }
 
-const S = { g: null, startFen: DEFAULT_POSITION, fens: [], moves: [], ply: 0, evals: [], running: false, live: true, liveTok: 0, id: null, headers: {} };
+const S = { shown: -1, userMoved: false, g: null, startFen: DEFAULT_POSITION, fens: [], moves: [], ply: 0, evals: [], running: false, live: true, liveTok: 0, id: null, headers: {} };
 let app, ui = {};
 
 function load(pgnOrFen, { id = null, evals = null } = {}) {
@@ -139,7 +139,9 @@ function render() {
   const c = posAt(S.ply);
   app.setGame(c);
   const last = S.ply > 0 ? S.moves[S.ply - 1] : null;
-  app.board.setLast(last);
+  const step = S.ply === S.shown + 1 && !S.userMoved;
+  S.shown = S.ply; S.userMoved = false;
+  app.board.setLast(last, { animate: step });
   const ev = S.evals[S.ply];
   const arrows = [];
   if (ev && ev.best) arrows.push({ from: ev.best.slice(0, 2), to: ev.best.slice(2, 4), color: 'rgba(34,197,94,0.75)' });
@@ -221,6 +223,7 @@ function onMove(m) {
   const c = posAt(S.ply);
   let mv; try { mv = c.move(m); } catch (e) { return false; }
   const u = mv.from + mv.to + (mv.promotion || '');
+  S.userMoved = true;
   if (S.moves[S.ply] && S.moves[S.ply].uci === u) { go(S.ply + 1); return true; }
   // 改走別的：截斷後面的棋步
   S.moves = S.moves.slice(0, S.ply); S.fens = S.fens.slice(0, S.ply + 1); S.evals = S.evals.slice(0, S.ply + 1);
