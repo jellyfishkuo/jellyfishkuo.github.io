@@ -188,7 +188,7 @@
         <section class="rules">
             <h2>怎麼玩</h2>
             <ol>
-                <li>從 <b>1</b> 按下去開始拖，經過 2、3、4… 照順序走到最後一個數字。</li>
+                <li>從 <b>1</b> 按下去開始拖，經過 2、3、4… 照順序走，<b>最後要停在最大的那個數字上</b>（走到它就不能再往前了）。</li>
                 <li>每一格都要剛好走過一次，粗線是牆，不能穿過去。</li>
                 <li>拖回頭可以收回；點路線上的任一格，會從那裡重新接著畫。</li>
                 <li>用電腦玩：不用一直按著滑鼠，<b>點一下線的尾端</b>，線就會跟著滑鼠走，再點一下停。也可以用方向鍵或 WASD 一格一格走。</li>
@@ -417,7 +417,7 @@
                 draw();
                 tick();
                 showBest();
-                say('從 <b>1</b> 開始拖，照順序經過每個數字，最後要把整個棋盤填滿。');
+                say('從 <b>1</b> 開始拖，照順序經過每個數字，填滿整個棋盤，最後停在 <b>' + P.K + '</b> 上。');
             }
 
             function rebuildOnPath() {
@@ -516,6 +516,7 @@
             // ── 走一步：相鄰、沒有牆、還沒走過、遇到數字要是下一個 ──
             function canStep(a, b) {
                 if (onPath[b] >= 0) return false;
+                if (P.clue[a] === P.K) return false;        // 最後一個數字是終點，走到就不能再往前
                 var d = dirBetween(P.n, a, b);
                 if (d < 0 || P.walls[a * 4 + d]) return false;
                 if (P.clue[b] && P.clue[b] !== nextNum()) return false;
@@ -552,9 +553,9 @@
             function changed() {
                 if (!t0 && path.length > 1) { t0 = Date.now(); timer = setInterval(tick, 500); }
                 if (hintCell >= 0 && onPath[hintCell] >= 0) hintCell = -1;
-                if (path.length === P.n * P.n && nextNum() > P.K) win();
+                if (path.length === P.n * P.n && nextNum() > P.K && P.clue[path[path.length - 1]] === P.K) win();
                 else if (path.length === P.n * P.n) say('格子都走過了，但數字順序不對，退回去調整看看。');
-                else if (P.clue[path[path.length - 1]] === P.K) say('已經到最後一個數字了，可是還有 <b>' + (P.n * P.n - path.length) + '</b> 格沒走到。');
+                else if (P.clue[path[path.length - 1]] === P.K) say('<b>' + P.K + '</b> 是終點，走到就不能再往前了，可是還有 <b>' + (P.n * P.n - path.length) + '</b> 格沒走到。退回去，把 ' + P.K + ' 留到最後。');
                 else say('下一個要經過 <b>' + nextNum() + '</b>，還剩 <b>' + (P.n * P.n - path.length) + '</b> 格。');
                 requestDraw();
             }
