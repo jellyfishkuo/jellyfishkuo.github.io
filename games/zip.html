@@ -592,6 +592,12 @@
                 lastPt = q;
                 return any;
             }
+            // c 是線頭旁邊（含斜對角）、最近走過的 3 格之一：可以往回收到這裡
+            function recentBack(c) {
+                var i = onPath[c], h = path[path.length - 1], n = P.n;
+                return i >= 0 && i < path.length - 1 && i >= path.length - 4 &&
+                    Math.abs(Math.floor(c / n) - Math.floor(h / n)) <= 1 && Math.abs(c % n - h % n) <= 1;
+            }
             function adj(a, b) {
                 var n = P.n;
                 return Math.abs(Math.floor(a / n) - Math.floor(b / n)) + Math.abs(a % n - b % n) === 1;
@@ -601,9 +607,14 @@
                 var n = P.n, c = Math.floor(y) * n + Math.floor(x), head = path[path.length - 1];
                 if (c === head) return false;
                 var fx = x % 1, fy = y % 1, deep = fx > 0.22 && fx < 0.78 && fy > 0.22 && fy < 0.78;
-                // 退回上一格＝收回一步；要走進格子中間才算，在格線附近抖動不會一直收回又前進
-                if (path.length > 1 && c === path[path.length - 2]) { if (!deep) return false; pop(); return true; }
-                if (onPath[c] >= 0) return false;            // 劃過自己的路線不收，只有點下去才收
+                // 往回拖：走進「最近走過的 3 格」之一的中間，就收回到那一格。
+                // 要走進中間才算，在格線附近抖動不會一直收回又前進；
+                // 包含斜對角，轉彎處往回斜切過轉角（切西瓜）也收得回去，順手多長出來的那格也一起收掉。
+                // 更早以前的線只是劃過不收（只有點下去才收），免得不小心整段被剪掉。
+                if (onPath[c] >= 0) {
+                    if (deep && recentBack(c)) { truncate(onPath[c] + 1); return true; }
+                    return false;
+                }
                 if (adj(head, c)) { if (canStep(head, c)) { push(c); return true; } return false; }
                 var hr = Math.floor(head / n), hc = head % n, cr = Math.floor(c / n), cc = c % n;
                 if (Math.abs(hr - cr) === 1 && Math.abs(hc - cc) === 1) {
@@ -650,7 +661,7 @@
                 // 放開時手指已經在上一格，就照畫面上看到的收回，不然線會彈回去
                 if (finger && !following && !won && path.length > 1 && e && e.type === 'pointerup') {
                     var fc = Math.floor(finger.y) * P.n + Math.floor(finger.x);
-                    if (finger.x >= 0 && finger.y >= 0 && finger.x < P.n && finger.y < P.n && fc === path[path.length - 2]) { finger = null; pop(); changed(); }
+                    if (finger.x >= 0 && finger.y >= 0 && finger.x < P.n && finger.y < P.n && recentBack(fc)) { finger = null; truncate(onPath[fc] + 1); changed(); }
                 }
                 finger = null; requestDraw();
                 // 電腦上沒拖動、只是點一下：開始跟隨滑鼠
