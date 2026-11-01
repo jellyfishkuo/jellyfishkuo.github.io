@@ -68,7 +68,7 @@ function facts(step, solver, laterCaps) {
   if (slider && DIRS[slider.type]) for (const d of DIRS[slider.type]) {
     const [a, b] = ray(after, m.to, d);
     if (!a || !b || a.color !== enemy || b.color !== enemy) continue;
-    if (VAL[b.type] > VAL[a.type] && a.type !== 'k') f.pin = f.pin || { a, b };
+    if (VAL[b.type] > VAL[a.type] && a.type !== 'k' && a.type !== 'p') f.pin = f.pin || { a, b };
     if (VAL[a.type] > VAL[b.type] && (a.type === 'k' || a.type === 'q') && b.type !== 'p') f.skewer = f.skewer || { a, b };
   }
   // 閃擊：走開以後，後面我方長程棋子新攻擊到的敵方子（王或 ≥ 象馬）
@@ -111,7 +111,17 @@ export function classify(v) {
       const protectedBy = [];
       for (const row of before.board()) for (const p of row)
         if (p && p.color !== solver && p.square !== D && p.type !== 'k' && before.attackers(p.square, opp(solver)).includes(D)) protectedBy.push(p.square);
-      if (protectedBy.some(s => later.includes(s) && before.attackers(s, solver).length)) themes.add('defender');
+      // 吃保護者本身不能就是「白吃一個子」：要是交換（對手吃得回來、或用不比它值錢的子去吃）
+      // 而且保護者不是對手剛走過來的子（那只是吃回對手送上門的子）
+      const trade = steps[i - 1].m.to !== D && steps[i].after.attackers(D, opp(solver)).length > 0 && VAL[steps[i].m.captured] <= VAL[steps[i].m.piece];
+      if (!trade) { /* 不算 */ }
+      else if (protectedBy.some(s => later.includes(s) && before.attackers(s, solver).length)) themes.add('defender');
+      // 解答最後一步就吃掉保護者：被保護的子（≥ 象馬）現在被我方攻擊、而且攻擊的子比保護的多
+      else if (i === steps.length - 1 && !v.mate) {
+        const after = steps[i].after;
+        if (protectedBy.some(s => { const x = after.get(s); return x && x.color !== solver && VAL[x.type] >= 3
+          && after.attackers(s, solver).length > after.attackers(s, opp(solver)).length; })) themes.add('defender');
+      }
     }
     // 引離：對手被迫用某個子回應（吃子或擋將），那個子原本守著下一步我方要走到的格子
     if (i + 2 < steps.length) {
@@ -129,7 +139,7 @@ export function classify(v) {
       if (!p || p.color !== solver || !DIRS[p.type]) continue;
       for (const d of DIRS[p.type]) {
         const [a, b] = ray(s1.before, p.square, d);
-        if (a && b && a.color !== solver && b.color !== solver && a.type !== 'k' && VAL[b.type] > VAL[a.type] && b.type !== 'p'
+        if (a && b && a.color !== solver && b.color !== solver && a.type !== 'k' && a.type !== 'p' && VAL[b.type] > VAL[a.type] && b.type !== 'p'
           && s1.after.attackers(a.s, solver).includes(s1.m.to) && p.square !== a.s && p.square !== s1.m.from
           && (capsAfter(1).includes(a.s) || (steps.length === 2 && !v.mate && (b.type === 'k' || VAL[b.type] >= 5) && VAL[s1.m.piece] < VAL[a.type]))) themes.add('pin');
       }

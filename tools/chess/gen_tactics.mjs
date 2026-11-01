@@ -73,79 +73,7 @@ async function playGame(e, seed) {
   return cand;
 }
 
-// ── 3. 驗證並延伸解答 ──
-const DEEP = +(process.env.DEEP || 16);
-function unique(lines, first) {
-  const l1 = lines[0], l2 = lines[1];
-  if (!l1) return false;
-  const b = cpOf(l1.score);
-  if (l1.score.mate !== undefined && l1.score.mate > 0) {
-    // 殺棋：其他走法不能也殺（最後一步殺王時另外處理：任何殺王的走法都算對）
-    return !l2 || !(l2.score.mate !== undefined && l2.score.mate > 0);
-  }
-  if (!l2) return b >= 200;
-  const s = cpOf(l2.score);
-  return first ? (b >= 200 && b - s >= 200 && s < 200) : (b - s >= 200 && s < 300);
-}
-
-async function verify(e, c) {
-  const ch = new Chess(c.fen);
-  try { ch.move({ from: c.last.slice(0, 2), to: c.last.slice(2, 4), promotion: c.last[4] }); } catch { return null; }
-  const solver = ch.turn();
-  const startMat = materialOf(ch, solver);
-  const moves = [c.last];
-  const startFen = ch.fen();
-  let found = null, startEval = null, finalEval = null, pre = null;
-  for (let step = 0; step < 4; step++) {
-    const a = pre || await e.analyse(ch.fen(), { depth: DEEP, multipv: 2 });
-    pre = null;
-    const l1 = a.lines[0], l2 = a.lines[1];
-    if (!l1) break;
-    if (step === 0) startEval = l1.score;
-    if (c.kind === 'defense') {
-      if (step > 0) break;
-      const b = cpOf(l1.score), s = l2 ? cpOf(l2.score) : -99999;
-      if (!(l2 && b > -150 && s <= b - 300)) return null;
-    } else if (!unique(a.lines, step === 0)) break;
-    const mv = l1.pv[0];
-    const m = ch.move({ from: mv.slice(0, 2), to: mv.slice(2, 4), promotion: mv[4] });
-    moves.push(mv);
-    found = { fen: ch.fen() };
-    finalEval = l1.score;
-    if (ch.isGameOver()) break;
-    if (c.kind === 'defense') break;
-    // 對手的最佳回應
-    const r = await e.analyse(ch.fen(), { depth: DEEP, multipv: 1 });
-    const reply = r.best;
-    if (!reply || reply === '(none)') break;
-    // 先試著接上對手回應與下一步；下一步不是唯一好棋就把對手這步拿掉
-    const save = ch.fen();
-    ch.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] });
-    const a2 = await e.analyse(ch.fen(), { depth: DEEP, multipv: 2 });
-    if (!unique(a2.lines, false) || moves.length >= 8) { ch.load(save); break; }
-    // 已經兌現（多 ≥2 兵的子力）而且下一步不是將死相關，就停在這裡比較乾淨
-    const gained = materialOf(new Chess(save), solver) - startMat;
-    if (gained >= 2 && !(a2.lines[0].score.mate > 0)) { ch.load(save); break; }
-    moves.push(reply);
-    pre = a2;
-  }
-  if (moves.length < 2) return null;
-  // 必須停在我方的走法
-  if (moves.length % 2 === 1) moves.pop();
-  const end = new Chess(startFen);
-  for (const mv of moves.slice(1)) end.move({ from: mv.slice(0, 2), to: mv.slice(2, 4), promotion: mv[4] });
-  const mate = end.isCheckmate();
-  const gain = materialOf(end, solver) - startMat;
-  if (c.kind === 'attack' && !mate) {
-    // 沒兌現的不要：我方最後一步之後，對手最好的回應也救不回（用引擎看最後局面，評估要 ≥ +2）
-    const z = await e.analyse(end.fen(), { depth: 14, multipv: 1 });
-    const ev = z.lines[0] ? -cpOf(z.lines[0].score) : 0;
-    if (gain < 2 && ev < 300) return null;
-    if (ev < 200) return null;
-    finalEval = z.lines[0] ? { ...z.lines[0].score, pov: 'opp' } : finalEval;
-  }
-  return { kind: c.kind, fen: c.fen, moves, mate, gain, startEval, finalEval };
-}
+import { verify, DEEP } from './verify.mjs';
 
 // ── 平行跑 ──
 async function pool(items, fn) {
@@ -200,6 +128,9 @@ for (const v of Object.values(ver)) {
   if (!themes.length) continue;
   puzzles.push({ ...v, themes });
 }
+// 手工擺的經典局面（hand_tactics.mjs 驗證過的），題型由人標
+const handFile = path.join(OUT, 'hand.json');
+if (fs.existsSync(handFile)) for (const v of JSON.parse(fs.readFileSync(handFile))) puzzles.push(v);
 // 每個題型最多 45 題，挑解答步數多一點、評估差距大的，難度平均分布
 const byTheme = {};
 for (const t of THEME_ORDER) byTheme[t] = [];
@@ -211,11 +142,17 @@ for (const t of THEME_ORDER) {
   const already = [...chosen.values()].filter(p => p.themes.includes(t)).length;
   for (const p of arr.slice(0, Math.max(0, 45 - already))) chosen.set(p.fen + p.moves[0], p);
 }
-const outList = [...chosen.values()].map((p, i) => {
+// 題號由局面＋解答算出來（FNV-1a），重新產生題庫時同一題的題號不變，使用者的作答紀錄才對得上
+function pid(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return 'jc' + h.toString(36).padStart(7, '0');
+}
+const outList = [...chosen.values()].sort((a, b) => (a.fen < b.fen ? -1 : 1)).map(p => {
   const solverMoves = p.moves.length / 2;
   const level = p.mate ? Math.min(3, solverMoves) : Math.min(3, solverMoves + (p.kind === 'defense' ? 1 : 0));
   return {
-    id: 'jc' + String(i + 1).padStart(4, '0'),
+    id: pid(p.fen + p.moves.join(' ')),
     fen: p.fen, moves: p.moves.join(' '), themes: p.themes, level,
     ...explain(p),
   };

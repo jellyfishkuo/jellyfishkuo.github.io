@@ -68,6 +68,7 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 需要 Node 18+ 與 Python Playwright。引擎直接用網站上的 `games/chess/vendor/stockfish/stockfish-18-lite-single.js`（Node 也能跑），所以測到的就是部署出去的那一份。
 
 - `gen_tactics.mjs [對局數] [平行引擎數]`：產生 `games/chess/data/tactics.js`。Stockfish 低 Skill Level 自我對弈（約 1/3 步數改走淺層搜尋的第 2～6 名）→ 找「只有一步能贏／只有一步不會輸」的局面 → depth 16～18 逐步驗證每一步都是唯一好棋、而且最後真的拿到子力或將死 → `themes.mjs` 依棋盤事實判斷題型並產生中文解析。中間結果在 `out/`，可以中斷後接著跑（已經跑過的對局、驗證過的局面不會重算）。原本打算用 Lichess 公開題庫，但開發環境連不到 database.lichess.org，所以改成自己產生。
+- `hand_tactics.mjs`：牽制、串擊、消除保護者在自我對弈裡很少出現，所以另外手擺幾個經典局面（含左右鏡射、黑白對調的變體），走同一套驗證後寫進 `out/hand.json`，`gen_tactics.mjs` 輸出題庫時會一起併進去。**重新產生題庫前先跑這支**。題號由局面＋解答雜湊而來，重新產生時同一題題號不變。
 - `check_data.mjs`：檢查開局（每條棋譜合法、「典型戰術／常見錯誤」寫的優劣方向跟 Stockfish 一致）、殘局（起始局面合法，要贏的是勝勢、要守和的是和棋）、戰術題（每步合法）。有錯就以非 0 結束。
 - `test_chess.py [組名…]`：瀏覽器測試（首頁卡片、棋盤、棋規、Stockfish 對弈、PGN、分析、戰術、開局殘局、IndexedDB 備份還原、手機版、GitHub Pages 子路徑、離線）。先開 `python3 -m http.server 8770`。截圖在 `chess/shots/`。
 - `icon.py`：從 `assets/icons/chess.svg` 產生 32／180 px 的 PNG。

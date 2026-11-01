@@ -282,7 +282,7 @@ button.item:hover { border-color: var(--c-accent); }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
 .stat { padding: 10px; border-radius: 10px; background: var(--c-bg2); border: var(--c-border); min-width: 0; }
-.stat b { display: block; font-size: 1.35rem; font-family: var(--mono); }
+.stat b { display: block; font-size: 1.2rem; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat span { font-size: 0.78rem; color: var(--c-muted); }
 .bar-row { display: grid; grid-template-columns: 7.5em 1fr 3.6em; gap: 8px; align-items: center; font-size: 0.82rem; }
 .bar-row .progress > div { background: var(--c-good); }
