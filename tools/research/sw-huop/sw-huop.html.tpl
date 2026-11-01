@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/sw-huop-180.png">
     <title>滑動視窗高效益佔有率樣式（HUOPS）</title>
     <meta name="description" content="一步一步看 HUOPS（Information Sciences 2025）怎麼在資料串流上用滑動視窗找高效益佔有率樣式：交易一批一批進來、最舊的一批整批移出，HUOPS-List 怎麼更新、重整、用 UBUO1／UBUO2 兩個上界剪枝，每個視窗都和暴力法對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="滑動視窗高效益佔有率樣式（HUOPS）">
+    <meta property="og:description" content="一步一步看 HUOPS（Information Sciences 2025）怎麼在資料串流上用滑動視窗找高效益佔有率樣式：交易一批一批進來、最舊的一批整批移出，HUOPS-List 怎麼更新、重整、用 UBUO1／UBUO2 兩個上界剪枝，每個視窗都和暴力法對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/sw-huop.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

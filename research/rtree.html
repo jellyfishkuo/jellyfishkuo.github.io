@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/rtree-180.png">
     <title>R-tree 與 kNN 查詢</title>
     <meta name="description" content="在街區地圖上一步一步看 R-tree 怎麼一個點一個點插入、用 Quadratic Split 分裂節點、長出巢狀的 MBR 框，再用 best-first search 依 MINDIST 找出離你最近的 k 個點，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="R-tree 與 kNN 查詢">
+    <meta property="og:description" content="在街區地圖上一步一步看 R-tree 怎麼一個點一個點插入、用 Quadratic Split 分裂節點、長出巢狀的 MBR 框，再用 best-first search 依 MINDIST 找出離你最近的 k 個點，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/rtree.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

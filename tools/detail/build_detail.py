@@ -93,7 +93,17 @@ def build(name):
     <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/{icon}-32.png">
     <link rel="apple-touch-icon" href="../assets/icons/{icon}-180.png">
     <title>{P['title']}</title>
-    <meta name="description" content="{html.escape(P['description'])}">{mathjax}
+    <meta name="description" content="{html.escape(P['description'])}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="{html.escape(P['title'])}">
+    <meta property="og:description" content="{html.escape(P['description'])}">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/games/{name}-detail.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">{mathjax}
     <script src="../assets/theme.js"></script>
     <link rel="stylesheet" href="detail.css">
     <link rel="stylesheet" href="../assets/theme.css">

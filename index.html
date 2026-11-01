@@ -14,7 +14,12 @@
     <meta property="og:description" content="資料庫系統實驗室的碩一生，研究資料探勘與索引結構，也喜歡自己動手做小工具和小遊戲。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jellyfishkuo.github.io/">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/logo-180.png">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <!-- 先決定深色／淺色，畫面才不會先閃另一種顏色 -->
     <script src="assets/theme.js"></script>
     <script src="assets/dragon-hold.js"></script>
@@ -215,6 +220,7 @@
         /* ── 作品 ── */
         .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 185px), 1fr)); gap: 12px; }
         @media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+        .tile[hidden] { display: none; }
         .tile {
             position: relative; min-width: 0; display: flex; flex-direction: column; gap: 6px;
             padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
@@ -449,7 +455,7 @@
             <div class="wrap">
                 <div class="sec-label">// 01 — Projects</div>
                 <h2><span class="only-dark">我做的東西</span><span class="only-light">遊戲與小工具</span></h2>
-                <div class="tiles">
+                <div class="tiles" id="tiles">
                     <article class="tile">
                         <img class="only-dark" src="assets/icons/pentomino.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/pentomino-light.svg" alt="" width="38" height="38">
                         <span class="tag">每日挑戰</span>
@@ -556,6 +562,9 @@
                         <div class="links"><a class="go" href="https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link" target="_blank">去看看 →</a></div>
                     </article>
                 </div>
+                <div class="more-row">
+                    <button type="button" class="more-btn" id="tilesMoreBtn" aria-controls="tiles" aria-expanded="false" hidden></button>
+                </div>
             </div>
         </section>
 
@@ -653,7 +662,7 @@
                             <span>🗄️ SQL</span><span>🐳 Docker</span><span>🌿 Git / GitHub</span><span>🐧 Linux / Bash</span><span>🔌 REST API</span>
                         </div>
                     </div>
-                    <div class="photo"><img src="assets/me.jpg" alt="果汁龍和三隻黃金獵犬的合照" loading="lazy"></div>
+                    <div class="photo"><img src="assets/me.jpg" alt="果汁龍和三隻黃金獵犬的合照" width="800" height="800" loading="lazy" decoding="async"></div>
                 </div>
             </div>
         </section>
@@ -663,19 +672,11 @@
                 <div class="sec-label">// 04 — Achievements</div>
                 <h2>程式競賽</h2>
                 <ul class="ach">
-                    <li><span class="m">🥇</span><span><span class="y">2023 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第三名</span></span></li>
-                    <li><span class="m">🥇</span><span><span class="y">2024 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第二名</span></span></li>
-                    <li><span class="m">🥇</span><span><span class="y">2025 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第二名</span></span></li>
-                    <li><span class="m">🥇</span><span><span class="y">2026 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 第四名</span></span></li>
-                    <li><span class="m">🥈</span><span><span class="y">2025 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">銀牌</span></span></li>
-                    <li><span class="m">🥉</span><span><span class="y">2023 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">銅牌</span></span></li>
-                    <li><span class="m">🥉</span><span><span class="y">2024 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">銅牌</span></span></li>
-                    <li><span class="m">✦</span><span><span class="y">2024 · NCPC</span><span class="t">全國大專院校電腦軟體設計競賽</span> <span class="a">佳作</span></span></li>
-                    <li><span class="m">✦</span><span><span class="y">2025 · NCPC</span><span class="t">全國大專院校電腦軟體設計競賽</span> <span class="a">佳作</span></span></li>
+                    <li><span class="m">🥇</span><span><span class="y">2023–2026 · PUPC</span><span class="t">全國私立大專校院程式競賽</span> <span class="a">金獎 ×4：2023 第三名、2024 第二名、2025 第二名、2026 第四名</span></span></li>
+                    <li><span class="m">🥈</span><span><span class="y">2023–2025 · TOPC</span><span class="t">Asia Taiwan Online Programming Contest</span> <span class="a">2025 銀牌；2023、2024 銅牌</span></span></li>
+                    <li><span class="m">✦</span><span><span class="y">2024–2025 · NCPC</span><span class="t">全國大專院校電腦軟體設計競賽</span> <span class="a">佳作 ×2：2024、2025</span></span></li>
                     <li><span class="m">✦</span><span><span class="y">2024 · GiCS</span><span class="t">尋找資安女婕思</span> <span class="a">佳作</span></span></li>
-                    <li><span class="m">◈</span><span><span class="y">2023 · ICPC Regional</span><span class="t">Asia Taoyuan Regional Programming Contest</span> <span class="a">參賽</span></span></li>
-                    <li><span class="m">◈</span><span><span class="y">2024 · ICPC Regional</span><span class="t">Asia Taichung Regional Programming Contest</span> <span class="a">參賽</span></span></li>
-                    <li><span class="m">◈</span><span><span class="y">2025 · ICPC Regional</span><span class="t">Asia Taichung Regional Programming Contest</span> <span class="a">參賽</span></span></li>
+                    <li><span class="m">◈</span><span><span class="y">2023–2025 · ICPC Regional</span><span class="t">ICPC Asia Regional Programming Contest</span> <span class="a">參賽 ×3：2023 桃園、2024 台中、2025 台中</span></span></li>
                 </ul>
             </div>
         </section>
@@ -766,6 +767,27 @@
             };
             document.addEventListener('themechange', sync);
             sync();
+        })();
+
+        // ── 作品：先只列前幾個，按鈕展開全部（沒有 JS 時全部照常顯示）──
+        (() => {
+            const FIRST = 6;
+            const tiles = [...document.querySelectorAll('#tiles > .tile')];
+            const btn = document.getElementById('tilesMoreBtn');
+            if (tiles.length <= FIRST) return;
+            let expanded = false;
+            function render() {
+                tiles.forEach((el, i) => { el.hidden = !expanded && i >= FIRST; });
+                btn.textContent = expanded ? '收起來 ↑' : `看全部 ${tiles.length} 個作品 ↓`;
+                btn.setAttribute('aria-expanded', expanded);
+            }
+            btn.hidden = false;
+            btn.addEventListener('click', () => {
+                expanded = !expanded;
+                render();
+                if (!expanded) document.getElementById('projects').scrollIntoView();
+            });
+            render();
         })();
 
         // ── 研究 Demo：主題篩選＋「全部」時先只列前幾個 ──

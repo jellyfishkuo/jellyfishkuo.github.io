@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/uspan-180.png">
     <title>USpan 高效益序列樣式探勘</title>
     <meta name="description" content="一步一步看 USpan 怎麼在有數量、有利潤的序列資料裡找出高效益序列樣式：序列效益怎麼算（多種對應取最大）、效益矩陣、I-接與 S-接、SWU 與 SPU 剪枝，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="USpan 高效益序列樣式探勘">
+    <meta property="og:description" content="一步一步看 USpan 怎麼在有數量、有利潤的序列資料裡找出高效益序列樣式：序列效益怎麼算（多種對應取最大）、效益矩陣、I-接與 S-接、SWU 與 SPU 剪枝，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/uspan.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

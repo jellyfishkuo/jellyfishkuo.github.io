@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/cantree-180.png">
     <title>CanTree 增量 FP-tree</title>
     <meta name="description" content="一步一步看 CanTree 怎麼用固定的標準順序插入交易：新交易進來直接插、沿路次數 +1、不用重排重建，要挖的時候再用 FP-Growth 的條件模式基底挖；和 FP-tree 比較順序與節點數，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="CanTree 增量 FP-tree">
+    <meta property="og:description" content="一步一步看 CanTree 怎麼用固定的標準順序插入交易：新交易進來直接插、沿路次數 +1、不用重排重建，要挖的時候再用 FP-Growth 的條件模式基底挖；和 FP-tree 比較順序與節點數，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/cantree.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

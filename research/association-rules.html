@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/association-rules-180.png">
     <title>關聯規則：信賴度與提升度</title>
     <meta name="description" content="一步一步看怎麼從頻繁樣式切出「買了 X 的人也會買 Y」的關聯規則：算信賴度、提升度，後件逐層變大並剪枝，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="關聯規則：信賴度與提升度">
+    <meta property="og:description" content="一步一步看怎麼從頻繁樣式切出「買了 X 的人也會買 Y」的關聯規則：算信賴度、提升度，後件逐層變大並剪枝，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/association-rules.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

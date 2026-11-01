@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/top-k-hui-180.png">
     <title>Top-k 高效益樣式探勘</title>
     <meta name="description" content="不用猜門檻，直接要效益最高的前 k 名：一步一步看 TKO 怎麼在 HUI-Miner 的 utility list 上，用最小堆積維護前 k 名、邊挖邊把門檻往上調、剪枝越來越狠，Java 與 Python 程式碼逐行對照，並比較早知道門檻時要做多少事。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="Top-k 高效益樣式探勘">
+    <meta property="og:description" content="不用猜門檻，直接要效益最高的前 k 名：一步一步看 TKO 怎麼在 HUI-Miner 的 utility list 上，用最小堆積維護前 k 名、邊挖邊把門檻往上調、剪枝越來越狠，Java 與 Python 程式碼逐行對照，並比較早知道門檻時要做多少事。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/top-k-hui.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

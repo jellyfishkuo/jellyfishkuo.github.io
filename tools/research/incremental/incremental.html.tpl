@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/incremental-180.png">
     <title>增量探勘 FUP</title>
     <meta name="description" content="資料庫一直新增交易時，FUP 怎麼只讀新的那幾筆就更新頻繁樣式：舊樣式只加新次數、新候選先用引理篩掉，必要時才回頭掃舊資料庫。和全部重算比較讀了幾筆交易，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="增量探勘 FUP">
+    <meta property="og:description" content="資料庫一直新增交易時，FUP 怎麼只讀新的那幾筆就更新頻繁樣式：舊樣式只加新次數、新候選先用引理篩掉，必要時才回頭掃舊資料庫。和全部重算比較讀了幾筆交易，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/incremental.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/overview-180.png">
     <title>Research 總覽</title>
     <meta name="description" content="把所有研究 Demo 串起來的地圖：演算法之間誰改良自誰、建議的閱讀順序，以及掃描次數、候選、額外結構的比較表。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="Research 總覽">
+    <meta property="og:description" content="把所有研究 Demo 串起來的地圖：演算法之間誰改良自誰、建議的閱讀順序，以及掃描次數、候選、額外結構的比較表。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/overview.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');

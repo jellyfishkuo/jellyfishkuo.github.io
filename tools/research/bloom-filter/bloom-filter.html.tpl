@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/bloom-filter-180.png">
     <title>Bloom Filter：這張發票登錄過了嗎</title>
     <meta name="description" content="只用 m 個位元和 k 個雜湊函數判斷「有沒有看過」：一步一步看發票怎麼被登錄進位元陣列、查詢時為什麼看到第一個 0 就能停、誤判是怎麼來的、最佳 k 怎麼算，以及可以刪除的 Counting Bloom Filter，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="Bloom Filter：這張發票登錄過了嗎">
+    <meta property="og:description" content="只用 m 個位元和 k 個雜湊函數判斷「有沒有看過」：一步一步看發票怎麼被登錄進位元陣列、查詢時為什麼看到第一個 0 就能停、誤判是怎麼來的、最佳 k 怎麼算，以及可以刪除的 Counting Bloom Filter，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/bloom-filter.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/ir-tree-180.png">
     <title>IR-tree 空間關鍵字查詢</title>
     <meta name="description" content="在街區地圖上點一個位置、勾選要買的商品，一步一步看 IR-tree 怎麼查每個節點的倒排表，把湊不齊關鍵字的框整個跳過，再依距離找出最近的 k 家店；跟「先找最近再檢查」、「先查倒排表再排序」比較打開的節點與檢查的店家數，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="IR-tree 空間關鍵字查詢">
+    <meta property="og:description" content="在街區地圖上點一個位置、勾選要買的商品，一步一步看 IR-tree 怎麼查每個節點的倒排表，把湊不齊關鍵字的框整個跳過，再依距離找出最近的 k 家店；跟「先找最近再檢查」、「先查倒排表再排序」比較打開的節點與檢查的店家數，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/ir-tree.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

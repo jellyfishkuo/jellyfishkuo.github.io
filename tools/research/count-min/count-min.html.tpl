@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/count-min-180.png">
     <title>Count-Min Sketch：用雜湊格子數串流</title>
     <meta name="description" content="不記商品名稱，只用 d 列 × w 欄的計數格子數資料串流：一步一步看每筆商品怎麼在每一列各 +1、查詢時為什麼取最小值、撞格子會多算多少，以及保守更新，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="Count-Min Sketch：用雜湊格子數串流">
+    <meta property="og:description" content="不記商品名稱，只用 d 列 × w 欄的計數格子數資料串流：一步一步看每筆商品怎麼在每一列各 +1、查詢時為什麼取最小值、撞格子會多算多少，以及保守更新，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/count-min.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

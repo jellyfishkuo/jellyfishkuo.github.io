@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/closed-patterns-180.png">
     <title>封閉與最大頻繁樣式 CHARM</title>
     <meta name="description" content="頻繁樣式太多怎麼辦？比較全部頻繁、封閉、最大三種答案，再一步一步看 CHARM 怎麼用 tidset 的四條性質直接找出封閉樣式，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="封閉與最大頻繁樣式 CHARM">
+    <meta property="og:description" content="頻繁樣式太多怎麼辦？比較全部頻繁、封閉、最大三種答案，再一步一步看 CHARM 怎麼用 tidset 的四條性質直接找出封閉樣式，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/closed-patterns.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

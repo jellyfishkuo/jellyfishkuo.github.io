@@ -24,7 +24,7 @@ assets/icons/<name>.svg + -32.png + -180.png   每個作品的圖示（64×64、
 games/                  單檔遊戲／工具（HTML+CSS+JS 同一檔），以及 *-detail.html 技術介紹頁（由 tools/detail 產生）
 research/               研究互動 Demo（由 tools/research 產生）與 research/code/ 可執行的 Java / Python
 electricity-tracker/    電費紀錄（index.html + script.js + style.css）
-stock/                  股票庫存（擁有者自己用，不放首頁、不放 README；noindex）。交易存 localStorage `jfk-stock-portfolio-v1`；收盤價由 .github/workflows/stock-quotes.yml 每個交易日 15:40～22:10 跑幾次 tools/stock/fetch_quotes.py 寫進 stock/data/（latest.json、每檔歷史 hist/<代號>.json、names.json）；更早的歷史用 stock-backfill.yml 補
+stock/                  股票庫存（擁有者自己用，不放首頁、不放 README；noindex）。交易存 localStorage `jfk-stock-portfolio-v1`；收盤價由 .github/workflows/stock-quotes.yml 每個交易日 15:40～22:10 跑幾次 tools/stock/fetch_quotes.py 寫進 **`stock-data` 分支**（latest.json、每檔歷史 hist/<代號>.json、names.json；每次 force-push 成只有一個 commit，main 不放資料免得 repo 每天長大），頁面從 `raw.githubusercontent.com/.../stock-data/` 讀（快取最多 5 分鐘）；更早的歷史用 stock-backfill.yml 補
 tools/                  產生頁面的原始檔與測試，見 tools/README.md
 ```
 
@@ -50,7 +50,9 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `research/papers.html` | 論文書架：上面是擁有者讀過、做成 Demo 的論文（手寫卡片，新增讀過的論文要加一張）；下面是經典論文，資料在頁面 JS 的 `PAPERS` 陣列（一行一篇，新增 Demo 時補上原始論文），連 Google Scholar 搜尋，不放 DOI（會議論文常沒有）。首頁 Research 標題下方第三個入口 |
 | `research/overview.html`、`benchmark.html` | 研究地圖（關係圖＋閱讀路線＋比較表，`tools/research/overview/build.py` 自己有一份演算法清單，新增 Demo 時要補）與效能比賽場（Web Worker 實跑，`tools/research/benchmark/algos.js`）；首頁 Research 標題下方兩個入口 |
 
-首頁 About 的「自己做的小工具與遊戲」數字（目前 14）在新增 Projects 作品時要跟著改。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
+首頁 About 的「自己做的小工具與遊戲」數字（目前 14）在新增 Projects 作品時要跟著改。首頁作品區先只顯示前 6 張卡（`#tiles`，其餘按「看全部」展開），想放在前面的作品就排在前 6 個。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
+
+分享預覽（og／Twitter 標籤）：新頁面要有 `<title>` 和 `<meta name="description">`，再跑 `python3 tools/og/add_og.py <頁面或研究 Demo 樣板>`；技術介紹頁由 `build_detail.py` 自己產生。分享圖是 `assets/og.png`（1200×630，原始檔 `tools/og/og.html`，用 Playwright 截圖）。
 
 ## 開發慣例與踩過的坑
 

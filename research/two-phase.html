@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/two-phase-180.png">
     <title>Two-Phase 高效益樣式探勘</title>
     <meta name="description" content="一步一步看 Two-Phase 怎麼找高效益樣式：第一階段用有向下封閉性的 TWU 當上界，照 Apriori 的方式一層一層產生候選；第二階段再掃一次資料庫算真正的效益。Java 與 Python 程式碼逐行對照，並和 HUI-Miner 比較。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="Two-Phase 高效益樣式探勘">
+    <meta property="og:description" content="一步一步看 Two-Phase 怎麼找高效益樣式：第一階段用有向下封閉性的 TWU 當上界，照 Apriori 的方式一層一層產生候選；第二階段再掃一次資料庫算真正的效益。Java 與 Python 程式碼逐行對照，並和 HUI-Miner 比較。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/two-phase.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

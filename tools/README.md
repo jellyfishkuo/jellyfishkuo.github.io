@@ -52,8 +52,13 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 
 這些測試腳本是一路修 bug 時寫的，有的還假設舊的 UI；跑失敗時先看是不是腳本跟不上頁面。
 
+## og/：分享預覽
+
+- `add_og.py`：依頁面的 `<title>`、description 加上 Open Graph／Twitter 標籤（分享到 LINE、FB、Discord 時的預覽卡）。可以重複執行。`--all` 處理所有手寫頁和研究 Demo 樣板，之後要重新產生研究 Demo。技術介紹頁的標籤寫在 `detail/build_detail.py`。
+- `og.html`：分享圖 `assets/og.png` 的原始檔。改完用 Playwright 開 1200×630 的視窗截圖存回 `assets/og.png`。
+
 ## stock/：股票庫存的收盤價
 
-`python3 tools/stock/fetch_quotes.py` 抓證交所（上市）和櫃買中心（上櫃）當天收盤價，寫到 `stock/data/latest.json`、每檔的歷史 `stock/data/hist/<代號>.json` 和 `stock/data/names.json`（代號→名稱，打代號自動帶名稱用）。平常由 GitHub Actions（`.github/workflows/stock-quotes.yml`）每個交易日台灣時間 15:40、17:10、19:40、22:10 各跑一次並 commit（收盤價用指定日期的 MI_INDEX／櫃買每日行情，還沒公布就等下一次；OpenAPI 傍晚常常還是前一天的，只拿來更新名稱）；要手動補跑就到 Actions 頁按 Run workflow。
+`python3 tools/stock/fetch_quotes.py` 抓證交所（上市）和櫃買中心（上櫃）當天收盤價，寫到 `latest.json`、每檔的歷史 `hist/<代號>.json` 和 `names.json`（代號→名稱，打代號自動帶名稱用）。資料夾由環境變數 `STOCK_DATA_DIR` 指定，沒設就寫到 `stock/data/`（已加進 .gitignore，只給本機測試）。線上的資料放在 **`stock-data` 分支**，`stock/index.html` 從 `raw.githubusercontent.com` 讀；那個分支每次都 force-push 成只有一個 commit，不會越來越大。平常由 GitHub Actions（`.github/workflows/stock-quotes.yml`）每個交易日台灣時間 15:40、17:10、19:40、22:10 各跑一次並推到 stock-data 分支（收盤價用指定日期的 MI_INDEX／櫃買每日行情，還沒公布就等下一次；OpenAPI 傍晚常常還是前一天的，只拿來更新名稱）；要手動補跑就到 Actions 頁按 Run workflow。
 
 更早的歷史用 `python3 tools/stock/backfill.py 2025-01-01`（或 Actions 的「台股歷史收盤價補抓」，填開始日期）補；已經補過的日子會跳過。

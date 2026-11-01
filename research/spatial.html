@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/spatial-180.png">
     <title>空間資料：四元樹與共位樣式</title>
     <meta name="description" content="在一張街區地圖上一步一步看點區域四元樹怎麼插入、切割、做範圍查詢，以及空間共位樣式探勘怎麼用參與指數找出常開在一起的店，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="空間資料：四元樹與共位樣式">
+    <meta property="og:description" content="在一張街區地圖上一步一步看點區域四元樹怎麼插入、切割、做範圍查詢，以及空間共位樣式探勘怎麼用參與指數找出常開在一起的店，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/spatial.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

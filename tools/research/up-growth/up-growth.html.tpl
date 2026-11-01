@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/up-growth-180.png">
     <title>UP-Growth 高效益樣式探勘</title>
     <meta name="description" content="一步一步看 UP-Growth 怎麼用一棵 UP-Tree 找高效益樣式：DGU 刪掉不夠的商品、DGN 讓節點只記到自己為止的效益，挖條件樹時再用 DLU、DLN 收緊上界，最後掃一次資料庫驗證候選。Java 與 Python 程式碼逐行對照，並和 Two-Phase、HUI-Miner 比較。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="UP-Growth 高效益樣式探勘">
+    <meta property="og:description" content="一步一步看 UP-Growth 怎麼用一棵 UP-Tree 找高效益樣式：DGU 刪掉不夠的商品、DGN 讓節點只記到自己為止的效益，挖條件樹時再用 DLU、DLN 收緊上界，最後掃一次資料庫驗證候選。Java 與 Python 程式碼逐行對照，並和 Two-Phase、HUI-Miner 比較。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/up-growth.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>

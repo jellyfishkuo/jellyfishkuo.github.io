@@ -9,6 +9,16 @@
     <link rel="apple-touch-icon" href="../assets/icons/stream-counting-180.png">
     <title>串流近似計數：Lossy Counting 與 Space-Saving</title>
     <meta name="description" content="記憶體有限、資料又停不下來時，怎麼數每個商品賣了幾次？一步一步看 Lossy Counting 怎麼分桶清理、Space-Saving 怎麼只用 k 個計數器，以及它們的誤差保證，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="串流近似計數：Lossy Counting 與 Space-Saving">
+    <meta property="og:description" content="記憶體有限、資料又停不下來時，怎麼數每個商品賣了幾次？一步一步看 Lossy Counting 怎麼分桶清理、Space-Saving 怎麼只用 k 個計數器，以及它們的誤差保證，Java 與 Python 程式碼逐行對照。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/stream-counting.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
     <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
     <style>
