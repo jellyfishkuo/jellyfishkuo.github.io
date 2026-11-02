@@ -1,0 +1,23 @@
+{
+  "name": "果汁龍的網站",
+  "short_name": "果汁龍",
+  "description": "果汁龍的小遊戲、小工具，和一步一步看的資料探勘 Demo。",
+  "lang": "zh-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#05050a",
+  "theme_color": "#05050a",
+  "icons": [
+    { "src": "assets/app-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/app-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/app-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/app-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "一筆畫 Zip", "url": "games/zip.html", "icons": [{ "src": "assets/icons/zip-180.png", "sizes": "180x180", "type": "image/png" }] },
+    { "name": "數字方格 1→25", "url": "games/schulte.html", "icons": [{ "src": "assets/icons/schulte-180.png", "sizes": "180x180", "type": "image/png" }] },
+    { "name": "果汁龍跑酷", "url": "games/runner.html", "icons": [{ "src": "assets/icons/runner-180.png", "sizes": "180x180", "type": "image/png" }] },
+    { "name": "養一隻果汁龍", "url": "games/pet.html", "icons": [{ "src": "assets/icons/pet-180.png", "sizes": "180x180", "type": "image/png" }] }
+  ]
+}

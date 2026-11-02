@@ -147,3 +147,24 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
     else ready();
 })();
+
+// ── 整站離線快取＋加到手機主畫面（sw.js、manifest.webmanifest 在網站根目錄）──
+// 用 theme.js 自己的位置推回根目錄，每一頁都會載入 theme.js，所以從哪一頁進來都會開始快取。
+(function () {
+    if (!('serviceWorker' in navigator)) return;
+    var s = document.currentScript;
+    if (!s || !s.src) return;
+    var h = location.hostname;
+    if (location.protocol !== 'https:' && h !== 'localhost' && h !== '127.0.0.1') return;   // Service Worker 只能在 https 或本機用
+    var root = new URL('../', s.src);
+    // 頁面自己有 manifest 就不加（例如西洋棋有自己的）
+    if (!document.querySelector('link[rel="manifest"]')) {
+        var l = document.createElement('link');
+        l.rel = 'manifest';
+        l.href = new URL('manifest.webmanifest', root).href;
+        document.head.appendChild(l);
+    }
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register(new URL('sw.js', root).href, { scope: root.href }).catch(function () { /* 註冊失敗就當一般網頁 */ });
+    });
+})();
