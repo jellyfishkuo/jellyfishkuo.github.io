@@ -53,6 +53,8 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 
 首頁 About 的「自己做的小工具與遊戲」數字（目前 15）在新增 Projects 作品時要跟著改。首頁作品區先只顯示前 6 張卡（`#tiles`，其餘按「看全部」展開），想放在前面的作品就排在前 6 個。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
+首頁全站搜尋（導覽列放大鏡，`/` 或 Ctrl+K 打開）：資料**直接從首頁 DOM 讀**（`#tiles` 作品卡與「技術介紹」連結、`#research .hub`、`#demos .demo` 含主題標籤、關於我／競賽／聯絡段落），新增作品或 Demo 不用另外維護清單；`SYN` 是中英互通（tree↔樹…）。首頁果汁龍講話：`lines()` 讀各遊戲的 localStorage（只讀）挑話，每句附連結（`#hpetGo`）；要緊的事（孵蛋、餓了、今天還沒簽到）比較常講；每個分頁進首頁 12 秒後主動講一次（`sessionStorage` `jfk-pet-said`，收到角落時不講）。新增遊戲時可以在 `lines()` 補一句。
+
 分享預覽（og／Twitter 標籤）：新頁面要有 `<title>` 和 `<meta name="description">`，再跑 `python3 tools/og/add_og.py <頁面或研究 Demo 樣板>`；技術介紹頁由 `build_detail.py` 自己產生。分享圖是 `assets/og.png`（1200×630，原始檔 `tools/og/og.html`，用 Playwright 截圖）。分享圖上寫了「32 個研究 Demo」「15 個小遊戲與工具」，數字變了要改 og.html 重新截圖。
 
 ## 開發慣例與踩過的坑

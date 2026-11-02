@@ -151,6 +151,40 @@
         [data-theme="light"] .mobile-menu { border: 2px solid var(--ink); background: #fff; box-shadow: 2px 2px 0 var(--ink); }
         [data-theme="light"] .mobile-menu a { font-weight: 700; }
 
+        /* ── 全站搜尋：導覽列的放大鏡，打開是蓋在頁面上的面板（不會推動頁面內容）── */
+        .search-btn {
+            flex: none; width: 38px; height: 38px; display: grid; place-items: center;
+            border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+            color: var(--text); cursor: pointer; font: inherit;
+        }
+        .search-btn svg { width: 19px; height: 19px; }
+        [data-theme="light"] .search-btn { border: 2px solid var(--ink); background: #fff; box-shadow: 2px 2px 0 var(--ink); }
+        .search { position: fixed; inset: 0; z-index: 200; display: flex; justify-content: center; align-items: flex-start; padding: 64px 16px 16px; background: rgba(3, 3, 12, 0.6); backdrop-filter: blur(3px); }
+        .search[hidden] { display: none; }
+        .search-box { width: min(640px, 100%); max-height: calc(100dvh - 96px); display: flex; flex-direction: column; border-radius: 16px; background: var(--surface-solid); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); overflow: hidden; }
+        .search-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+        .search-top svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
+        .search-top input { flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--text); background: none; border: 0; outline: none; }
+        .search-top input::-webkit-search-cancel-button { display: none; }
+        .search-top button { flex: none; font: inherit; font-size: 0.8rem; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; cursor: pointer; }
+        .search-list { list-style: none; overflow-y: auto; overscroll-behavior: contain; padding: 6px; }
+        .search-list a { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; text-decoration: none; color: var(--text); }
+        .search-list a.on { background: rgba(124, 58, 237, 0.2); }
+        .search-list img { width: 32px; height: 32px; border-radius: 8px; }
+        .search-list .ic { width: 32px; height: 32px; display: grid; place-items: center; font-size: 1.2rem; }
+        .search-list b { display: block; font-size: 0.92rem; line-height: 1.4; overflow-wrap: anywhere; }   /* 標題完整顯示（窄螢幕換行），說明才截成一行 */
+        .search-list small { display: block; font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .search-list mark { background: none; color: var(--accent2); }
+        .search-list .kind { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+        .search-empty { padding: 14px 16px 18px; color: var(--muted); font-size: 0.88rem; line-height: 1.7; }
+        .search-empty button { font: inherit; font-size: 0.82rem; margin: 6px 6px 0 0; padding: 3px 10px; border-radius: 999px; cursor: pointer; color: var(--text); background: var(--surface); border: 1px solid var(--line); }
+        [data-theme="light"] .search { background: rgba(29, 43, 18, 0.35); }
+        [data-theme="light"] .search-box { border: 2.5px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); background: #fff; }
+        [data-theme="light"] .search-top { border-bottom: 2px solid var(--ink); }
+        [data-theme="light"] .search-top button, [data-theme="light"] .search-empty button { border: 2px solid var(--ink); color: var(--ink); font-weight: 700; background: #fff; }
+        [data-theme="light"] .search-list a.on { background: #fff1d1; }
+        [data-theme="light"] .search-list mark { color: #b35c00; font-weight: 900; }
+
         main, footer { position: relative; z-index: 1; }
 
         /* ── 開場 ── */
@@ -438,6 +472,9 @@
                     <li><a href="#achievements">競賽</a></li>
                     <li><a href="#contact">聯絡</a></li>
                 </ul>
+                <button class="search-btn" id="searchBtn" type="button" aria-label="搜尋作品和研究 Demo（按 / 也可以）" aria-haspopup="dialog" aria-controls="search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg>
+                </button>
                 <!-- 太陽、月亮都擺出來；目前的模式底下有一塊亮色，點哪一邊就切到哪一邊 -->
                 <button class="theme-switch" id="themeBtn" type="button" aria-label="深色模式">
                     <span class="thumb" aria-hidden="true"></span>
@@ -457,6 +494,18 @@
             <a href="#contact">聯絡</a>
         </div>
     </nav>
+
+    <div class="search" id="search" role="dialog" aria-modal="true" aria-label="搜尋" hidden>
+        <div class="search-box">
+            <div class="search-top">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg>
+                <input type="search" id="searchIn" placeholder="搜尋遊戲、研究 Demo…" autocomplete="off" spellcheck="false" aria-controls="searchList" aria-label="搜尋關鍵字">
+                <button type="button" id="searchClose">關閉</button>
+            </div>
+            <ul class="search-list" id="searchList" role="listbox" aria-label="搜尋結果"></ul>
+            <div class="search-empty" id="searchEmpty"></div>
+        </div>
+    </div>
 
     <main id="top">
         <div class="hero">
@@ -749,7 +798,7 @@
     <div class="hpet" id="hpet">
         <div class="hpet-say" id="hpetSay" role="status" aria-live="polite">
             <b id="hpetName">果汁龍</b><span id="hpetLine"></span>
-            <div class="row"><button type="button" id="hpetMin">收到角落</button><a href="games/pet.html">去看牠 →</a></div>
+            <div class="row"><button type="button" id="hpetMin">收到角落</button><a href="games/pet.html" id="hpetGo">去看牠 →</a></div>
         </div>
         <button type="button" class="hpet-me" id="hpetMe" aria-label="我的果汁龍"></button>
     </div>
@@ -877,6 +926,137 @@
         })();
 
 
+        // ── 全站搜尋：內容直接從首頁讀（作品卡、技術介紹、研究入口、研究 Demo、各段落），新增作品不用另外維護清單 ──
+        (() => {
+            const box = document.getElementById('search'), inp = document.getElementById('searchIn');
+            const list = document.getElementById('searchList'), empty = document.getElementById('searchEmpty');
+            const btn = document.getElementById('searchBtn');
+            // 比對時忽略大小寫、空白和標點：打 fpgrowth 也找得到 FP-Growth
+            const norm = t => (t || '').toLowerCase().replace(/[\s\-_.·・,，、。：:'"「」『』()（）\/]/g, '');
+            const text = el => (el ? el.textContent.trim() : '');
+            const items = [];
+            // 中英互通：演算法名字多半是英文（FP-tree、R-tree），打「樹」也要找得到
+            const SYN = [['tree', '樹'], ['graph', '圖'], ['stream', '串流'], ['spatial', '空間'], ['utility', '效益']];
+            const add = o => {
+                let h = norm([o.title, o.desc, o.kind, o.extra].join(' '));
+                SYN.forEach(([en, zh]) => { if (h.includes(en) && !h.includes(zh)) h += zh; if (h.includes(zh) && !h.includes(en)) h += en; });
+                o.hay = h; o.nt = norm(o.title); items.push(o);
+            };
+
+            document.querySelectorAll('#tiles > .tile').forEach(t => {
+                const a = t.querySelector('h3 a'), href = a.getAttribute('href'), title = text(a), tag = text(t.querySelector('.tag'));
+                const imgs = [...t.querySelectorAll(':scope > img')];
+                add({ title, desc: text(t.querySelector('p')), kind: '作品', href, imgs, ext: a.target === '_blank', extra: tag + ' ' + href });
+                t.querySelectorAll('.links a').forEach(l => {
+                    const h = l.getAttribute('href');
+                    if (h !== href && /技術介紹/.test(l.textContent)) add({ title: title + '・技術介紹', desc: '怎麼做的、踩過哪些坑、怎麼修', kind: '技術介紹', href: h, imgs, extra: tag + ' ' + h });
+                });
+            });
+            document.querySelectorAll('#research .hub a').forEach(a => add({ title: text(a.querySelector('b')), desc: text(a.querySelector('small')), kind: '研究', href: a.getAttribute('href'), imgs: [...a.querySelectorAll('img')], extra: a.getAttribute('href') }));
+            const topicName = {};
+            document.querySelectorAll('#research .chip').forEach(c => { topicName[c.dataset.topic] = c.firstChild ? c.firstChild.textContent.trim() : ''; });
+            document.querySelectorAll('#demos .demo').forEach(li => {
+                const a = li.querySelector('a');
+                add({ title: text(a.querySelector('b')), desc: text(a.querySelector('small')), kind: '研究 Demo', href: a.getAttribute('href'), imgs: [...a.querySelectorAll('img')],
+                    extra: (li.dataset.topics || '').split(' ').map(t => topicName[t] || '').join(' ') + ' 資料探勘 演算法 Java Python 程式碼 ' + a.getAttribute('href') });
+            });
+            [['#about', '關於我', '研究方向、會用的程式語言和工具', '🙋'], ['#achievements', '程式競賽', 'PUPC、TOPC、NCPC、GiCS、ICPC 的成績', '🏆'], ['#contact', '聯絡', '寄信、GitHub、LinkedIn、Instagram', '✉️']].forEach(([href, title, desc, icon]) => {
+                const sec = document.querySelector(href);
+                if (sec) add({ title, desc, kind: '首頁', href, icon, extra: sec.textContent });
+            });
+
+            let shown = [], active = -1, lastFocus = null;
+            const EXAMPLES = ['FP', '樹', '串流', '空間', '高效益', '棋', 'Zip', 'ICPC'];
+            function mark(el, title, term) {
+                const i = term ? title.toLowerCase().indexOf(term.toLowerCase()) : -1;
+                if (i < 0) { el.textContent = title; return; }
+                const m = document.createElement('mark');
+                m.textContent = title.slice(i, i + term.length);
+                el.append(title.slice(0, i), m, title.slice(i + term.length));
+            }
+            function setActive(i) {
+                const links = list.querySelectorAll('a');
+                if (!links.length) { active = -1; inp.removeAttribute('aria-activedescendant'); return; }
+                active = (i + links.length) % links.length;
+                links.forEach((a, k) => { a.classList.toggle('on', k === active); a.setAttribute('aria-selected', k === active); });
+                inp.setAttribute('aria-activedescendant', links[active].id);
+                const a = links[active], top = a.offsetTop - list.offsetTop;          // 只捲清單本身，不捲整頁
+                if (top < list.scrollTop) list.scrollTop = top; else if (top + a.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + a.offsetHeight - list.clientHeight;
+            }
+            function render() {
+                const raw = inp.value.trim(), terms = raw.split(/\s+/).filter(Boolean), qs = terms.map(norm).filter(Boolean);
+                list.textContent = ''; empty.textContent = '';
+                if (!qs.length) {
+                    shown = [];
+                    empty.append('打關鍵字找遊戲、研究 Demo 和技術介紹，例如：');
+                    const row = document.createElement('div');
+                    EXAMPLES.forEach(x => { const b = document.createElement('button'); b.type = 'button'; b.textContent = x; b.addEventListener('click', () => { inp.value = x; render(); inp.focus(); }); row.appendChild(b); });
+                    empty.appendChild(row);
+                    setActive(-1);
+                    return;
+                }
+                shown = items.map((o, k) => ({ o, k, s: !qs.every(q => o.hay.includes(q)) ? -1 : o.nt.startsWith(qs[0]) ? 0 : o.nt.includes(qs[0]) ? 1 : 2 }))
+                    .filter(x => x.s >= 0).sort((a, b) => a.s - b.s || a.k - b.k).map(x => x.o);
+                if (!shown.length) {
+                    empty.textContent = '找不到「' + raw + '」。可以試試演算法名稱（Apriori、R-tree）、主題（串流、空間）或遊戲名稱。';
+                    setActive(-1);
+                    return;
+                }
+                shown.forEach((o, k) => {
+                    const li = document.createElement('li'), a = document.createElement('a');
+                    li.setAttribute('role', 'presentation');
+                    a.href = o.href; a.id = 'sr-' + k; a.setAttribute('role', 'option');
+                    if (o.ext) { a.target = '_blank'; a.rel = 'noopener'; }
+                    if (o.imgs && o.imgs.length) { const w = document.createElement('span'); o.imgs.forEach(im => { const c = im.cloneNode(); c.removeAttribute('loading'); w.appendChild(c); }); a.appendChild(w); }
+                    else { const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = o.icon || '•'; a.appendChild(ic); }
+                    const mid = document.createElement('span'), b = document.createElement('b'), sm = document.createElement('small');
+                    mark(b, o.title, terms[0]); sm.textContent = o.desc;
+                    mid.append(b, sm);
+                    const kind = document.createElement('span'); kind.className = 'kind'; kind.textContent = o.kind;
+                    a.append(mid, kind);
+                    a.addEventListener('click', () => { if (o.href.startsWith('#')) close(false); });
+                    a.addEventListener('mousemove', () => { if (active !== k) setActive(k); });
+                    li.appendChild(a); list.appendChild(li);
+                });
+                setActive(0);
+            }
+            function open() {
+                if (!box.hidden) return;
+                lastFocus = document.activeElement;
+                const gap = window.innerWidth - document.documentElement.clientWidth;    // 鎖住捲動時補回捲軸寬度，版面才不會跳
+                document.documentElement.style.overflow = 'hidden';
+                if (gap > 0) document.body.style.paddingRight = gap + 'px';
+                box.hidden = false;
+                inp.value = '';
+                render();
+                inp.focus();
+            }
+            function close(refocus = true) {
+                if (box.hidden) return;
+                box.hidden = true;
+                document.documentElement.style.overflow = '';
+                document.body.style.paddingRight = '';
+                if (refocus && lastFocus && lastFocus.focus) lastFocus.focus();
+            }
+            btn.addEventListener('click', e => { e.stopPropagation(); open(); });
+            document.getElementById('searchClose').addEventListener('click', () => close());
+            box.addEventListener('click', e => { e.stopPropagation(); if (e.target === box) close(); });
+            inp.addEventListener('input', render);
+            box.addEventListener('focusout', e => { if (!box.hidden && e.relatedTarget && !box.contains(e.relatedTarget)) inp.focus(); });
+            window.addEventListener('pageshow', e => { if (e.persisted) close(false); });   // 按上一頁回來時不要還開著
+            document.addEventListener('keydown', e => {
+                const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
+                if (box.hidden) {
+                    if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); open(); }
+                    return;
+                }
+                if (e.key === 'Escape') { e.preventDefault(); close(); }
+                else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setActive(active + (e.key === 'ArrowDown' ? 1 : -1)); }
+                else if (e.key === 'Enter' && e.target === inp && active >= 0) { e.preventDefault(); list.querySelectorAll('a')[active].click(); }
+            });
+            window.jfkSearchOpen = () => !box.hidden;
+        })();
+
         // ── 右下角的寵物：讀 games/pet.html 存的資料，只看不改 ──
         (function () {
             const box = document.getElementById('hpet'), me = document.getElementById('hpetMe'), bubble = document.getElementById('hpetSay');
@@ -921,6 +1101,56 @@
             };
             const pick = a => a[Math.floor(Math.random() * a.length)];
             let hideT = 0;
+
+            // ── 看你在網站上的紀錄挑話講，每句都附上直達的連結（只讀各遊戲存的資料，不改）──
+            const PET = ['games/pet.html', '去看牠 →'];
+            function lines() {
+                const urgent = [], more = [];
+                const L = (text, href, go) => ({ text, href: href || PET[0], go: go || PET[1] });
+                if (!xp) { urgent.push(L(pick(LINES.egg), PET[0], '去孵蛋 →')); }
+                else if (!full) urgent.push(L(pick(LINES.flat), PET[0], '去餵牠 →'));
+                else if (full <= 2) urgent.push(L(pick(LINES.hungry), PET[0], '去餵牠 →'));
+                const d = new Date(), today = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();   // 跟 pet.html 的 dayKey() 一樣
+                if (Array.isArray(pet.days) && pet.days.indexOf(today) < 0) urgent.push(L('今天還沒簽到喔！簽到送 3 瓶蘋果汁', PET[0], '去簽到 →'));
+
+                const zip = read('jfk-zip-v1'), run = read('jfk-runner-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1'), quest = read('jfk-quest-v1');
+                const num = v => (typeof v === 'number' && isFinite(v) ? v : 0);
+                if (num(zip.solved)) more.push(L('你已經解了 ' + num(zip.solved) + ' 題 Zip 了，再來一題？', 'games/zip.html', '解一題 →'));
+                else more.push(L('一筆畫 Zip 你還沒解過耶，一題只要一兩分鐘', 'games/zip.html', '試試看 →'));
+                if (num(run.best)) more.push(L('跑酷最遠 ' + Math.round(num(run.best)) + ' m，我賭你這次破不了紀錄', 'games/runner.html', '去跑 →'));
+                else more.push(L('陪我去跑酷嘛，路上可以撿蘋果汁 🧃', 'games/runner.html', '去跑 →'));
+                if (!num(store.games)) more.push(L('超商店長你還沒玩過耶，看收據挑優惠組合', 'games/store-manager.html', '去開店 →'));
+                const ends = lab.endings && typeof lab.endings === 'object' ? Object.keys(lab.endings).length : 0;
+                if (!num(lab.runs)) more.push(L('碩一生模擬器裡有個很像你的人', 'games/lab-life.html', '去看看 →'));
+                else if (ends < 6) more.push(L('碩一生模擬器的 6 種結局，你解鎖了 ' + ends + ' 種', 'games/lab-life.html', '再玩一輪 →'));
+                let stars = 0;
+                if (quest.pages && typeof quest.pages === 'object') for (const k in quest.pages) stars += num(quest.pages[k] && quest.pages[k].stars);
+                const maxStars = document.querySelectorAll('#demos .demo').length * 3;
+                if (!stars) more.push(L('研究闖關答對題目可以拿星星，一顆星換 2 瓶蘋果汁', 'research/quest.html', '去闖關 →'));
+                else if (stars < maxStars) more.push(L('研究闖關拿了 ' + stars + ' 顆星，還有 ' + (maxStars - stars) + ' 顆沒拿喔', 'research/quest.html', '去闖關 →'));
+                more.push(L('要不要跟 Stockfish 下一盤西洋棋？我幫你加油', 'games/chess/', '去下棋 →'));
+                more.push(L('我覺得 FP-tree 比 Apriori 帥', 'research/fp-growth.html', '看 FP-Growth →'));
+                const demos = [...document.querySelectorAll('#demos .demo a')];
+                if (demos.length) {
+                    const a = pick(demos), b = a.querySelector('b'), sm = a.querySelector('small');
+                    if (b) more.push(L('今天想看哪個演算法？「' + b.textContent.trim() + '」' + (sm ? '：' + sm.textContent.trim() : ''), a.getAttribute('href'), '去看看 →'));
+                }
+                if (xp && full >= 8) more.push(L(pick(LINES.happy)));
+                more.push(L(pick(LINES.ok)));
+                return { urgent, more };
+            }
+            function speak(line) {
+                freeze();
+                me.classList.remove('bump'); void me.offsetWidth; me.classList.add('bump');
+                document.getElementById('hpetLine').textContent = line.text;
+                const go = document.getElementById('hpetGo');
+                go.href = line.href; go.textContent = line.go;
+                bubble.classList.add('show');
+                clearTimeout(hideT);
+                hideT = setTimeout(hideBubble, line.text.length > 22 ? 9000 : 6500);
+            }
+            // 點牠：要緊的事（餓了、還沒簽到）比較常講，其他隨機
+            const nextLine = () => { const { urgent, more } = lines(); return urgent.length && Math.random() < 0.6 ? pick(urgent) : pick(more); };
 
             // ── 在視窗下方慢慢散步：走一段、停幾秒、再走；講話、收起來、餓扁扁時不走 ──
             const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -976,16 +1206,22 @@
             me.addEventListener('click', e => {
                 e.stopPropagation();
                 if (box.classList.contains('min')) { setMin(false); return; }
-                freeze();
-                me.classList.remove('bump'); void me.offsetWidth; me.classList.add('bump');
-                document.getElementById('hpetLine').textContent = pick(!xp ? LINES.egg : !full ? LINES.flat : full <= 2 ? LINES.hungry : full >= 8 ? LINES.happy : LINES.ok);
-                bubble.classList.add('show');
-                clearTimeout(hideT);
-                hideT = setTimeout(hideBubble, 6000);
+                speak(nextLine());
             });
             bubble.addEventListener('click', e => e.stopPropagation());
             document.getElementById('hpetMin').addEventListener('click', () => { bubble.classList.remove('show'); setMin(true); });
             document.addEventListener('click', hideBubble);
+
+            // 每次來首頁，過一會兒主動講一句（同一個分頁只講一次；收到角落時不吵你）
+            let said = false;
+            try { said = sessionStorage.getItem('jfk-pet-said') === '1'; } catch (e) { /* 被擋就每次都講 */ }
+            if (!said) setTimeout(function chat() {
+                if (document.hidden || bubble.classList.contains('show') || (window.jfkSearchOpen && window.jfkSearchOpen())) { setTimeout(chat, 5000); return; }
+                if (box.classList.contains('min')) return;
+                try { sessionStorage.setItem('jfk-pet-said', '1'); } catch (e) { /* 不記也沒關係 */ }
+                const { urgent, more } = lines();
+                speak(urgent.length ? urgent[0] : pick(more));
+            }, 12000);
         })();
 
         // ── 手機選單 ──
