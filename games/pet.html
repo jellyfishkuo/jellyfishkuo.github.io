@@ -104,7 +104,8 @@
         /* 配件：位置用果汁龍圖的百分比（頭頂、眼睛、脖子） */
         .acc { position: absolute; line-height: 1; transform: translate(-50%, -50%); pointer-events: none; }
         .acc.hat { left: 37%; top: 2%; }
-        .acc.face { left: 27%; top: 23%; }
+        /* 臉上的（墨鏡、護目鏡）：果汁龍是朝左的側臉，眼睛在 (25.9%, 21.3%)；讓「右邊那片鏡片」蓋住眼睛，左邊那片露在臉前面，才不會像頭上多一隻眼睛 */
+        .acc.face { left: 25.9%; top: 21.3%; transform: translate(-74%, -52%); }
         .acc.neck { left: 46%; top: 54%; }
         .acc.side { left: 57%; top: 10%; }
         .acc.hat, .acc.face, .acc.neck, .acc.side { font-size: calc(var(--s, 1) * var(--fs)); }

@@ -425,10 +425,11 @@
         .hpet-me img, .hpet-me svg { width: 100%; height: 100%; display: block; }
         .hpet-me .acc { position: absolute; line-height: 1; transform: translate(-50%, -50%); pointer-events: none; }
         .hpet-me .acc.hat { left: 37%; top: 2%; font-size: 29cqw; }
-        .hpet-me .acc.face { left: 27%; top: 23%; font-size: 21cqw; }
+        .hpet-me .acc.face { left: 25.9%; top: 21.3%; font-size: 21cqw; transform: translate(-74%, -52%); }   /* 右邊鏡片蓋住眼睛（跟 pet.html 一樣） */
         .hpet-me .acc.neck { left: 46%; top: 54%; font-size: 22.6cqw; }
         .hpet-me .acc.side { left: 57%; top: 10%; font-size: 19.4cqw; }
-        .hpet-me.flat img { transform: scale(1.18, 0.62); transform-origin: 50% 100%; } /* 餓扁扁 */
+        .hpet-me .body { position: absolute; inset: 0; transform-origin: 50% 100%; }
+        .hpet-me.flat .body { transform: scale(1.18, 0.62); } /* 餓扁扁：果汁龍和配件包在同一層一起扁，帽子才會跟著下來 */
         .hpet-me.bump { animation: hpetBump 0.45s; }
         @keyframes hpetBump { 30% { transform: translateY(-10px) scale(1.06, 0.95); } 60% { transform: translateY(0) scale(0.96, 1.04); } }
         .hpet.min .hpet-me { rotate: -12deg; opacity: 0.85; }
@@ -1080,16 +1081,19 @@
             } else {
                 me.style.setProperty('--w', Math.round(40 + 32 * sz) + 'px');
                 if (!full) me.classList.add('flat');
+                const body = document.createElement('span');
+                body.className = 'body';
                 const img = document.createElement('img');
                 img.src = jfkDragonURL(jfkPetHold());
                 img.alt = '';
-                me.appendChild(img);
+                body.appendChild(img);
+                me.appendChild(body);
                 ['hat', 'face', 'neck', 'side'].forEach(slot => {
                     if (typeof pet[slot] !== 'string' || !pet[slot]) return;
                     const a = document.createElement('span');
                     a.className = 'acc ' + slot;
                     a.textContent = pet[slot];
-                    me.appendChild(a);
+                    body.appendChild(a);
                 });
             }
             const nm = typeof pet.name === 'string' && pet.name.trim() ? pet.name.trim().slice(0, 12) : '果汁龍';
