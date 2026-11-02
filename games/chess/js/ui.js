@@ -92,3 +92,46 @@ export function fenProblem(fen) {
     if (p && p.type === 'k' && p.color === other && g.isAttacked(p.square, g.turn())) return '不輪到走的一方正被將軍，這不是合法的局面';
   return null;
 }
+
+// ── 認出開局：拿棋譜跟開局資料（主線＋各變化）比對前面幾步 ──
+import { OPENINGS } from '../data/openings.js';
+let LINES = null;
+function openingLines() {
+  if (LINES) return LINES;
+  LINES = [];
+  for (const o of OPENINGS) {
+    const add = (pgn, name) => { const g = new Chess(); g.loadPgn(pgn); LINES.push({ o, name, sans: g.history() }); };
+    add(o.main, null);
+    for (const l of o.lines) add(l.moves, l.name);
+  }
+  return LINES;
+}
+/** sans：從初始局面開始的棋步。回傳 { o, name } 或 null（至少對上前 2 步、而且走到該開局的特徵步） */
+export function detectOpening(sans) {
+  let best = null;
+  for (const L of openingLines()) {
+    let m = 0;
+    while (m < L.sans.length && m < sans.length && L.sans[m] === sans[m]) m++;
+    if (m < 2) continue;
+    // 分辨同一開局底下的變化：要比主線多對上幾步才算是那個變化
+    if (!best || m > best.m || (m === best.m && L.name === null)) best = { ...L, m };
+  }
+  if (!best) return null;
+  // 這個開局的「特徵步」：跟其他開局主線分開的那一步（例如義大利是第 5 步 Bc4），沒走到就還不能確定
+  const others = openingLines().filter(L => L.o !== best.o);
+  const shared = Math.max(0, ...others.map(L => { let k = 0; while (k < L.sans.length && k < best.sans.length && L.sans[k] === best.sans[k]) k++; return k; }));
+  if (best.m <= shared) return null;
+  const main = openingLines().find(L => L.o === best.o && L.name === null);
+  let mm = 0; while (mm < main.sans.length && mm < sans.length && main.sans[mm] === sans[mm]) mm++;
+  return { o: best.o, name: best.name && best.m > mm ? best.name : null };
+}
+
+/** 一行「開局：義大利開局・雙馬防禦 →」，點了跳到開局頁；認不出來時保留高度、只是看不見 */
+export function openingLine(box, sans, startFen, go) {
+  const r = (!startFen || startFen.startsWith('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w')) ? detectOpening(sans) : null;
+  box.innerHTML = '';
+  box.style.visibility = r ? 'visible' : 'hidden';
+  box.append('開局：');
+  if (r) box.append(el('a', { href: '#openings', onclick: e => { e.preventDefault(); go('openings', { id: r.o.id }); } }, r.o.name + (r.name ? '・' + r.name : '') + ' →'));
+  else box.append('—');
+}

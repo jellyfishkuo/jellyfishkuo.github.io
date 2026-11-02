@@ -206,7 +206,7 @@ async function finish(solved) {
       for (const u of solMoves(p)) applyUci(g, u);
       g.setHeader('Event', `Jellyfish Chess 戰術題 ${p.id.replace(/^(jc|li)/, '#')}`);
       g.setHeader('White', p.side === 'w' ? '你' : '對手'); g.setHeader('Black', p.side === 'b' ? '你' : '對手');
-      app.go('analysis', { pgn: g.pgn(), ply: 1 });
+      app.go('analysis', { pgn: g.pgn(), ply: 1, flip: p.side === 'b' });
     } }, '用引擎分析這題')));
 }
 
@@ -234,7 +234,7 @@ function renderStats() {
   ui.stats.innerHTML = '';
   ui.stats.append(
     el('div', { class: 'stat' }, el('b', { id: 'pz-acc' }, tries ? Math.round(ok / tries * 100) + '%' : '—'), el('span', {}, '正確率（每次作答）')),
-    el('div', { class: 'stat' }, el('b', {}, st.filter(s => s.solved > 0).length + ' / ' + PUZZLES.length), el('span', {}, '解出過的題目')),
+    el('div', { class: 'stat' }, el('b', {}, st.filter(s => s.solved > 0).length), el('span', {}, `解出過的題目（共 ${PUZZLES.length} 題）`)),
     el('div', { class: 'stat' }, el('b', {}, pool('wrong').length), el('span', {}, '錯題本')),
   );
 }

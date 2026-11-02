@@ -292,6 +292,20 @@ def t_ai(b):
     pg.click('#btn-hint')
     pg.wait_for_function("document.querySelectorAll('#board .arrows line').length > 0", timeout=20000)
     check('提示會畫出建議走法的箭頭', True)
+    # 認出開局
+    pg.click('#btn-new')
+    click_move(pg, 'e2', 'e4')
+    pg.wait_for_function('window.jfkChess.game.history().length >= 2', timeout=30000)
+    if pg.evaluate("window.jfkChess.game.history()[1]") == 'c5':
+        check('對弈時認出開局', '西西里' in pg.inner_text('#play-opening'), pg.inner_text('#play-opening'))
+    pg.evaluate("window.jfkChess.go('analysis', {pgn: '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6'})")
+    pg.wait_for_function("window.jfkChess.route === 'analysis' && document.getElementById('an-opening')")
+    pg.wait_for_timeout(500)
+    check('分析時認出開局與變化', '龍式' in pg.inner_text('#an-opening'), pg.inner_text('#an-opening'))
+    pg.click('#an-opening a')
+    pg.wait_for_function("window.jfkChess.route === 'openings'")
+    check('點開局名稱跳到開局頁', 'Sicilian' in pg.inner_text('#op-head'))
+    open_chess(pg, 'play')
     # 下到一半重新整理，要接回同一盤
     pg.click('#btn-new')
     click_move(pg, 'd2', 'd4')
@@ -467,6 +481,7 @@ def t_tactics(b):
     n = pg.locator('#an-moves .mv[data-ply]').count()
     check('戰術題 → 分析：整條解答自動分析完', n == len(p3['moves'].split()), f'{n} 步')
     check('戰術題 → 分析：停在輪到你的那一步', pg.evaluate("+document.querySelector('#an-moves .mv.cur').dataset.ply") == 1)
+    check('戰術題 → 分析：棋盤方向跟解題方一樣', pg.evaluate('window.jfkChess.board.flipped') == (p3['side'] == 'b'))
     # 只有一個局面（沒有棋步）也會自動算評估
     pg.fill('#pgn-in', '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1')
     pg.click('#btn-load')

@@ -136,7 +136,7 @@ export default {
       el('div', { class: 'card' }, ui.status,
         el('div', { class: 'row', style: 'margin:10px 0' }, ui.undo,
           el('button', { type: 'button', class: 'btn', id: 'eg-reset', onclick: () => select(S.item) }, '↺ 重來'),
-          el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: S.g.fen() }) }, '用引擎看這個局面')),
+          el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: S.g.fen(), flip: S.item.side === 'b' }) }, '用引擎看這個局面')),
         ui.moves),
       el('div', { class: 'card' }, el('h2', {}, '殘局練習 ', el('small', {}, '對手是 Stockfish 全力')), ui.list),
     );

@@ -42,7 +42,7 @@ async function render() {
       el('div', { class: 'grow' },
         el('b', {}, `${OUT_LONG[g.outcome] || '未完'}${g.reason && REASON[g.reason] ? '・' + REASON[g.reason] : ''}`),
         el('span', {}, `你執${g.myColor === 'w' ? '白' : '黑'}・電腦等級 ${g.level}・${Math.ceil((g.moves || 0) / 2)} 回合・${g.result}・${fmtDate(g.date)}`)),
-      el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: g.pgn }) }, '分析'),
+      el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: g.pgn, flip: g.myColor === 'b' }) }, '分析'),
       el('button', { type: 'button', class: 'btn sm', onclick: () => download(`game-${g.date.slice(0, 10)}.pgn`, g.pgn, 'application/x-chess-pgn') }, 'PGN'),
       el('button', { type: 'button', class: 'btn sm danger', 'aria-label': '刪除這盤', onclick: async () => { if (await app.confirm('刪除這盤棋？', '刪除後無法復原（除非你有備份）。', '刪除')) { await db.del('games', g.id); render(); } } }, '✕')));
   }

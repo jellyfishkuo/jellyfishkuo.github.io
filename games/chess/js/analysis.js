@@ -2,7 +2,7 @@
 import { Chess, DEFAULT_POSITION } from '../vendor/chessjs/chess.js';
 import { fmtScore, whitePov, winChance, scoreNum } from './engine.js';
 import { db, prefs, setPref, uid } from './store.js';
-import { el, renderMoves, download, today, applyUci, pvToSan, fenProblem } from './ui.js';
+import { el, renderMoves, download, today, applyUci, pvToSan, fenProblem, openingLine } from './ui.js';
 
 // 勝率掉多少算哪一級（Lichess 的門檻：勝率差 30%/20%/10%，這裡勝率是 0～1，所以除以 2）
 export const CLS = [
@@ -47,6 +47,7 @@ function load(pgnOrFen, { id = null, evals = null } = {}) {
   }
   S.g = g; S.id = id || uid('a'); S.evals = evals || []; S.ply = 0;
   const done = S.evals.filter(Boolean).length === S.fens.length;
+  if (done) requestAnimationFrame(() => reserveInfo());
   if (ui.prog) { ui.prog.style.width = done ? '100%' : '0'; ui.progTxt.textContent = done ? '已載入存好的分析' : ''; ui.run.textContent = done ? '重新分析' : '整盤分析'; }
   render();
 }
@@ -115,6 +116,7 @@ async function startFull() {
   ui.progTxt.textContent = complete ? `分析完成（深度 ${depth}）` : '已停止';
   if (complete) await saveAnalysis(false);
   render();
+  reserveInfo();
   startLive();
 }
 
@@ -236,6 +238,41 @@ function go(p) {
   startLive();
 }
 
+// 某一步的說明（畫面上用，也拿來量最高的高度）
+function buildInfo(info, ply) {
+  info.innerHTML = '';
+  if (!S.moves.length) info.append(el('p', { class: 'muted small' }, '這是一個局面（沒有棋步）。右邊「引擎」會列出最好的幾種走法，也可以在棋盤上自己走走看。'));
+  else if (ply === 0) info.append(el('p', { class: 'muted small' }, '開局局面。點棋譜上的任一步，或用 ◀ ▶（鍵盤左右鍵）一步一步看。'));
+  else {
+    const i = ply - 1, m = S.moves[i], a = S.evals[i], b = S.evals[i + 1];
+    const no = Math.floor((new Chess(S.startFen).moveNumber() * 2 + (new Chess(S.startFen).turn() === 'b' ? 1 : 0) + i) / 2);
+    const head = el('div', { class: 'row' }, el('b', { class: 'mono' }, `${no}${m.color === 'w' ? '.' : '…'} ${m.san}`));
+    if (a && b) {
+      const c2 = classify(a.score, b.score, m.color, a.best, m.uci);
+      if (c2) head.append(el('span', { class: 'tag ' + c2.key, style: 'padding:1px 6px;border-radius:5px;font-size:.78rem;font-weight:700' }, c2.name));
+      info.append(head,
+        el('p', { class: 'small' }, '實際走法：', el('b', { class: 'mono' }, m.san), `（走完評估 ${fmtScore(b.score)}）`),
+        a.best ? el('p', { class: 'small' }, '最佳走法：', el('b', { class: 'mono' }, sanOf(S.fens[i], a.best)), `（評估 ${fmtScore(a.score)}）`) : '',
+        a.pv && a.pv.length ? el('p', { class: 'small muted' }, '引擎建議的變化：', el('span', { class: 'mono' }, pvToSan(S.fens[i], a.pv, 8))) : '',
+        c2 && c2.drop ? el('p', { class: 'small muted' }, `這步讓${m.color === 'w' ? '白' : '黑'}方的勝率大約少了 ${Math.round(c2.drop * 100)}%。`) : '');
+    } else info.append(head, el('p', { class: 'small muted' }, '還沒分析到這一步，分析中…'));
+  }
+}
+// 每一步的說明長短不同：全部量一次，用最高的那個固定高度，換步時下面的卡片才不會跳
+function reserveInfo() {
+  const box = ui.info;
+  if (!box.isConnected || !box.clientWidth) return;
+  const probe = document.createElement('div');
+  probe.className = box.className;
+  // 放在同一張卡片裡量，字型大小等樣式才會一樣
+  probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;left:0;top:0;width:${box.clientWidth}px`;
+  box.parentNode.appendChild(probe);
+  let max = 0;
+  for (let k = 0; k <= S.moves.length; k++) { buildInfo(probe, k); max = Math.max(max, probe.getBoundingClientRect().height); }
+  probe.remove();
+  box.style.minHeight = Math.ceil(max) + "px";
+}
+
 function render() {
   const c = posAt(S.ply);
   app.setGame(c);
@@ -250,24 +287,8 @@ function render() {
   app.board.render();
   app.players({ white: S.headers.White || '白方', black: S.headers.Black || '黑方' });
   app.evalbar(ev ? ev.score : (S.liveScore && S.liveScore.ply === S.ply ? S.liveScore.s : undefined));
-  // 這一步的說明
-  const info = ui.info; info.innerHTML = '';
-  if (!S.moves.length) info.append(el('p', { class: 'muted small' }, '這是一個局面（沒有棋步）。右邊「引擎」會列出最好的幾種走法，也可以在棋盤上自己走走看。'));
-  else if (S.ply === 0) info.append(el('p', { class: 'muted small' }, '開局局面。點棋譜上的任一步，或用 ◀ ▶（鍵盤左右鍵）一步一步看。'));
-  else {
-    const i = S.ply - 1, m = S.moves[i], a = S.evals[i], b = S.evals[i + 1];
-    const no = Math.floor((new Chess(S.startFen).moveNumber() * 2 + (new Chess(S.startFen).turn() === 'b' ? 1 : 0) + i) / 2);
-    const head = el('div', { class: 'row' }, el('b', { class: 'mono' }, `${no}${m.color === 'w' ? '.' : '…'} ${m.san}`));
-    if (a && b) {
-      const c2 = classify(a.score, b.score, m.color, a.best, m.uci);
-      if (c2) head.append(el('span', { class: 'tag ' + c2.key, style: 'padding:1px 6px;border-radius:5px;font-size:.78rem;font-weight:700' }, c2.name));
-      info.append(head,
-        el('p', { class: 'small' }, '實際走法：', el('b', { class: 'mono' }, m.san), `（走完評估 ${fmtScore(b.score)}）`),
-        a.best ? el('p', { class: 'small' }, '最佳走法：', el('b', { class: 'mono' }, sanOf(S.fens[i], a.best)), `（評估 ${fmtScore(a.score)}）`) : '',
-        a.pv && a.pv.length ? el('p', { class: 'small muted' }, '引擎建議的變化：', el('span', { class: 'mono' }, pvToSan(S.fens[i], a.pv, 8))) : '',
-        c2 && c2.drop ? el('p', { class: 'small muted' }, `這步讓${m.color === 'w' ? '白' : '黑'}方的勝率大約少了 ${Math.round(c2.drop * 100)}%。`) : '');
-    } else info.append(head, el('p', { class: 'small muted' }, '還沒分析這一步。按「整盤分析」。'));
-  }
+  buildInfo(ui.info, S.ply);
+  openingLine(ui.opening, S.moves.map(m => m.san), S.startFen, (r, p) => app.go(r, p));
   renderMeta();
   // 總結
   const sm = ui.sum; sm.innerHTML = '';
@@ -358,7 +379,7 @@ export default {
       try { load(ta.value); app.toast(`已載入 ${S.moves.length} 步，開始分析`); go(0); autoAnalyse(); }
       catch (e) { app.toast('讀不懂這份 PGN／FEN：' + e.message, 4000); }
     };
-    ui.depth = el('select', { id: 'an-depth', 'aria-label': '分析深度' });
+    ui.depth = el('select', { id: 'an-depth', 'aria-label': '分析深度', style: 'width:auto' });
     for (const d of [10, 12, 14, 16, 18]) ui.depth.append(el('option', { value: d, selected: d === p.analysisDepth }, `深度 ${d}${d <= 12 ? '（快）' : d >= 16 ? '（準，較慢）' : ''}`));
     // 換深度：用新的深度重新分析（已經夠深的步會跳過）
     ui.depth.onchange = () => { setPref('analysisDepth', +ui.depth.value); if (S.moves.length) { if (S.running) { S.running = false; S.runTok++; app.engine.stop(); } startFull(); } };
@@ -378,29 +399,25 @@ export default {
     });
     ui.chart.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' || !S.evals.some(Boolean)) return; const p = chartPly(e); if (p !== S.hover) { S.hover = p; chart(); } });
     ui.chart.addEventListener('pointerleave', () => { if (S.hover !== null) { S.hover = null; chart(); } });
-    this._ro = new ResizeObserver(() => chart());
+    this._ro = new ResizeObserver(() => { chart(); reserveInfo(); });
     this._ro.observe(ui.chart);
     ui.moves = el('div', { class: 'moves tall', id: 'an-moves' });
-    ui.info = el('div', { class: 'prose', id: 'an-info' });
+    ui.opening = el('p', { class: 'small muted', id: 'an-opening', style: 'margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' });
+    ui.info = el('div', { class: 'prose', id: 'an-info', style: 'min-height:9.5em' });   // 分析完後 reserveInfo() 改成實際量到的最高高度
     ui.sum = el('div', { class: 'stats', id: 'an-sum', style: 'margin-top:8px' });
-    ui.lines = el('div', { class: 'lines', id: 'an-lines' });
+    ui.lines = el('div', { class: 'lines', id: 'an-lines', style: 'min-height:6.6em' });
     ui.depthTxt = el('span', { class: 'small muted mono' });
     const liveBtn = el('button', { type: 'button', class: 'btn sm', 'aria-pressed': String(S.live), onclick: () => { S.live = !S.live; liveBtn.setAttribute('aria-pressed', String(S.live)); if (!S.live) app.engine.stop(); startLive(); } }, '即時分析');
 
     app.panel.append(
+      // 最上面：這一步的說明＋分析進度（手機上不用捲過輸入框就看得到）
       el('div', { class: 'card' },
-        el('h2', {}, '棋局分析 ', el('small', {}, 'PGN + Stockfish')),
-        ta,
-        el('div', { class: 'row', style: 'margin-top:8px' },
-          el('button', { type: 'button', class: 'btn', id: 'btn-load', onclick: doLoad }, '載入'),
-          el('button', { type: 'button', class: 'btn', onclick: () => file.click() }, '開啟 .pgn 檔'),
-          el('button', { type: 'button', class: 'btn sm', onclick: () => { ta.value = SAMPLE; doLoad(); } }, '範例：Morphy 歌劇院之局'), file),
-        el('div', { class: 'row', style: 'margin-top:10px' }, ui.depth, ui.run),
-        el('div', { class: 'progress', style: 'margin-top:8px' }, ui.prog), ui.progTxt),
+        el('div', { class: 'row spread', style: 'margin-bottom:8px' }, el('h2', { style: 'margin:0' }, '棋局分析 ', el('small', {}, 'Stockfish')), el('div', { class: 'row' }, ui.depth, ui.run)),
+        el('div', { class: 'progress' }, ui.prog), ui.progTxt, ui.opening,
+        el('div', { style: 'margin-top:8px' }, ui.info)),
       el('div', { class: 'card' },
         el('div', { class: 'row spread' }, el('h2', { style: 'margin:0' }, '引擎'), el('div', { class: 'row' }, ui.depthTxt, liveBtn)),
         ui.lines),
-      el('div', { class: 'card' }, ui.info),
       el('div', { class: 'card' },
         el('h2', {}, '評估曲線'),
         el('p', { class: 'small muted', style: 'margin-bottom:6px' }, '線在中線上面＝白方好，下面＝黑方好；數字是領先幾個兵（+2 大約是多兩個兵）。點曲線可以跳到那一步，圓點是失誤。'),
@@ -412,10 +429,19 @@ export default {
           el('button', { type: 'button', class: 'btn sm', onclick: () => saveAnalysis(true) }, '存到「我的」'),
           el('button', { type: 'button', class: 'btn sm', onclick: () => download(`analysis-${today()}.pgn`, annotatedPgn(), 'application/x-chess-pgn') }, '下載含評估的 PGN'),
           el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('play', { fen: app.game.fen() }) }, '從這個局面跟電腦下 →'))),
+      el('div', { class: 'card' },
+        el('h2', {}, '載入其他棋局 ', el('small', {}, 'PGN／FEN')),
+        ta,
+        el('div', { class: 'row', style: 'margin-top:8px' },
+          el('button', { type: 'button', class: 'btn', id: 'btn-load', onclick: doLoad }, '載入'),
+          el('button', { type: 'button', class: 'btn', onclick: () => file.click() }, '開啟 .pgn 檔'),
+          el('button', { type: 'button', class: 'btn sm', onclick: () => { ta.value = SAMPLE; doLoad(); } }, '範例：Morphy 歌劇院之局'), file),
+        ),
     );
+
     ui.prog.style.width = '0';
     app.tools.append(
-      el('button', { type: 'button', class: 'btn icon', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => { app.board.flip(); render(); } }, '⇅'),
+      el('button', { type: 'button', class: 'btn icon', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => { app.board.flip(); S.flip = app.board.flipped; render(); } }, '⇅'),
       el('button', { type: 'button', class: 'btn icon', id: 'an-first', 'aria-label': '第一步', onclick: () => go(0) }, '⏮'),
       el('button', { type: 'button', class: 'btn icon', id: 'an-prev', 'aria-label': '上一步', onclick: () => go(S.ply - 1) }, '◀'),
       el('button', { type: 'button', class: 'btn icon', id: 'an-next', 'aria-label': '下一步', onclick: () => go(S.ply + 1) }, '▶'),
@@ -428,6 +454,9 @@ export default {
     };
     document.addEventListener('keydown', this._key);
     app.use({ canMove: () => !S.running, onMove });
+    // 棋盤方向：從別頁帶棋局進來時照你那一方；其他情況白方在下（不沿用上一頁翻過的方向）
+    if (params.pgn || params.analysisId || !S.g) S.flip = !!params.flip;
+    app.board.setFlipped(!!S.flip);   // 分析頁自己記方向，不沿用上一頁（例如執黑的戰術題）翻過的
     (async () => {
       if (params.analysisId) {
         const r = await db.get('analyses', params.analysisId);

@@ -2,7 +2,7 @@
 import { Chess, DEFAULT_POSITION } from '../vendor/chessjs/chess.js';
 import { LEVELS, fmtScore, whitePov } from './engine.js';
 import { db, prefs, setPref, uid } from './store.js';
-import { el, renderMoves, download, copy, today, uciList, applyUci, fenProblem } from './ui.js';
+import { el, renderMoves, download, copy, today, uciList, applyUci, fenProblem, openingLine } from './ui.js';
 
 const S = {
   g: null, startFen: DEFAULT_POSITION, my: 'w', view: null, thinking: false, token: 0, id: null, over: null, resigned: false, hint: null,
@@ -94,6 +94,7 @@ function sync() {
   if (app.engine.state === 'loading') st.append(el('span', { class: 'small muted', text: '　引擎載入中…' }));
   if (app.engine.state === 'error') { st.className = 'status bad'; st.textContent = 'Stockfish 載入失敗：' + (app.engine.error && app.engine.error.message || '') + '。請重新整理頁面。'; }
   const h = S.g.history();
+  openingLine(ui.opening, h, S.startFen, (r, p) => app.go(r, p));
   renderMoves(ui.moves, h, S.view === null ? h.length : S.view, ply => { S.view = ply === h.length ? null : ply; sync(); },
     { startTurn: new Chess(S.startFen).turn(), startNo: new Chess(S.startFen).moveNumber() });
   ui.undo.disabled = !h.length || (!!o && !S.resigned && false);
@@ -251,6 +252,7 @@ export default {
     ));
     ui.status = el('div', { class: 'status', id: 'play-status' });
     ui.moves = el('div', { class: 'moves', id: 'play-moves' });
+    ui.opening = el('p', { class: 'small muted', id: 'play-opening', style: 'margin:6px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' });
     ui.undo = el('button', { type: 'button', class: 'btn', id: 'btn-undo', onclick: undo }, '↶ 悔棋');
     ui.hintBtn = el('button', { type: 'button', class: 'btn', id: 'btn-hint', onclick: hint }, '💡 提示');
     ui.resign = el('button', { type: 'button', class: 'btn danger', id: 'btn-resign', onclick: async () => {
@@ -259,14 +261,14 @@ export default {
     } }, '🏳 認輸');
     ui.live = el('button', { type: 'button', class: 'btn sm', onclick: () => { S.view = null; sync(); } }, '回到目前局面');
     panel.prepend(el('div', { class: 'card' },
-      ui.status,
+      ui.status, ui.opening,
       el('div', { class: 'row', style: 'margin:10px 0' }, ui.undo, ui.hintBtn, ui.resign),
       el('div', { class: 'row spread', style: 'margin-bottom:6px' }, el('b', { class: 'small' }, '棋譜'), ui.live),
       ui.moves,
       el('div', { class: 'row', style: 'margin-top:10px' },
         el('button', { type: 'button', class: 'btn sm', id: 'btn-export', onclick: exportPgn }, '匯出 PGN'),
         el('button', { type: 'button', class: 'btn sm', id: 'btn-save', onclick: async () => { await save(false); app.toast('已存到「我的」'); } }, '儲存棋譜'),
-        el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: pgnText() }) }, '用引擎分析這盤 →')),
+        el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: pgnText(), flip: S.my === 'b' }) }, '用引擎分析這盤 →')),
     ));
     app.tools.append(
       el('button', { type: 'button', class: 'btn icon', id: 'btn-flip', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => { app.board.flip(); sync(); } }, '⇅ 翻轉'),

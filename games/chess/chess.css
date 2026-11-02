@@ -127,7 +127,7 @@ a { color: var(--c-accent2); }
 .line-btn .mono { display: block; font-size: 0.74rem; color: var(--c-muted); margin-top: 2px; overflow-wrap: anywhere; }
 .line-btn p { margin-top: 4px; font-size: 0.9rem; line-height: 1.65; }
 .stage { min-width: 0; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.stage-inner { width: min(100%, calc(100vh - 210px), 720px); min-width: 260px; display: flex; flex-direction: column; gap: 6px; }
+.stage-inner { width: min(100%, calc(100vh - 268px), 720px); /* 268 = 上方標題＋導覽＋上下玩家列＋按鈕列，棋盤和按鈕要同時在畫面裡 */ min-width: 260px; display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 900px) { .stage-inner { width: min(100%, 640px); min-width: 0; } }
 
 .player {
@@ -141,16 +141,20 @@ a { color: var(--c-accent2); }
 .player .caps b { font-family: var(--mono); font-size: 0.8rem; color: var(--c-muted); margin-left: 4px; }
 .player.turn .who::after { content: ' ●'; color: var(--c-good); font-size: 0.7em; vertical-align: middle; }
 
-.board-row { display: flex; gap: 8px; align-items: stretch; }
-.evalbar {
-    flex: none; width: 18px; border-radius: 6px; overflow: hidden; position: relative; background: #2b2b2b; border: 1px solid var(--c-line);
-}
-.evalbar .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f0f0f0; transition: height 0.3s; }
+.board-row { position: relative; }
+/* 評估條不佔棋盤的寬度，每一頁的棋盤才會一樣大：桌面放在棋盤左邊外面，手機放在棋盤上方（細橫條） */
+.evalbar { position: absolute; left: -26px; top: 7px; bottom: 7px; width: 16px; border-radius: 6px; overflow: hidden; background: #2b2b2b; border: 1px solid var(--c-line); }
+.evalbar .fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--pct, 50%); background: #f0f0f0; transition: height 0.3s, width 0.3s; }
 .evalbar span {
     position: absolute; left: 50%; transform: translateX(-50%) rotate(-90deg); top: 50%; font: 700 10px var(--mono); color: #888; white-space: nowrap; mix-blend-mode: difference;
 }
 .evalbar.flip { transform: rotate(180deg); }
 .evalbar.flip span { transform: translateX(-50%) rotate(90deg); }
+@media (max-width: 900px) {
+    .evalbar { position: relative; left: auto; top: auto; bottom: auto; width: auto; height: 8px; margin: 0 7px 2px; border-radius: 4px; }
+    .evalbar .fill { top: 0; bottom: 0; right: auto; height: auto; width: var(--pct, 50%); }
+    .evalbar span { display: none; }
+}
 
 /* 棋盤 */
 .board {
@@ -338,3 +342,7 @@ details.more[open] > summary { margin-bottom: 4px; }
     .item.game .grow { flex: 1 1 calc(100% - 3.4em); }
     .item.game > button:first-of-type { margin-left: calc(2.2em + 10px); }
 }
+/* 狀態框的文字長短會變（提示、走錯、成功、守不住…）：預留最長訊息的高度，下面的按鈕才不會被推動 */
+#pz-status, #eg-status { min-height: 6.4em; align-items: flex-start; }
+#play-status { min-height: 4.8em; align-items: flex-start; }
+@media (max-width: 560px) { #pz-status, #eg-status { min-height: 7.2em; } #play-status { min-height: 6.4em; } }

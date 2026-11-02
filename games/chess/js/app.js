@@ -90,7 +90,7 @@ export const app = {
       if (score.mate !== undefined) { pct = score.mate > 0 ? 100 : (score.mate < 0 ? 0 : 50); txt = (score.mate > 0 ? 'M' : '-M') + Math.abs(score.mate); }
       else { const cp = Math.max(-1000, Math.min(1000, score.cp)); pct = 50 + 50 * (2 / (1 + Math.exp(-0.004 * cp)) - 1); txt = Math.abs(score.cp) >= 100000 ? '#' : (score.cp / 100).toFixed(1); }
     }
-    el.querySelector('.fill').style.height = pct + '%';
+    el.style.setProperty('--pct', pct + '%');
     el.querySelector('span').textContent = txt;
   },
 
