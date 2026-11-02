@@ -21,7 +21,7 @@ assets/dragon.svg       沒有底色的果汁龍（首頁開場、導覽列用�
 assets/dragon-hold.js   果汁龍手上拿的東西（蘋果汁／牛奶／可樂／檸檬汁／西瓜汁／珍奶，寵物等級解鎖）：`jfkDragonURL(id)` 畫出整隻龍、`jfkPetHold()` 讀寵物的 `hold`；寵物頁、首頁那隻、跑酷都用它。身體是 dragon.svg 的複本，改身體要兩邊一起改
 assets/logo.svg|.ico|-32/-180.png   站台圖示（深色底的果汁龍，手拿蘋果汁）
 assets/pet-mini.js      遊戲頁右下角的小果汁龍（只讀 jfk-pet-v1）：點牠講這頁的話（`PAGE`，key 是檔名）；過關時遊戲呼叫 `if (window.jfkPetCheer) jfkPetCheer('…')`；底下有按鈕就閃到另一邊、兩邊都擋就縮到邊緣（`dodge()`）；「收起來」同一分頁不再出現。新遊戲頁要在 theme.js 後面加 `<script src="../assets/pet-mini.js" defer>`，`PAGE` 補幾句、過關處補 cheer
-sw.js、manifest.webmanifest   整站離線快取＋加到手機主畫面（theme.js 會自動註冊 sw.js、補 manifest 連結）。策略是「先抓網路、成功就存；抓不到才用存的」，所以不會卡舊版。**新增遊戲頁要加進 sw.js 的 `CORE`**；改 CORE 或快取規則就把 `VERSION` 加一。App 圖示 assets/app-192/512(.png、-maskable.png)。西洋棋有自己的 games/chess/sw.js
+sw.js、manifest.webmanifest   整站離線快取＋加到手機主畫面（theme.js 會自動註冊 sw.js）。**manifest 只放在 index.html，不要每頁都加**：start_url 是首頁，iPhone 在任何一頁按「加入主畫面」都會變成開首頁。iPhone 用全螢幕（網頁 App）打開時，localStorage 跟 Safari 是分開的，所以電費紀錄這類存重要資料的頁面不要做成全螢幕 App。策略是「先抓網路、成功就存；抓不到才用存的」，所以不會卡舊版。**新增遊戲頁要加進 sw.js 的 `CORE`**；改 CORE 或快取規則就把 `VERSION` 加一。App 圖示 assets/app-192/512(.png、-maskable.png)。西洋棋有自己的 games/chess/sw.js
 assets/icons/<name>.svg + -32.png + -180.png   每個作品的圖示（64×64、#12121c 圓角深色底、扁平圖形）
 games/                  單檔遊戲／工具（HTML+CSS+JS 同一檔），以及 *-detail.html 技術介紹頁（由 tools/detail 產生）
 research/               研究互動 Demo（由 tools/research 產生）與 research/code/ 可執行的 Java / Python
