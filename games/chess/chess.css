@@ -320,3 +320,21 @@ details.more > summary { cursor: pointer; font-weight: 800; font-size: 0.92rem; 
 details.more[open] > summary { margin-bottom: 4px; }
 .foot { max-width: 1240px; margin: 0 auto; padding: 0 clamp(10px, 3vw, 28px) 30px; color: var(--c-muted); font-size: 0.78rem; }
 .foot a { color: var(--c-muted); }
+
+/* 對局紀錄：左邊色條＋大字勝負 */
+.item.game { border-left-width: 5px; }
+.item.game.win { border-left-color: #22c55e; }
+.item.game.loss { border-left-color: #ef4444; }
+.item.game.draw { border-left-color: #94a3b8; }
+.item.game.ongoing { border-left-color: var(--c-line); opacity: 0.85; }
+.res { flex: none; width: 2.2em; height: 2.2em; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 1rem; color: #fff; }
+.res.win { background: #16a34a; } .res.loss { background: #dc2626; } .res.draw { background: #64748b; }
+.res.ongoing { background: var(--c-btn); color: var(--c-muted); }
+.wdl { font-size: 1.05rem !important; white-space: normal !important; }
+.wdl .w { color: #16a34a; } .wdl .l { color: #dc2626; } .wdl .d { color: var(--c-muted); }
+/* 窄螢幕：說明文字佔滿一列，按鈕排到下一列 */
+@media (max-width: 560px) {
+    .item.game { flex-wrap: wrap; row-gap: 6px; }
+    .item.game .grow { flex: 1 1 calc(100% - 3.4em); }
+    .item.game > button:first-of-type { margin-left: calc(2.2em + 10px); }
+}

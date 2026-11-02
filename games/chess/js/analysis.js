@@ -24,7 +24,7 @@ export function classify(before, after, mover, bestUci, playedUci) {
   return null;
 }
 
-const S = { shown: -1, userMoved: false, g: null, startFen: DEFAULT_POSITION, fens: [], moves: [], ply: 0, evals: [], running: false, live: true, liveTok: 0, id: null, headers: {} };
+const S = { runTok: 0, shown: -1, userMoved: false, g: null, startFen: DEFAULT_POSITION, fens: [], moves: [], ply: 0, evals: [], running: false, live: true, liveTok: 0, id: null, headers: {} };
 let app, ui = {};
 
 function load(pgnOrFen, { id = null, evals = null } = {}) {
@@ -33,6 +33,9 @@ function load(pgnOrFen, { id = null, evals = null } = {}) {
   if (!text) throw new Error('沒有內容');
   if (/^[rnbqkpRNBQKP1-8]+(\/[rnbqkpRNBQKP1-8]+){7}\s+[wb]/.test(text)) { const bad = fenProblem(text); if (bad) throw new Error(bad); g.load(text); }
   else g.loadPgn(text);
+  // 讀得懂才換：先停掉舊棋局的分析，免得舊的分數寫進新棋局（曲線會亂掉）
+  if (S.running) { S.running = false; app.engine.stop(); }
+  S.runTok++; S.hover = null;
   S.headers = g.getHeaders();
   S.startFen = S.headers.FEN || (g.history().length ? DEFAULT_POSITION : g.fen());
   const replay = new Chess(S.startFen);
@@ -55,19 +58,32 @@ function terminalScore(c) {
   return null;
 }
 
-async function runFull() {
-  if (S.running) { S.running = false; app.engine.stop(); return; }
+// 按鈕：分析中就停止，否則開始
+function runFull() {
+  if (S.running) { S.running = false; S.runTok++; app.engine.stop(); return; }
+  return startFull();
+}
+// 載入棋局後自動開始（使用者不用再按）；已經分析完的不重跑
+function autoAnalyse() {
+  if (!S.moves.length || S.evals.filter(Boolean).length === S.fens.length) return;
+  if (S.running) { S.running = false; S.runTok++; app.engine.stop(); }
+  startFull();
+}
+async function startFull() {
+  const tok = ++S.runTok;
+  const alive = () => S.running && tok === S.runTok;   // 換了一盤棋或按了停止，舊的分析就不要再寫回來
   S.running = true; S.liveTok++;
   const depth = +ui.depth.value; setPref('analysisDepth', depth);
+  ui.progTxt.textContent = `分析中… 0 / ${S.fens.length}`;
   ui.run.textContent = '停止分析';
-  for (let i = 0; i < S.fens.length && S.running; i++) {
+  for (let i = 0; i < S.fens.length && alive(); i++) {
     if (S.evals[i] && S.evals[i].depth >= depth) continue;
     const c = posAt(i);
     const t = terminalScore(c);
     if (t) { S.evals[i] = { score: t.white, best: null, pv: [], depth: 99 }; }
     else {
       const r = await app.engine.go({ fen: S.fens[i], depth, multipv: 1, skill: 20 });
-      if (!S.running && r.stopped) break;
+      if (!alive()) return;
       const l = r.lines[0];
       S.evals[i] = { score: whitePov(l ? l.score : { cp: 0 }, c.turn()), best: r.best, pv: l ? l.pv : [], depth: l ? l.depth : depth };
     }
@@ -76,25 +92,26 @@ async function runFull() {
     if (i % 3 === 0) renderMeta();
   }
   // 被標成 Mistake／Blunder 的步，用更深的深度再確認一次（淺層常看不到棄子殺棋之類的手段）
-  if (S.running && S.evals.filter(Boolean).length === S.fens.length) {
+  if (alive() && S.evals.filter(Boolean).length === S.fens.length) {
     const deep = depth + 6;
     const suspects = tags().map((t, i) => (t && (t.cls === 'blunder' || t.cls === 'mistake') ? i : -1)).filter(i => i >= 0);
     let k = 0;
     for (const i of suspects) {
       for (const j of [i, i + 1]) {
-        if (!S.running) break;
+        if (!alive()) return;
         if (S.evals[j].depth >= deep || terminalScore(posAt(j))) continue;
         ui.progTxt.textContent = `複查失誤 ${++k}…（深度 ${deep}）`;
         const r = await app.engine.go({ fen: S.fens[j], depth: deep, multipv: 1, skill: 20 });
-        if (!S.running) break;
+        if (!alive()) return;
         const l = r.lines[0];
         if (l) S.evals[j] = { score: whitePov(l.score, posAt(j).turn()), best: r.best, pv: l.pv, depth: l.depth };
       }
     }
   }
+  if (tok !== S.runTok) return;
   const complete = S.evals.filter(Boolean).length === S.fens.length;
   S.running = false;
-  ui.run.textContent = complete ? '重新分析' : '整盤分析';
+  ui.run.textContent = complete ? '重新分析' : '繼續分析';
   ui.progTxt.textContent = complete ? `分析完成（深度 ${depth}）` : '已停止';
   if (complete) await saveAnalysis(false);
   render();
@@ -338,12 +355,14 @@ export default {
     const file = el('input', { type: 'file', accept: '.pgn,.txt,text/plain', hidden: true, id: 'pgn-file' });
     file.onchange = async () => { const f = file.files[0]; if (!f) return; ta.value = await f.text(); doLoad(); file.value = ''; };
     const doLoad = () => {
-      try { S.running = false; load(ta.value); app.toast(`已載入 ${S.moves.length} 步`); go(0); }
+      try { load(ta.value); app.toast(`已載入 ${S.moves.length} 步，開始分析`); go(0); autoAnalyse(); }
       catch (e) { app.toast('讀不懂這份 PGN／FEN：' + e.message, 4000); }
     };
     ui.depth = el('select', { id: 'an-depth', 'aria-label': '分析深度' });
     for (const d of [10, 12, 14, 16, 18]) ui.depth.append(el('option', { value: d, selected: d === p.analysisDepth }, `深度 ${d}${d <= 12 ? '（快）' : d >= 16 ? '（準，較慢）' : ''}`));
-    ui.run = el('button', { type: 'button', class: 'btn primary', id: 'btn-analyse', onclick: runFull }, '整盤分析');
+    // 換深度：用新的深度重新分析（已經夠深的步會跳過）
+    ui.depth.onchange = () => { setPref('analysisDepth', +ui.depth.value); if (S.moves.length) { if (S.running) { S.running = false; S.runTok++; app.engine.stop(); } startFull(); } };
+    ui.run = el('button', { type: 'button', class: 'btn', id: 'btn-analyse', onclick: runFull }, '整盤分析');
     ui.prog = el('div'); ui.progTxt = el('span', { class: 'small muted', id: 'an-progress' }, '');
     ui.chart = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     ui.chart.setAttribute('class', 'chart');
@@ -418,9 +437,10 @@ export default {
       else ta.value = S.g.pgn();
       if (S.g && params.ply !== undefined) S.ply = params.ply;
       go(params.ply !== undefined ? params.ply : S.ply);
+      autoAnalyse();
     })();
   },
-  unmount() { S.running = false; S.liveTok++; app.engine.stop(); document.removeEventListener('keydown', this._key); if (this._ro) this._ro.disconnect(); },
+  unmount() { S.running = false; S.runTok++; S.liveTok++; app.engine.stop(); document.removeEventListener('keydown', this._key); if (this._ro) this._ro.disconnect(); },
 };
 
 function annotatedPgn() {

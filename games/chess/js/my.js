@@ -7,7 +7,10 @@ import { OPENINGS } from '../data/openings.js';
 
 let app, root;
 const fmtDate = s => { const d = new Date(s); return isNaN(d) ? '' : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-const OUT = { win: '勝', loss: '負', draw: '和', ongoing: '未完', unfinished: '未完' };
+const OUT = { win: '勝', loss: '負', draw: '和', ongoing: '…', unfinished: '…' };
+const OUT_LONG = { win: '你贏了', loss: '你輸了', draw: '和棋', ongoing: '還沒下完', unfinished: '沒下完' };
+const OUT_CLS = { win: 'win', loss: 'loss', draw: 'draw', ongoing: 'ongoing', unfinished: 'ongoing' };
+const REASON = { checkmate: '將死', resign: '認輸', stalemate: '逼和', material: '子力不足', repetition: '三次重複', fifty: '50 步規則' };
 
 async function render() {
   const [games, analyses, stats, attempts, favs, notes] = await Promise.all(['games', 'analyses', 'puzzleStats', 'attempts', 'favorites', 'notes'].map(s => db.all(s).catch(() => [])));
@@ -23,7 +26,7 @@ async function render() {
   root.append(el('div', { class: 'card' },
     el('h2', {}, '我的西洋棋 ', el('small', {}, 'My Chess・資料只存在這台裝置')),
     el('div', { class: 'stats', id: 'my-overview' },
-      el('div', { class: 'stat' }, el('b', {}, `${w}/${d}/${l}`), el('span', {}, '對電腦 勝／和／負')),
+      el('div', { class: 'stat' }, el('b', { class: 'wdl' }, el('span', { class: 'w' }, `${w} 勝`), ' ', el('span', { class: 'd' }, `${d} 和`), ' ', el('span', { class: 'l' }, `${l} 負`)), el('span', {}, '對電腦的戰績')),
       el('div', { class: 'stat' }, el('b', {}, pz.length ? Math.round(ok / pz.length * 100) + '%' : '—'), el('span', {}, `戰術正確率（${pz.length} 次作答）`)),
       el('div', { class: 'stat' }, el('b', {}, stats.filter(s => s.solved > 0).length), el('span', {}, `解出的戰術題（共 ${PUZZLES.length}）`)),
       el('div', { class: 'stat' }, el('b', {}, attempts.filter(a => a.kind === 'endgame' && a.ok).length), el('span', {}, '殘局練習成功次數')),
@@ -33,10 +36,12 @@ async function render() {
   const gl = el('div', { class: 'list', id: 'my-games' });
   if (!games.length) gl.append(el('p', { class: 'small muted' }, '還沒有對局。去「對弈」跟電腦下一盤吧！'));
   for (const g of games.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50)) {
-    gl.append(el('div', { class: 'item' },
+    const oc = OUT_CLS[g.outcome] || 'ongoing';
+    gl.append(el('div', { class: 'item game ' + oc },
+      el('span', { class: 'res ' + oc, 'aria-label': OUT_LONG[g.outcome] || '未完' }, OUT[g.outcome] || '?'),
       el('div', { class: 'grow' },
-        el('b', {}, `${OUT[g.outcome] || g.result}・你執${g.myColor === 'w' ? '白' : '黑'}・等級 ${g.level}`),
-        el('span', {}, `${fmtDate(g.date)}・${Math.ceil((g.moves || 0) / 2)} 回合・${g.result}`)),
+        el('b', {}, `${OUT_LONG[g.outcome] || '未完'}${g.reason && REASON[g.reason] ? '・' + REASON[g.reason] : ''}`),
+        el('span', {}, `你執${g.myColor === 'w' ? '白' : '黑'}・電腦等級 ${g.level}・${Math.ceil((g.moves || 0) / 2)} 回合・${g.result}・${fmtDate(g.date)}`)),
       el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('analysis', { pgn: g.pgn }) }, '分析'),
       el('button', { type: 'button', class: 'btn sm', onclick: () => download(`game-${g.date.slice(0, 10)}.pgn`, g.pgn, 'application/x-chess-pgn') }, 'PGN'),
       el('button', { type: 'button', class: 'btn sm danger', 'aria-label': '刪除這盤', onclick: async () => { if (await app.confirm('刪除這盤棋？', '刪除後無法復原（除非你有備份）。', '刪除')) { await db.del('games', g.id); render(); } } }, '✕')));
