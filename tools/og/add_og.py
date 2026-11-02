@@ -62,7 +62,7 @@ def apply(path: pathlib.Path) -> bool:
     out = out[: d.end()] + tags(title, desc, page_url(path), d.group(1)) + out[d.end():]
     if out != src:
         path.write_text(out, encoding='utf-8')
-        print('更新', path.relative_to(ROOT))
+        print('更新', path.resolve().relative_to(ROOT))
     return True
 
 

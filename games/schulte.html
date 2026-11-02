@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/schulte.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/schulte-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/schulte-180.png">
+    <title>數字方格 1→25</title>
+    <meta name="description" content="5×5 的格子裡打亂放著 1 到 25，照順序一個一個點下去，看你要幾秒。會記下你最快的 10 次成績。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="數字方格 1→25">
+    <meta property="og:description" content="5×5 的格子裡打亂放著 1 到 25，照順序一個一個點下去，看你要幾秒。會記下你最快的 10 次成績。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/games/schulte.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面，不用自動換色 -->
+    <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #ef4444;
+            --cell: #151527;
+            --cell-done: #0b0b14;
+        }
+        :root[data-theme="light"] {
+            --cell: #ffffff;
+            --cell-done: #e3eed6;
+            --bad: #e8413c;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 520px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.3rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+        [data-theme="light"] h1 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+
+        /* ── 上面的三個數字：這次、最佳、下一個 ── */
+        .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 1.1rem 0 0.8rem; }
+        .stat { padding: 0.5rem 0.4rem; border-radius: 10px; text-align: center; background: var(--panel); border: 1px solid var(--border); min-width: 0; }
+        .stat b { display: block; font: 700 1.35rem/1.2 'Space Mono', monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .stat span { font-size: 0.75rem; color: var(--muted); }
+        .stat.next b { color: var(--accent2); }
+        [data-theme="light"] .stat { border: 2px solid #1d2b12; background: #fff; }
+        [data-theme="light"] .stat.next b { color: #b35c00; }
+
+        /* ── 方格 ── */
+        .board-box { position: relative; width: min(100%, max(280px, 100vh - 330px)); aspect-ratio: 1; margin: 0 auto; }
+        .board {
+            display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; width: 100%; height: 100%;
+            padding: 6px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
+            touch-action: manipulation; user-select: none; -webkit-user-select: none;
+        }
+        [data-theme="light"] .board { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; background: #f3f8ec; }
+        .cell {
+            min-width: 0; min-height: 0; border-radius: 10px; border: 1px solid var(--border); background: var(--cell); color: var(--text);
+            font: 700 clamp(1.2rem, 7.5vw, 2rem) 'Space Mono', monospace; font-variant-numeric: tabular-nums;
+            cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, opacity 0.15s;
+        }
+        [data-theme="light"] .cell { border: 2px solid #1d2b12; font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        .cell.done { background: var(--cell-done); color: var(--good); opacity: 0.45; }
+        [data-theme="light"] .cell.done { color: #2b6b0e; opacity: 0.55; }
+        .cell.miss { animation: miss 0.3s; }
+        @keyframes miss { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); background: var(--bad); } 75% { transform: translateX(4px); background: var(--bad); } }
+        @media (prefers-reduced-motion: reduce) { .cell.miss { animation: none; outline: 3px solid var(--bad); } }
+
+        /* 開始前、倒數時蓋在方格上；用 visibility 切，不會影響版面 */
+        .cover {
+            position: absolute; inset: 0; display: grid; place-items: center; text-align: center; border-radius: 16px;
+            background: rgba(5, 5, 10, 0.82); visibility: hidden;
+        }
+        [data-theme="light"] .cover { background: rgba(233, 247, 217, 0.92); }
+        .cover.on { visibility: visible; }
+        .cover .count { font: 800 5rem/1 'Syne', sans-serif; color: var(--accent2); }
+        [data-theme="light"] .cover .count { color: #b35c00; font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        .cover p { color: var(--muted); font-size: 0.85rem; margin-top: 0.6rem; }
+
+        .big {
+            padding: 0.7rem 1.6rem; font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer;
+            color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 1px solid transparent; border-radius: 12px;
+        }
+        [data-theme="light"] .big { color: #1d2b12; background: #ffb02e; border: 2px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
+        [data-theme="light"] .big:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #1d2b12; }
+
+        /* 訊息列：高度固定，換訊息不會推動下面 */
+        .msg { height: 4.8em; overflow: hidden; display: flex; align-items: center; gap: 0.6rem; margin-top: 0.9rem; padding: 0.55rem 0.8rem; border-radius: 10px; font-size: 0.92rem; line-height: 1.5; background: var(--panel); border: 1px solid var(--border); }
+        [data-theme="light"] .msg { border: 2px solid #1d2b12; background: #fff; }
+        .msg.win { border-color: var(--good); }
+        .msg > span { flex: 1; min-width: 0; }
+        .msg .big { flex: none; padding: 0.45rem 0.9rem; font-size: 0.9rem; }
+
+        /* ── 我的排行榜：固定留 10 列的高度 ── */
+        .rank { margin-top: 1.4rem; }
+        .rank-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; }
+        .rank h2 { font-size: 1rem; }
+        .rank-hd button { font: inherit; font-size: 0.78rem; color: var(--muted); background: none; border: 0; cursor: pointer; text-decoration: underline; }
+        .rank ol { list-style: none; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); overflow: hidden; }
+        [data-theme="light"] .rank ol { border: 2px solid #1d2b12; background: #fff; }
+        .rank li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; gap: 0.6rem; align-items: center; height: 2.4rem; padding: 0 0.8rem; font-size: 0.88rem; border-top: 1px solid var(--border); }
+        .rank li:first-child { border-top: 0; }
+        [data-theme="light"] .rank li { border-top-color: #d5e2c6; }
+        .rank li .no { font: 700 0.85rem 'Space Mono', monospace; color: var(--muted); }
+        .rank li .t { font: 700 1rem 'Space Mono', monospace; font-variant-numeric: tabular-nums; }
+        .rank li .m, .rank li .d { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+        .rank li.empty .t { color: var(--muted); font-weight: 400; }
+        .rank li.new { background: rgba(34, 197, 94, 0.14); }
+        [data-theme="light"] .rank li.new { background: #fff1d1; }
+
+        .rules { margin-top: 1.4rem; font-size: 0.9rem; color: var(--muted); }
+        .rules h2 { font-size: 1rem; color: var(--text); margin-bottom: 0.3rem; }
+        .rules ol { padding-left: 1.3rem; }
+        .rules li { margin: 0.15rem 0; }
+        .rules p { margin-top: 0.5rem; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>數字方格 1→25<small>5×5 的格子裡打亂放著 1 到 25，照順序點下去，看你要幾秒。</small></h1>
+
+        <div class="stats">
+            <div class="stat"><b id="time">0.00</b><span>這次（秒）</span></div>
+            <div class="stat"><b id="best">—</b><span>最快（秒）</span></div>
+            <div class="stat next"><b id="next">1</b><span>下一個</span></div>
+        </div>
+
+        <div class="board-box">
+            <div class="board" id="board" role="grid" aria-label="數字方格"></div>
+            <div class="cover on" id="cover">
+                <div id="coverIn">
+                    <button type="button" class="big" id="start">開始</button>
+                    <p>按下去倒數 3 秒，數字翻開就開始計時</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="msg" id="msg" aria-live="polite"><span>從 <b>1</b> 開始，照順序點到 <b>25</b>。點錯不扣時間，但會記下來。</span></div>
+
+        <section class="rank">
+            <div class="rank-hd"><h2>我的排行榜（最快 10 次）</h2><button type="button" id="clear">清除紀錄</button></div>
+            <ol id="rank"></ol>
+        </section>
+
+        <section class="rules">
+            <h2>怎麼玩</h2>
+            <ol>
+                <li>按「開始」，倒數 3 秒後數字翻開，計時開始。</li>
+                <li>從 <b>1</b> 開始照順序點到 <b>25</b>，點對的格子會變暗。</li>
+                <li>點錯會閃紅色、記一次失誤，不扣時間；點到 25 就停錶。</li>
+            </ol>
+            <p>這種練習叫「舒爾特方格」，常被拿來練專注力和眼睛掃視的速度：試著盯著中間那格，用眼角餘光找下一個數字。</p>
+            <p>排行榜只存在這台裝置的瀏覽器裡。每玩完一局可以拿 1 瓶蘋果汁，去「養一隻果汁龍」餵牠。</p>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script>
+        (function () {
+            var STORE = 'jfk-schulte-v1', N = 5, TOTAL = N * N, KEEP = 10;
+            var $ = function (id) { return document.getElementById(id); };
+            var board = $('board'), cover = $('cover'), coverIn = $('coverIn');
+
+            // ── 紀錄：{ runs, juice, top: [{ t: 秒, m: 失誤, d: 'YYYY-MM-DD' }] }（top 由快到慢，最多 10 筆）──
+            function load() {
+                try {
+                    var s = JSON.parse(localStorage.getItem(STORE) || '{}');
+                    if (!s || typeof s !== 'object') s = {};
+                    if (!Array.isArray(s.top)) s.top = [];
+                    s.top = s.top.filter(function (x) { return x && typeof x.t === 'number' && isFinite(x.t) && x.t > 0; });
+                    s.runs = typeof s.runs === 'number' ? s.runs : 0;
+                    s.juice = typeof s.juice === 'number' ? s.juice : 0;
+                    return s;
+                } catch (e) { return { runs: 0, juice: 0, top: [] }; }
+            }
+            function save() { try { localStorage.setItem(STORE, JSON.stringify(rec)); } catch (e) { /* 被擋就不記 */ } }
+            var rec = load();
+
+            var order = [], next = 1, t0 = 0, raf = 0, miss = 0, state = 'idle', countT = 0;
+
+            function fmt(sec) { return sec.toFixed(2); }
+            function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+            function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+
+            // 格子先擺好 25 個按鈕，之後只換數字，不重建（點的時候反應比較快）
+            var cells = [];
+            for (var i = 0; i < TOTAL; i++) {
+                var b = document.createElement('button');
+                b.type = 'button'; b.className = 'cell'; b.setAttribute('role', 'gridcell');
+                b.textContent = '';
+                b.setAttribute('aria-label', '還沒翻開');
+                board.appendChild(b);
+                cells.push(b);
+            }
+
+            function say(html, win) { $('msg').classList.toggle('win', !!win); $('msg').innerHTML = '<span>' + html + '</span>'; }
+            function showBest() { $('best').textContent = rec.top.length ? fmt(rec.top[0].t) : '—'; }
+
+            function renderRank(highlight) {
+                var ol = $('rank');
+                ol.textContent = '';
+                for (var k = 0; k < KEEP; k++) {
+                    var li = document.createElement('li'), r = rec.top[k];
+                    var no = document.createElement('span'); no.className = 'no'; no.textContent = (k + 1) + '.';
+                    var t = document.createElement('span'); t.className = 't';
+                    var m = document.createElement('span'); m.className = 'm';
+                    var d = document.createElement('span'); d.className = 'd';
+                    if (r) {
+                        t.textContent = fmt(r.t) + ' 秒';
+                        m.textContent = r.m ? '失誤 ' + r.m : '零失誤';
+                        d.textContent = (r.d || '').slice(5).replace('-', '/');
+                        if (k === highlight) li.className = 'new';
+                    } else { li.className = 'empty'; t.textContent = '—'; }
+                    li.append(no, t, m, d);
+                    ol.appendChild(li);
+                }
+            }
+
+            function tick() {
+                $('time').textContent = fmt((performance.now() - t0) / 1000);
+                raf = requestAnimationFrame(tick);
+            }
+
+            function start() {
+                if (state === 'count') return;
+                state = 'count';
+                order = shuffle(Array.from({ length: TOTAL }, function (_, i) { return i + 1; }));
+                cells.forEach(function (c) { c.textContent = ''; c.classList.remove('done', 'miss'); c.setAttribute('aria-label', '還沒翻開'); });
+                next = 1; miss = 0;
+                $('next').textContent = '1'; $('time').textContent = fmt(0);
+                say('準備……眼睛先看中間');
+                var n = 3;
+                coverIn.innerHTML = '<div class="count" id="count">3</div><p>數字翻開就開始計時</p>';
+                cover.classList.add('on');
+                clearInterval(countT);
+                countT = setInterval(function () {
+                    n--;
+                    if (n > 0) { $('count').textContent = n; return; }
+                    clearInterval(countT);
+                    reveal();
+                }, 700);
+            }
+
+            function reveal() {
+                cells.forEach(function (c, i) { c.textContent = order[i]; c.setAttribute('aria-label', String(order[i])); });
+                cover.classList.remove('on');
+                state = 'play';
+                t0 = performance.now();
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(tick);
+                say('找 <b>1</b>！');
+            }
+
+            function hit(c) {
+                if (state !== 'play') return;
+                var v = order[cells.indexOf(c)];
+                if (v < next) return;                       // 已經點過的
+                if (v !== next) {
+                    miss++;
+                    c.classList.remove('miss'); void c.offsetWidth; c.classList.add('miss');
+                    if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) { /* 不支援就算了 */ }
+                    say('那是 <b>' + v + '</b>，要找的是 <b>' + next + '</b>（失誤 ' + miss + '）');
+                    return;
+                }
+                c.classList.add('done');
+                next++;
+                if (next > TOTAL) return finish();
+                $('next').textContent = next;
+                say('找 <b>' + next + '</b>' + (miss ? '（失誤 ' + miss + '）' : ''));
+            }
+
+            function finish() {
+                var sec = Math.round((performance.now() - t0) / 10) / 100;
+                cancelAnimationFrame(raf);
+                state = 'done';
+                $('time').textContent = fmt(sec);
+                $('next').textContent = '✓';
+                var prevBest = rec.top.length ? rec.top[0].t : Infinity;
+                var entry = { t: sec, m: miss, d: today() };
+                rec.top.push(entry);
+                rec.top.sort(function (a, b) { return a.t - b.t || a.m - b.m; });
+                rec.top = rec.top.slice(0, KEEP);
+                var place = rec.top.indexOf(entry);
+                rec.runs++;
+                rec.juice++;                                    // 每玩完一局 1 瓶蘋果汁（養一隻果汁龍會讀這個）
+                save();
+                showBest(); renderRank(place);
+                var best = sec < prevBest;
+                say((best ? '🎉 新紀錄！' : '完成！') + '用了 <b>' + fmt(sec) + '</b> 秒' + (miss ? '，失誤 ' + miss + ' 次' : '，零失誤') +
+                    (place >= 0 && !best ? '，排第 ' + (place + 1) + ' 名' : place < 0 ? '，沒有進前 10 名' : '') + '。🧃 +1', true);
+                if (best && window.confetti && !matchMedia('(prefers-reduced-motion: reduce)').matches) confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+                if (window.jfkPetCheer) jfkPetCheer(best ? '新紀錄 ' + fmt(sec) + ' 秒！你的眼睛也太快了吧' : fmt(sec) + ' 秒，再一局一定更快');
+                // 之後要接全球排行榜：在這裡把 entry 送出去
+                coverIn.innerHTML = '<button type="button" class="big" id="start2">再一局</button><p>' + fmt(sec) + ' 秒' + (best ? '・新紀錄！' : '') + '</p>';
+                $('start2').addEventListener('click', start);
+                setTimeout(function () { if (state === 'done') cover.classList.add('on'); }, 900);
+            }
+
+            // 點格子：用 pointerdown 比 click 快一點；鍵盤（Enter／空白鍵）走 click
+            board.addEventListener('pointerdown', function (e) {
+                var c = e.target.closest('.cell');
+                if (!c) return;
+                e.preventDefault();
+                hit(c);
+            });
+            board.addEventListener('click', function (e) {
+                if (e.detail !== 0) return;                     // 滑鼠、手指已經在 pointerdown 處理過了
+                var c = e.target.closest('.cell');
+                if (c) hit(c);
+            });
+            $('start').addEventListener('click', start);
+            $('clear').addEventListener('click', function () {
+                if (!rec.top.length || !confirm('要清除這台裝置上的排行榜嗎？（蘋果汁不會被收回）')) return;
+                rec.top = []; save(); showBest(); renderRank(-1);
+            });
+            document.addEventListener('visibilitychange', function () {
+                // 切到別的 App 再回來，這局就不算了，重新開始比較公平
+                if (document.hidden && (state === 'play' || state === 'count')) {
+                    clearInterval(countT); cancelAnimationFrame(raf); state = 'idle';
+                    coverIn.innerHTML = '<button type="button" class="big" id="start3">重新開始</button><p>剛剛離開了畫面，這局不算</p>';
+                    $('start3').addEventListener('click', start);
+                    cover.classList.add('on');
+                    say('剛剛離開了畫面，這局不算。');
+                }
+            });
+
+            showBest();
+            renderRank(-1);
+        })();
+    </script>
+</body>
+
+</html>

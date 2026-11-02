@@ -20,6 +20,12 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#05050a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="果汁龍">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <!-- 先決定深色／淺色，畫面才不會先閃另一種顏色 -->
     <script src="assets/theme.js"></script>
     <script src="assets/dragon-hold.js"></script>
@@ -189,6 +195,10 @@
         [data-theme="light"] .search-list mark { color: #b35c00; font-weight: 900; }
 
         main, footer { position: relative; z-index: 1; }
+        /* 頁尾的「加到手機主畫面」：瀏覽器支援才出現；iPhone 要自己從分享選單加，就顯示說明 */
+        .install { font: inherit; font-size: 0.8rem; padding: 4px 12px; border-radius: 999px; cursor: pointer; color: var(--text); background: var(--surface); border: 1px solid var(--line); }
+        [data-theme="light"] .install { border: 2px solid var(--ink); background: #fff; font-weight: 700; }
+        .install-tip { max-width: 1100px; margin: 0 auto; padding: 0 clamp(16px, 5vw, 40px) 18px; font-size: 0.8rem; color: var(--muted); }
 
         /* ── 開場 ── */
         .hero { padding: clamp(36px, 8vw, 96px) 0 clamp(32px, 6vw, 72px); }
@@ -575,6 +585,13 @@
                         <div class="links"><a class="go" href="games/store-manager.html">直接玩 →</a></div>
                     </article>
                     <article class="tile">
+                        <img class="only-dark" src="assets/icons/schulte.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/schulte-light.svg" alt="" width="38" height="38">
+                        <span class="tag">反應力</span>
+                        <h3><a href="games/schulte.html">數字方格 1→25</a></h3>
+                        <p>5×5 格子照順序點到 25，計時看你要幾秒</p>
+                        <div class="links"><a class="go" href="games/schulte.html">直接玩 →</a></div>
+                    </article>
+                    <article class="tile">
                         <img class="only-dark" src="assets/icons/lab-life.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/lab-life-light.svg" alt="" width="38" height="38">
                         <span class="tag">文字冒險</span>
                         <h3><a href="games/lab-life.html">碩一生模擬器</a></h3>
@@ -734,7 +751,7 @@
                         <p>真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
                         <p>課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。</p>
                         <div class="stats">
-                            <div class="stat"><b>15</b><span>自己做的小工具與遊戲</span></div>
+                            <div class="stat"><b>16</b><span>自己做的小工具與遊戲</span></div>
                             <div class="stat"><b>100+</b><span>演算法解題紀錄</span></div>
                             <div class="stat"><b>4+</b><span>熟悉資料庫系統</span></div>
                             <div class="stat"><b>10</b><span>程式競賽獲獎</span></div>
@@ -795,7 +812,8 @@
     </main>
 
     <footer>
-        <div class="wrap"><span>© 2026 果汁龍</span><span>ginakuo0923@gmail.com</span></div>
+        <div class="wrap"><span>© 2026 果汁龍</span><button type="button" class="install" id="installBtn" hidden>📲 加到手機主畫面</button><span>ginakuo0923@gmail.com</span></div>
+        <p class="install-tip" id="installTip" hidden></p>
     </footer>
 
     <!-- 右下角的寵物：點牠會講話 -->
@@ -1120,6 +1138,7 @@
                 'games/store-manager.html': ['去開店 →', '當超商店長要看收據，猜大家常常一起買什麼', '超商店長有陷阱：大家都會買的東西，不一定值得做優惠', '支持度、信賴度、提升度，在超商店長裡全部用得到'],
                 'games/lab-life.html': ['去當碩一生 →', '碩一生模擬器：18 週裡要讀 paper、跑實驗、撐過 meeting', '碩一生模擬器裡體力見底會病倒一週，記得休息', '碩一生模擬器有 6 種結局，你拿過「論文投上頂會」嗎？'],
                 'games/pet.html': ['去看我 →', '我的家在「養一隻果汁龍」，可以幫我換帽子和背景', '我長大會解鎖新配件，戴學士帽的我超帥'],
+                'games/schulte.html': ['去挑戰 →', '數字方格：1 點到 25 要幾秒？我最快 30 秒……', '玩數字方格的訣竅：眼睛盯中間那格，用餘光找下一個數字', '數字方格會記你最快的 10 次，來破自己的紀錄吧'],
                 'games/runner.html': ['去跑 →', '跑酷裡的 bug 和 deadline 好可怕，幫我跳過去！', '跑酷撿到 🍎 可以無敵 4 秒', '跑酷小技巧：按住螢幕可以跳比較高'],
                 'games/dinner-wheel.html': ['轉一下 →', '不知道吃什麼的時候，轉一下晚餐轉盤就好', '晚餐轉盤的選項可以自己加，我投蘋果汁一票'],
                 'games/1A2B.html': ['猜猜看 →', '1A2B：4 個不重複的數字總共有 5,040 種，你幾次猜得到？', '猜 1A2B 的時候，B 是「數字對了、位置不對」'],
@@ -1191,6 +1210,8 @@
                 const num = v => (typeof v === 'number' && isFinite(v) ? v : 0);
                 if (num(zip.solved)) out.push(L('你已經解了 ' + num(zip.solved) + ' 題 Zip 了，好強', 'games/zip.html', '再來一題 →'));
                 if (num(run.best)) out.push(L('跑酷最遠 ' + Math.round(num(run.best)) + ' m，我賭你這次破不了紀錄', 'games/runner.html', '去跑 →'));
+                const sch = read('jfk-schulte-v1'), sTop = Array.isArray(sch.top) && sch.top[0] && num(sch.top[0].t);
+                if (sTop) out.push(L('數字方格你最快 ' + sTop.toFixed(2) + ' 秒，我覺得還能更快', 'games/schulte.html', '再挑戰 →'));
                 if (num(store.games)) out.push(L('你已經開過 ' + num(store.games) + ' 家超商了，店長大人', 'games/store-manager.html', '再開一家 →'));
                 const ends = lab.endings && typeof lab.endings === 'object' ? Object.keys(lab.endings).length : 0;
                 if (num(lab.runs) && ends < 6) out.push(L('碩一生模擬器的 6 種結局，你解鎖了 ' + ends + ' 種', 'games/lab-life.html', '再玩一輪 →'));
@@ -1327,6 +1348,23 @@
                 const u = urgentLines(), t = timeLines().map(x => L(...x)).filter(ok);
                 speak(remember(u.length ? u[0] : t.length && Math.random() < 0.5 ? pick(t) : anyLine()));
             }, 12000);
+        })();
+
+        // ── 加到手機主畫面：Chrome／Android 會給 beforeinstallprompt，可以直接跳出安裝；iPhone 只能從分享選單加 ──
+        (() => {
+            const btn = document.getElementById('installBtn'), tip = document.getElementById('installTip');
+            const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+            if (standalone || !('serviceWorker' in navigator)) return;
+            let ask = null;
+            window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); ask = e; btn.hidden = false; });
+            window.addEventListener('appinstalled', () => { btn.hidden = true; tip.hidden = true; });
+            const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            if (ios) btn.hidden = false;
+            btn.addEventListener('click', async () => {
+                if (ask) { ask.prompt(); try { await ask.userChoice; } catch (e) { /* 使用者取消 */ } ask = null; btn.hidden = true; return; }
+                tip.textContent = 'iPhone／iPad：用 Safari 打開，按下面的「分享」按鈕，選「加入主畫面」。加好之後，之前看過的頁面沒網路也能用。';
+                tip.hidden = false;
+            });
         })();
 
         // ── 手機選單 ──

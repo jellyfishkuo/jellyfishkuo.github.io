@@ -239,7 +239,7 @@
 
             // ── 果汁：從其他遊戲的紀錄算出來，不用改那些遊戲 ──
             function sources() {
-                var zip = read('jfk-zip-v1'), quest = read('jfk-quest-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1'), run = read('jfk-runner-v1');
+                var zip = read('jfk-zip-v1'), sch = read('jfk-schulte-v1'), quest = read('jfk-quest-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1'), run = read('jfk-runner-v1');
                 var stars = 0;
                 if (quest.pages) for (var k in quest.pages) stars += quest.pages[k].stars || 0;
                 return [
@@ -247,6 +247,7 @@
                     { href: '../research/quest.html', name: '研究闖關', how: '每顆星星 2 瓶', n: stars, juice: stars * 2, unit: '顆星' },
                     { href: 'store-manager.html', name: '超商店長', how: '每開完一家店 1～5 瓶（看評等）', n: store.games || 0, juice: store.juice || 0, unit: '家店' },
                     { href: 'lab-life.html', name: '碩一生模擬器', how: '每玩完一輪 1～5 瓶（看結局）', n: lab.runs || 0, juice: lab.juice || 0, unit: '輪' },
+                    { href: 'schulte.html', name: '數字方格 1→25', how: '每玩完一局 1 瓶', n: sch.runs || 0, juice: sch.juice || 0, unit: '局' },
                     { href: 'runner.html', name: '果汁龍跑酷', how: '沿路撿到的 🧃（每次最多 10 瓶）', n: run.runs || 0, juice: run.juice || 0, unit: '次' },
                     { href: null, name: '每日簽到', how: '每天 3 瓶', n: pet.days.length, juice: pet.days.length * 3, unit: '天' }
                 ];
