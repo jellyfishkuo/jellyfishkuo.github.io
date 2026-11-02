@@ -1,7 +1,7 @@
 // 資料都留在這台裝置的瀏覽器裡：長期資料放 IndexedDB，偏好設定放 localStorage。
 // IndexedDB 被擋（無痕模式、Safari 某些設定）時改用記憶體，頁面照樣能用，只是關掉就不見。
 const DB_NAME = 'jellyfish-chess';
-const DB_VERSION = 1;
+const DB_VERSION = 2;   // 2：加 meta（戰術積分等單筆資料）
 export const STORES = {
   games: 'id',          // 對局：{id, date, pgn, result, white, black, mode, level, myColor, outcome}
   analyses: 'id',       // 分析結果：{id, date, title, pgn, evals:[], tags}
@@ -9,6 +9,7 @@ export const STORES = {
   attempts: 'id',       // 每次答題紀錄：{id, puzzleId, date, ok, themes}
   favorites: 'id',      // 收藏：{id:'puzzle:xxx' | 'opening:xxx', kind, ref, date}
   notes: 'id',          // 筆記：{id, date, updated, title, body, fen}
+  meta: 'id',           // 單筆資料：{id:'puzzleRating', rating, n, history:[{d, r}]}
 };
 const PREF_KEY = 'jfk-chess-prefs-v1';
 

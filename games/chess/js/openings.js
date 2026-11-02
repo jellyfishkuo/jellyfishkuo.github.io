@@ -2,7 +2,7 @@
 import { Chess } from '../vendor/chessjs/chess.js';
 import { OPENINGS } from '../data/openings.js';
 import { db } from './store.js';
-import { el, renderMoves } from './ui.js';
+import { el, renderMoves, detectOpening } from './ui.js';
 
 const S = { shown: -1, userMoved: false, o: null, line: null, title: '', moves: [], ply: 0, notes: {}, favs: new Set(), drill: false, drillMiss: 0, tok: 0 };
 let app, ui = {};
@@ -42,21 +42,25 @@ function render() {
 }
 
 // ── 練習模式：你下這個開局那一方的走法，電腦下另一方 ──
-function startDrill() {
+// line／side／title 不給就是練這個開局的主線、這個開局通常那一方
+function startDrill(line, side, title) {
   S.drill = true; S.drillMiss = 0;
-  S.moves = sansOf(S.o.main); S.notes = S.o.notes; S.title = '練習主線'; S.line = S.o.main;
+  S.drillSide = side || S.o.side;
+  const main = !line || line === S.o.main;
+  S.moves = sansOf(line || S.o.main); S.notes = main ? S.o.notes : {}; S.title = title || '練習主線'; S.line = line || S.o.main;
   S.ply = 0;
+  app.board.setFlipped(S.drillSide === 'b');
   render();
-  ui.note.textContent = `練習：你下${S.o.side === 'w' ? '白' : '黑'}方，照主線走。想一想每一步的目的！`;
+  ui.note.textContent = `練習：你下${S.drillSide === 'w' ? '白' : '黑'}方，照${main ? '主線' : '這條變化'}走。想一想每一步的目的！`;
   ui.note.style.visibility = 'visible';
   autoReply();
 }
 function autoReply() {
-  const myTurnColor = S.o.side;
+  const myTurnColor = S.drillSide;
   const tok = S.tok;
   if (S.ply >= S.moves.length) {
     S.drill = false;
-    ui.note.textContent = S.drillMiss ? `走完了！中間錯了 ${S.drillMiss} 次，再練一次看看。` : '完美！整條主線都走對了 🎉';
+    ui.note.textContent = S.drillMiss ? `走完了！中間錯了 ${S.drillMiss} 次，再練一次看看。` : '完美！整條都走對了 🎉';
     return;
   }
   const turn = S.ply % 2 === 0 ? 'w' : 'b';
@@ -86,6 +90,67 @@ function onMove(m) {
   ui.note.textContent = '✓ ' + (S.notes[S.ply] || '對了！');
   autoReply();
   return true;
+}
+
+// ── 照你的實戰挑：從「我的」對局找出你最常下的開局，以及你在哪一步離開了書上的走法 ──
+async function scanMyGames() {
+  const games = (await db.all('games').catch(() => [])).filter(g => g.mode === 'play' && g.pgn);
+  const lines = [];
+  for (const o of OPENINGS) {
+    lines.push({ o, name: null, pgn: o.main, sans: sansOf(o.main) });
+    for (const l of o.lines) lines.push({ o, name: l.name, pgn: l.moves, sans: sansOf(l.moves) });
+  }
+  const freq = new Map(), devs = new Map();
+  for (const g of games) {
+    let sans;
+    try { const c = new Chess(); c.loadPgn(g.pgn); if (c.getHeaders().FEN) continue; sans = c.history(); } catch (e) { continue; }
+    const det = detectOpening(sans);
+    if (!det) continue;
+    freq.set(det.o, (freq.get(det.o) || 0) + 1);
+    // 同一個開局的書上走法裡，對得最長的那一條
+    let best = null;
+    for (const L of lines) {
+      if (L.o !== det.o) continue;
+      let m = 0; while (m < L.sans.length && m < sans.length && L.sans[m] === sans[m]) m++;
+      if (!best || m > best.m) best = { ...L, m };
+    }
+    if (!best || best.m >= best.sans.length || best.m >= sans.length) continue;   // 照書走完了，或棋局比書短
+    const mover = best.m % 2 === 0 ? 'w' : 'b';
+    if (mover !== g.myColor) continue;                                             // 是電腦先離開書本，不算你的
+    const key = `${best.o.id}|${best.name}|${best.m}|${sans[best.m]}`;
+    const d = devs.get(key) || { o: best.o, name: best.name, pgn: best.pgn, ply: best.m, played: sans[best.m], book: best.sans[best.m], side: g.myColor, count: 0, last: '' };
+    d.count++; if (g.date > d.last) d.last = g.date;
+    devs.set(key, d);
+  }
+  return { n: games.length, freq: [...freq.entries()].sort((a, b) => b[1] - a[1]), devs: [...devs.values()].sort((a, b) => b.count - a.count || b.last.localeCompare(a.last)) };
+}
+async function renderMine() {
+  const box = ui.mine; box.innerHTML = '';
+  const r = await scanMyGames();
+  box.append(el('h2', {}, '照你的實戰練 ', el('small', {}, `看過 ${r.n} 盤`)));
+  if (!r.freq.length) { box.append(el('p', { class: 'small muted' }, r.n ? '你的對局裡還沒有認得的開局。' : '去「對弈」下幾盤，這裡會列出你最常下的開局，以及你在哪一步離開了書上的走法。')); return; }
+  const chips = el('div', { class: 'chips' });
+  for (const [o, n] of r.freq.slice(0, 6)) chips.append(el('button', { type: 'button', class: 'chip', onclick: () => selectOpening(o) }, o.name, el('span', { class: 'n' }, `${n} 盤`)));
+  box.append(el('p', { class: 'small muted', style: 'margin-bottom:6px' }, '你最常下的開局：'), chips);
+  if (!r.devs.length) { box.append(el('p', { class: 'small', style: 'margin-top:8px' }, '你下這些開局時都照著書上的走法 👍')); return; }
+  box.append(el('p', { class: 'small muted', style: 'margin:10px 0 6px' }, '你離開書上走法的地方（最常出現的在上面）：'));
+  const list = el('div', { class: 'list', id: 'op-mine-list' });
+  for (const d of r.devs.slice(0, 5)) {
+    const no = Math.floor(d.ply / 2) + 1, dots = d.ply % 2 ? '…' : '.';
+    const title = `${d.o.name}${d.name ? '・' + d.name : ''}`;
+    list.append(el('div', { class: 'item', style: 'flex-wrap:wrap' },
+      el('div', { class: 'grow', style: 'flex-basis:100%' }, el('b', {}, title),
+        el('span', {}, `第 ${no} 回合你走了 ${no}${dots} ${d.played}，書上是 ${no}${dots} ${d.book}${d.count > 1 ? `（${d.count} 盤）` : ''}`)),
+      el('button', { type: 'button', class: 'btn sm', onclick: () => {
+        S.o = d.o; renderList(); renderDetail(); app.board.setFlipped(d.side === 'b'); S.drill = false;
+        showLine(d.pgn, title, d.name ? {} : d.o.notes, d.ply);
+        const u = posAt(d.ply).move(d.book); app.board.setArrows([{ from: u.from, to: u.to, color: 'rgba(34,197,94,0.8)' }]);
+        ui.note.textContent = `你在這裡走了 ${d.played}；書上的走法是綠色箭頭 ${d.book}。` + (d.o.notes && !d.name && d.o.notes[d.ply + 1] ? d.o.notes[d.ply + 1] : '');
+        ui.note.style.visibility = 'visible';
+      } }, '看書上的走法'),
+      el('button', { type: 'button', class: 'btn sm primary', onclick: () => { S.o = d.o; renderList(); renderDetail(); startDrill(d.pgn, d.side, `練習：${title}`); } }, '練習這條')));
+  }
+  box.append(list);
 }
 
 function renderList() {
@@ -126,11 +191,12 @@ function renderDetail() {
     el('p', { class: 'small muted' }, o.en, '　', el('span', { class: 'eco' }, 'ECO ' + o.eco), '　', `通常是${o.side === 'w' ? '白' : '黑'}方的選擇`),
     el('div', { class: 'row', style: 'margin-top:8px' },
       el('button', { type: 'button', class: 'btn', onclick: () => { S.drill = false; showLine(o.main, '主線', o.notes, 0); } }, '▶ 從頭看主線'),
-      el('button', { type: 'button', class: 'btn primary', id: 'op-drill', onclick: startDrill }, '練習主線'),
+      el('button', { type: 'button', class: 'btn primary', id: 'op-drill', onclick: () => startDrill() }, '練習主線'),
       el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('play', { fen: app.game.fen() }) }, '從目前局面跟電腦下 →')));
 
   // 棋盤下方：目的、變化、戰術、錯誤，寬一點比較好讀
   const d = app.wide; d.innerHTML = ''; d.hidden = false;
+  if (ui.mine) d.append(ui.mine);   // 「照你的實戰練」固定放在最前面
   d.id = 'wide';
   const purpose = el('ul'); for (const p of o.purpose) purpose.append(el('li', {}, p));
   d.append(el('div', { class: 'card prose', id: 'op-purpose' }, el('h2', {}, '開局目的'), purpose,
@@ -159,6 +225,7 @@ export default {
     ui.list = el('div', { class: 'op-grid', id: 'op-list' });
     ui.head = el('div', { id: 'op-head' });
     app.main.classList.add('sticky-panel');
+    ui.mine = el('div', { class: 'card', id: 'op-mine' });
     app.panel.append(
       el('div', { class: 'card' }, el('h2', {}, '選一個開局 ', el('small', {}, `${OPENINGS.length} 個`)), ui.list),
       el('div', { class: 'card' }, ui.head, el('hr', { style: 'border:0;border-top:1px solid var(--c-line);margin:12px 0' }), ui.lineTitle, ui.note, ui.moves),
@@ -175,11 +242,12 @@ export default {
       if (e.key === 'ArrowLeft') { go(S.ply - 1); e.preventDefault(); } else if (e.key === 'ArrowRight') { go(S.ply + 1); e.preventDefault(); }
     };
     document.addEventListener('keydown', this._key);
-    app.use({ canMove: c => !S.drill || c === S.o.side, onMove });
+    app.use({ canMove: c => !S.drill || c === S.drillSide, onMove });
     const favs = await db.all('favorites').catch(() => []);
     S.favs = new Set(favs.filter(f => f.kind === 'opening').map(f => f.ref));
     const want = OPENINGS.find(o => o.id === params.id) || S.o || OPENINGS[0];
     selectOpening(want);
+    renderMine();
   },
   unmount() { S.tok++; S.drill = false; document.removeEventListener('keydown', this._key); },
 };

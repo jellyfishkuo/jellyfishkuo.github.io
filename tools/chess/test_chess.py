@@ -11,6 +11,7 @@ import functools
 import http.server
 import json
 import os
+import re
 import socketserver
 import sys
 import threading
@@ -111,7 +112,8 @@ def t_home(b):
     ch = sizes[idx]
     check('卡片寬度跟其他卡一樣', len(ws) == 1, str(ws))
     check('卡片高度沒有比其他卡大', ch[1] <= max(h for w, h in sizes), f'{ch} vs max {max(h for w, h in sizes)}')
-    check('About 的作品數改成 15', '15' in pg.locator('.stat', has_text='自己做的小工具與遊戲').inner_text())
+    n_stat = int(re.search(r'\d+', pg.locator('.stat', has_text='自己做的小工具與遊戲').inner_text()).group())
+    check('About 的作品數有算到西洋棋（≥ 15）', n_stat >= 15, str(n_stat))
     # 原有遊戲連結都還在、都打得開
     links = pg.evaluate("[...document.querySelectorAll('#tiles a.go')].map(a => a.getAttribute('href'))")
     bad = []
@@ -713,8 +715,83 @@ def t_offline(b):
     ctx.close()
 
 
+
+def t_new(b):
+    print('[new] 棋鐘、對完復盤、戰術積分、分析支線、照實戰練開局')
+    pg = new_page(b)
+    open_chess(pg, 'play')
+    pg.wait_for_function("window.jfkChess.engine.state === 'ready'", timeout=60000)
+    # 棋鐘
+    pg.select_option('#time-control', '3+2')
+    pg.click('#btn-new')
+    check('有時間控制時顯示雙方的棋鐘', pg.locator('.player .clock').all_inner_texts() == ['3:00', '3:00'], str(pg.locator('.player .clock').all_inner_texts()))
+    for a, c in [('e2', 'e4'), ('d2', 'd4'), ('g1', 'f3')]:
+        n = pg.evaluate('window.jfkChess.game.history().length')
+        click_move(pg, a, c)
+        pg.wait_for_function(f'window.jfkChess.game.history().length >= {n + 2}', timeout=30000)
+    w = pg.evaluate('window.jfkChess._play.clock.w')
+    check('走棋會扣時間、每步加秒', 175000 < w < 190000, f'{w / 1000:.1f} 秒')
+    pg.click('#btn-undo')
+    check('悔棋時棋鐘也退回去', abs(pg.evaluate('window.jfkChess._play.clock.w') - w) > 100)
+    pg.evaluate('window.jfkChess._play.clock.w = 1500')
+    pg.wait_for_function("document.getElementById('play-status').textContent.includes('時間到')", timeout=10000)
+    check('時間用完判負', '你輸了' in pg.inner_text('#play-status'), pg.inner_text('#play-status'))
+    pg.click('#btn-export')
+    check('PGN 記下時間控制', '[TimeControl "180+2"]' in pg.input_value('#dlg textarea'))
+    pg.click('#dlg button[value="cancel"]')
+    # 對完自動復盤
+    pg.wait_for_function("document.getElementById('btn-review-open')", timeout=180000)
+    rv = pg.inner_text('#play-review')
+    check('對完自動復盤：統計你的失誤、指出轉捩點或沒有失誤', '最佳' in rv and ('轉捩點' in rv or '沒有明顯的失誤' in rv), rv[:80].replace('\n', ' '))
+    pg.click('#btn-review-open')
+    pg.wait_for_function("window.jfkChess.route === 'analysis'")
+    pg.wait_for_timeout(600)
+    check('從復盤打開分析：直接讀存好的分數，不用重算', '已載入存好的分析' in pg.inner_text('#an-progress'), pg.inner_text('#an-progress'))
+    # 分析支線
+    pg.fill('#pgn-in', '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6')
+    pg.click('#btn-load')
+    pg.click('#an-moves .mv[data-ply="4"]')
+    click_move(pg, 'f1', 'c4')
+    pg.wait_for_timeout(300)
+    check('試走不同的棋：開一條支線，原本的棋譜保留', pg.locator('#an-moves .mv[data-ply]').count() == 8 and pg.locator('#an-moves .var').count() == 1, pg.inner_text('#an-moves .var'))
+    click_move(pg, 'g8', 'f6')
+    check('在支線上繼續走', 'Nf6' in pg.inner_text('#an-moves .var'))
+    pg.keyboard.press('ArrowLeft'); pg.keyboard.press('ArrowLeft')
+    pg.wait_for_timeout(200)
+    check('支線退到底回到主線', pg.evaluate("+document.querySelector('#an-moves .mv.cur').dataset.ply") == 4)
+    pg.locator('#an-moves .var .vdel').click()
+    check('刪除支線', pg.locator('#an-moves .var').count() == 0)
+    # 戰術積分
+    open_chess(pg, 'tactics')
+    pg.evaluate("import('./js/tactics.js').then(m => { window.__puzzles = m.PUZZLES; })")
+    pg.wait_for_function('window.__puzzles')
+    r0 = int(pg.inner_text('#pz-rating'))
+    p1, _ = solve_current(pg)
+    r1 = int(pg.inner_text('#pz-rating'))
+    check('答對第一次做的題，戰術積分上升', r1 > r0, f'{r0} → {r1}')
+    check('狀態列顯示積分變化', '積分' in pg.inner_text('#pz-status'), pg.inner_text('#pz-status'))
+    pg.click('#pz-next')
+    pg.wait_for_function("document.getElementById('pz-status').textContent.includes('輪到你')", timeout=10000)
+    pg.click('#pz-reveal')
+    pg.wait_for_selector('#pz-explain:not([hidden])', timeout=15000)
+    r2 = int(pg.inner_text('#pz-rating'))
+    check('看答案（答錯）戰術積分下降', r2 < r1, f'{r1} → {r2}')
+    # 照實戰練開局
+    pg.evaluate("""import('./js/store.js').then(({db}) => db.put('games', {id: 'gtest', date: new Date().toISOString(), pgn: '1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. d3 Nf6 *', mode: 'play', level: 4, myColor: 'w', result: '*', outcome: 'loss', moves: 8}))""")
+    open_chess(pg, 'openings')
+    pg.wait_for_selector('#op-mine-list .item', timeout=5000)
+    check('開局頁找出你離開書上走法的地方', 'd3' in pg.inner_text('#op-mine-list') and 'c3' in pg.inner_text('#op-mine-list'), pg.inner_text('#op-mine-list')[:80])
+    pg.locator('#op-mine-list .item').first.locator('button:has-text("練習這條")').click()
+    pg.wait_for_timeout(300)
+    check('從實戰開始練習那條開局', '練習' in pg.inner_text('#op-note'))
+    open_chess(pg, 'my')
+    pg.wait_for_selector('#my-rating')
+    check('「我的」顯示戰術積分', pg.inner_text('#my-rating') == str(r2), pg.inner_text('#my-rating'))
+    check('沒有 JS 錯誤', not pg.errors, '; '.join(pg.errors[:2]))
+    pg.context.close()
+
 GROUPS = {'home': t_home, 'board': t_board, 'rules': t_rules, 'ai': t_ai, 'pgn': t_pgn, 'analysis': t_analysis,
-          'tactics': t_tactics, 'openings': t_openings, 'storage': t_storage, 'mobile': t_mobile, 'subpath': t_subpath, 'offline': t_offline}
+          'tactics': t_tactics, 'openings': t_openings, 'storage': t_storage, 'mobile': t_mobile, 'subpath': t_subpath, 'offline': t_offline, 'new': t_new}
 
 if __name__ == '__main__':
     want = sys.argv[1:] or list(GROUPS)

@@ -10,10 +10,11 @@ const fmtDate = s => { const d = new Date(s); return isNaN(d) ? '' : `${d.getFul
 const OUT = { win: '勝', loss: '負', draw: '和', ongoing: '…', unfinished: '…' };
 const OUT_LONG = { win: '你贏了', loss: '你輸了', draw: '和棋', ongoing: '還沒下完', unfinished: '沒下完' };
 const OUT_CLS = { win: 'win', loss: 'loss', draw: 'draw', ongoing: 'ongoing', unfinished: 'ongoing' };
-const REASON = { checkmate: '將死', resign: '認輸', stalemate: '逼和', material: '子力不足', repetition: '三次重複', fifty: '50 步規則' };
+const REASON = { checkmate: '將死', resign: '認輸', timeout: '超時', stalemate: '逼和', material: '子力不足', repetition: '三次重複', fifty: '50 步規則' };
 
 async function render() {
   const [games, analyses, stats, attempts, favs, notes] = await Promise.all(['games', 'analyses', 'puzzleStats', 'attempts', 'favorites', 'notes'].map(s => db.all(s).catch(() => [])));
+  const rating = await db.get('meta', 'puzzleRating').catch(() => null);
   root.innerHTML = '';
   const saved = await persistent();
   if (!saved) root.append(el('div', { class: 'status warn' }, '這個瀏覽器不讓網頁長期存資料（可能是無痕模式），紀錄只會保留到關閉分頁。可以用下面的「下載備份」自己存一份。'));
@@ -57,7 +58,20 @@ async function render() {
   }
   const wrong = stats.filter(s => s.lastResult === 'fail').length;
   const favP = favs.filter(f => f.kind === 'puzzle');
-  root.append(el('div', { class: 'card' }, el('h2', {}, '戰術紀錄'), byTheme,
+  // 戰術積分的變化（最近 100 題）
+  const hist = rating && rating.history ? rating.history.slice(-100) : [];
+  let spark = null;
+  if (hist.length >= 2) {
+    const W = 300, H = 60, rs = hist.map(h => h.r), lo = Math.min(...rs) - 20, hi = Math.max(...rs) + 20;
+    const pts = rs.map((r, i) => `${(i / (rs.length - 1) * W).toFixed(1)},${(H - (r - lo) / (hi - lo) * H).toFixed(1)}`).join(' ');
+    spark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    spark.setAttribute('viewBox', `0 0 ${W} ${H}`); spark.setAttribute('preserveAspectRatio', 'none');
+    spark.setAttribute('class', 'spark'); spark.setAttribute('role', 'img'); spark.setAttribute('aria-label', `戰術積分從 ${rs[0]} 到 ${rs[rs.length - 1]}`);
+    spark.innerHTML = `<polyline points="${pts}" fill="none" stroke="#06b6d4" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+  }
+  const ratingBox = el('div', { class: 'row spread', style: 'margin-bottom:8px' },
+    el('div', {}, el('b', { id: 'my-rating', style: 'font:700 1.4rem var(--mono)' }, rating ? rating.rating : 1200), ' ', el('span', { class: 'small muted' }, rating ? `戰術積分・做過 ${rating.n} 題` : '戰術積分（還沒做題，從 1200 開始）')));
+  root.append(el('div', { class: 'card' }, el('h2', {}, '戰術紀錄'), ratingBox, spark, byTheme,
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('button', { type: 'button', class: 'btn', onclick: () => app.go('tactics', { filter: 'wrong' }) }, `✗ 錯題重練（${wrong}）`),
       el('button', { type: 'button', class: 'btn', onclick: () => app.go('tactics', { filter: 'fav' }) }, `★ 收藏的題目（${favP.length}）`))));

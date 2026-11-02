@@ -4,30 +4,14 @@ import { fmtScore, whitePov, winChance, scoreNum } from './engine.js';
 import { db, prefs, setPref, uid } from './store.js';
 import { el, renderMoves, download, today, applyUci, pvToSan, fenProblem, openingLine } from './ui.js';
 
-// 勝率掉多少算哪一級（Lichess 的門檻：勝率差 30%/20%/10%，這裡勝率是 0～1，所以除以 2）
-export const CLS = [
-  { key: 'blunder', min: 0.15, label: '??', name: 'Blunder 大錯' },
-  { key: 'mistake', min: 0.10, label: '?', name: 'Mistake 錯誤' },
-  { key: 'inaccuracy', min: 0.05, label: '?!', name: 'Inaccuracy 不精確' },
-];
-export function classify(before, after, mover, bestUci, playedUci) {
-  // before/after：白方觀點的分數。mover：走這步的一方
-  if (bestUci && bestUci === playedUci) return { key: 'best', label: '★', name: '最佳走法' };
-  const k = mover === 'w' ? 1 : -1;
-  const wb = mover === 'w' ? winChance(before) : 1 - winChance(before);
-  const wa = mover === 'w' ? winChance(after) : 1 - winChance(after);
-  const drop = wb - wa;
-  // 走完還是明顯領先（≥ +3 或可以將死）就不算失誤：引擎深度不夠時常把「棄子殺棋」看成丟子
-  const afterMine = after.mate !== undefined ? (after.mate * k > 0 ? 99999 : -99999) : after.cp * k;
-  if (afterMine >= 300) return null;
-  for (const c of CLS) if (drop >= c.min) return { ...c, drop };
-  return null;
-}
+import { CLS, classify, terminalScore } from './review.js';
+export { CLS, classify };
 
-const S = { runTok: 0, shown: -1, userMoved: false, g: null, startFen: DEFAULT_POSITION, fens: [], moves: [], ply: 0, evals: [], running: false, live: true, liveTok: 0, id: null, headers: {} };
+// vars：試走的支線 [{ start（從主線第幾個局面分出去）, moves:[{san,uci,color,from,to}], fens:[…] }]；vi／vp：目前在第幾條支線的第幾步（vi = -1 是主線）
+const S = { vars: [], vi: -1, vp: 0, runTok: 0, shown: -1, userMoved: false, g: null, startFen: DEFAULT_POSITION, fens: [], moves: [], ply: 0, evals: [], running: false, live: true, liveTok: 0, id: null, headers: {} };
 let app, ui = {};
 
-function load(pgnOrFen, { id = null, evals = null } = {}) {
+function load(pgnOrFen, { id = null, evals = null, vars: savedVars = null } = {}) {
   const g = new Chess();
   const text = (pgnOrFen || '').trim();
   if (!text) throw new Error('沒有內容');
@@ -46,6 +30,14 @@ function load(pgnOrFen, { id = null, evals = null } = {}) {
     S.fens.push(replay.fen());
   }
   S.g = g; S.id = id || uid('a'); S.evals = evals || []; S.ply = 0;
+  S.vars = []; S.vi = -1; S.vp = 0;
+  for (const v of savedVars || []) {
+    try {
+      const c = new Chess(S.fens[v.start]); const nv = { start: v.start, moves: [], fens: [c.fen()] };
+      for (const san of v.sans) { const mv = c.move(san); nv.moves.push({ san: mv.san, uci: mv.from + mv.to + (mv.promotion || ''), color: mv.color, from: mv.from, to: mv.to }); nv.fens.push(c.fen()); }
+      if (nv.moves.length) S.vars.push(nv);
+    } catch (e) { /* 存檔壞了就略過這條支線 */ }
+  }
   const done = S.evals.filter(Boolean).length === S.fens.length;
   if (done) requestAnimationFrame(() => reserveInfo());
   if (ui.prog) { ui.prog.style.width = done ? '100%' : '0'; ui.progTxt.textContent = done ? '已載入存好的分析' : ''; ui.run.textContent = done ? '重新分析' : '整盤分析'; }
@@ -53,11 +45,8 @@ function load(pgnOrFen, { id = null, evals = null } = {}) {
 }
 
 function posAt(i) { return new Chess(S.fens[i]); }
-function terminalScore(c) {
-  if (c.isCheckmate()) return { mate: 0, white: c.turn() === 'w' ? { cp: -100000 } : { cp: 100000 } };
-  if (c.isStalemate() || c.isInsufficientMaterial() || c.isDrawByFiftyMoves()) return { white: { cp: 0 } };
-  return null;
-}
+const inVar = () => S.vi >= 0 && S.vars[S.vi];
+function curFen() { return inVar() ? S.vars[S.vi].fens[S.vp] : S.fens[S.ply]; }
 
 // 按鈕：分析中就停止，否則開始
 function runFull() {
@@ -229,14 +218,46 @@ function chartPly(e) {
 
 function renderMeta() { chart(); renderMoveList(); }
 function renderMoveList() {
-  renderMoves(ui.moves, S.moves.map(m => m.san), S.ply, p => go(p), { startTurn: new Chess(S.startFen).turn(), startNo: new Chess(S.startFen).moveNumber(), tags: tags() });
+  renderMoves(ui.moves, S.moves.map(m => m.san), inVar() ? -1 : S.ply, p => go(p), { startTurn: new Chess(S.startFen).turn(), startNo: new Chess(S.startFen).moveNumber(), tags: tags() });
+  // 每條支線插在它分出去的那一步所在的那一列後面（整列寬）
+  S.vars.forEach((V, v) => {
+    const box = el('div', { class: 'var', 'data-var': v });
+    const start = new Chess(V.fens[0]);
+    V.moves.forEach((m, i) => {
+      const no = start.moveNumber() + Math.floor((i + (start.turn() === 'b' ? 1 : 0)) / 2);
+      const label = (m.color === 'w' ? `${no}. ` : (i === 0 ? `${no}… ` : '')) + m.san;
+      box.append(el('button', { type: 'button', class: 'vmv' + (S.vi === v && S.vp === i + 1 ? ' cur' : ''), 'data-vp': i + 1, onclick: () => goVar(v, i + 1) }, label));
+    });
+    box.append(el('button', { type: 'button', class: 'vdel', title: '刪除這條支線', 'aria-label': '刪除這條支線', onclick: () => deleteVar(v) }, '✕'));
+    // 找到「分出去那一步」所在那一列的最後一格，插在它後面
+    const cells = [...ui.moves.querySelectorAll('.mv[data-ply]')];
+    let after = cells.find(b => +b.dataset.ply === V.start + 1) || cells.find(b => +b.dataset.ply === V.start) || null;
+    if (after) {
+      const ply = +after.dataset.ply;
+      const nxt = cells.find(b => +b.dataset.ply === ply + 1);
+      if (S.moves[ply - 1] && S.moves[ply - 1].color === 'w' && nxt) after = nxt;
+      let n = after.nextSibling; while (n && n.classList && n.classList.contains('var')) { after = n; n = n.nextSibling; }
+      after.after(box);
+    } else ui.moves.append(box);
+  });
+  const c = ui.moves.querySelector('.vmv.cur');
+  if (c) ui.moves.scrollTo({ top: Math.max(0, c.offsetTop - ui.moves.clientHeight / 2) });
 }
 
 function go(p) {
+  S.vi = -1;
   S.ply = Math.max(0, Math.min(S.moves.length, p));
   render();
   startLive();
 }
+function goVar(v, i) {
+  const V = S.vars[v]; if (!V) return go(S.ply);
+  if (i <= 0) return go(V.start);                 // 支線退到起點 = 回到主線分出去的地方
+  S.vi = v; S.vp = Math.min(V.moves.length, i); S.ply = V.start;
+  render();
+  startLive();
+}
+function step(d) { if (inVar()) goVar(S.vi, S.vp + d); else go(S.ply + d); }
 
 // 某一步的說明（畫面上用，也拿來量最高的高度）
 function buildInfo(info, ply) {
@@ -258,6 +279,20 @@ function buildInfo(info, ply) {
     } else info.append(head, el('p', { class: 'small muted' }, '還沒分析到這一步，分析中…'));
   }
 }
+// 支線上的說明：沒有整盤分析的分數，看右邊「引擎」的即時分析
+function buildVarInfo(info) {
+  const V = S.vars[S.vi];
+  info.innerHTML = '';
+  const start = new Chess(V.fens[0]);
+  const parts = V.moves.slice(0, S.vp).map((m, i) => {
+    const no = start.moveNumber() + Math.floor((i + (start.turn() === 'b' ? 1 : 0)) / 2);
+    return (m.color === 'w' ? `${no}. ` : (i === 0 ? `${no}… ` : '')) + m.san;
+  }).join(' ');
+  const mainMove = S.moves[V.start];
+  info.append(el('div', { class: 'row' }, el('b', {}, '試走的支線'), el('span', { class: 'tag var-tag' }, `第 ${S.vi + 1} 條`)),
+    el('p', { class: 'small mono' }, parts),
+    el('p', { class: 'small muted' }, mainMove ? `原本棋譜在這裡走的是 ${mainMove.san}。` : '原本棋譜到這裡就結束了。', '右邊「引擎」顯示這個局面的評估和最好的走法；按 ◀ 退回去，退到底就回到原本的棋譜。'));
+}
 // 每一步的說明長短不同：全部量一次，用最高的那個固定高度，換步時下面的卡片才不會跳
 function reserveInfo() {
   const box = ui.info;
@@ -274,20 +309,24 @@ function reserveInfo() {
 }
 
 function render() {
-  const c = posAt(S.ply);
+  const V = inVar();
+  const c = new Chess(curFen());
   app.setGame(c);
-  const last = S.ply > 0 ? S.moves[S.ply - 1] : null;
-  const step = S.ply === S.shown + 1 && !S.userMoved;
-  S.shown = S.ply; S.userMoved = false;
-  app.board.setLast(last, { animate: step });
-  const ev = S.evals[S.ply];
+  const last = V ? (S.vp > 0 ? V.moves[S.vp - 1] : (S.ply > 0 ? S.moves[S.ply - 1] : null)) : (S.ply > 0 ? S.moves[S.ply - 1] : null);
+  const key = V ? `v${S.vi}:${S.vp}` : `m${S.ply}`;
+  const prevKey = S.shownKey; S.shownKey = key;
+  // 往前一步才用滑的（主線或同一條支線），自己在棋盤上走的那步不用
+  const stepAnim = !S.userMoved && (V ? prevKey === `v${S.vi}:${S.vp - 1}` || (S.vp === 1 && prevKey === `m${V.start}`) : prevKey === `m${S.ply - 1}`);
+  S.userMoved = false;
+  app.board.setLast(last, { animate: stepAnim });
+  const ev = V ? null : S.evals[S.ply];
   const arrows = [];
   if (ev && ev.best) arrows.push({ from: ev.best.slice(0, 2), to: ev.best.slice(2, 4), color: 'rgba(34,197,94,0.75)' });
   app.board.setArrows(arrows);
   app.board.render();
   app.players({ white: S.headers.White || '白方', black: S.headers.Black || '黑方' });
-  app.evalbar(ev ? ev.score : (S.liveScore && S.liveScore.ply === S.ply ? S.liveScore.s : undefined));
-  buildInfo(ui.info, S.ply);
+  app.evalbar(ev ? ev.score : (S.liveScore && S.liveScore.key === key ? S.liveScore.s : undefined));
+  if (V) buildVarInfo(ui.info); else buildInfo(ui.info, S.ply);
   openingLine(ui.opening, S.moves.map(m => m.san), S.startFen, (r, p) => app.go(r, p));
   renderMeta();
   // 總結
@@ -315,7 +354,7 @@ async function startLive() {
   const c = app.game;
   if (c.isGameOver()) { ui.lines.innerHTML = ''; ui.lines.append(el('p', { class: 'small muted' }, c.isCheckmate() ? '將死，對局結束' : '和棋局面')); return; }
   const fen = c.fen(), turn = c.turn();
-  const ply = S.ply;
+  const key = inVar() ? `v${S.vi}:${S.vp}` : `m${S.ply}`;
   ui.lines.innerHTML = ''; ui.lines.append(el('p', { class: 'small muted' }, el('span', { class: 'spinner', style: 'display:inline-block;vertical-align:middle' }), ' 引擎思考中…'));
   const show = lines => {
     if (tok !== S.liveTok) return;
@@ -325,7 +364,7 @@ async function startLive() {
       ui.lines.append(el('button', { type: 'button', class: 'ln', title: '在棋盤上顯示這條變化的第一步', onclick: () => app.board.setArrows([{ from: l.pv[0].slice(0, 2), to: l.pv[0].slice(2, 4), color: 'rgba(6,182,212,0.8)' }]) },
         el('b', {}, fmtScore(s)), el('span', {}, pvToSan(fen, l.pv, 10))));
     }
-    if (lines[0]) { ui.depthTxt.textContent = `深度 ${lines[0].depth}`; S.liveScore = { ply, s: whitePov(lines[0].score, turn) }; if (!S.evals[S.ply]) app.evalbar(S.liveScore.s); }
+    if (lines[0]) { ui.depthTxt.textContent = `深度 ${lines[0].depth}`; S.liveScore = { key, s: whitePov(lines[0].score, turn) }; if (inVar() || !S.evals[S.ply]) app.evalbar(S.liveScore.s); }
   };
   await app.engine.go({ fen, depth: 20, multipv: 3, skill: 20, onInfo: show });
 }
@@ -336,26 +375,37 @@ async function saveAnalysis(toast) {
     id: S.id, date: new Date().toISOString(), title: `${S.headers.White || '白方'} vs ${S.headers.Black || '黑方'}`,
     pgn: S.g.pgn(), evals: S.evals.map(e => e && { score: e.score, best: e.best, pv: (e.pv || []).slice(0, 8), depth: e.depth }),
     result: S.headers.Result || '*',
+    vars: S.vars.map(v => ({ start: v.start, sans: v.moves.map(m => m.san) })),
   };
   try { await db.put('analyses', rec); if (toast) app.toast('分析結果已存到「我的」'); } catch (e) { /* ignore */ }
 }
 
-// 自己在棋盤上走：從目前局面開一條新的「試走」線（取代後面的棋步）
+// 自己在棋盤上走：跟棋譜一樣就往下走；不一樣就開一條支線（原本的棋譜和分析都保留）
 function onMove(m) {
-  const c = posAt(S.ply);
+  const c = new Chess(curFen());
   let mv; try { mv = c.move(m); } catch (e) { return false; }
   const u = mv.from + mv.to + (mv.promotion || '');
+  const rec = { san: mv.san, uci: u, color: mv.color, from: mv.from, to: mv.to };
   S.userMoved = true;
-  if (S.moves[S.ply] && S.moves[S.ply].uci === u) { go(S.ply + 1); return true; }
-  // 改走別的：截斷後面的棋步
-  S.moves = S.moves.slice(0, S.ply); S.fens = S.fens.slice(0, S.ply + 1); S.evals = S.evals.slice(0, S.ply + 1);
-  S.moves.push({ san: mv.san, uci: u, color: mv.color, from: mv.from, to: mv.to });
-  S.fens.push(c.fen());
-  const g = new Chess(S.startFen); for (const x of S.moves) g.move(x.san);
-  for (const [k, v] of Object.entries(S.headers)) if (k !== 'Result') g.setHeader(k, v);
-  S.g = g;
-  go(S.ply + 1);
+  const V = inVar();
+  if (!V) {
+    if (S.moves[S.ply] && S.moves[S.ply].uci === u) { go(S.ply + 1); return true; }
+    const same = S.vars.findIndex(v => v.start === S.ply && v.moves[0].uci === u);
+    if (same >= 0) { goVar(same, 1); return true; }
+    S.vars.push({ start: S.ply, moves: [rec], fens: [S.fens[S.ply], c.fen()] });
+    goVar(S.vars.length - 1, 1);
+    return true;
+  }
+  if (V.moves[S.vp] && V.moves[S.vp].uci === u) { goVar(S.vi, S.vp + 1); return true; }
+  // 在支線中間改走別的：後面的支線棋步換掉
+  V.moves = V.moves.slice(0, S.vp).concat(rec); V.fens = V.fens.slice(0, S.vp + 1).concat(c.fen());
+  goVar(S.vi, S.vp + 1);
   return true;
+}
+function deleteVar(v) {
+  const V = S.vars[v]; if (!V) return;
+  S.vars.splice(v, 1);
+  if (S.vi === v) go(V.start); else { if (S.vi > v) S.vi--; render(); }
 }
 
 const SAMPLE = `[Event "Paris Opera"]
@@ -443,24 +493,24 @@ export default {
     app.tools.append(
       el('button', { type: 'button', class: 'btn icon', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => { app.board.flip(); S.flip = app.board.flipped; render(); } }, '⇅'),
       el('button', { type: 'button', class: 'btn icon', id: 'an-first', 'aria-label': '第一步', onclick: () => go(0) }, '⏮'),
-      el('button', { type: 'button', class: 'btn icon', id: 'an-prev', 'aria-label': '上一步', onclick: () => go(S.ply - 1) }, '◀'),
-      el('button', { type: 'button', class: 'btn icon', id: 'an-next', 'aria-label': '下一步', onclick: () => go(S.ply + 1) }, '▶'),
+      el('button', { type: 'button', class: 'btn icon', id: 'an-prev', 'aria-label': '上一步', onclick: () => step(-1) }, '◀'),
+      el('button', { type: 'button', class: 'btn icon', id: 'an-next', 'aria-label': '下一步', onclick: () => step(1) }, '▶'),
       el('button', { type: 'button', class: 'btn icon', id: 'an-last', 'aria-label': '最後一步', onclick: () => go(S.moves.length) }, '⏭'),
     );
     this._key = e => {
       if (e.target.closest('input, textarea, select, [contenteditable]')) return;
-      if (e.key === 'ArrowLeft') { go(S.ply - 1); e.preventDefault(); }
-      else if (e.key === 'ArrowRight') { go(S.ply + 1); e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
     };
     document.addEventListener('keydown', this._key);
-    app.use({ canMove: () => !S.running, onMove });
+    app.use({ canMove: () => true, onMove });   // 試走只會開支線，不影響正在跑的整盤分析
     // 棋盤方向：從別頁帶棋局進來時照你那一方；其他情況白方在下（不沿用上一頁翻過的方向）
     if (params.pgn || params.analysisId || !S.g) S.flip = !!params.flip;
     app.board.setFlipped(!!S.flip);   // 分析頁自己記方向，不沿用上一頁（例如執黑的戰術題）翻過的
     (async () => {
       if (params.analysisId) {
         const r = await db.get('analyses', params.analysisId);
-        if (r) { ta.value = r.pgn; load(r.pgn, { id: r.id, evals: r.evals }); }
+        if (r) { ta.value = r.pgn; load(r.pgn, { id: r.id, evals: r.evals, vars: r.vars }); }
       } else if (params.pgn) { ta.value = params.pgn; try { load(params.pgn); } catch (e) { app.toast('PGN 讀不懂：' + e.message); } }
       else if (!S.g) { ta.value = SAMPLE; load(SAMPLE); }
       else ta.value = S.g.pgn();

@@ -23,7 +23,9 @@ export const THEMES = {
 const ORDER = Object.keys(THEMES);
 const NAME = { p: '兵', n: '馬', b: '象', r: '車', q: '后', k: '王' };
 
-const S = { filter: 'all', p: null, g: null, step: 1, mistakes: 0, hints: 0, done: false, revealed: false, stats: {}, favs: new Set(), busy: false, tok: 0 };
+// 戰術積分（Elo）：題目的分數用 Lichess 的難度分數；自己產生的題用難度星等換算
+export const puzzleRating = p => p.rating || ({ 1: 1100, 2: 1500, 3: 1900 })[p.level] || 1500;
+const S = { rating: { id: 'puzzleRating', rating: 1200, n: 0, history: [] }, lastDelta: null, filter: 'all', p: null, g: null, step: 1, mistakes: 0, hints: 0, done: false, revealed: false, stats: {}, favs: new Set(), busy: false, tok: 0 };
 let app, ui = {};
 
 async function loadStats() {
@@ -31,6 +33,8 @@ async function loadStats() {
   S.stats = Object.fromEntries(rows.map(r => [r.id, r]));
   const favs = await db.all('favorites').catch(() => []);
   S.favs = new Set(favs.filter(f => f.kind === 'puzzle').map(f => f.ref));
+  const r = await db.get('meta', 'puzzleRating').catch(() => null);
+  if (r && typeof r.rating === 'number') S.rating = r;
 }
 const solMoves = p => p.moves.split(' ');
 function pool(filter) {
@@ -44,10 +48,11 @@ function pickNext() {
   if (!list.length) return null;
   const fresh = list.filter(p => !S.stats[p.id]);
   if (S.filter !== 'wrong' && fresh.length) {
-    fresh.sort((a, b) => a.level - b.level || a.id.localeCompare(b.id));
-    const lv = fresh[0].level;
-    const same = fresh.filter(p => p.level === lv);
-    return same[Math.floor(Math.random() * same.length)];
+    // 挑題目積分最接近你的戰術積分的幾題，隨機出一題（太簡單、太難都學不到東西）
+    const me = S.rating.rating;
+    fresh.sort((a, b) => Math.abs(puzzleRating(a) - me) - Math.abs(puzzleRating(b) - me));
+    const near = fresh.slice(0, 8);
+    return near[Math.floor(Math.random() * near.length)];
   }
   return list[Math.floor(Math.random() * list.length)];
 }
@@ -80,7 +85,7 @@ function renderHead() {
   ui.title.textContent = `題目 ${p.id.replace(/^(jc|li)/, '#')}`;
   const showTheme = S.done || (S.filter !== 'all' && S.filter !== 'fav' && S.filter !== 'wrong');
   ui.themes.innerHTML = '';
-  ui.themes.append(el('span', { class: 'small muted' }, '難度 ', '★'.repeat(p.level) + '☆'.repeat(3 - p.level), '　'));
+  ui.themes.append(el('span', { class: 'small muted' }, '難度 ', '★'.repeat(p.level) + '☆'.repeat(3 - p.level), S.done ? `（${puzzleRating(p)}）` : '', '　'));
   if (showTheme) for (const t of p.themes) ui.themes.append(el('span', { class: 'eco', style: 'margin-right:4px' }, THEMES[t].name));
   else ui.themes.append(el('span', { class: 'small muted' }, '題型解完才公布'));
   ui.fav.textContent = S.favs.has(p.id) ? '★ 已收藏' : '☆ 收藏';
@@ -171,7 +176,20 @@ async function finish(solved) {
   const p = S.p;
   const clean = solved && S.mistakes === 0 && S.hints === 0 && !S.revealed;
   setStatus(clean ? '✓ 答對了！' : solved ? '✓ 解出來了（有走錯或用了提示，這次記為答錯，會放進錯題本）' : '看完答案了，這題放進錯題本', clean ? 'good' : 'warn');
+  const statusNote = () => { if (S.lastDelta !== null) ui.status.append(el('span', { class: 'small', style: 'margin-left:auto;white-space:nowrap' }, `積分 ${S.rating.rating}（${S.lastDelta >= 0 ? '+' : ''}${S.lastDelta}）`)); };
   // 記錄
+  const first = !S.stats[p.id];
+  S.lastDelta = null;
+  if (first) {
+    const R = S.rating, rp = puzzleRating(p);
+    const expect = 1 / (1 + Math.pow(10, (rp - R.rating) / 400));
+    const K = R.n < 20 ? 40 : 20;                      // 剛開始變動大一點，比較快找到你的程度
+    const delta = Math.round(K * ((clean ? 1 : 0) - expect));
+    R.rating = Math.max(400, R.rating + delta); R.n++;
+    R.history = (R.history || []).concat({ d: new Date().toISOString(), r: R.rating }).slice(-500);
+    S.lastDelta = delta;
+    db.put('meta', R).catch(() => {});
+  }
   const st = S.stats[p.id] || { id: p.id, tries: 0, solved: 0, fails: 0 };
   st.tries++; if (clean) st.solved++; else st.fails++;
   st.lastResult = clean ? 'ok' : 'fail'; st.lastDate = new Date().toISOString();
@@ -181,6 +199,7 @@ async function finish(solved) {
     await db.put('puzzleStats', st);
     await db.put('attempts', { id: uid('t'), puzzleId: p.id, date: st.lastDate, ok: clean, themes: p.themes, mistakes: S.mistakes, hints: S.hints, revealed: S.revealed });
   } catch (e) { /* ignore */ }
+  statusNote();
   renderHead(); renderFilters(); renderStats();
   // 解析
   const ex = ui.explain; ex.hidden = false; ex.innerHTML = '';
@@ -233,6 +252,7 @@ function renderStats() {
   const tries = st.reduce((a, s) => a + s.tries, 0), ok = st.reduce((a, s) => a + s.solved, 0);
   ui.stats.innerHTML = '';
   ui.stats.append(
+    el('div', { class: 'stat' }, el('b', { id: 'pz-rating' }, S.rating.rating), el('span', {}, S.rating.n ? `戰術積分（做過 ${S.rating.n} 題）` : '戰術積分（從 1200 開始）')),
     el('div', { class: 'stat' }, el('b', { id: 'pz-acc' }, tries ? Math.round(ok / tries * 100) + '%' : '—'), el('span', {}, '正確率（每次作答）')),
     el('div', { class: 'stat' }, el('b', {}, st.filter(s => s.solved > 0).length), el('span', {}, `解出過的題目（共 ${PUZZLES.length} 題）`)),
     el('div', { class: 'stat' }, el('b', {}, pool('wrong').length), el('span', {}, '錯題本')),

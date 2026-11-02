@@ -75,6 +75,7 @@ export const app = {
       if (o.caps === false) { el.append(dot, who); return; }
       if (caps[c].adv > 0) { const b = document.createElement('b'); b.textContent = '+' + caps[c].adv; cp.appendChild(b); }
       el.append(dot, who, cp);
+      if (o.clocks) { const k = document.createElement('span'); k.className = 'clock'; k.dataset.c = c; k.textContent = '–'; el.appendChild(k); }   // 時間由對弈頁每 0.2 秒更新
     };
     fill(top, tc); fill(bot, bc);
   },
