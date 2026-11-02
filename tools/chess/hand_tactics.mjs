@@ -15,6 +15,8 @@ export const HAND = [
   { want: 'pin', fen: 'r1b1k2r/pp3ppp/3qpn2/8/8/2N5/PPP2PPP/R2QRBK1 b kq - 0 12', last: 'd6d7' },
   // 串擊：王走到長對角線，後面是 a8 的后
   { want: 'skewer', fen: 'q7/8/8/2k5/8/8/5PPP/3B2K1 b - - 0 1', last: 'c5d5' },
+  // 串擊：黑王走進第 5 排，車將軍，王讓開後吃掉後面的后
+  { want: 'skewer', fen: '8/5ppp/8/7q/2k5/8/5PPP/RB4K1 b - - 0 1', last: 'c4d5' },
   // 消除保護者：f6 的馬是 h7 唯一的保護者，Bxf6 之後黑方不能吃回（吃回就 Qxh7#）
   { want: 'defender', fen: 'r1bq1rk1/ppp2ppp/4pn2/6B1/8/2PQ4/PP3PPP/RB3RK1 b - - 0 12', last: 'c8d7' },
 ];
