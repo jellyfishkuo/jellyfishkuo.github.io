@@ -65,7 +65,7 @@ function runFull() {
 }
 // 載入棋局後自動開始（使用者不用再按）；已經分析完的不重跑
 function autoAnalyse() {
-  if (!S.moves.length || S.evals.filter(Boolean).length === S.fens.length) return;
+  if (!S.fens.length || S.evals.filter(Boolean).length === S.fens.length) return;   // 只有一個局面也會算它的評估
   if (S.running) { S.running = false; S.runTok++; app.engine.stop(); }
   startFull();
 }
@@ -168,7 +168,7 @@ function chart() {
   const pw = W - L - R, ph = H - T - B, mid = T + ph / 2;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   if (!S.evals.some(Boolean)) {
-    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="13" fill="currentColor" opacity="0.6">按「整盤分析」後這裡會畫出評估曲線</text>`;
+    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="13" fill="currentColor" opacity="0.6">${S.running ? '分析中…' : '還沒有分析結果'}</text>`;
     ui.chartTip.textContent = '';
     return;
   }
@@ -252,7 +252,7 @@ function render() {
   app.evalbar(ev ? ev.score : (S.liveScore && S.liveScore.ply === S.ply ? S.liveScore.s : undefined));
   // 這一步的說明
   const info = ui.info; info.innerHTML = '';
-  if (!S.moves.length) info.append(el('p', { class: 'muted small' }, '這是一個局面（沒有棋步）。可以開「即時分析」看引擎怎麼想，或在棋盤上自己走走看。'));
+  if (!S.moves.length) info.append(el('p', { class: 'muted small' }, '這是一個局面（沒有棋步）。右邊「引擎」會列出最好的幾種走法，也可以在棋盤上自己走走看。'));
   else if (S.ply === 0) info.append(el('p', { class: 'muted small' }, '開局局面。點棋譜上的任一步，或用 ◀ ▶（鍵盤左右鍵）一步一步看。'));
   else {
     const i = S.ply - 1, m = S.moves[i], a = S.evals[i], b = S.evals[i + 1];

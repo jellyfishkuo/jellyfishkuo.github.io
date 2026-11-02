@@ -201,9 +201,13 @@ async function finish(solved) {
     el('button', { type: 'button', class: 'btn primary', id: 'pz-next', onclick: next }, '下一題 →'),
     el('button', { type: 'button', class: 'btn', onclick: () => start(p) }, '再做一次'),
     el('button', { type: 'button', class: 'btn sm', onclick: () => {
-      const g = new Chess(p.fen); applyUci(g, solMoves(p)[0]);
-      app.go('analysis', { pgn: g.fen() });
-    } }, '用引擎研究這個局面')));
+      // 把整條解答帶過去，停在對手剛走完、輪到你的那一步；分析頁會自動逐步分析
+      const g = new Chess(p.fen);
+      for (const u of solMoves(p)) applyUci(g, u);
+      g.setHeader('Event', `Jellyfish Chess 戰術題 ${p.id.replace(/^(jc|li)/, '#')}`);
+      g.setHeader('White', p.side === 'w' ? '你' : '對手'); g.setHeader('Black', p.side === 'b' ? '你' : '對手');
+      app.go('analysis', { pgn: g.pgn(), ply: 1 });
+    } }, '用引擎分析這題')));
 }
 
 function next() {

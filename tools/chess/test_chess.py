@@ -460,8 +460,20 @@ def t_tactics(b):
     pg.wait_for_timeout(900)
     p3, _ = solve_current(pg)
     check('殺王題可以解', 'mate' in p3['themes'])
+    # 從戰術題點「用引擎分析這題」：帶整條解答過去，自動開始分析
+    pg.click('#pz-explain button:has-text("用引擎分析這題")')
+    pg.wait_for_function("window.jfkChess.route === 'analysis'")
+    pg.wait_for_function("document.getElementById('an-progress').textContent.includes('完成')", timeout=180000)
+    n = pg.locator('#an-moves .mv[data-ply]').count()
+    check('戰術題 → 分析：整條解答自動分析完', n == len(p3['moves'].split()), f'{n} 步')
+    check('戰術題 → 分析：停在輪到你的那一步', pg.evaluate("+document.querySelector('#an-moves .mv.cur').dataset.ply") == 1)
+    # 只有一個局面（沒有棋步）也會自動算評估
+    pg.fill('#pgn-in', '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1')
+    pg.click('#btn-load')
+    pg.wait_for_function("document.getElementById('an-progress').textContent.includes('完成')", timeout=60000)
+    check('單一局面也自動算出評估', '#' in pg.inner_text('#an-chart-tip') or '+' in pg.inner_text('#an-chart-tip'), pg.inner_text('#an-chart-tip'))
+    open_chess(pg, 'tactics')      # 回到戰術頁會直接出下一題
     # 看答案
-    pg.click('#pz-next')
     pg.wait_for_function("document.getElementById('pz-status').textContent.includes('輪到你')", timeout=10000)
     pg.click('#pz-reveal')
     pg.wait_for_selector('#pz-explain:not([hidden])', timeout=15000)
