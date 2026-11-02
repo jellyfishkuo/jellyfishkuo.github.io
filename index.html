@@ -101,6 +101,9 @@
         .brand img { width: 30px; height: 25px; flex: none; }
         .brand .name-dark { font-family: var(--mono); color: var(--accent2); letter-spacing: 0.08em; font-size: 0.95rem; }
         .brand .name-light { font-weight: 900; font-size: 1.05rem; }
+        /* 導覽列右邊有搜尋、主題切換、選單三顆按鈕；窄手機上英文站名縮小，再窄就只留圖示，不然會疊到放大鏡 */
+        @media (max-width: 400px) { .brand .name-dark { font-size: 0.8rem; letter-spacing: 0.03em; } }
+        @media (max-width: 359px) { .brand .name-dark { display: none; } }
         .nav-right { display: flex; align-items: center; gap: clamp(10px, 2.4vw, 28px); }
         .nav-links { display: flex; gap: clamp(12px, 2.4vw, 28px); list-style: none; }
         .nav-links a { text-decoration: none; color: var(--muted); font-size: 0.9rem; transition: color 0.2s; }
@@ -459,7 +462,7 @@
 
     <nav>
         <div class="wrap nav-in">
-            <a class="brand" href="#top">
+            <a class="brand" href="#top" aria-label="果汁龍的網站，回到最上面">
                 <img src="assets/dragon.svg" alt="" width="30" height="25">
                 <span class="name-dark only-dark">jellyfishkuo</span>
                 <span class="name-light only-light">果汁龍</span>
@@ -1095,49 +1098,146 @@
             const LINES = {
                 egg: ['（蛋晃了一下）去「養一隻果汁龍」把我孵出來嘛', '（裡面好像有東西在動）', '玩網站上的遊戲可以拿到蘋果汁，餵我就會孵出來喔'],
                 flat: ['餓扁扁了……去餵我一瓶嘛', '（扁扁地躺著）蘋果汁……'],
-                hungry: ['肚子好餓……可以去餵我一瓶蘋果汁嗎？', '咕嚕咕嚕……', '我想喝蘋果汁 🥺 去跑酷撿幾瓶嘛'],
-                ok: ['今天要玩什麼？', '要不要去跑酷撿蘋果汁？', '我覺得 FP-tree 比 Apriori 帥', '可以陪我解一題 Zip 嗎？', '你今天有讀 paper 嗎？', '研究闖關還有星星沒拿喔'],
+                hungry: ['肚子好餓……可以去餵我一瓶蘋果汁嗎？', '咕嚕咕嚕……'],
+                self: ['今天要玩什麼？', '你今天有讀 paper 嗎？', '我最喜歡的飲料是蘋果汁 🧃（其實我也只喝這個）', '我的背刺是綠色的，摸起來軟軟的', '主人做這個網站的時候，我都在旁邊看', '我覺得 FP-tree 比 Apriori 帥', '搜尋按鈕在上面那個放大鏡，找不到東西可以用'],
                 happy: ['好飽好開心！', '最喜歡你了 💚', '嗝～（蘋果汁的味道）', '我覺得我又長大了一點']
             };
             const pick = a => a[Math.floor(Math.random() * a.length)];
             let hideT = 0;
 
-            // ── 看你在網站上的紀錄挑話講，每句都附上直達的連結（只讀各遊戲存的資料，不改）──
-            const PET = ['games/pet.html', '去看牠 →'];
-            function lines() {
-                const urgent = [], more = [];
-                const L = (text, href, go) => ({ text, href: href || PET[0], go: go || PET[1] });
-                if (!xp) { urgent.push(L(pick(LINES.egg), PET[0], '去孵蛋 →')); }
-                else if (!full) urgent.push(L(pick(LINES.flat), PET[0], '去餵牠 →'));
-                else if (full <= 2) urgent.push(L(pick(LINES.hungry), PET[0], '去餵牠 →'));
-                const d = new Date(), today = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();   // 跟 pet.html 的 dayKey() 一樣
-                if (Array.isArray(pet.days) && pet.days.indexOf(today) < 0) urgent.push(L('今天還沒簽到喔！簽到送 3 瓶蘋果汁', PET[0], '去簽到 →'));
+            // ── 台詞：跟整個網站連起來。每句 [話, 連結, 按鈕字]；連結的頁面不在首頁上（作品被拿掉）就不講 ──
+            // 作品：每個作品一組，用首頁卡片的連結對應
+            const SITE = {
+                'games/pentomino.html': ['去拼拼看 →', '今天的日期拼得出來嗎？Pentomino 每天換一題', '12 塊五格骨牌剛好能把今天的日期露出來，好神奇', '拼不出來也沒關係，Pentomino 有求解器可以偷看'],
+                'games/game-set.html': ['去玩 SET →', 'SET 要找三張牌，每個特徵都要「全部一樣」或「全部不同」', '找朋友來玩 SET！最多 6 個人一起連線搶牌', '跟電腦比賽找 SET，我每次都輸……'],
+                'games/chess/': ['去下棋 →', '要不要跟 Stockfish 下一盤西洋棋？我幫你加油', '西洋棋的戰術題有好幾百題：雙重攻擊、牽制、串擊都有', '下完一盤棋可以丟進分析，看看哪一步走壞了'],
+                'games/hanoi.html': ['去搬盤子 →', '河內塔搬 64 個盤子要 2⁶⁴−1 步，我們先從 3 個開始就好', '看不懂遞迴？河內塔會一行一行跑給你看，還有呼叫堆疊', '河內塔隨便擺到一半也沒關係，它會告訴你下一步最好怎麼走'],
+                'games/zip.html': ['來一題 →', '一筆畫 Zip 的題目是電腦當場出的，而且保證只有一種解', '玩 Zip 的時候，最後一定要停在最大的那個數字上喔', 'Zip 的題號可以分享，朋友打開就是同一題'],
+                'games/store-manager.html': ['去開店 →', '當超商店長要看收據，猜大家常常一起買什麼', '超商店長有陷阱：大家都會買的東西，不一定值得做優惠', '支持度、信賴度、提升度，在超商店長裡全部用得到'],
+                'games/lab-life.html': ['去當碩一生 →', '碩一生模擬器：18 週裡要讀 paper、跑實驗、撐過 meeting', '碩一生模擬器裡體力見底會病倒一週，記得休息', '碩一生模擬器有 6 種結局，你拿過「論文投上頂會」嗎？'],
+                'games/pet.html': ['去看我 →', '我的家在「養一隻果汁龍」，可以幫我換帽子和背景', '我長大會解鎖新配件，戴學士帽的我超帥'],
+                'games/runner.html': ['去跑 →', '跑酷裡的 bug 和 deadline 好可怕，幫我跳過去！', '跑酷撿到 🍎 可以無敵 4 秒', '跑酷小技巧：按住螢幕可以跳比較高'],
+                'games/dinner-wheel.html': ['轉一下 →', '不知道吃什麼的時候，轉一下晚餐轉盤就好', '晚餐轉盤的選項可以自己加，我投蘋果汁一票'],
+                'games/1A2B.html': ['猜猜看 →', '1A2B：4 個不重複的數字總共有 5,040 種，你幾次猜得到？', '猜 1A2B 的時候，B 是「數字對了、位置不對」'],
+                'games/infinite-tictactoe.html': ['去下一盤 →', '無限井字棋每人最多 3 顆，下第 4 顆最舊的就會消失', '無限井字棋已經被完整求解了：先手必勝！你贏得了電腦嗎？'],
+                'games/vertical-gomoku.html': ['去下一盤 →', '立式五子棋的棋子會往下掉，跟一般五子棋差很多', '立式五子棋的電腦有三種難度，先從簡單開始吧'],
+                'games/coc-card.html': ['去看看 →', '有好幾個部落衝突帳號？卡牌交易站幫你看誰可以跟誰換卡'],
+                'electricity-tracker/': ['去看看 →', '主人會抄電表，用電費紀錄算出每天用了多少電', '電費紀錄的資料只存在你的瀏覽器裡，不會上傳到哪裡'],
+                'https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link': ['去看筆記 →', '主人寫了 100 多題演算法的解題筆記，放在 Notion 上']
+            };
+            // 技術介紹：每頁一個冷知識
+            const DETAIL = {
+                'games/1A2B-detail.html': ['1A2B 的技術介紹裡，把 5,040 種答案全部實測了一遍'],
+                'games/coc-card-detail.html': ['卡牌交易站曾經因為一筆資料壞掉，整個網站打不開，技術介紹有寫怎麼修好的'],
+                'games/electricity-detail.html': ['電表從 9999 跳回 0000 要怎麼算？電費紀錄的技術介紹有寫', '有人用 Excel 改過日期，格式全亂了，電費紀錄是怎麼救回來的？'],
+                'games/game-set-detail.html': ['SET 的連線先試 WebRTC 直連，連不上才改走 MQTT，技術介紹有完整經過'],
+                'games/infinite-tictactoe-detail.html': ['無限井字棋總共 116,074 個局面，全部都被算過一遍'],
+                'games/pentomino-detail.html': ['Pentomino 求解器會先把塞不下任何一塊的小空格剪掉，所以算很快'],
+                'games/vertical-gomoku-detail.html': ['立式五子棋的電腦每一步都有時間預算，想太久會被叫停']
+            };
+            // 研究區的入口
+            const HUB = {
+                'research/quest.html': ['去闖關 →', '研究闖關把每個 Demo 的練習題排成關卡，答對拿星星'],
+                'research/overview.html': ['看研究地圖 →', 'FP-Growth 改良自誰？研究地圖把演算法的關係畫成一張圖', '不知道 Demo 要從哪個看起？研究地圖有建議的閱讀順序'],
+                'research/benchmark.html': ['去比賽 →', 'Apriori 跟 FP-Growth 誰比較快？去效能比賽場實際跑跑看', '效能比賽場會產生上萬筆交易，直接在你的瀏覽器裡跑演算法'],
+                'research/papers.html': ['去看書架 →', '主人讀過的論文都有白話摘要，放在論文書架', '每個 Demo 背後的經典論文，都整理在論文書架上']
+            };
+            // 主人
+            const OWNER = [
+                ['主人 PUPC 連拿 4 年金獎，很厲害吧', '#achievements', '看競賽 →'],
+                ['主人跟隊友每年都去打 ICPC 亞洲區域賽', '#achievements', '看競賽 →'],
+                ['主人的研究是資料探勘：從一大堆交易裡找出有用的樣式', '#about', '看關於我 →'],
+                ['資料一直在變，怎麼不用整個重算？這是主人在研究的事', '#about', '看關於我 →'],
+                ['主人的照片裡有三隻黃金獵犬喔', '#about', '看照片 →'],
+                ['主人會寫 C++、Java、Python、Go，也會 SQL', '#about', '看關於我 →'],
+                ['想找主人聊研究或作品，可以寄信給主人', '#contact', '去聯絡 →'],
+                ['這個網站的程式碼都放在主人的 GitHub 上', 'https://github.com/jellyfishkuo', 'GitHub →']
+            ];
+            // 研究 Demo：從首頁的 Demo 清單隨機挑，換幾種說法
+            const DEMO_SAY = [
+                (t, d) => '今天想看哪個演算法？「' + t + '」：' + d,
+                (t, d) => '「' + t + '」我很喜歡：' + d,
+                t => '「' + t + '」可以一步一步看，Java 和 Python 程式碼也會跟著亮',
+                t => '「' + t + '」有練習模式，猜猜看下一步會發生什麼',
+                t => '「' + t + '」的程式碼可以下載回去自己跑'
+            ];
+            function timeLines() {
+                const d = new Date(), h = d.getHours(), out = [];
+                if (h < 5) out.push(['這麼晚了還不睡？看完這頁就去睡覺喔'], ['半夜還在看網站……是不是在趕 deadline？']);
+                else if (h < 10) out.push(['早安！今天也要元氣滿滿 🌞']);
+                if (h >= 11 && h < 14) out.push(['中午吃什麼？想不到就轉一下晚餐轉盤', 'games/dinner-wheel.html', '轉一下 →']);
+                if (h >= 17 && h < 20) out.push(['晚餐吃什麼？讓轉盤幫你決定', 'games/dinner-wheel.html', '轉一下 →']);
+                if (h >= 22) out.push(['睡前來一題 Zip 再睡？', 'games/zip.html', '來一題 →']);
+                if (d.getDay() === 0 || d.getDay() === 6) out.push(['週末耶！可以找朋友連線玩 SET', 'games/game-set.html', '去玩 SET →']);
+                out.push(document.documentElement.dataset.theme === 'light' ? ['淺色版是我的果汁龍樂園 🌿'] : ['深色模式的我看起來是不是比較酷？']);
+                return out;
+            }
+            // 首頁上真的有的連結才講（作品拿掉了，台詞也跟著消失）
+            const onPage = new Set([...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')));
+            const PET = ['games/pet.html', '去看我 →'];
+            const L = (text, href, go) => ({ text, href: href || PET[0], go: go || PET[1] });
+            const ok = l => l.href === PET[0] || /^https?:/.test(l.href) || onPage.has(l.href);
 
+            // 你在網站上的紀錄（只讀各遊戲存的資料，不改）
+            function recordLines() {
+                const out = [];
+                const d = new Date(), today = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();   // 跟 pet.html 的 dayKey() 一樣
+                if (Array.isArray(pet.days) && pet.days.indexOf(today) < 0) out.push(L('今天還沒簽到喔！簽到送 3 瓶蘋果汁', PET[0], '去簽到 →'));
                 const zip = read('jfk-zip-v1'), run = read('jfk-runner-v1'), store = read('jfk-store-v1'), lab = read('jfk-lab-v1'), quest = read('jfk-quest-v1');
                 const num = v => (typeof v === 'number' && isFinite(v) ? v : 0);
-                if (num(zip.solved)) more.push(L('你已經解了 ' + num(zip.solved) + ' 題 Zip 了，再來一題？', 'games/zip.html', '解一題 →'));
-                else more.push(L('一筆畫 Zip 你還沒解過耶，一題只要一兩分鐘', 'games/zip.html', '試試看 →'));
-                if (num(run.best)) more.push(L('跑酷最遠 ' + Math.round(num(run.best)) + ' m，我賭你這次破不了紀錄', 'games/runner.html', '去跑 →'));
-                else more.push(L('陪我去跑酷嘛，路上可以撿蘋果汁 🧃', 'games/runner.html', '去跑 →'));
-                if (!num(store.games)) more.push(L('超商店長你還沒玩過耶，看收據挑優惠組合', 'games/store-manager.html', '去開店 →'));
+                if (num(zip.solved)) out.push(L('你已經解了 ' + num(zip.solved) + ' 題 Zip 了，好強', 'games/zip.html', '再來一題 →'));
+                if (num(run.best)) out.push(L('跑酷最遠 ' + Math.round(num(run.best)) + ' m，我賭你這次破不了紀錄', 'games/runner.html', '去跑 →'));
+                if (num(store.games)) out.push(L('你已經開過 ' + num(store.games) + ' 家超商了，店長大人', 'games/store-manager.html', '再開一家 →'));
                 const ends = lab.endings && typeof lab.endings === 'object' ? Object.keys(lab.endings).length : 0;
-                if (!num(lab.runs)) more.push(L('碩一生模擬器裡有個很像你的人', 'games/lab-life.html', '去看看 →'));
-                else if (ends < 6) more.push(L('碩一生模擬器的 6 種結局，你解鎖了 ' + ends + ' 種', 'games/lab-life.html', '再玩一輪 →'));
+                if (num(lab.runs) && ends < 6) out.push(L('碩一生模擬器的 6 種結局，你解鎖了 ' + ends + ' 種', 'games/lab-life.html', '再玩一輪 →'));
                 let stars = 0;
                 if (quest.pages && typeof quest.pages === 'object') for (const k in quest.pages) stars += num(quest.pages[k] && quest.pages[k].stars);
                 const maxStars = document.querySelectorAll('#demos .demo').length * 3;
-                if (!stars) more.push(L('研究闖關答對題目可以拿星星，一顆星換 2 瓶蘋果汁', 'research/quest.html', '去闖關 →'));
-                else if (stars < maxStars) more.push(L('研究闖關拿了 ' + stars + ' 顆星，還有 ' + (maxStars - stars) + ' 顆沒拿喔', 'research/quest.html', '去闖關 →'));
-                more.push(L('要不要跟 Stockfish 下一盤西洋棋？我幫你加油', 'games/chess/', '去下棋 →'));
-                more.push(L('我覺得 FP-tree 比 Apriori 帥', 'research/fp-growth.html', '看 FP-Growth →'));
-                const demos = [...document.querySelectorAll('#demos .demo a')];
-                if (demos.length) {
-                    const a = pick(demos), b = a.querySelector('b'), sm = a.querySelector('small');
-                    if (b) more.push(L('今天想看哪個演算法？「' + b.textContent.trim() + '」' + (sm ? '：' + sm.textContent.trim() : ''), a.getAttribute('href'), '去看看 →'));
+                if (stars && stars < maxStars) out.push(L('研究闖關拿了 ' + stars + ' 顆星，還有 ' + (maxStars - stars) + ' 顆沒拿喔', 'research/quest.html', '去闖關 →'));
+                return out;
+            }
+            function urgentLines() {
+                if (!xp) return [L(pick(LINES.egg), PET[0], '去孵蛋 →')];
+                if (!full) return [L(pick(LINES.flat), PET[0], '去餵牠 →')];
+                if (full <= 2) return [L(pick(LINES.hungry), PET[0], '去餵牠 →')];
+                return [];
+            }
+            // 各類輪流抽：[權重, 產生一句]
+            const CATS = [
+                [30, () => { const hs = Object.keys(SITE).filter(h => onPage.has(h)); if (!hs.length) return null; const h = pick(hs), a = SITE[h]; return L(pick(a.slice(1)), h, a[0]); }],
+                [20, () => {
+                    const demos = [...document.querySelectorAll('#demos .demo a')]; if (!demos.length) return null;
+                    const a = pick(demos), t = (a.querySelector('b') || a).textContent.trim(), dsc = ((a.querySelector('small') || {}).textContent || '').trim().replace(/^讀論文做的[：:]\s*/, '');
+                    const paper = t.startsWith('📄'), name = t.replace(/^📄\s*/, '');
+                    return L(paper && Math.random() < 0.5 ? '「' + name + '」是主人讀完論文自己做的 Demo' : pick(DEMO_SAY)(name, dsc), a.getAttribute('href'), '去看看 →');
+                }],
+                [10, () => { const hs = Object.keys(DETAIL).filter(h => onPage.has(h)); return hs.length ? (h => L(pick(DETAIL[h]), h, '看技術介紹 →'))(pick(hs)) : null; }],
+                [8, () => { const hs = Object.keys(HUB).filter(h => onPage.has(h)); if (!hs.length) return null; const h = pick(hs), a = HUB[h]; return L(pick(a.slice(1)), h, a[0]); }],
+                [10, () => { const c = OWNER.map(x => L(...x)).filter(ok); return c.length ? pick(c) : null; }],
+                [10, () => { const c = recordLines(); return c.length ? pick(c) : null; }],
+                [6, () => { const c = timeLines().map(x => L(...x)).filter(ok); return c.length ? pick(c) : null; }],
+                [6, () => L(xp && full >= 8 && Math.random() < 0.4 ? pick(LINES.happy) : pick(LINES.self), PET[0], '去看我 →')]
+            ];
+            // 最近講過的先不講（同一個分頁記住最近 15 句）
+            let recent = [];
+            try { recent = JSON.parse(sessionStorage.getItem('jfk-pet-recent') || '[]'); if (!Array.isArray(recent)) recent = []; } catch (e) { recent = []; }
+            function remember(l) {
+                recent = recent.filter(t => t !== l.text).concat(l.text).slice(-15);
+                try { sessionStorage.setItem('jfk-pet-recent', JSON.stringify(recent)); } catch (e) { /* 不記也沒關係 */ }
+                return l;
+            }
+            function anyLine() {
+                const total = CATS.reduce((s, c) => s + c[0], 0);
+                let best = null;
+                for (let tries = 0; tries < 12; tries++) {
+                    let r = Math.random() * total, k = 0;
+                    while (r >= CATS[k][0]) r -= CATS[k++][0];
+                    const l = CATS[k][1]();
+                    if (!l || !ok(l)) continue;
+                    best = l;
+                    if (recent.indexOf(l.text) < 0) break;
                 }
-                if (xp && full >= 8) more.push(L(pick(LINES.happy)));
-                more.push(L(pick(LINES.ok)));
-                return { urgent, more };
+                return best || L(pick(LINES.self));
             }
             function speak(line) {
                 freeze();
@@ -1145,12 +1245,13 @@
                 document.getElementById('hpetLine').textContent = line.text;
                 const go = document.getElementById('hpetGo');
                 go.href = line.href; go.textContent = line.go;
+                if (/^https?:/.test(line.href)) { go.target = '_blank'; go.rel = 'noopener'; } else { go.removeAttribute('target'); go.removeAttribute('rel'); }
                 bubble.classList.add('show');
                 clearTimeout(hideT);
                 hideT = setTimeout(hideBubble, line.text.length > 22 ? 9000 : 6500);
             }
-            // 點牠：要緊的事（餓了、還沒簽到）比較常講，其他隨機
-            const nextLine = () => { const { urgent, more } = lines(); return urgent.length && Math.random() < 0.6 ? pick(urgent) : pick(more); };
+            // 點牠：餓了、還是蛋的時候偶爾提醒，其他時候聊整個網站
+            const nextLine = () => { const u = urgentLines(); return remember(u.length && Math.random() < 0.35 ? u[0] : anyLine()); };
 
             // ── 在視窗下方慢慢散步：走一段、停幾秒、再走；講話、收起來、餓扁扁時不走 ──
             const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1219,8 +1320,8 @@
                 if (document.hidden || bubble.classList.contains('show') || (window.jfkSearchOpen && window.jfkSearchOpen())) { setTimeout(chat, 5000); return; }
                 if (box.classList.contains('min')) return;
                 try { sessionStorage.setItem('jfk-pet-said', '1'); } catch (e) { /* 不記也沒關係 */ }
-                const { urgent, more } = lines();
-                speak(urgent.length ? urgent[0] : pick(more));
+                const u = urgentLines(), t = timeLines().map(x => L(...x)).filter(ok);
+                speak(remember(u.length ? u[0] : t.length && Math.random() < 0.5 ? pick(t) : anyLine()));
             }, 12000);
         })();
 

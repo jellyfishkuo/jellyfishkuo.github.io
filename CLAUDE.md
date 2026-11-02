@@ -53,7 +53,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 
 首頁 About 的「自己做的小工具與遊戲」數字（目前 15）在新增 Projects 作品時要跟著改。首頁作品區先只顯示前 6 張卡（`#tiles`，其餘按「看全部」展開），想放在前面的作品就排在前 6 個。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
-首頁全站搜尋（導覽列放大鏡，`/` 或 Ctrl+K 打開）：資料**直接從首頁 DOM 讀**（`#tiles` 作品卡與「技術介紹」連結、`#research .hub`、`#demos .demo` 含主題標籤、關於我／競賽／聯絡段落），新增作品或 Demo 不用另外維護清單；`SYN` 是中英互通（tree↔樹…）。首頁果汁龍講話：`lines()` 讀各遊戲的 localStorage（只讀）挑話，每句附連結（`#hpetGo`）；要緊的事（孵蛋、餓了、今天還沒簽到）比較常講；每個分頁進首頁 12 秒後主動講一次（`sessionStorage` `jfk-pet-said`，收到角落時不講）。新增遊戲時可以在 `lines()` 補一句。
+首頁全站搜尋（導覽列放大鏡，`/` 或 Ctrl+K 打開）：資料**直接從首頁 DOM 讀**（`#tiles` 作品卡與「技術介紹」連結、`#research .hub`、`#demos .demo` 含主題標籤、關於我／競賽／聯絡段落），新增作品或 Demo 不用另外維護清單；`SYN` 是中英互通（tree↔樹…）。首頁果汁龍講話：跟整個網站連起來，不只講會給果汁的遊戲。台詞分類：`SITE`（每個作品一組，key 是首頁卡片的連結）、`DETAIL`（技術介紹冷知識）、`HUB`（研究入口）、研究 Demo（從 `#demos` 隨機挑＋`DEMO_SAY` 換說法）、`OWNER`（競賽、研究、技能、聯絡）、`timeLines()`（時段、週末、深淺色）、`recordLines()`（讀各遊戲 localStorage，只讀）、`LINES.self`；`CATS` 是各類權重。首頁上沒有那個連結的台詞不會講（作品拿掉就自動消失）；最近 15 句不重複（`sessionStorage` `jfk-pet-recent`）；孵蛋、餓了才偶爾提醒；每個分頁進首頁 12 秒後主動講一次（`jfk-pet-said`，收到角落時不講）。**新增作品時在 `SITE` 補一組台詞**，有技術介紹就在 `DETAIL` 補一句；台詞內容要對照頁面寫，不要寫網站上沒有的功能。
 
 分享預覽（og／Twitter 標籤）：新頁面要有 `<title>` 和 `<meta name="description">`，再跑 `python3 tools/og/add_og.py <頁面或研究 Demo 樣板>`；技術介紹頁由 `build_detail.py` 自己產生。分享圖是 `assets/og.png`（1200×630，原始檔 `tools/og/og.html`，用 Playwright 截圖）。分享圖上寫了「32 個研究 Demo」「15 個小遊戲與工具」，數字變了要改 og.html 重新截圖。
 
