@@ -369,6 +369,8 @@ def t_analysis(b):
     check('顯示引擎建議的變化（PV）', '變化' in info)
     check('總結有平均損失與錯誤數', '平均每步損失' in pg.inner_text('#an-sum'))
     # 圖表點擊跳到那一步
+    pg.locator('svg.chart').scroll_into_view_if_needed()
+    pg.wait_for_timeout(200)
     box = pg.locator('svg.chart').bounding_box()
     pg.mouse.click(box['x'] + box['width'] * 0.5, box['y'] + box['height'] / 2)
     ply = pg.evaluate("+document.querySelector('#an-moves .mv.cur').dataset.ply")

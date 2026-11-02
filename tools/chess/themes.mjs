@@ -179,6 +179,13 @@ export function explain(v) {
     else if (after.isCheck()) bits.push('將軍');
     if (mine) {
       const f = facts(steps[i], solver);
+      // 消除保護者：說清楚吃掉的子原本在保護誰
+      if (m.captured && (v.themes || []).includes('defender')) {
+        const bf = steps[i].before, prot = [];
+        for (const row of bf.board()) for (const p of row)
+          if (p && p.color !== solver && p.square !== m.to && p.type !== 'k' && VAL[p.type] >= 3 && bf.attackers(p.square, opp(solver)).includes(m.to)) prot.push(p);
+        if (prot.length) bits.push(`吃掉的${NAME[m.captured]}原本在保護 ${prot.map(pieceDesc).join('、')}`);
+      }
       if (f.fork) bits.push(`同時攻擊 ${f.fork.map(pieceDesc).join('、')}`);
       if (f.disc && m.piece !== f.disc.by.type) bits.push(`讓開線路，${f.disc.by.square} 的${NAME[f.disc.by.type]}直接攻擊 ${f.disc.t.map(pieceDesc).join('、')}`);
       if (f.pin && (v.themes || []).includes('pin')) bits.push(`沿線牽制 ${pieceDesc(f.pin.a)}，它後面是${NAME[f.pin.b.type]}`);
