@@ -4,7 +4,9 @@
 import { Chess } from '../../games/chess/vendor/chessjs/chess.js';
 import { OPENINGS } from '../../games/chess/data/openings.js';
 import { ENDGAMES } from '../../games/chess/data/endgames.js';
-import { PUZZLES } from '../../games/chess/data/tactics.js';
+import { PUZZLES as OWN } from '../../games/chess/data/tactics.js';
+import { LICHESS } from '../../games/chess/data/lichess.js';
+const PUZZLES = [...OWN, ...LICHESS];
 import { Engine, cpOf } from './uci.mjs';
 
 let bad = 0;

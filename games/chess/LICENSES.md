@@ -16,6 +16,7 @@ Stockfish 以 GPLv3 發佈。這裡放的是 Stockfish.js 官方 npm 套件裡**
 
 ## 資料
 
-- 戰術題：由 `tools/chess/gen_tactics.mjs` 用 Stockfish 自我對弈產生並驗證，是這個專案自己產生的資料。
+- 戰術題：`data/tactics.js` 由 `tools/chess/gen_tactics.mjs` 用 Stockfish 自我對弈產生並驗證，是這個專案自己產生的資料。
+- `data/lichess.js`：從 [Lichess 公開題庫](https://database.lichess.org/#puzzles) 挑出的題目，Lichess 以 CC0 釋出；題目卡上標有 Lichess 題號與連結。
 - 開局、殘局內容：手寫，棋譜由 `tools/chess/check_data.mjs` 用 chess.js 與 Stockfish 檢查。
 - 分析範例「歌劇院之局」（Morphy, 1858）是公共領域的歷史棋局。

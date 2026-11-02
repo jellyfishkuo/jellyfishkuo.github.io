@@ -1,0 +1,46 @@
+# 從 Lichess 公開題庫（CC0）挑戰術題，寫進 games/chess/data/lichess.js 並推到 main。
+# 開發環境連不到 database.lichess.org，但 GitHub 的機器連得到，所以放在 Actions 跑。
+# 用法：GitHub 網頁 → Actions → 「Lichess 戰術題匯入」→ Run workflow（可以改每個題型要幾題）。
+# 只有手動按才會跑；同樣的設定重跑會挑到大致相同的題目（照題號雜湊排序），題號不會亂掉。
+name: Lichess 戰術題匯入
+
+on:
+  workflow_dispatch:
+    inputs:
+      per_theme:
+        description: "每個題型挑幾題（8 個題型，一題可能同時算進好幾個）"
+        required: true
+        default: "60"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lichess-puzzles
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 下載題庫、挑題、用 Stockfish 檢查
+        run: |
+          set -o pipefail
+          curl -fsSL https://database.lichess.org/lichess_db_puzzle.csv.zst \
+            | zstd -dc \
+            | node tools/chess/import_lichess.mjs --per-theme "${{ inputs.per_theme }}"
+      - name: 推到 main
+        run: |
+          git add games/chess/data/lichess.js
+          if git diff --cached --quiet; then echo "題目沒有變動"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          N=$(node -e "import('./games/chess/data/lichess.js').then(m => console.log(m.LICHESS.length))")
+          git commit -m "Jellyfish Chess：從 Lichess 題庫匯入 ${N} 題戰術題"
+          git pull --rebase origin main
+          git push origin HEAD:main

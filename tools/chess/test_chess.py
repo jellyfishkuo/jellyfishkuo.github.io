@@ -395,7 +395,7 @@ def t_analysis(b):
 def solve_current(pg, wrong_first=False):
     """照題庫的答案解目前這一題；回傳 (成功, 解析文字)"""
     pg.wait_for_function("document.getElementById('pz-status').textContent.includes('輪到你')", timeout=10000)
-    p = pg.evaluate("(() => { const id = document.getElementById('pz-title').textContent.replace('題目 #', 'jc'); return window.__puzzles.find(x => x.id === id); })()")
+    p = pg.evaluate("(() => { const n = document.getElementById('pz-title').textContent.replace('題目 #', ''); return window.__puzzles.find(x => x.id === 'jc' + n || x.id === 'li' + n); })()")
     moves = p['moves'].split(' ')
     if wrong_first:
         legal = pg.evaluate("window.jfkChess.game.moves({verbose:true}).map(m => m.from + m.to + (m.promotion||''))")
@@ -420,7 +420,7 @@ def t_tactics(b):
     print('[tactics] 戰術題答案驗證、提示、收藏、錯題、正確率')
     pg = new_page(b)
     open_chess(pg, 'tactics')
-    pg.evaluate("import('./data/tactics.js').then(m => { window.__puzzles = m.PUZZLES; })")
+    pg.evaluate("import('./js/tactics.js').then(m => { window.__puzzles = m.PUZZLES; })")
     pg.wait_for_function('window.__puzzles')
     total = pg.evaluate('window.__puzzles.length')
     # 每一題的答案在瀏覽器裡用 chess.js 再驗一次：每一步合法、走完不會是對手將死自己
@@ -452,7 +452,7 @@ def t_tactics(b):
     # 錯題重練
     pg.click('[data-filter="wrong"]')
     pg.wait_for_timeout(900)
-    check('錯題重練出現剛剛做錯的題', pg.inner_text('#pz-title').replace('題目 #', 'jc') == p['id'], pg.inner_text('#pz-title'))
+    check('錯題重練出現剛剛做錯的題', pg.inner_text('#pz-title').replace('題目 #', '') == p['id'][2:], pg.inner_text('#pz-title'))
     solve_current(pg)
     pg.wait_for_timeout(300)
     check('重練答對後離開錯題本', pg.evaluate("+document.querySelector('[data-filter=wrong] .n').textContent") == 0)
@@ -470,7 +470,7 @@ def t_tactics(b):
     # 收藏篩選
     pg.click('[data-filter="fav"]')
     pg.wait_for_timeout(900)
-    check('收藏篩選出現收藏的題目', pg.inner_text('#pz-title').replace('題目 #', 'jc') == p['id'])
+    check('收藏篩選出現收藏的題目', pg.inner_text('#pz-title').replace('題目 #', '') == p['id'][2:])
     check('沒有 JS 錯誤', not pg.errors, '; '.join(pg.errors[:2]))
     pg.screenshot(path=os.path.join(SHOTS, 'tactics_desktop.png'))
     pg.context.close()

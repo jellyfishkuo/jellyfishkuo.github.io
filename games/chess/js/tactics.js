@@ -2,7 +2,11 @@
 // 流程：先播對手的最後一步 → 你走 → 對了電腦回應 → … → 解完顯示解析。
 // 走錯會退回並給提示；第一次就全對才算「答對」（影響正確率），用過「看答案」算錯，會進錯題本。
 import { Chess } from '../vendor/chessjs/chess.js';
-import { PUZZLES } from '../data/tactics.js';
+import { PUZZLES as OWN } from '../data/tactics.js';
+import { LICHESS } from '../data/lichess.js';
+
+// 自己用 Stockfish 產生的題目＋從 Lichess 題庫匯入的題目
+const PUZZLES = [...OWN, ...LICHESS];
 import { db, uid } from './store.js';
 import { el, applyUci } from './ui.js';
 
@@ -73,7 +77,7 @@ function setStatus(text, cls) { ui.status.className = 'status' + (cls ? ' ' + cl
 
 function renderHead() {
   const p = S.p; if (!p) return;
-  ui.title.textContent = `題目 ${p.id.replace('jc', '#')}`;
+  ui.title.textContent = `題目 ${p.id.replace(/^(jc|li)/, '#')}`;
   const showTheme = S.done || (S.filter !== 'all' && S.filter !== 'fav' && S.filter !== 'wrong');
   ui.themes.innerHTML = '';
   ui.themes.append(el('span', { class: 'small muted' }, '難度 ', '★'.repeat(p.level) + '☆'.repeat(3 - p.level), '　'));
@@ -82,6 +86,8 @@ function renderHead() {
   ui.fav.textContent = S.favs.has(p.id) ? '★ 已收藏' : '☆ 收藏';
   ui.fav.setAttribute('aria-pressed', String(S.favs.has(p.id)));
   const st = S.stats[p.id];
+  ui.source.innerHTML = '';
+  if (p.src === 'lichess') ui.source.append('來源：', el('a', { href: `https://lichess.org/training/${p.id.slice(2)}`, target: '_blank', rel: 'noopener' }, `Lichess 題庫 #${p.id.slice(2)}`), `（Lichess 難度 ${p.rating}，CC0）`);
   ui.record.textContent = st ? `你做過 ${st.tries} 次，最近一次${st.lastResult === 'ok' ? '答對' : '答錯'}` : '第一次做這題';
 }
 
@@ -239,6 +245,7 @@ export default {
     ui.themes = el('div', { class: 'row', id: 'pz-themes', style: 'margin-bottom:8px' });
     ui.status = el('div', { class: 'status', id: 'pz-status' }, '載入中…');
     ui.record = el('p', { class: 'small muted', style: 'margin-top:6px' });
+    ui.source = el('p', { class: 'small muted', id: 'pz-source' });
     ui.fav = el('button', { type: 'button', class: 'btn sm', id: 'pz-fav', onclick: async () => {
       if (!S.p) return;
       const id = 'puzzle:' + S.p.id;
@@ -250,7 +257,7 @@ export default {
     // 題目卡放最上面（手機上不用往下捲就看得到狀態）
     app.panel.append(
       el('div', { class: 'card' },
-        el('div', { class: 'row spread' }, ui.title, ui.fav), ui.themes, ui.status, ui.record,
+        el('div', { class: 'row spread' }, ui.title, ui.fav), ui.themes, ui.status, ui.record, ui.source,
         el('div', { class: 'row', style: 'margin-top:10px' },
           el('button', { type: 'button', class: 'btn', id: 'pz-hint', onclick: () => showHint(Math.min(2, S.hints + 1)) }, '💡 提示'),
           el('button', { type: 'button', class: 'btn', id: 'pz-reveal', onclick: reveal }, '看答案'),
@@ -260,7 +267,8 @@ export default {
         el('h2', {}, '題型 ', el('small', {}, `${PUZZLES.length} 題・Stockfish 驗證`)),
         ui.filters, el('div', { style: 'margin-top:10px' }, ui.stats)),
       el('details', { class: 'card more' }, el('summary', {}, '這些題目從哪裡來？'),
-        el('p', { class: 'small muted' }, '用 Stockfish 18 自我對弈，從實際出現的局面裡找「只有一步能贏（或只有一步不會輸）」的時刻，再用深度 18 逐步驗證：你的每一步都必須是唯一好棋，而且最後真的拿到子力或將死。題型是照棋盤上的事實判斷的（例如走完後同一個子攻擊兩個目標＝雙重攻擊）。最後一步如果是將死，任何能將死的走法都算對。')),
+        el('p', { class: 'small muted' }, '用 Stockfish 18 自我對弈，從實際出現的局面裡找「只有一步能贏（或只有一步不會輸）」的時刻，再用深度 18 逐步驗證：你的每一步都必須是唯一好棋，而且最後真的拿到子力或將死。題型是照棋盤上的事實判斷的（例如走完後同一個子攻擊兩個目標＝雙重攻擊）。最後一步如果是將死，任何能將死的走法都算對。'),
+        LICHESS.length ? el('p', { class: 'small muted', style: 'margin-top:6px' }, `另外 ${LICHESS.length} 題來自 `, el('a', { href: 'https://database.lichess.org/#puzzles', target: '_blank', rel: 'noopener' }, 'Lichess 公開題庫'), '（CC0）：真人對局裡出現的戰術，挑熱門、被做過上千次的題目，再用 Stockfish 確認答案。題目卡上會標出 Lichess 題號和難度分數。') : null),
     );
     app.tools.append(el('button', { type: 'button', class: 'btn icon', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => app.board.flip() }, '⇅ 翻轉'));
     app.use({ canMove: c => !!S.p && !S.busy && !S.done && c === S.p.side, onMove });
