@@ -269,6 +269,8 @@
             function light() { return document.documentElement.dataset.theme === 'light'; }
             function X(v) { return v * U; }
             function emoji(e, x, yBottom, size) {
+                // 彩色 emoji 會吃到目前 fillStyle 的透明度（前面畫地面條紋時是 25%～35%），不重設的話果汁和障礙物會變得很淡
+                ctx.fillStyle = '#000';
                 ctx.font = X(size) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
