@@ -17,7 +17,9 @@ export function classify(before, after, mover, bestUci, playedUci) {
   const wb = mover === 'w' ? winChance(before) : 1 - winChance(before);
   const wa = mover === 'w' ? winChance(after) : 1 - winChance(after);
   const drop = wb - wa;
-  void k;
+  // 走完還是明顯領先（≥ +3 或可以將死）就不算失誤：引擎深度不夠時常把「棄子殺棋」看成丟子
+  const afterMine = after.mate !== undefined ? (after.mate * k > 0 ? 99999 : -99999) : after.cp * k;
+  if (afterMine >= 300) return null;
   for (const c of CLS) if (drop >= c.min) return { ...c, drop };
   return null;
 }
@@ -73,6 +75,23 @@ async function runFull() {
     ui.progTxt.textContent = `分析中… ${i + 1} / ${S.fens.length}`;
     if (i % 3 === 0) renderMeta();
   }
+  // 被標成 Mistake／Blunder 的步，用更深的深度再確認一次（淺層常看不到棄子殺棋之類的手段）
+  if (S.running && S.evals.filter(Boolean).length === S.fens.length) {
+    const deep = depth + 6;
+    const suspects = tags().map((t, i) => (t && (t.cls === 'blunder' || t.cls === 'mistake') ? i : -1)).filter(i => i >= 0);
+    let k = 0;
+    for (const i of suspects) {
+      for (const j of [i, i + 1]) {
+        if (!S.running) break;
+        if (S.evals[j].depth >= deep || terminalScore(posAt(j))) continue;
+        ui.progTxt.textContent = `複查失誤 ${++k}…（深度 ${deep}）`;
+        const r = await app.engine.go({ fen: S.fens[j], depth: deep, multipv: 1, skill: 20 });
+        if (!S.running) break;
+        const l = r.lines[0];
+        if (l) S.evals[j] = { score: whitePov(l.score, posAt(j).turn()), best: r.best, pv: l.pv, depth: l.depth };
+      }
+    }
+  }
   const complete = S.evals.filter(Boolean).length === S.fens.length;
   S.running = false;
   ui.run.textContent = complete ? '重新分析' : '整盤分析';
@@ -107,21 +126,86 @@ function summary() {
   return out;
 }
 
+// 評估曲線：縱軸是「白方領先幾個兵」（±5 兵以上畫在邊上），上半白色＝白方好、下半深色＝黑方好。
+// 用實際像素畫（不拉伸），文字才不會變形；視窗大小改變時重畫。
+const CLAMP = 5;
+function pawns(s) {
+  if (!s) return 0;
+  if (s.mate !== undefined) return s.mate > 0 ? CLAMP : s.mate < 0 ? -CLAMP : 0;
+  return Math.max(-CLAMP, Math.min(CLAMP, s.cp / 100));
+}
+export function evalWords(s) {
+  if (!s) return '';
+  if (s.mate !== undefined) return s.mate === 0 ? '' : (s.mate > 0 ? '白方' : '黑方') + `可以強迫將死（${Math.abs(s.mate)} 步殺）`;
+  if (Math.abs(s.cp) >= 100000) return s.cp > 0 ? '白方將死' : '黑方將死';
+  const a = Math.abs(s.cp), side = s.cp > 0 ? '白方' : '黑方';
+  if (a < 50) return '差不多均勢';
+  if (a < 150) return side + '稍好';
+  if (a < 300) return side + '比較好';
+  return side + '明顯優勢';
+}
 function chart() {
-  const n = S.fens.length;
-  const W = 1000, H = 130;
-  const svg = ui.chart;
-  if (!S.evals.some(Boolean)) { svg.innerHTML = `<text x="500" y="70" text-anchor="middle" font-size="22" fill="currentColor" opacity="0.5">按「整盤分析」後這裡會畫出評估曲線</text>`; return; }
-  const x = i => (n <= 1 ? 0 : i / (n - 1) * W);
-  const y = s => H - winChance(s) * H;
-  let d = `M0 ${H / 2}`;
+  const svg = ui.chart, n = S.fens.length;
+  const W = Math.max(260, Math.round(svg.clientWidth || 340)), H = 150;
+  const L = 30, R = 8, T = 8, B = 20;                 // 留給刻度文字的邊
+  const pw = W - L - R, ph = H - T - B, mid = T + ph / 2;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (!S.evals.some(Boolean)) {
+    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="13" fill="currentColor" opacity="0.6">按「整盤分析」後這裡會畫出評估曲線</text>`;
+    ui.chartTip.textContent = '';
+    return;
+  }
+  const x = i => L + (n <= 1 ? 0 : i / (n - 1) * pw);
+  const y = v => mid - v / CLAMP * (ph / 2);
   const pts = [];
-  for (let i = 0; i < n; i++) if (S.evals[i]) pts.push([x(i), y(S.evals[i].score)]);
-  d = `M0 ${H} ` + pts.map(p => `L${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ') + ` L${pts[pts.length - 1][0].toFixed(1)} ${H} Z`;
+  for (let i = 0; i < n; i++) if (S.evals[i]) pts.push([x(i), y(pawns(S.evals[i].score)), i]);
+  const line = pts.map((p, k) => `${k ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const area = `M${pts[0][0].toFixed(1)} ${mid} ` + pts.map(p => `L${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ') + ` L${pts[pts.length - 1][0].toFixed(1)} ${mid} Z`;
+  const out = [];
+  out.push(`<defs><clipPath id="cTop"><rect x="${L}" y="${T}" width="${pw}" height="${ph / 2}"/></clipPath><clipPath id="cBot"><rect x="${L}" y="${mid}" width="${pw}" height="${ph / 2}"/></clipPath></defs>`);
+  out.push(`<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="#8a8f99" opacity="0.12"/>`);
+  out.push(`<path d="${area}" fill="#f4f1ea" clip-path="url(#cTop)"/><path d="${area}" fill="#2b2f36" clip-path="url(#cBot)"/>`);
+  // 刻度：+5、+2、0、-2、-5
+  for (const v of [CLAMP, 2, 0, -2, -CLAMP]) {
+    out.push(`<line x1="${L}" x2="${L + pw}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity="${v === 0 ? 0.55 : 0.15}" ${v === 0 ? '' : 'stroke-dasharray="3 4"'}/>`);
+    out.push(`<text x="${L - 4}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="currentColor" opacity="0.7" font-family="Space Mono, monospace">${v > 0 ? '+' + v : v}</text>`);
+  }
+  out.push(`<text x="${L + 6}" y="${T + 13}" font-size="11" fill="currentColor" opacity="0.75">▲ 白方好</text>`);
+  out.push(`<text x="${L + 6}" y="${T + ph - 5}" font-size="11" fill="currentColor" opacity="0.75">▼ 黑方好</text>`);
+  // 橫軸：第幾回合
+  const start = new Chess(S.startFen), no0 = start.moveNumber(), off = start.turn() === 'b' ? 1 : 0;
+  const total = Math.ceil((n - 1 + off) / 2);
+  const step = total <= 20 ? 5 : total <= 50 ? 10 : 20;
+  for (let mv = Math.ceil(no0 / step) * step; mv < no0 + total; mv += step) {
+    const ply = (mv - no0) * 2 + 1 - off;
+    if (ply < 0 || ply >= n) continue;
+    out.push(`<text x="${x(ply)}" y="${H - 5}" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.6" font-family="Space Mono, monospace">${mv}</text>`);
+  }
+  out.push(`<path d="${line}" fill="none" stroke="#d9a441" stroke-width="2" stroke-linejoin="round"/>`);
   const t = tags();
-  const dots = t.map((tg, i) => tg && tg.cls !== 'best' && S.evals[i + 1] ? `<circle cx="${x(i + 1)}" cy="${y(S.evals[i + 1].score)}" r="7" class="cls ${tg.cls}" fill="${tg.cls === 'blunder' ? '#dc2626' : tg.cls === 'mistake' ? '#ea580c' : '#ca8a04'}"><title>${S.moves[i].san} ${tg.title}</title></circle>` : '').join('');
-  svg.innerHTML = `<path d="${d}" fill="#e8e8e8" opacity="0.9"/><line class="mid" x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" stroke-dasharray="6 6"/>`
-    + `<line x1="${x(S.ply)}" x2="${x(S.ply)}" y1="0" y2="${H}" stroke="#06b6d4" stroke-width="3"/>` + dots;
+  t.forEach((tg, i) => {
+    if (!tg || tg.cls === 'best' || !S.evals[i + 1]) return;
+    const c = tg.cls === 'blunder' ? '#dc2626' : tg.cls === 'mistake' ? '#ea580c' : '#ca8a04';
+    out.push(`<circle cx="${x(i + 1)}" cy="${y(pawns(S.evals[i + 1].score))}" r="${tg.cls === 'blunder' ? 5.5 : 4.5}" fill="${c}" stroke="#fff" stroke-width="1.2"><title>${S.moves[i].san} ${tg.title}</title></circle>`);
+  });
+  // 目前這一步（或滑鼠指著的那一步）
+  const cur = S.hover !== null && S.hover !== undefined ? S.hover : S.ply;
+  out.push(`<line x1="${x(cur)}" x2="${x(cur)}" y1="${T}" y2="${T + ph}" stroke="#06b6d4" stroke-width="2"/>`);
+  if (S.evals[cur]) out.push(`<circle cx="${x(cur)}" cy="${y(pawns(S.evals[cur].score))}" r="5" fill="#06b6d4" stroke="#fff" stroke-width="1.5"/>`);
+  svg.innerHTML = out.join('');
+  // 說明文字：第幾步、誰走了什麼、評估是多少、意思是什麼
+  const ev = S.evals[cur];
+  if (cur === 0) ui.chartTip.textContent = ev ? `開局局面：${fmtScore(ev.score)}，${evalWords(ev.score)}` : '';
+  else {
+    const m = S.moves[cur - 1];
+    const no = no0 + Math.floor((cur - 1 + off) / 2);
+    ui.chartTip.textContent = `${no}${m.color === 'w' ? '.' : '…'} ${m.san} 之後：` + (ev ? `${fmtScore(ev.score)}（${evalWords(ev.score)}）` : '還沒分析') + (t[cur - 1] && t[cur - 1].cls !== 'best' ? `　${t[cur - 1].title}` : '');
+  }
+}
+function chartPly(e) {
+  const r = ui.chart.getBoundingClientRect();
+  const L = 30, R = 8, pw = r.width - L - R;
+  return Math.max(0, Math.min(S.fens.length - 1, Math.round((e.clientX - r.left - L) / pw * (S.fens.length - 1))));
 }
 
 function renderMeta() { chart(); renderMoveList(); }
@@ -262,9 +346,21 @@ export default {
     ui.run = el('button', { type: 'button', class: 'btn primary', id: 'btn-analyse', onclick: runFull }, '整盤分析');
     ui.prog = el('div'); ui.progTxt = el('span', { class: 'small muted', id: 'an-progress' }, '');
     ui.chart = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    ui.chart.setAttribute('class', 'chart'); ui.chart.setAttribute('viewBox', '0 0 1000 130'); ui.chart.setAttribute('preserveAspectRatio', 'none');
-    ui.chart.setAttribute('role', 'img'); ui.chart.setAttribute('aria-label', '評估分數圖表：白色面積越大白方越好');
-    ui.chart.addEventListener('click', e => { const r = ui.chart.getBoundingClientRect(); go(Math.round((e.clientX - r.left) / r.width * (S.fens.length - 1))); });
+    ui.chart.setAttribute('class', 'chart');
+    ui.chart.setAttribute('role', 'img'); ui.chart.setAttribute('aria-label', '評估曲線：線在中線上方是白方好，下方是黑方好，離中線越遠優勢越大');
+    ui.chartTip = el('p', { class: 'small mono', id: 'an-chart-tip', style: 'min-height:1.6em;margin-top:4px' });
+    S.hover = null;
+    // 不用 click：滑鼠移動時曲線會重畫，按下和放開之間元素換掉，click 就不會觸發
+    let down = null;
+    ui.chart.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+    ui.chart.addEventListener('pointerup', e => {
+      if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 10 && S.evals.some(Boolean)) { S.hover = null; go(chartPly(e)); }
+      down = null;
+    });
+    ui.chart.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' || !S.evals.some(Boolean)) return; const p = chartPly(e); if (p !== S.hover) { S.hover = p; chart(); } });
+    ui.chart.addEventListener('pointerleave', () => { if (S.hover !== null) { S.hover = null; chart(); } });
+    this._ro = new ResizeObserver(() => chart());
+    this._ro.observe(ui.chart);
     ui.moves = el('div', { class: 'moves tall', id: 'an-moves' });
     ui.info = el('div', { class: 'prose', id: 'an-info' });
     ui.sum = el('div', { class: 'stats', id: 'an-sum', style: 'margin-top:8px' });
@@ -287,7 +383,9 @@ export default {
         ui.lines),
       el('div', { class: 'card' }, ui.info),
       el('div', { class: 'card' },
-        el('h2', {}, '評估曲線'), ui.chart,
+        el('h2', {}, '評估曲線'),
+        el('p', { class: 'small muted', style: 'margin-bottom:6px' }, '線在中線上面＝白方好，下面＝黑方好；數字是領先幾個兵（+2 大約是多兩個兵）。點曲線可以跳到那一步，圓點是失誤。'),
+        ui.chart, ui.chartTip,
         el('div', { class: 'row small muted', style: 'margin-top:6px;gap:10px' }, el('span', {}, '標記：'), el('span', { class: 'tag blunder', style: 'padding:0 5px;border-radius:4px' }, '?? Blunder'), el('span', { class: 'tag mistake', style: 'padding:0 5px;border-radius:4px' }, '? Mistake'), el('span', { class: 'tag inaccuracy', style: 'padding:0 5px;border-radius:4px' }, '?! Inaccuracy'), el('span', { class: 'tag best', style: 'padding:0 5px;border-radius:4px' }, '★ 最佳')),
         ui.sum,
         el('h3', {}, '棋譜'), ui.moves,
@@ -322,7 +420,7 @@ export default {
       go(params.ply !== undefined ? params.ply : S.ply);
     })();
   },
-  unmount() { S.running = false; S.liveTok++; app.engine.stop(); document.removeEventListener('keydown', this._key); },
+  unmount() { S.running = false; S.liveTok++; app.engine.stop(); document.removeEventListener('keydown', this._key); if (this._ro) this._ro.disconnect(); },
 };
 
 function annotatedPgn() {

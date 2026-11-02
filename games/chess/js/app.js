@@ -16,7 +16,7 @@ const MODULES = { play, tactics, analysis, openings, endgames, my };
 const $ = s => document.querySelector(s);
 
 export const app = {
-  board: null, panel: $('#panel'), tools: $('#tools'), main: $('#main'),
+  board: null, panel: $('#panel'), tools: $('#tools'), main: $('#main'), wide: $('#wide'),
   ctl: null, route: null, params: {},
   engine: sharedEngine(),
   game: new Chess(),      // 目前棋盤顯示的局面（由各模組換掉）
@@ -44,7 +44,8 @@ export const app = {
     for (const a of document.querySelectorAll('.cx-nav a')) {
       if (a.dataset.route === route) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     }
-    this.panel.innerHTML = ''; this.tools.innerHTML = '';
+    this.panel.innerHTML = ''; this.tools.innerHTML = ''; this.wide.innerHTML = ''; this.wide.hidden = true;
+    this.main.classList.remove('sticky-panel');
     this.main.classList.toggle('no-board', !!MODULES[route].noBoard);
     this.evalbar(null);
     this.players(null);

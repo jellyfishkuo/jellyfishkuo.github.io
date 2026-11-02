@@ -91,50 +91,62 @@ function onMove(m) {
 function renderList() {
   ui.list.innerHTML = '';
   for (const o of OPENINGS) {
-    ui.list.append(el('button', { type: 'button', class: 'item' + (S.o === o ? ' on' : ''), 'data-op': o.id, onclick: () => selectOpening(o) },
-      el('div', { class: 'grow' }, el('b', {}, (S.favs.has(o.id) ? '★ ' : '') + o.name), el('span', {}, o.en)),
-      el('span', { class: 'eco' }, o.eco)));
+    ui.list.append(el('button', { type: 'button', 'data-op': o.id, 'aria-pressed': String(S.o === o), onclick: () => selectOpening(o) },
+      el('b', {}, (S.favs.has(o.id) ? '★ ' : '') + o.name), el('span', {}, `${o.en}・${o.eco}`)));
   }
 }
 
-function lineButton(text, pgn, title, extra) {
-  return el('button', { type: 'button', class: 'item', onclick: () => { S.drill = false; showLine(pgn, title); } },
-    el('div', { class: 'grow' }, el('b', {}, text), extra ? el('span', {}, extra) : null));
+// 在下方說明裡點一條棋譜：換到棋盤上；棋盤不在畫面裡就捲回去（手機上說明在棋盤下面很遠）
+function showFromBelow(pgn, title, btn) {
+  S.drill = false;
+  showLine(pgn, title, {}, 0);
+  document.querySelectorAll('#wide .line-btn.on').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  const r = document.querySelector('.stage').getBoundingClientRect();
+  if (r.top < 0 || r.top > innerHeight * 0.5) window.scrollTo({ top: Math.max(0, scrollY + r.top - 70), behavior: 'smooth' });
+}
+function lineButton(head, pgn, title, sub, text) {
+  const b = el('button', { type: 'button', class: 'line-btn', title: '在棋盤上看這條棋譜' }, el('b', {}, head),
+    el('span', { class: 'mono' }, sub || pgn), text ? el('p', {}, text) : null);
+  b.onclick = () => showFromBelow(pgn, title, b);
+  return b;
 }
 
 function renderDetail() {
-  const o = S.o, d = ui.detail;
-  d.innerHTML = '';
+  const o = S.o;
+  // 右側：這個開局的名稱、收藏、主線按鈕
+  const h = ui.head; h.innerHTML = '';
   const fav = el('button', { type: 'button', class: 'btn sm', id: 'op-fav', 'aria-pressed': String(S.favs.has(o.id)), onclick: async () => {
     if (S.favs.has(o.id)) { S.favs.delete(o.id); await db.del('favorites', 'opening:' + o.id).catch(() => {}); }
     else { S.favs.add(o.id); await db.put('favorites', { id: 'opening:' + o.id, kind: 'opening', ref: o.id, date: new Date().toISOString() }).catch(() => {}); }
     renderDetail(); renderList();
   } }, S.favs.has(o.id) ? '★ 已收藏' : '☆ 收藏');
-  d.append(el('div', { class: 'card' },
+  h.append(
     el('div', { class: 'row spread' }, el('h2', { style: 'margin:0' }, o.name), fav),
     el('p', { class: 'small muted' }, o.en, '　', el('span', { class: 'eco' }, 'ECO ' + o.eco), '　', `通常是${o.side === 'w' ? '白' : '黑'}方的選擇`),
-    el('p', { class: 'small mono', style: 'margin-top:6px' }, o.main),
     el('div', { class: 'row', style: 'margin-top:8px' },
       el('button', { type: 'button', class: 'btn', onclick: () => { S.drill = false; showLine(o.main, '主線', o.notes, 0); } }, '▶ 從頭看主線'),
       el('button', { type: 'button', class: 'btn primary', id: 'op-drill', onclick: startDrill }, '練習主線'),
-      el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('play', { fen: app.game.fen() }) }, '從目前局面跟電腦下 →')),
-  ));
+      el('button', { type: 'button', class: 'btn sm', onclick: () => app.go('play', { fen: app.game.fen() }) }, '從目前局面跟電腦下 →')));
+
+  // 棋盤下方：目的、變化、戰術、錯誤，寬一點比較好讀
+  const d = app.wide; d.innerHTML = ''; d.hidden = false;
+  d.id = 'wide';
   const purpose = el('ul'); for (const p of o.purpose) purpose.append(el('li', {}, p));
-  d.append(el('div', { class: 'card prose' }, el('h2', {}, '開局目的'), purpose));
+  d.append(el('div', { class: 'card prose', id: 'op-purpose' }, el('h2', {}, '開局目的'), purpose,
+    el('p', { class: 'small muted', style: 'margin-top:8px' }, '主線：', el('span', { class: 'mono' }, o.main))));
   const lines = el('div', { class: 'list' });
-  lines.append(lineButton('主線', o.main, '主線', o.eco));
-  for (const l of o.lines) {
-    const b = lineButton(l.name, l.moves, l.name, `ECO ${l.eco}`);
-    b.title = l.text;
-    lines.append(b, el('p', { class: 'small muted', style: 'margin:-2px 4px 4px' }, l.text));
-  }
+  lines.append(lineButton('主線', o.main, '主線', `ECO ${o.eco}`));
+  for (const l of o.lines) lines.append(lineButton(l.name, l.moves, l.name, `ECO ${l.eco}`, l.text));
   d.append(el('div', { class: 'card' }, el('h2', {}, '主要變化'), lines));
   const tac = el('div', { class: 'list' });
-  for (const t of o.tactics) tac.append(lineButton(t.title, t.line, t.title), el('p', { class: 'small', style: 'margin:-2px 4px 6px' }, t.text));
+  for (const t of o.tactics) tac.append(lineButton(t.title, t.line, t.title, null, t.text));
   d.append(el('div', { class: 'card' }, el('h2', {}, '典型戰術'), tac));
   const mis = el('div', { class: 'list' });
-  for (const t of o.mistakes) mis.append(lineButton('✗ ' + t.title, t.line, t.title), el('p', { class: 'small', style: 'margin:-2px 4px 6px' }, t.text));
+  for (const t of o.mistakes) mis.append(lineButton('✗ ' + t.title, t.line, t.title, null, t.text));
   d.append(el('div', { class: 'card' }, el('h2', {}, '常見錯誤'), mis));
+  // 舊的測試／其他模組用 #op-detail 找說明：指到同一塊
+  ui.detail = d;
 }
 
 export default {
@@ -144,12 +156,12 @@ export default {
     ui.lineTitle = el('h2', { id: 'op-line', style: 'margin-bottom:4px' });
     ui.note = el('p', { class: 'small', id: 'op-note', style: 'min-height:4.8em' });
     ui.moves = el('div', { class: 'moves', id: 'op-moves' });
-    ui.list = el('div', { class: 'list', id: 'op-list' });
-    ui.detail = el('div', { class: 'panel', id: 'op-detail' });
+    ui.list = el('div', { class: 'op-grid', id: 'op-list' });
+    ui.head = el('div', { id: 'op-head' });
+    app.main.classList.add('sticky-panel');
     app.panel.append(
-      el('div', { class: 'card' }, ui.lineTitle, ui.note, ui.moves),
-      ui.detail,
-      el('div', { class: 'card' }, el('h2', {}, '開局列表 ', el('small', {}, `${OPENINGS.length} 個`)), ui.list),
+      el('div', { class: 'card' }, el('h2', {}, '選一個開局 ', el('small', {}, `${OPENINGS.length} 個`)), ui.list),
+      el('div', { class: 'card' }, ui.head, el('hr', { style: 'border:0;border-top:1px solid var(--c-line);margin:12px 0' }), ui.lineTitle, ui.note, ui.moves),
     );
     app.tools.append(
       el('button', { type: 'button', class: 'btn icon', title: '翻轉棋盤', 'aria-label': '翻轉棋盤', onclick: () => app.board.flip() }, '⇅'),
