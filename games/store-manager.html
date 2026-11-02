@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -528,6 +529,7 @@
                 var rec = store.best == null || total > store.best;
                 if (rec) store.best = Math.round(total);
                 store.games = (store.games || 0) + 1;
+                if (window.jfkPetCheer) jfkPetCheer('評等 ' + grade + '：' + title + (rec ? '，還破了紀錄！' : ''));
                 // 果汁龍寵物的果汁：評等越好拿越多（games/pet.html 讀這個數字）
                 store.juice = (store.juice || 0) + { S: 5, A: 4, B: 3, C: 2, D: 1 }[grade];
                 save(store);

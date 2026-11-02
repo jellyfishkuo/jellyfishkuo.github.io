@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面，不用自動換色 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -729,6 +730,7 @@
                 if (rec) stats.best[bestKey()] = s;
                 save();
                 showBest();
+                if (window.jfkPetCheer) jfkPetCheer(rec ? '新紀錄！' + fmt(s) + '，你畫線好快' : '解開了！一筆畫完全部的格子');
                 $('msg').classList.add('win');
                 $('msg').innerHTML = '<span>🎉 完成！用了 <b>' + fmt(s) + '</b>' + (hints ? '（用了提示，不算紀錄）' : rec ? '，新紀錄！' : '') + '</span>' +
                     '<button type="button" class="big" id="again">下一題</button>';

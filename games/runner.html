@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="jfk-paint" content="off"><!-- 畫布自己依主題畫 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <script src="../assets/dragon-hold.js"></script>
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
@@ -257,6 +258,7 @@
                 hud();
                 draw();
                 over = { m: m, got: got, gain: gain, best: isBest };
+                if (isBest && m > 0) if (window.jfkPetCheer) jfkPetCheer('新紀錄 ' + m + ' m！我跑不了那麼遠');
             }
             var over = null;
             function hud() {

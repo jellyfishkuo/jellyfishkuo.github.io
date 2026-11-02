@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
@@ -717,6 +718,7 @@
                 document.getElementById('winSub').textContent = `正確答案：${secret} | 總計次數：${historyList.length}`;
                 document.getElementById('inputArea').style.visibility = 'hidden';
                 document.getElementById('winArea').style.display = 'flex';
+                if (window.jfkPetCheer) jfkPetCheer('猜對了！只用了 ' + historyList.length + ' 次');
                 // CDN 掛掉時 confetti 不存在，不要讓它把後續程式一起帶掉
                 if (typeof confetti === 'function') {
                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });

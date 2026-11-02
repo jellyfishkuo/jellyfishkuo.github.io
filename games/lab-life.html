@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -466,6 +467,7 @@
                 else if (S.prog >= 60) end = ENDINGS[3];
                 else end = ENDINGS[4];
                 var extra = [];
+                if (window.jfkPetCheer) jfkPetCheer('結局：「' + end[2] + '」' + (end[4] >= 4 ? '，太棒了！' : '，下學期再加油'));
                 var juice = end[4];
                 if (S.grade < 50) { extra.push('附帶結局：有一科被當了 😱'); juice = Math.max(1, juice - 1); }
                 if (S.mood < 20) extra.push('附帶結局：需要放一個長長的假。');

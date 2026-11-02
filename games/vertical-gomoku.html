@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
@@ -1436,6 +1437,7 @@
             }
 
             function celebrate() {
+                if (window.jfkPetCheer) jfkPetCheer('五顆連成一線，贏了！');
                 if (typeof confetti !== 'function') return;
                 confetti({
                     particleCount: 105,

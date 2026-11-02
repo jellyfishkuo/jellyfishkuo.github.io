@@ -20,6 +20,7 @@
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
@@ -555,6 +556,7 @@
                 if (isSolved()) {
                     hideOffpath();
                     setStatus(doneText(moves, minMoves()), 'good');
+                    if (window.jfkPetCheer) jfkPetCheer(moves === minMoves() ? '最少步數完成！你比我會搬' : '搬完了！再挑戰最少步數吧');
                 } else {
                     if (best[0] === selected && best[1] === p) hideOffpath();
                     else showOffpath(offpathText(bestDisk, best[1], movesLeft()));

@@ -24,6 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <meta name="jfk-paint" content="off"><!-- 骨牌顏色是遊戲內容，不要被淺色換掉 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
         /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
@@ -1919,6 +1920,7 @@
         }
 
         function fireConfetti() {
+            if (window.jfkPetCheer) jfkPetCheer('拼出來了！今天的日期剛剛好露出來');
             if (typeof confetti !== 'function') return;   // CDN 被擋時照樣能過關
             var count = 200;
             var defaults = { origin: { y: 0.7 }, zIndex: 10001 };
