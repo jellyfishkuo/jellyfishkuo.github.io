@@ -361,7 +361,7 @@ details.more[open] > summary { margin-bottom: 4px; }
 .spark { display: block; width: 100%; height: 60px; margin: 2px 0 10px; border-radius: 6px; background: var(--c-bg2); border: var(--c-border); }
 /* 玩家列：名字不縮，被吃的子太多時由吃子列自己縮 */
 .player .who { flex: none; max-width: 55%; }
-.player .caps { flex: 1 1 auto; justify-content: flex-end; }
+.player .caps { flex: 0 1 auto; margin-left: auto; justify-content: flex-end; }
 @media (max-width: 380px) {
     .player .caps img { width: 14px; height: 14px; margin-left: -4px; }
     .player .clock { font-size: 0.9rem; padding: 2px 6px; min-width: 3.8em; }
@@ -369,3 +369,7 @@ details.more[open] > summary { margin-bottom: 4px; }
     .brand img { width: 24px; height: 24px; }
     .cx-top .back span.only-light { display: none !important; }   /* 淺色版只留果汁龍圖示，title 有寫「回到果汁龍的網站」 */
 }
+/* 被吃掉的子放在淺色小底上：黑棋在深色底上才看得清楚（深色主題） */
+.player .caps:has(img) { background: #d9cfbd; border-radius: 999px; padding: 1px 8px 1px 10px; }
+.player .caps b { color: #4a4033 !important; }
+.player .dot.b { border-color: #9aa3b2; }

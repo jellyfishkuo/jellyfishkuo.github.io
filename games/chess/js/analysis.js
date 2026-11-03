@@ -324,7 +324,9 @@ function render() {
   if (ev && ev.best) arrows.push({ from: ev.best.slice(0, 2), to: ev.best.slice(2, 4), color: 'rgba(34,197,94,0.75)' });
   app.board.setArrows(arrows);
   app.board.render();
-  app.players({ white: S.headers.White || '白方', black: S.headers.Black || '黑方' });
+  // PGN 沒寫名字時（標頭是「?」）就寫白方／黑方
+  const nm = (v, d) => (v && v !== '?' ? v : d);
+  app.players({ white: nm(S.headers.White, '白方'), black: nm(S.headers.Black, '黑方') });
   app.evalbar(ev ? ev.score : (S.liveScore && S.liveScore.key === key ? S.liveScore.s : undefined));
   if (V) buildVarInfo(ui.info); else buildInfo(ui.info, S.ply);
   openingLine(ui.opening, S.moves.map(m => m.san), S.startFen, (r, p) => app.go(r, p));
