@@ -3,12 +3,13 @@ import { Chess, DEFAULT_POSITION } from '../vendor/chessjs/chess.js';
 import { LEVELS, fmtScore, whitePov } from './engine.js';
 import { db, prefs, setPref, uid } from './store.js';
 import { el, renderMoves, download, copy, today, uciList, applyUci, fenProblem, openingLine } from './ui.js';
-import { evaluateGame, gameLine, reviewSide } from './review.js';
+import { evaluateGame, gameLine, reviewSide, classify } from './review.js';
 
 const S = {
   g: null, startFen: DEFAULT_POSITION, my: 'w', view: null, thinking: false, token: 0, id: null, over: null, resigned: false, hint: null,
   tc: null, clock: null, clockHist: [], tickAt: 0,          // 時間控制：{base, inc}（毫秒）、雙方剩下的時間、每一步之前的時間（悔棋用）
   review: null, reviewTok: 0,                                 // 對完自動復盤的結果
+  coach: false, coachEval: null, coachScore: null, checking: false, coachWarn: null, coachSaved: 0,   // 教練模式
 };
 // 時間控制選項：'分+秒'；空字串＝不限時
 export const TIME_CONTROLS = [['', '不限時'], ['3+2', '3 分＋2 秒'], ['5+3', '5 分＋3 秒'], ['10+5', '10 分＋5 秒'], ['15+10', '15 分＋10 秒'], ['30+0', '30 分']];
@@ -65,11 +66,72 @@ function newGame(fen = DEFAULT_POSITION, pgn = null) {
   S.startFen = pgn ? (S.g.getHeaders().FEN || DEFAULT_POSITION) : fen;
   S.view = null; S.thinking = false; S.id = uid('g'); S.over = null; S.resigned = false; S.hint = null;
   S.reviewTok++; S.review = null;
+  S.coachEval = null; S.coachScore = null; S.checking = false; S.coachWarn = null; S.coachSaved = 0;
   S.tc = parseTc(S.pickTc);
   S.clock = S.tc ? { w: S.tc.base, b: S.tc.base } : null; S.clockHist = []; S.tickAt = performance.now();
   app.engine.newGame();
   sync();
   maybeEngine();
+}
+
+// ── 教練模式：顯示評估；你走出 Mistake／Blunder 時先攔下來，可以重走 ──
+const coachOn = () => S.coach && !S.clock;          // 有棋鐘時不攔（等你決定的時間不知道該算誰的）
+async function evalFen(fen) {
+  const r = await app.engine.go({ fen, depth: 12, skill: 20 });
+  const turn = new Chess(fen).turn();
+  return { fen, score: whitePov(r.lines[0] ? r.lines[0].score : { cp: 0 }, turn), best: r.best, stopped: r.stopped };
+}
+async function coachEvalPosition() {
+  if (!S.coach || S.over || outcome(S.g) || S.g.turn() !== S.my || S.view !== null) return;
+  const tok = S.token, fen = S.g.fen();
+  if (S.coachEval && S.coachEval.fen === fen) return;
+  const e = await evalFen(fen);
+  if (tok !== S.token || S.g.fen() !== fen || e.stopped) return;
+  S.coachEval = e; S.coachScore = e.score;
+  sync();
+}
+async function coachCheck(beforeFen, mv) {
+  const tok = S.token;
+  let before = S.coachEval && S.coachEval.fen === beforeFen ? S.coachEval : null;
+  if (!before) { before = await evalFen(beforeFen); if (tok !== S.token) return; }
+  const after = await evalFen(S.g.fen());
+  if (tok !== S.token) return;
+  S.coachScore = after.score;
+  const c = classify(before.score, after.score, S.my, before.best, mv.from + mv.to + (mv.promotion || ''));
+  if (c && (c.key === 'blunder' || c.key === 'mistake')) {
+    let best = null;
+    try { best = new Chess(beforeFen).move({ from: before.best.slice(0, 2), to: before.best.slice(2, 4), promotion: before.best[4] }).san; } catch (e) { best = null; }
+    S.coachWarn = { san: mv.san, best, bestUci: before.best, cls: c, before };
+    S.checking = false;
+    sync();
+    return;
+  }
+  S.checking = false;
+  maybeEngine();
+}
+function coachRetry() {
+  const W = S.coachWarn; if (!W) return;
+  S.g.undo(); if (S.clock && S.clockHist.length) S.clock = S.clockHist.pop();
+  S.coachWarn = null; S.coachEval = W.before; S.coachScore = W.before.score; S.coachSaved++;
+  sync();
+}
+function coachContinue() { S.coachWarn = null; sync(); maybeEngine(); }
+function renderCoach() {
+  const box = ui.coach; if (!box) return;
+  box.hidden = !S.coach;
+  if (!S.coach) return;
+  box.innerHTML = '';
+  box.className = 'coach' + (S.coachWarn ? ' warn' : '');
+  if (S.clock) { box.append(el('p', { class: 'small muted' }, '🧑‍🏫 有棋鐘時教練不會攔你（等你決定的時間不知道該算誰的）；不限時的對局才會提醒。')); return; }
+  const W = S.coachWarn;
+  if (W) {
+    box.append(el('p', { class: 'small' }, el('b', {}, `🧑‍🏫 等一下！${W.san} 是 ${W.cls.name}`), `，勝率大約少了 ${Math.round(W.cls.drop * 100)}%。`, W.best ? `比較好的是 ${W.best}（先不急著看，自己再找找）。` : ''),
+      el('div', { class: 'row', style: 'margin-top:6px' },
+        el('button', { type: 'button', class: 'btn sm primary', id: 'coach-retry', onclick: coachRetry }, '↶ 重走這步'),
+        el('button', { type: 'button', class: 'btn sm', id: 'coach-show', onclick: () => { app.board.setArrows([{ from: W.bestUci.slice(0, 2), to: W.bestUci.slice(2, 4), color: 'rgba(34,197,94,0.8)' }]); } }, '看比較好的走法'),
+        el('button', { type: 'button', class: 'btn sm', id: 'coach-go', onclick: coachContinue }, '照樣下')));
+  } else if (S.checking) box.append(el('p', { class: 'small muted' }, el('span', { class: 'spinner', style: 'display:inline-block;vertical-align:middle' }), '　教練在看你這一步…'));
+  else box.append(el('p', { class: 'small muted' }, `🧑‍🏫 教練模式開著：左邊的評估條是目前局勢；你走出大錯（Mistake／Blunder）時會先提醒你，可以重走。${S.coachSaved ? `這盤已經救回 ${S.coachSaved} 次。` : ''}`));
 }
 
 // ── 時鐘 ──
@@ -136,6 +198,8 @@ function sync() {
   S.animNext = false;
   app.board.setArrows(S.hint && S.view === null ? [{ from: S.hint.slice(0, 2), to: S.hint.slice(2, 4), color: 'rgba(6,182,212,0.75)' }] : []);
   app.board.render();
+  app.evalbar(S.coach ? (S.coachScore || undefined) : null);
+  renderCoach();
   const lv = levelOf();
   app.players({ white: S.my === 'w' ? '你' : `Stockfish（${lv.label}）`, black: S.my === 'b' ? '你' : `Stockfish（${lv.label}）`, clocks: !!S.clock });
   tick();
@@ -144,6 +208,8 @@ function sync() {
   const o = S.over || outcome(S.g);
   if (o) { st.classList.add(o.cls); st.textContent = o.text + `（${o.result}）`; }
   else if (S.thinking) { st.append(el('span', { class: 'spinner' }), '電腦思考中…'); }
+  else if (S.checking) { st.append(el('span', { class: 'spinner' }), '教練在看你這一步…'); }
+  else if (S.coachWarn) { st.classList.add('warn'); st.textContent = '先等一下：這步不太好，要重走嗎？'; }
   else if (S.g.turn() === S.my) st.textContent = (S.g.inCheck() ? '被將軍了！' : '') + `輪到你（${S.my === 'w' ? '白' : '黑'}）`;
   else st.textContent = '輪到電腦';
   if (S.view !== null) st.append(el('span', { class: 'small muted', text: `　（正在看第 ${S.view} 步）` }));
@@ -179,7 +245,7 @@ async function maybeEngine() {
     if (r.best) { applyUci(S.g, r.best); S.animNext = true; charge(eng, used); }
     S.view = null;
     if (outcome(S.g)) finish();
-    else save(false);
+    else { save(false); coachEvalPosition(); }
   } catch (e) {
     if (tok !== S.token) return;
     S.thinking = false;
@@ -280,10 +346,12 @@ async function save(final) {
 }
 
 function onMove(m) {
-  if (S.view !== null || S.thinking || S.over || outcome(S.g)) return false;
-  try { S.g.move(m); } catch (e) { return false; }
+  if (S.view !== null || S.thinking || S.checking || S.coachWarn || S.over || outcome(S.g)) return false;
+  const beforeFen = S.g.fen();
+  let mv; try { mv = S.g.move(m); } catch (e) { return false; }
   charge(S.my);
   S.hint = null;
+  if (coachOn() && !outcome(S.g)) { S.checking = true; sync(); coachCheck(beforeFen, mv); return true; }
   sync();
   maybeEngine();
   return true;
@@ -298,9 +366,9 @@ function undo() {
   S.g.undo(); if (S.clock && S.clockHist.length) S.clock = S.clockHist.pop();
   if (S.g.turn() !== S.my && S.g.history().length) { S.g.undo(); if (S.clock && S.clockHist.length) S.clock = S.clockHist.pop(); }
   S.tickAt = performance.now();
-  S.view = null;
+  S.view = null; S.checking = false; S.coachWarn = null; S.coachEval = null;
   sync();
-  if (S.g.turn() !== S.my) maybeEngine();
+  if (S.g.turn() !== S.my) maybeEngine(); else coachEvalPosition();
 }
 
 async function hint() {
@@ -385,10 +453,18 @@ export default {
       if (!(await app.confirm('確定要認輸嗎？', '這盤會記成輸棋。'))) return;
       S.token++; app.engine.stop(); S.thinking = false; S.resigned = true; S.over = outcome(S.g); await save(true); sync(); startReview();
     } }, '🏳 認輸');
+    S.coach = !!p.coach;
+    ui.coachBtn = el('button', { type: 'button', class: 'btn', id: 'btn-coach', 'aria-pressed': String(S.coach), title: '顯示評估；走出大錯時先提醒你', onclick: () => {
+      S.coach = !S.coach; setPref('coach', S.coach); ui.coachBtn.setAttribute('aria-pressed', String(S.coach));
+      if (!S.coach) { S.coachWarn = null; if (S.checking) { S.checking = false; maybeEngine(); } }
+      sync(); coachEvalPosition();
+    } }, '🧑‍🏫 教練');
+    ui.coach = el('div', { class: 'coach', id: 'play-coach', hidden: true });
     ui.live = el('button', { type: 'button', class: 'btn sm', onclick: () => { S.view = null; sync(); } }, '回到目前局面');
     panel.prepend(el('div', { class: 'card' },
       ui.status, ui.opening,
-      el('div', { class: 'row', style: 'margin:10px 0' }, ui.undo, ui.hintBtn, ui.resign),
+      ui.coach,
+      el('div', { class: 'row', style: 'margin:10px 0' }, ui.undo, ui.hintBtn, ui.coachBtn, ui.resign),
       el('div', { class: 'row spread', style: 'margin-bottom:6px' }, el('b', { class: 'small' }, '棋譜'), ui.live),
       ui.moves,
       el('div', { class: 'row', style: 'margin-top:10px' },
@@ -403,7 +479,7 @@ export default {
       el('button', { type: 'button', class: 'btn icon', title: '上一步', 'aria-label': '上一步', onclick: () => { const n = S.g.history().length; const v = S.view === null ? n : S.view; if (v > 0) { S.view = v - 1; sync(); } } }, '◀'),
       el('button', { type: 'button', class: 'btn icon', title: '下一步', 'aria-label': '下一步', onclick: () => { const n = S.g.history().length; if (S.view !== null) { S.view = S.view + 1 >= n ? null : S.view + 1; sync(); } } }, '▶'),
     );
-    app.use({ canMove: c => c === S.my && S.view === null && !S.thinking && !S.over && !outcome(S.g), onMove });
+    app.use({ canMove: c => c === S.my && S.view === null && !S.thinking && !S.checking && !S.coachWarn && !S.over && !outcome(S.g), onMove });
     this._st = () => sync();
     this._tick = setInterval(tick, 200);
     app._play = S;   // 測試用：可以直接改剩下的時間

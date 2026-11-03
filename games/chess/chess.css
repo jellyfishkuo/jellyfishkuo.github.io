@@ -373,3 +373,14 @@ details.more[open] > summary { margin-bottom: 4px; }
 .player .caps:has(img) { background: #d9cfbd; border-radius: 999px; padding: 1px 8px 1px 10px; }
 .player .caps b { color: #4a4033 !important; }
 .player .dot.b { border-color: #9aa3b2; }
+/* 教練模式：提醒框預留最長訊息＋按鈕的高度，出現提醒時下面的按鈕不會被推動 */
+.coach { margin-top: 8px; padding: 8px 10px; border-radius: 10px; border: var(--c-border); background: var(--c-bg2); min-height: 8.8em; }
+.coach.warn { border-color: #ea580c; background: color-mix(in srgb, #ea580c 12%, var(--c-bg2)); }
+@media (max-width: 560px) { .coach { min-height: 9.4em; } }
+/* 我的開局樹 */
+.tree-path { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 2px; }
+.tree-path .chip { font-family: var(--mono); font-weight: 400; font-size: 0.78rem; padding: 2px 8px; }
+.tree-row { gap: 8px; }
+.eco.off { visibility: hidden; }
+.wdl-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--c-line); min-width: 60px; }
+.wdl-bar .w { background: #16a34a; } .wdl-bar .d { background: #94a3b8; } .wdl-bar .l { background: #dc2626; }

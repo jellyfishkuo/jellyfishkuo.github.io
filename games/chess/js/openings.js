@@ -124,6 +124,76 @@ async function scanMyGames() {
   }
   return { n: games.length, freq: [...freq.entries()].sort((a, b) => b[1] - a[1]), devs: [...devs.values()].sort((a, b) => b.count - a.count || b.last.localeCompare(a.last)) };
 }
+// ── 我的開局樹：你自己的對局在每一步分別走過哪些著法、各幾盤、勝率多少 ──
+const T = { color: 'w', path: [], games: null };
+async function loadTreeGames() {
+  const all = (await db.all('games').catch(() => [])).filter(g => g.mode === 'play' && g.pgn);
+  T.games = [];
+  for (const g of all) {
+    try { const c = new Chess(); c.loadPgn(g.pgn); if (c.getHeaders().FEN) continue; T.games.push({ sans: c.history(), color: g.myColor, outcome: g.outcome }); } catch (e) { /* 壞掉的棋譜略過 */ }
+  }
+}
+function bookNext(path) {      // 書上（開局資料）在這個位置會走哪些
+  const out = new Set();
+  for (const o of OPENINGS) for (const pgn of [o.main, ...o.lines.map(l => l.moves)]) {
+    const sans = sansOf(pgn);
+    if (sans.length > path.length && path.every((m, i) => sans[i] === m)) out.add(sans[path.length]);
+  }
+  return out;
+}
+function treeGo(path) {
+  T.path = path;
+  S.tok++; S.drill = false; S.line = null; S.title = '我的開局樹'; S.notes = {};
+  S.moves = path.slice(); S.ply = path.length;
+  app.board.setFlipped(T.color === 'b');
+  render();
+  ui.note.textContent = path.length ? '這是你自己的對局走到這裡的局面。下方「我的開局樹」列出接下來你們走過的著法。' : '開局局面。下方「我的開局樹」列出你第一步走過哪些著法。';
+  ui.note.style.visibility = 'visible';
+  renderTree();
+}
+function renderTree() {
+  const box = ui.tree; if (!box) return;
+  box.innerHTML = '';
+  const seg = el('div', { class: 'seg', role: 'group', 'aria-label': '看你執哪一色的對局' });
+  for (const [c, t] of [['w', '你執白'], ['b', '你執黑']]) seg.append(el('button', { type: 'button', 'data-tree-color': c, 'aria-pressed': String(T.color === c), onclick: () => { T.color = c; treeGo([]); } }, t));
+  box.append(el('div', { class: 'row spread' }, el('h2', { style: 'margin:0' }, '我的開局樹'), seg));
+  const mine = (T.games || []).filter(g => g.color === T.color);
+  if (!mine.length) { box.append(el('p', { class: 'small muted', style: 'margin-top:8px' }, `還沒有你執${T.color === 'w' ? '白' : '黑'}的對局。去「對弈」下幾盤，這裡會畫出你走過的開局。`)); return; }
+  // 麵包屑：一路走來的棋步，點了可以退回那一步
+  const crumbs = el('div', { class: 'tree-path', id: 'tree-path' });
+  crumbs.append(el('button', { type: 'button', class: 'chip', onclick: () => treeGo([]) }, '開始'));
+  T.path.forEach((m, i) => crumbs.append(el('button', { type: 'button', class: 'chip', onclick: () => treeGo(T.path.slice(0, i + 1)) }, `${Math.floor(i / 2) + 1}${i % 2 ? '…' : '.'} ${m}`)));
+  box.append(crumbs);
+  const det = detectOpening(T.path);
+  box.append(el('p', { class: 'small muted', style: 'min-height:1.6em' }, det ? `開局：${det.o.name}${det.name ? '・' + det.name : ''}` : ' '));
+  // 這個位置之後走過的著法
+  const here = mine.filter(g => T.path.every((m, i) => g.sans[i] === m));
+  const kids = new Map();
+  for (const g of here) {
+    const m = g.sans[T.path.length]; if (!m) continue;
+    const k = kids.get(m) || { m, n: 0, w: 0, d: 0, l: 0 };
+    k.n++; if (g.outcome === 'win') k.w++; else if (g.outcome === 'draw') k.d++; else if (g.outcome === 'loss') k.l++;
+    kids.set(m, k);
+  }
+  const ply = T.path.length, mover = ply % 2 === 0 ? 'w' : 'b';
+  box.append(el('p', { class: 'small', style: 'margin:4px 0 6px' }, `${here.length} 盤走到這裡。接下來${mover === T.color ? '你' : '電腦'}（${mover === 'w' ? '白' : '黑'}）走過：`));
+  if (!kids.size) { box.append(el('p', { class: 'small muted' }, '沒有對局再往下走了。')); return; }
+  const book = bookNext(T.path);
+  const list = el('div', { class: 'list', id: 'tree-list' });
+  for (const k of [...kids.values()].sort((a, b) => b.n - a.n)) {
+    const done = k.w + k.d + k.l;
+    const pct = done ? Math.round((k.w + k.d / 2) / done * 100) : null;
+    const bar = el('div', { class: 'wdl-bar', title: `${k.w} 勝 ${k.d} 和 ${k.l} 負` },
+      el('span', { class: 'w', style: `flex:${k.w}` }), el('span', { class: 'd', style: `flex:${k.d}` }), el('span', { class: 'l', style: `flex:${k.l}` }));
+    list.append(el('button', { type: 'button', class: 'item tree-row', 'data-move': k.m, onclick: () => treeGo(T.path.concat(k.m)) },
+      el('b', { class: 'mono', style: 'min-width:5.2em' }, `${Math.floor(ply / 2) + 1}${ply % 2 ? '…' : '.'} ${k.m}`),
+      book.has(k.m) ? el('span', { class: 'eco', title: '開局資料裡的走法' }, '書') : el('span', { class: 'eco off' }, '書'),
+      el('div', { class: 'grow' }, done ? bar : el('span', { class: 'small muted' }, '還沒下完')),
+      el('span', { class: 'small mono', style: 'min-width:6.5em;text-align:right' }, `${k.n} 盤${pct !== null ? `・${pct}%` : ''}`)));
+  }
+  box.append(list, el('p', { class: 'small muted', style: 'margin-top:6px' }, '勝率＝（勝＋和的一半）÷ 下完的盤數，用你這方算。「書」＝開局資料裡有的走法。'));
+}
+
 async function renderMine() {
   const box = ui.mine; box.innerHTML = '';
   const r = await scanMyGames();
@@ -197,6 +267,7 @@ function renderDetail() {
   // 棋盤下方：目的、變化、戰術、錯誤，寬一點比較好讀
   const d = app.wide; d.innerHTML = ''; d.hidden = false;
   if (ui.mine) d.append(ui.mine);   // 「照你的實戰練」固定放在最前面
+  if (ui.tree) d.append(ui.tree);
   d.id = 'wide';
   const purpose = el('ul'); for (const p of o.purpose) purpose.append(el('li', {}, p));
   d.append(el('div', { class: 'card prose', id: 'op-purpose' }, el('h2', {}, '開局目的'), purpose,
@@ -226,6 +297,7 @@ export default {
     ui.head = el('div', { id: 'op-head' });
     app.main.classList.add('sticky-panel');
     ui.mine = el('div', { class: 'card', id: 'op-mine' });
+    ui.tree = el('div', { class: 'card', id: 'op-tree' });
     app.panel.append(
       el('div', { class: 'card' }, el('h2', {}, '選一個開局 ', el('small', {}, `${OPENINGS.length} 個`)), ui.list),
       el('div', { class: 'card' }, ui.head, el('hr', { style: 'border:0;border-top:1px solid var(--c-line);margin:12px 0' }), ui.lineTitle, ui.note, ui.moves),
@@ -248,6 +320,7 @@ export default {
     const want = OPENINGS.find(o => o.id === params.id) || S.o || OPENINGS[0];
     selectOpening(want);
     renderMine();
+    loadTreeGames().then(renderTree);
   },
   unmount() { S.tok++; S.drill = false; document.removeEventListener('keydown', this._key); },
 };
