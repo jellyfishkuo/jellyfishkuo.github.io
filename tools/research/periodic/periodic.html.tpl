@@ -15,7 +15,7 @@
     <meta property="og:title" content="週期性頻繁樣式探勘（PFP-tree）">
     <meta property="og:description" content="一步一步看 PFP-tree 怎麼找出「夠常出現、而且出現得夠規律」的商品組合：算每個組合的支持度與最大週期、建樹時把 tid 記在尾節點、挖的時候把 tid 往上交，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/periodic.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-periodic.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

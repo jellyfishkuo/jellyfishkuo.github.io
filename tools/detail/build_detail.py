@@ -100,7 +100,7 @@ def build(name):
     <meta property="og:title" content="{html.escape(P['title'])}">
     <meta property="og:description" content="{html.escape(P['description'])}">
     <meta property="og:url" content="https://jellyfishkuo.github.io/games/{name}-detail.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/games-{name}-detail.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">{mathjax}

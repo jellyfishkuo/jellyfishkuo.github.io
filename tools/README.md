@@ -55,7 +55,8 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 ## og/：分享預覽
 
 - `add_og.py`：依頁面的 `<title>`、description 加上 Open Graph／Twitter 標籤（分享到 LINE、FB、Discord 時的預覽卡）。可以重複執行。`--all` 處理所有手寫頁和研究 Demo 樣板，之後要重新產生研究 Demo。技術介紹頁的標籤寫在 `detail/build_detail.py`。
-- `og.html`：分享圖 `assets/og.png` 的原始檔。改完用 Playwright 開 1200×630 的視窗截圖存回 `assets/og.png`。
+- `og.html`：首頁分享圖 `assets/og.png` 的原始檔。改完用 Playwright 開 1200×630 的視窗截圖存回 `assets/og.png`。
+- `build_page_og.py` + `page.html`：其他每一頁自己的分享圖 `assets/og/<slug>.jpg`（slug＝路徑把 `/` 換成 `-`，例如 `games-zip`、`research-apriori`、`games-1A2B-detail`），內容取頁面的 og:title、og:description 和 SVG 圖示，底色看類別（小遊戲橘、研究綠、小工具藍、技術剖析紫）。會順便把頁面（和研究 Demo 樣板）的 og:image 指過去。新增頁面、改標題或說明、換圖示之後跑：先開 `python3 -m http.server 8770`，再 `python3 tools/og/build_page_og.py`（不給參數＝全部；也可以只給幾個頁面路徑）。`add_og.py` 和 `detail/build_detail.py` 產生的 og:image 也是同一個規則。
 
 ## stock/：股票庫存的收盤價
 

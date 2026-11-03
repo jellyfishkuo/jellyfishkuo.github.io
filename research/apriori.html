@@ -15,7 +15,7 @@
     <meta property="og:title" content="Apriori 頻繁樣式探勘">
     <meta property="og:description" content="一步一步看 Apriori 怎麼從超商交易紀錄找出常一起買的商品組合：合併、剪枝、計數、篩選，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/apriori.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-apriori.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

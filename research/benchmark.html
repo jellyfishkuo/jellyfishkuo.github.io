@@ -15,7 +15,7 @@
     <meta property="og:title" content="效能比賽場：頻繁與高效益樣式探勘">
     <meta property="og:description" content="在瀏覽器裡產生較大的隨機交易資料，實際跑 Apriori、FP-Growth、Eclat 與 Two-Phase、UP-Growth、HUI-Miner、EFIM，畫出門檻對時間、對候選數的圖，並檢查每個演算法的結果完全一致。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/benchmark.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-benchmark.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

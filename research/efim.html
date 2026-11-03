@@ -15,7 +15,7 @@
     <meta property="og:title" content="EFIM 高效益樣式探勘">
     <meta property="og:description" content="一步一步看 EFIM 怎麼在越來越小的投影資料庫上找高效益樣式：TWU 刪商品、反向字典序排序、交易合併、用 utility-bin 一次算出 sub-tree utility 與 local utility 兩個上界，Java 與 Python 程式碼逐行對照，並和 Two-Phase、UP-Growth、HUI-Miner 比較花費。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/efim.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-efim.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

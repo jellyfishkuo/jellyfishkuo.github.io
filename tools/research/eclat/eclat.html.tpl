@@ -15,7 +15,7 @@
     <meta property="og:title" content="Eclat 頻繁樣式探勘">
     <meta property="og:description" content="一步一步看 Eclat 怎麼把超商交易轉成垂直格式（每個商品出現在哪幾筆交易），用 TID 集合取交集、深度優先找出所有頻繁樣式，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/eclat.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-eclat.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

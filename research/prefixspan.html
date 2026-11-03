@@ -15,7 +15,7 @@
     <meta property="og:title" content="PrefixSpan 序列樣式探勘">
     <meta property="og:description" content="一步一步看 PrefixSpan 怎麼用前綴投影找出「先買什麼、之後再買什麼」的序列樣式：投影資料庫、同一次延伸與下一次延伸、遞迴，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/prefixspan.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-prefixspan.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

@@ -14,8 +14,8 @@
     <meta property="og:locale" content="zh_TW">
     <meta property="og:title" content="FP-Growth 頻繁樣式探勘">
     <meta property="og:description" content="一步一步看 FP-Growth 怎麼把交易壓成一棵 FP-tree、再用條件模式基底遞迴挖出所有頻繁樣式，Java 與 Python 程式碼逐行對照，並和 Apriori 比較。">
-    <meta property="og:url" content="https://jellyfishkuo.github.io/research/fpgrowth.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/fp-growth.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-fp-growth.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

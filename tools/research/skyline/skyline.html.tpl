@@ -15,7 +15,7 @@
     <meta property="og:title" content="Skyline 查詢：BNL 與 SFS">
     <meta property="og:description" content="用一張「價格 × 距離」的店家散布圖，一步一步看 BNL 怎麼用有限的視窗和暫存檔找出 skyline，以及 SFS 先排序後視窗只進不出、比較次數少多少，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/skyline.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-skyline.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

@@ -15,7 +15,7 @@
     <meta property="og:title" content="Research 總覽">
     <meta property="og:description" content="把所有研究 Demo 串起來的地圖：演算法之間誰改良自誰、建議的閱讀順序，以及掃描次數、候選、額外結構的比較表。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/overview.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-overview.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

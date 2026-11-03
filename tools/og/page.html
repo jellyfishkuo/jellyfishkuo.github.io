@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!-- 每一頁自己的分享圖（1200×630）。由 build_page_og.py 開這頁、呼叫 render() 填內容再截圖。 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+*{box-sizing:border-box;margin:0}
+body{width:1200px;height:630px;background:#e9f7d9;font-family:'Noto Sans TC';color:#1d2b12;overflow:hidden;position:relative}
+.dots{position:absolute;inset:0;background-image:radial-gradient(#1d2b1214 2px,transparent 2px);background-size:28px 28px}
+.card{position:absolute;left:56px;top:56px;width:1088px;height:518px;background:var(--c,#ffb02e);border:5px solid #1d2b12;border-radius:36px;box-shadow:12px 12px 0 #1d2b12;overflow:hidden}
+.sun{position:absolute;right:-110px;bottom:-150px;width:500px;height:500px;border-radius:50%;background:var(--c2,#ffc95e)}
+.txt{position:absolute;left:60px;top:50px;width:620px;height:420px;display:flex;flex-direction:column}
+.kind{align-self:flex-start;background:#1d2b12;color:#fff;font-weight:700;font-size:26px;padding:6px 20px;border-radius:999px}
+.title{font-weight:900;font-size:64px;line-height:1.18;margin-top:22px;word-break:break-word}
+.desc{font-weight:500;font-size:28px;line-height:1.55;margin-top:18px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.foot{margin-top:auto;display:flex;align-items:center;gap:12px;font-weight:700;font-size:24px}
+.foot img{width:64px;height:64px;padding:6px 4px 4px;background:#fff;border:3px solid #1d2b12;border-radius:50%}
+.foot span{opacity:.75;letter-spacing:.5px}
+.icon{position:absolute;right:72px;top:96px;width:300px;height:300px;transform:rotate(4deg);filter:drop-shadow(10px 10px 0 #1d2b12)}
+</style></head><body><div class="dots"></div>
+<div class="card"><div class="sun"></div>
+<div class="txt"><div class="kind" id="kind"></div><div class="title" id="title"></div><div class="desc" id="desc"></div>
+<div class="foot"><img src="../../assets/dragon.svg" alt=""><span>果汁龍的網站 · jellyfishkuo.github.io</span></div></div>
+<img class="icon" id="icon" alt="">
+</div>
+<script>
+// 每一類用不同底色，分享出去一眼看得出是遊戲、研究還是工具
+var COLORS = { '小遊戲': ['#ffb02e', '#ffc95e'], '研究 Demo': ['#9bd72f', '#b8e563'], '研究': ['#9bd72f', '#b8e563'], '小工具': ['#7dd3fc', '#a5e3fd'], '技術剖析': ['#c4b5fd', '#ddd3fe'] };
+function render(d) {
+    var c = COLORS[d.kind] || COLORS['小遊戲'];
+    document.body.style.setProperty('--c', c[0]);
+    document.body.style.setProperty('--c2', c[1]);
+    document.getElementById('kind').textContent = d.kind;
+    var t = document.getElementById('title');
+    t.textContent = d.title;
+    document.getElementById('desc').textContent = d.desc;
+    // 標題最多兩行，太長就縮字
+    for (var fs = 64; fs > 36; fs -= 2) {
+        t.style.fontSize = fs + 'px';
+        if (t.getBoundingClientRect().height <= fs * 1.18 * 2 + 2) break;
+    }
+    // 標題兩行時說明只留兩行，才不會壓到下面的網址
+    document.getElementById('desc').style.webkitLineClamp = t.getBoundingClientRect().height > fs * 1.18 * 1.5 ? 2 : 3;
+    var img = document.getElementById('icon');
+    return new Promise(function (ok) { img.onload = img.onerror = function () { ok(); }; img.src = d.icon; });
+}
+</script>
+</body></html>

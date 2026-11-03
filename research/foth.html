@@ -15,7 +15,7 @@
     <meta property="og:title" content="FOTH 不用 join 的高效益樣式探勘">
     <meta property="og:description" content="一步一步看 FOTH（Information Sciences 2024）怎麼把商品組合編成二進位、讓每筆交易的 IndexSet 自我傳播出子集合，完全不用 utility list 的 join；mining area 上界剪枝，並跟 HUI-Miner 的 join 次數、tid 比對次數並排比較。Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/foth.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-foth.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

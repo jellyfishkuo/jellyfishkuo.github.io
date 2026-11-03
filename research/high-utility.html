@@ -15,7 +15,7 @@
     <meta property="og:title" content="HUI-Miner 高效益樣式探勘">
     <meta property="og:description" content="一步一步看 HUI-Miner 怎麼用 TWU 和 utility list 找出「賺得多」而不只是「買得多」的商品組合：TWU 剪枝、iutil／rutil 上界、集合列舉樹，Java 與 Python 程式碼逐行對照，並和 Apriori 的結果比較。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/high-utility.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-high-utility.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

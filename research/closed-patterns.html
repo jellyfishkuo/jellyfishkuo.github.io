@@ -15,7 +15,7 @@
     <meta property="og:title" content="封閉與最大頻繁樣式 CHARM">
     <meta property="og:description" content="頻繁樣式太多怎麼辦？比較全部頻繁、封閉、最大三種答案，再一步一步看 CHARM 怎麼用 tidset 的四條性質直接找出封閉樣式，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/closed-patterns.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-closed-patterns.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

@@ -15,7 +15,7 @@
     <meta property="og:title" content="DBSCAN 密度分群">
     <meta property="og:description" content="在地圖上一步一步看 DBSCAN 怎麼用「ε 範圍內的鄰居夠不夠多」找出核心點、用佇列把群長出來、標出雜訊，月牙和圓環也分得開，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/dbscan.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-dbscan.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

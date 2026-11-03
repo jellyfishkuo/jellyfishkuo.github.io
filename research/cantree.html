@@ -15,7 +15,7 @@
     <meta property="og:title" content="CanTree 增量 FP-tree">
     <meta property="og:description" content="一步一步看 CanTree 怎麼用固定的標準順序插入交易：新交易進來直接插、沿路次數 +1、不用重排重建，要挖的時候再用 FP-Growth 的條件模式基底挖；和 FP-tree 比較順序與節點數，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/cantree.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-cantree.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

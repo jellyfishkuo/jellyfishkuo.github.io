@@ -15,7 +15,7 @@
     <meta property="og:title" content="Bloom Filter：這張發票登錄過了嗎">
     <meta property="og:description" content="只用 m 個位元和 k 個雜湊函數判斷「有沒有看過」：一步一步看發票怎麼被登錄進位元陣列、查詢時為什麼看到第一個 0 就能停、誤判是怎麼來的、最佳 k 怎麼算，以及可以刪除的 Counting Bloom Filter，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/bloom-filter.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-bloom-filter.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

@@ -15,7 +15,7 @@
     <meta property="og:title" content="不確定資料的滑動視窗探勘 SWUPA">
     <meta property="og:description" content="一步一步看 SWUPA：每樣商品都有存在機率，交易一批一批進入滑動視窗，用 SWUPA-List 移除最舊的批次、用 overExpSup 與 ppCLw 剪枝，挖出期望支持度夠高的樣式，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/uncertain-sw.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-uncertain-sw.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

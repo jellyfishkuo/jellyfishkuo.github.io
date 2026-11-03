@@ -15,7 +15,7 @@ import re
 import sys
 
 SITE = 'https://jellyfishkuo.github.io/'
-IMAGE = SITE + 'assets/og.png'
+IMAGE = SITE + 'assets/og.png'   # 首頁用的；其他頁各自有 assets/og/<slug>.jpg（build_page_og.py 產生）
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 # 不加的頁面：404（不會被分享）、股票（自己用、noindex）、首頁（標籤手寫）、技術介紹頁（產生器負責）
@@ -24,12 +24,23 @@ SKIP = {'404.html', 'index.html', 'stock/index.html'}
 
 def page_url(path: pathlib.Path) -> str:
     rel = path.resolve().relative_to(ROOT).as_posix()
-    m = re.fullmatch(r'tools/research/[^/]+/([^/]+)\.html\.tpl', rel)
+    m = re.fullmatch(r'tools/research/([^/]+)/[^/]+\.html\.tpl', rel)   # 用資料夾名（fp-growth/fpgrowth.html.tpl → fp-growth.html）
     if m:
         rel = f'research/{m.group(1)}.html'
     if rel.endswith('/index.html'):
         rel = rel[: -len('index.html')]
     return SITE + rel
+
+
+def image_slug(url: str) -> str:
+    """頁面網址 → 分享圖檔名：games/zip.html → games-zip、electricity-tracker/ → electricity-tracker"""
+    rel = url[len(SITE):]
+    rel = re.sub(r'(/index)?\.html$', '', rel).strip('/')
+    return rel.replace('/', '-') or 'index'
+
+
+def image_url(url: str) -> str:
+    return SITE + 'assets/og/' + image_slug(url) + '.jpg'
 
 
 def tags(title: str, desc: str, url: str, indent: str) -> str:
@@ -41,7 +52,7 @@ def tags(title: str, desc: str, url: str, indent: str) -> str:
         f'<meta property="og:title" content="{a(title)}">',
         f'<meta property="og:description" content="{a(desc)}">',
         f'<meta property="og:url" content="{a(url)}">',
-        f'<meta property="og:image" content="{IMAGE}">',
+        f'<meta property="og:image" content="{image_url(url)}">',
         '<meta property="og:image:width" content="1200">',
         '<meta property="og:image:height" content="630">',
         '<meta name="twitter:card" content="summary_large_image">',

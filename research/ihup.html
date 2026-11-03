@@ -15,7 +15,7 @@
     <meta property="og:title" content="IHUP 增量高效益樣式">
     <meta property="og:description" content="一步一步看 IHUP 怎麼做增量的高效益樣式探勘：IHUP_L-Tree 照固定的字典序插入交易、節點記 TWU，新交易直接插不用重建；要結果時才像 FP-Growth 一樣挖出 TWU 夠的候選，再掃一次資料庫算真正的效益。可以自己加交易、隨時挖，和每次從頭跑 Two-Phase 比較掃描次數與建樹成本，Java 與 Python 程式碼逐行對照。">
     <meta property="og:url" content="https://jellyfishkuo.github.io/research/ihup.html">
-    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og.png">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-ihup.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
