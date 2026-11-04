@@ -55,7 +55,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `research/papers.html` | 論文書架：上面是擁有者讀過、做成 Demo 的論文（手寫卡片，新增讀過的論文要加一張）；下面是經典論文，資料在頁面 JS 的 `PAPERS` 陣列（一行一篇，新增 Demo 時補上原始論文），連 Google Scholar 搜尋，不放 DOI（會議論文常沒有）。首頁 Research 標題下方第三個入口 |
 | `research/overview.html`、`benchmark.html` | 研究地圖（關係圖＋閱讀路線＋比較表，`tools/research/overview/build.py` 自己有一份演算法清單，新增 Demo 時要補）與效能比賽場（Web Worker 實跑，`tools/research/benchmark/algos.js`）；首頁 Research 標題下方兩個入口 |
 
-首頁 About 的「自己做的小工具與遊戲」數字（目前 16）在新增 Projects 作品時要跟著改。首頁作品區先只顯示前 6 張卡（`#tiles`，其餘按「看全部」展開），想放在前面的作品就排在前 6 個。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
+首頁 About 的「自己做的小工具與遊戲」數字（目前 16）在新增 Projects 作品時要跟著改。首頁作品區先只顯示剛好排滿的兩排（`#tiles`，依實際欄數算：電腦 5 欄＝10 張、手機 2 欄×3 排＝6 張；其餘按「看全部」展開），想放在前面的作品就排在前 6 個（手機也看得到）。晚餐轉盤排第 4 張（使用者要求）。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
 首頁全站搜尋（導覽列放大鏡，`/` 或 Ctrl+K 打開）：資料**直接從首頁 DOM 讀**（`#tiles` 作品卡與「技術介紹」連結、`#research .hub`、`#demos .demo` 含主題標籤、關於我／競賽／聯絡段落），新增作品或 Demo 不用另外維護清單；`SYN` 是中英互通（tree↔樹…）。首頁果汁龍講話：跟整個網站連起來，不只講會給果汁的遊戲。台詞分類：`SITE`（每個作品一組，key 是首頁卡片的連結）、`DETAIL`（技術介紹冷知識）、`HUB`（研究入口）、研究 Demo（從 `#demos` 隨機挑＋`DEMO_SAY` 換說法）、`OWNER`（競賽、研究、技能、聯絡）、`timeLines()`（時段、週末、深淺色）、`recordLines()`（讀各遊戲 localStorage，只讀）、`LINES.self`；`CATS` 是各類權重。首頁上沒有那個連結的台詞不會講（作品拿掉就自動消失）；最近 15 句不重複（`sessionStorage` `jfk-pet-recent`）；孵蛋、餓了才偶爾提醒；每個分頁進首頁 12 秒後主動講一次（`jfk-pet-said`，收到角落時不講）。**新增作品時在 `SITE` 補一組台詞**，有技術介紹就在 `DETAIL` 補一句；台詞內容要對照頁面寫，不要寫網站上沒有的功能。
 
