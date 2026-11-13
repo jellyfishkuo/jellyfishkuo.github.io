@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
 /* 手機瀏覽器會自動把某些段落的字放大；關掉它（要放在 @import 後面） */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+* { touch-action: manipulation; }
 
 /* 變數一律用 --c- 開頭，避免跟 assets/theme.css 的共用變數撞名 */
 :root {
