@@ -153,10 +153,10 @@
         <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
         <div class="kicker">// PAPER SHELF</div>
         <h1>論文書架</h1>
-        <p class="lead">我讀過、拿來做成互動 Demo 的論文放在最上面，附白話摘要；下面是網站上每個 Demo 背後的經典原始論文，照年份排，可以看資料探勘這幾十年是怎麼一路改良過來的。</p>
+        <p class="lead">我讀過的論文放在最上面（大部分做成了互動 Demo），附白話摘要；下面是網站上每個 Demo 背後的經典原始論文，照年份排，可以看資料探勘這幾十年是怎麼一路改良過來的。</p>
 
         <h2>我讀過的論文</h2>
-        <p class="sub">每篇都做成可以一步一步操作的 Demo，數字跟論文的範例對得起來。</p>
+        <p class="sub">大部分都做成可以一步一步操作的 Demo，數字跟論文的範例對得起來。</p>
         <div class="mine">
             <article class="paper" style="--c: var(--t-hui)">
                 <div class="top"><span class="yr">2024</span><span class="tag">高效益樣式</span></div>
@@ -171,6 +171,22 @@
                 <div class="acts">
                     <a class="go" href="foth.html">看互動 Demo →</a>
                     <a href="https://doi.org/10.1016/j.ins.2024.121218" target="_blank" rel="noopener">DOI</a>
+                </div>
+            </article>
+            <article class="paper" style="--c: var(--t-hui)">
+                <div class="top"><span class="yr">2024</span><span class="tag">高效益樣式</span><span class="tag" style="--c: var(--t-inc)">增量資料庫</span></div>
+                <h3>Advanced approach for mining utility occupancy patterns in incremental environment</h3>
+                <p class="zh">IUOIL：資料一直新增時，找出「在交易裡佔的效益比例很高」的組合</p>
+                <p class="cite">Myungha Cho, Hanju Kim, Seungwan Park, Doyoung Kim, Doyoon Kim, Unil Yun. <i>Knowledge-Based Systems</i>, Vol. 306, Article 112713, 2024.</p>
+                <ul>
+                    <li><b>問題：</b>效益佔有率＝組合賺的錢 ÷ 整筆交易賺的錢，看的是這組是不是那一趟的「主角」。之前的方法（HUOPM）只能處理固定的資料庫，HUOMI 雖然能增量，但組合時還是很慢。</li>
+                    <li><b>做法：</b>每個商品一條 <b>IUOI-List</b>，每筆交易記下一個商品在哪、在它的串列第幾格（indexed list），組合時照著索引直接跳，不用逐筆比對交易。新資料進來只要接到串列後面再重排，不用重掃舊資料；支持度不夠的商品也要留著，因為之後可能變夠。</li>
+                    <li><b>剪枝：</b>三招：支持度不夠就停；先用好算但比較鬆的上界 lubuo 篩一次；再用比較緊的 ubuo（取佔有率最高的 minSup 筆平均）決定要不要往下長。</li>
+                    <li><b>結果：</b>在 Chess、Accidents、Foodmart、Chainstore 上，比 HUOMI、HUOPM+、HUOPID 都快，記憶體也用得最少。</li>
+                </ul>
+                <div class="acts">
+                    <a href="https://doi.org/10.1016/j.knosys.2024.112713" target="_blank" rel="noopener">DOI</a>
+                    <a href="sw-huop.html">相關 Demo：滑動視窗版 HUOPS →</a>
                 </div>
             </article>
             <article class="paper" style="--c: var(--t-stream)">
