@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/iuoil.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/iuoil-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/iuoil-180.png">
+    <title>IUOIL 增量高效益佔有率樣式</title>
+    <meta name="description" content="一步一步看 IUOIL（Knowledge-Based Systems 2024）怎麼在一批一批長大的資料庫上找高效益佔有率樣式：IUOI-List 的每一格用 NId、NIdx 指到同一筆交易的下一個商品，新的一批直接接在後面、重建時順著索引重接，挖的時候照著索引跳出更長的樣式，再用支持度、lubuo、ubuo 三招剪枝。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="IUOIL 增量高效益佔有率樣式">
+    <meta property="og:description" content="一步一步看 IUOIL（Knowledge-Based Systems 2024）怎麼在一批一批長大的資料庫上找高效益佔有率樣式：IUOI-List 的每一格用 NId、NIdx 指到同一筆交易的下一個商品，新的一批直接接在後面、重建時順著索引重接，挖的時候照著索引跳出更長的樣式，再用支持度、lubuo、ubuo 三招剪枝。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/research/iuoil.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/research-iuoil.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <script src="../assets/theme.js"></script>
+    <script src="../assets/quest.js" defer></script><!-- 練習模式答題記到研究闖關 -->
+    <style>
+        /* 手機瀏覽器會自動把某些段落的字放大，程式碼框裡就會一行大一行小；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* 反白（選取文字）的顏色：background 是底色、color 是字色 */
+        ::selection { background: var(--lt-7c3aed, #7c3aed); color: var(--lt-ffffff, #fff); -webkit-text-fill-color: var(--lt-ffffff, #fff); }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #f87171;
+            --warn: #f59e0b;
+            --line-hl: rgba(124, 58, 237, 0.22);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+        .back {
+            display: inline-block;
+            color: var(--muted);
+            font: 0.8rem 'Space Mono', monospace;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        .kicker { font: 0.75rem 'Space Mono', monospace; color: var(--accent2); letter-spacing: 0.12em; }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.7rem, 5vw, 2.6rem); line-height: 1.15; margin-top: 0.2rem; }
+        h1 small { display: block; font-size: 0.42em; color: var(--muted); font-weight: 400; margin-top: 0.4rem; font-family: inherit; }
+        h2 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+        .intro { color: var(--lt-c6c6d6, #c6c6d6); max-width: 800px; margin-top: 0.9rem; font-size: 0.95rem; }
+        .intro b { color: var(--text); }
+        .intro a { color: var(--accent2); }
+
+        /* 手機：一欄，依序 步驟 → 交易資料庫 → IUOI-List → 搜尋樹 → 程式碼 → 結果
+           電腦：左欄 步驟／交易資料庫／IUOI-List，右欄 搜尋樹／程式碼／結果 */
+        .layout { display: grid; gap: 1rem; margin-top: 1rem; align-items: start; }
+        .col { display: contents; }
+        .layout .card { min-width: 0; }
+        .a-step { order: 1; }
+        .a-data { order: 2; }
+        .a-lists { order: 3; }
+        .a-tree { order: 4; }
+        .a-code { order: 5; }
+        .a-result { order: 6; }
+        @media (min-width: 960px) {
+            .layout { grid-template-columns: 1fr 1.05fr; }
+            .col { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem;
+            min-width: 0;
+        }
+        .card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+        .card-head h2 { margin: 0; }
+        .sub { color: var(--muted); font-size: 0.8rem; }
+
+        button.btn {
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button.btn:hover:not(:disabled) { border-color: var(--accent2); }
+        button.btn:disabled { opacity: 0.4; cursor: default; }
+        button.btn.primary { background: var(--accent); border-color: var(--accent); }
+
+        /* ── 參數 ── */
+        .params { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; align-items: center; font-size: 0.88rem; }
+        .param { display: flex; align-items: center; gap: 0.4rem; }
+        .param .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.6em; text-align: center; }
+        .stepper { width: 30px; height: 30px; padding: 0 !important; }
+        .preset { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.3rem 0.4rem; font: inherit; font-size: 0.85rem; max-width: 100%; }
+        .derived { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; }
+        .derived b { color: var(--text); font-family: 'Space Mono', monospace; }
+        /* ── 這一步 ── */
+        .player { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+        .explain {
+            background: var(--panel-2);
+            border-left: 3px solid var(--accent2);
+            border-radius: 8px;
+            padding: 0.7rem 0.9rem;
+            margin-top: 0.8rem;
+            font-size: 0.93rem;
+        }
+        .explain .step-no { font: 0.74rem 'Space Mono', monospace; color: var(--muted); display: block; }
+        .explain b { color: var(--warn); font-weight: 600; }
+        .explain .ok { color: var(--lt-86efac, #86efac); }
+        .explain .no { color: var(--lt-fca5a5, #fca5a5); }
+        .phases { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.7rem; }
+        .phase { flex: 1 1 auto; white-space: nowrap; text-align: center; font: inherit; font-size: 0.75rem; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.35rem; cursor: pointer; }
+        .phase:hover { border-color: var(--accent2); }
+        .phase.mine { border-style: dashed; }
+        .phase.cur { color: var(--text); border-color: var(--accent); background: var(--lt-7c3aed-15, rgba(124, 58, 237, 0.15)); border-style: solid; }
+
+        /* ── HUOPS-List ── */
+        .uls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; min-height: 120px; max-height: 620px; overflow: auto; }
+        .uls-empty { color: var(--muted); font-size: 0.85rem; align-self: center; }
+        .ul { background: var(--lt-0a0a14, #0a0a14); border: 1px solid var(--border); border-radius: 10px; padding: 0.4rem 0.5rem 0.45rem; min-width: 128px; }
+        .ul.res { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .ul.focus { border-color: var(--warn); }
+        .ul.low { opacity: 0.55; }
+        .ul.gone { border-style: dashed; border-color: var(--lt-f87171-60, rgba(248, 113, 113, 0.6)); }
+        .ul-h { display: flex; align-items: baseline; gap: 0.35rem; font-size: 0.8rem; margin-bottom: 0.2rem; }
+        .ul-h .role { font: 700 0.7rem 'Space Mono', monospace; color: var(--accent2); }
+        .ul-h .sp { margin-left: auto; font: 0.68rem 'Space Mono', monospace; color: var(--muted); white-space: nowrap; }
+        .ul table { border-collapse: collapse; font: 0.74rem 'Space Mono', monospace; width: 100%; }
+        .ul th { color: var(--muted); font-weight: 400; text-align: right; padding: 0 0.3rem; font-size: 0.68rem; }
+        .ul th:nth-child(-n+2), .ul td:nth-child(-n+2) { text-align: left; }
+        .ul td { padding: 0.05rem 0.3rem; text-align: right; }
+        .ul td.b { color: var(--muted); font-size: 0.66rem; }
+        .ul tr.bsep td { border-top: 1px dashed var(--lt-2c2c48, #2c2c48); }
+        .ul tr.dim td { opacity: 0.3; }
+        .ul tr.new td { background: var(--lt-22c55e-18, rgba(34, 197, 94, 0.18)); }
+        .ul tr.del td { background: var(--lt-f87171-14, rgba(248, 113, 113, 0.14)); color: var(--lt-fca5a5, #fca5a5); text-decoration: line-through; }
+        .ul tr.ex td { background: var(--lt-f59e0b-22, rgba(245, 158, 11, 0.22)); color: var(--lt-fde68a, #fde68a); }
+        .ul tr.tp td:nth-child(n+3) { color: var(--lt-c4b5fd, #c4b5fd); font-weight: 700; }
+        .ul tr.sum td { border-top: 1px solid var(--border); font-weight: 700; color: var(--accent2); }
+        .ul-f { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; max-width: 15rem; }
+        .ul-f b { font-family: 'Space Mono', monospace; color: var(--text); }
+        .ul-f b.ok { color: var(--lt-86efac, #86efac); }
+        .ul-f b.no { color: var(--lt-fca5a5, #fca5a5); }
+        .op { align-self: center; color: var(--muted); font: 700 1rem 'Space Mono', monospace; }
+        .temp { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted); min-height: 1.6rem; }
+        .temp .tc { font: 0.72rem 'Space Mono', monospace; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0 0.35rem; }
+        .temp .tc.up { border-color: var(--good); color: var(--lt-86efac, #86efac); }
+        .temp .tc.rd { border-color: var(--warn); color: var(--lt-fde68a, #fde68a); }
+
+        /* ── 搜尋樹 ── */
+        .tree { position: relative; max-height: 540px; overflow: auto; background: var(--lt-0a0a14, #0a0a14); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.6rem; min-height: 140px; }
+        .tree-empty { color: var(--muted); font-size: 0.85rem; padding: 1.5rem 0.5rem; text-align: center; }
+        .tr, .tr ul { list-style: none; }
+        .tr ul { margin-left: 0.6rem; }
+        .tr li { position: relative; }
+        .tr ul > li { padding-left: 1rem; }
+        .tr ul > li::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1.5px solid var(--lt-34345a, #34345a); }
+        .tr ul > li:last-child::before { bottom: auto; height: 1.05rem; }
+        .tr ul > li::after { content: ''; position: absolute; left: 0; top: 1.05rem; width: 0.85rem; border-top: 1.5px solid var(--lt-34345a, #34345a); }
+        .tn {
+            display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.5rem;
+            padding: 0.15rem 0.5rem; margin: 0.15rem 0; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--panel-2); font-size: 0.82rem; max-width: 100%;
+        }
+        .tn .v { font: 0.72rem 'Space Mono', monospace; color: var(--muted); }
+        .tn .v b { color: var(--text); }
+        .tn .tag { font-size: 0.72rem; border-radius: 5px; padding: 0 0.35rem; background: var(--lt-23233d, #23233d); color: var(--muted); }
+        .tn.root { color: var(--muted); }
+        .tn.wait, .tn.built { border-style: dashed; }
+        .tn.wait .n { color: var(--muted); }
+        .tn.hui { border-color: var(--lt-22c55e-60, rgba(34, 197, 94, 0.6)); }
+        .tn.hui .tag { background: var(--lt-22c55e-22, rgba(34, 197, 94, 0.22)); color: var(--lt-86efac, #86efac); }
+        .tn.go .tag { background: var(--lt-06b6d4-15, rgba(6, 182, 212, 0.15)); color: var(--lt-67e8f9, #67e8f9); }
+        .tn.cut { border-color: var(--lt-f87171-50, rgba(248, 113, 113, 0.5)); }
+        .tn.cut .tag { background: var(--lt-f87171-18, rgba(248, 113, 113, 0.18)); color: var(--lt-fca5a5, #fca5a5); }
+        .tn.cut .n, .tn.empty .n { text-decoration: line-through; color: var(--muted); }
+        .tn.empty { opacity: 0.6; border-style: dashed; }
+        .tn.cur { box-shadow: 0 0 0 2px var(--warn); }
+        .tn.src { box-shadow: 0 0 0 2px var(--lt-06b6d4-70, rgba(6, 182, 212, 0.7)); }
+
+        /* ── 程式碼 ── */
+        .lang { display: flex; gap: 0.25rem; }
+        .lang button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font: 0.75rem 'Space Mono', monospace;
+            cursor: pointer;
+        }
+        .lang button.active { color: var(--text); border-color: var(--accent2); }
+        pre.code {
+            background: var(--lt-0a0a14, #0a0a14);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            overflow: auto;
+            max-height: 520px;
+            font: 0.78rem/1.7 'Space Mono', ui-monospace, monospace;
+        }
+        @media (max-width: 600px) { pre.code { font-size: 0.7rem; max-height: 400px; } }
+        .code .ln { display: block; padding-right: 0.9rem; white-space: pre; width: max-content; min-width: 100%; }
+        .code .ln::before { content: attr(data-n); display: inline-block; width: 2.4em; text-align: right; margin-right: 0.9em; color: var(--lt-4a4a66, #4a4a66); }
+        .code .ln.hl { background: var(--line-hl); box-shadow: inset 3px 0 0 var(--accent); }
+        .kw { color: var(--lt-c792ea, #c792ea); }
+        .fn { color: var(--lt-82aaff, #82aaff); }
+        .num { color: var(--lt-f78c6c, #f78c6c); }
+        .cm { color: var(--lt-637777, #637777); }
+        .str { color: var(--lt-c3e88d, #c3e88d); }
+        .ty { color: var(--lt-ffcb6b, #ffcb6b); }
+        .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); align-items: center; }
+        .downloads a { color: var(--accent2); }
+        .downloads code { font: 0.78rem 'Space Mono', monospace; background: var(--panel-2); padding: 0.1rem 0.4rem; border-radius: 4px; color: var(--text); }
+
+        /* ── 結果 ── */
+        .wins { display: grid; gap: 0.7rem; }
+        .win { border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.6rem; background: var(--lt-0a0a14, #0a0a14); }
+        .win.now { border-color: var(--accent); }
+        .win-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; font-size: 0.85rem; margin-bottom: 0.35rem; }
+        .win-h .wn { font: 700 0.85rem 'Space Mono', monospace; color: var(--accent2); }
+        .win-h .rg { color: var(--muted); font-size: 0.78rem; }
+        .win-h .bf { margin-left: auto; font-size: 0.74rem; border-radius: 6px; padding: 0 0.4rem; background: var(--lt-23233d, #23233d); color: var(--muted); }
+        .win-h .bf.ok { background: var(--lt-22c55e-18, rgba(34, 197, 94, 0.18)); color: var(--lt-86efac, #86efac); }
+        .win-h .bf.no { background: var(--lt-f87171-18, rgba(248, 113, 113, 0.18)); color: var(--lt-fca5a5, #fca5a5); }
+        .win .items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .pat { font-size: 0.82rem; border: 1px solid var(--lt-22c55e-50, rgba(34, 197, 94, 0.5)); border-radius: 7px; padding: 0.12rem 0.5rem; }
+        .pat .n { font: 700 0.72rem 'Space Mono', monospace; margin-left: 0.35rem; color: var(--lt-86efac, #86efac); }
+        .pat.fresh { box-shadow: 0 0 0 2px var(--warn); }
+        .pat.newp { border-color: var(--accent2); }
+        .pat.gone { border-style: dashed; border-color: var(--lt-f87171-60, rgba(248, 113, 113, 0.6)); color: var(--muted); }
+        .pat.gone .nm { text-decoration: line-through; }
+        .pat.gone .n { color: var(--lt-fca5a5, #fca5a5); }
+        .empty { color: var(--muted); font-size: 0.85rem; }
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.9rem; }
+        @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: var(--panel-2); border-radius: 10px; padding: 0.55rem 0.6rem; min-width: 0; }
+        .stat .v { font: 700 1.2rem 'Space Mono', monospace; }
+        .stat .k { color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+
+        .notes { margin-top: 1rem; display: grid; gap: 1rem; }
+        @media (min-width: 960px) { .notes { grid-template-columns: 1fr 1fr; } .notes .wide { grid-column: 1 / -1; } }
+        .notes p, .notes li { color: var(--lt-c6c6d6, #c6c6d6); font-size: 0.92rem; }
+        .notes ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; margin-top: 0.5rem; }
+        .notes b { color: var(--text); }
+        .notes a { color: var(--accent2); overflow-wrap: anywhere; }
+        .cite { background: var(--panel-2); border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.88rem; color: var(--lt-c6c6d6, #c6c6d6); margin-bottom: 0.6rem; }
+        .cite i { color: var(--text); }
+        /* ── 交易資料庫（一批一批進來；欄位照目前的總順序排） ── */
+        .db { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 3px; }
+        .db th.tid-h { width: 2.3rem; }
+        .db th.tu-h { width: 2.4rem; }
+        .db th { font-weight: 400; color: var(--muted); font-size: clamp(0.6rem, 3vw, 0.72rem); white-space: nowrap; padding: 0 1px 4px; text-align: center; line-height: 1.25; vertical-align: bottom; }
+        .db th .emo { display: block; font-size: 1.15rem; }
+        .db th .rk { display: block; font: 700 0.62rem 'Space Mono', monospace; color: var(--accent2); }
+        .db th .pf { display: block; font: 700 0.68rem 'Space Mono', monospace; color: var(--lt-fcd34d, #fcd34d); }
+        .db th.unseen { opacity: 0.35; }
+        .db td { text-align: center; padding: 0; }
+        .db td.tid { font: 0.74rem 'Space Mono', monospace; color: var(--muted); text-align: left; padding-left: 0.3rem; }
+        .db td.tu { font: 700 0.74rem 'Space Mono', monospace; color: var(--accent2); }
+        .db .cell { margin: 0 2px; height: 22px; border-radius: 6px; font: 700 0.74rem/22px 'Space Mono', monospace; color: var(--muted); }
+        .db .cell.has { background: var(--panel-2); color: var(--text); }
+        .db tr.cur td, .db tr.match td { background: var(--lt-f59e0b-12, rgba(245, 158, 11, 0.12)); }
+        .db tr.cur td:first-child, .db tr.match td:first-child { border-radius: 8px 0 0 8px; color: var(--warn); }
+        .db tr.cur td:last-child, .db tr.match td:last-child { border-radius: 0 8px 8px 0; }
+        .db tr.match .cell.hit { background: var(--lt-f59e0b-30, rgba(245, 158, 11, 0.3)); }
+        .db tr.later { opacity: 0.4; }
+        .db tr.bh td { font: 700 0.72rem 'Space Mono', monospace; color: var(--accent2); text-align: left; padding: 0.45rem 0.3rem 0.05rem; }
+        .db tr.bh td .bn { color: var(--muted); font-family: inherit; font-weight: 400; margin-left: 0.4rem; }
+        .db tr.bh.later td { color: var(--muted); }
+        .db tr.bh.cur td { background: none; color: var(--warn); }
+        .db tfoot td { font: 700 0.72rem 'Space Mono', monospace; color: var(--accent2); padding-top: 0.35rem; border-top: 1px dashed var(--border); }
+        .db tfoot td.tid { color: var(--muted); font-weight: 400; }
+        .db tfoot td.low { color: var(--bad); }
+        .db-note { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.75rem; color: var(--muted); margin-top: 0.55rem; }
+        .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 0.3rem; vertical-align: -1px; }
+
+        /* ── IUOI-List 的表格：# 是第幾格（NIdx 指的就是這個數字） ── */
+        .ul th:nth-child(-n+2), .ul td:nth-child(-n+2) { text-align: right; }
+        .ul td.ix { color: var(--muted); font-size: 0.66rem; }
+        .ul td.t { color: var(--muted); font-size: 0.66rem; text-align: left; }
+        .ul td.nid { text-align: center; padding: 0 0.15rem; }
+        .ul td.nidx { text-align: left; padding-left: 0.1rem; }
+        .ul tr.old td.nid, .ul tr.old td.nidx { opacity: 0.35; }
+        .ul tr.hop td { background: var(--lt-06b6d4-15, rgba(6, 182, 212, 0.15)); }
+        .ul tr.hop td.nid, .ul tr.hop td.nidx { color: var(--lt-67e8f9, #67e8f9); font-weight: 700; }
+        .ul-h .rk { font: 700 0.66rem 'Space Mono', monospace; color: var(--muted); }
+        .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted); min-height: 1.6rem; }
+        .chain .tc { font: 0.72rem 'Space Mono', monospace; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0 0.35rem; white-space: nowrap; }
+        .chain .tc.up { border-color: var(--good); color: var(--lt-86efac, #86efac); }
+        .chain .tc.rd { border-color: var(--warn); color: var(--lt-fde68a, #fde68a); }
+        .chain .tc.hop { border-color: var(--accent2); color: var(--lt-67e8f9, #67e8f9); }
+        .chain .ar { color: var(--muted); font-family: 'Space Mono', monospace; }
+        .chain .br { flex-basis: 100%; height: 0; }
+        .mu { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; font-size: 0.88rem; margin-top: 0.75rem; }
+        .mu .val { font: 700 1rem 'Space Mono', monospace; min-width: 2.6em; text-align: center; }
+        .paper p { color: var(--lt-c6c6d6, #c6c6d6); font-size: 0.92rem; margin-top: 0.45rem; }
+        .paper .cite { font-size: 0.88rem; color: var(--text); border-left: 3px solid var(--accent); padding-left: 0.7rem; background: none; border-radius: 0; }
+        .paper .cite a { color: var(--accent2); word-break: break-all; }
+        .paper .diff { background: var(--panel-2); border-radius: 10px; padding: 0.6rem 0.8rem; margin-top: 0.6rem; }
+        /* ── 練習模式（猜下一步）：題目疊在說明框的位置，不推動任何區塊 ── */
+        .quiz-bar { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.75rem; }
+        .quiz-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .quiz-toggle .sw { position: relative; flex: none; width: 30px; height: 17px; border-radius: 9px; background: var(--lt-2a2a48, #2a2a48); transition: background 0.15s; }
+        .quiz-toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+        .quiz-toggle.quiz-on { border-color: var(--accent); }
+        .quiz-toggle.quiz-on .sw { background: var(--accent); }
+        .quiz-toggle.quiz-on .sw::after { transform: translateX(13px); background: var(--lt-ffffff, #fff); }
+        .quiz-toggle { flex: none; }
+        .quiz-score { font: 0.8rem 'Space Mono', monospace; color: var(--accent2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        .quiz-host { position: relative; display: grid; margin-top: 0.8rem; }
+        .quiz-host > .explain { margin-top: 0; min-width: 0; }
+        .quiz {
+            position: absolute; inset: 0; z-index: 2; overflow: auto;
+            display: flex; flex-direction: column; gap: 0.45rem;
+            background: var(--panel-2); border: 1px solid var(--lt-7c3aed-50, rgba(124, 58, 237, 0.5)); border-left: 3px solid var(--accent);
+            border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.88rem; line-height: 1.5;
+        }
+        .quiz[hidden] { display: none; }
+        .quiz.nudge { animation: quiz-nudge 0.3s; }
+        @keyframes quiz-nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .quiz-head { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem 0.5rem; flex-wrap: wrap; }
+        .quiz-tag { font: 700 0.74rem 'Space Mono', monospace; color: var(--lt-c4b5fd, #c4b5fd); }
+        /* 題目和解釋疊在同一格：答完換成解釋，高度取兩者較高的，不會跳 */
+        .quiz-body { display: grid; }
+        .quiz-body > * { grid-area: 1 / 1; min-width: 0; }
+        .quiz-choices { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .quiz-choices.half { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .quiz-choices.wide { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+        .quiz-choices.wide .quiz-choice { min-height: 32px; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
+        .quiz-choice {
+            min-height: 36px; min-width: 44px; padding: 0.25rem 0.7rem; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--lt-1c1c33, #1c1c33); color: var(--text);
+            font: inherit; font-size: 0.86rem; line-height: 1.35; text-align: left; cursor: pointer; overflow-wrap: anywhere;
+        }
+        .quiz-choice:hover:not(:disabled) { border-color: var(--accent2); }
+        .quiz-choice:disabled { cursor: default; }
+        .quiz-choice.sel { border-color: var(--accent2); background: var(--lt-06b6d4-14, rgba(6, 182, 212, 0.14)); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .quiz-choice.right { border-color: var(--good); background: var(--lt-22c55e-18, rgba(34, 197, 94, 0.18)); color: var(--lt-bbf7d0, #bbf7d0); }
+        .quiz-choice.right.missed { border-style: dashed; background: var(--lt-22c55e-7, rgba(34, 197, 94, 0.07)); }   /* 複選題漏選的 */
+        .quiz-choice.wrong { border-color: var(--bad); background: var(--lt-f87171-14, rgba(248, 113, 113, 0.14)); color: var(--lt-fecaca, #fecaca); text-decoration: line-through; }
+        .quiz-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+        .quiz-actions .btn { padding: 0.2rem 0.65rem; font-size: 0.82rem; }
+        .quiz.done .quiz-ok { visibility: hidden; }
+        .quiz-why { visibility: hidden; font-size: 0.85rem; color: var(--lt-c6c6d6, #c6c6d6); }
+        .quiz.done .quiz-why { visibility: visible; }
+        .quiz.done .quiz-text { visibility: hidden; }
+        .quiz-verdict { color: var(--good); margin-right: 0.3rem; }
+        .quiz.miss .quiz-verdict { color: var(--bad); }
+    </style>
+    <link rel="stylesheet" href="../assets/theme.css">
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
+        <div class="kicker">RESEARCH DEMO · PAPER · INCREMENTAL HIGH UTILITY OCCUPANCY</div>
+        <h1>IUOIL 增量高效益佔有率樣式<small>每一格記住「同一筆交易的下一個商品在哪」，照著索引跳就能組出長樣式</small></h1>
+        <p class="intro">
+            <b>效益佔有率</b>問的是：一個組合在它出現的那幾筆交易裡，<b>平均佔了整筆消費的幾成</b>？每筆算 u(X, T) / TU(T)，再把有它的交易平均起來
+            （<a href="sw-huop.html">HUOPS</a> 那頁有更多例子）。這頁照 2024 年 Knowledge-Based Systems 的論文，看資料庫<b>一批一批長大</b>時怎麼找：
+            IUOIL 把每筆交易拆成每個商品 <b>IUOI-List</b> 裡的一格，每一格多記 <b>NId</b>（同一筆交易的下一個商品）和 <b>NIdx</b>（它在那個商品 list 的第幾格），
+            像一條條串起來的鍊子。新的一批進來就接在每個 list 後面；要結果時照新的支持度重排、順著索引把鍊子重接；挖的時候照著索引往後跳，
+            就能一次做出所有更長的樣式，不用拿兩個 list 逐筆比對交易。跟 <a href="ihup.html">IHUP</a>、<a href="pretk.html">PreTK</a> 一樣是增量資料庫，但找的是佔有率。
+        </p>
+
+        <div class="layout">
+            <div class="col">
+                <div class="card a-step">
+                    <div class="player">
+                        <button class="btn" id="btn-first" title="回到開頭">⏮</button>
+                        <button class="btn" id="btn-prev">◀ 上一步</button>
+                        <button class="btn primary" id="btn-next">下一步 ▶</button>
+                        <button class="btn" id="btn-play">▶ 自動播放</button>
+                    </div>
+                    <div class="mu">
+                        <span>資料</span>
+                        <div class="lang" id="ds">
+                            <button data-ds="shop" class="active">超商 DB0＋2 批</button>
+                            <button data-ds="paper">論文 Table 1</button>
+                        </div>
+                    </div>
+                    <div class="params" style="margin-top:0.6rem">
+                        <div class="param">
+                            <span>α 最小支持度</span>
+                            <button class="btn stepper" id="a-minus" aria-label="α 減少">−</button>
+                            <span class="val" id="a-val">30%</span>
+                            <button class="btn stepper" id="a-plus" aria-label="α 增加">+</button>
+                        </div>
+                        <div class="param">
+                            <span>β 最小佔有率</span>
+                            <button class="btn stepper" id="be-minus" aria-label="β 減少">−</button>
+                            <span class="val" id="be-val">50%</span>
+                            <button class="btn stepper" id="be-plus" aria-label="β 增加">+</button>
+                        </div>
+                    </div>
+                    <div class="derived" id="derived"></div>
+                    <div class="quiz-bar">
+                        <button class="btn quiz-toggle" id="quiz-toggle" aria-pressed="false" title="按下一步之前先猜猜看">🎯 練習模式<span class="sw" aria-hidden="true"></span></button>
+                        <span class="quiz-score" id="quiz-score" style="visibility:hidden">答對 0/0</span>
+                    </div>
+                    <div class="quiz-host" id="quiz-host">
+                        <div class="explain" id="explain"></div>
+                        <div class="quiz" id="quiz" role="group" aria-label="練習題" hidden></div>
+                    </div>
+                    <div class="phases" id="phases"></div>
+                </div>
+
+                <div class="card a-data">
+                    <div class="card-head"><h2>交易資料庫</h2><span class="sub" id="db-sub"></span></div>
+                    <table class="db" id="db"></table>
+                    <p class="db-note">格子裡是購買數量，商品下面是單位利潤，欄位照<b>目前的總順序</b>排（#1 排最前面）；TU 是這筆的總效益。淡色的還沒進來。最下面是到目前為止的支持度，紅字是不到 minSup 的。</p>
+                </div>
+
+                <div class="card a-lists">
+                    <div class="card-head"><h2>IUOI-List</h2><span class="sub" id="ul-sub"></span></div>
+                    <div class="uls" id="uls"></div>
+                    <div class="chain" id="chain"></div>
+                    <p class="legend" style="margin-top:0.3rem">每個 list 一格一格照交易進來的順序排，# 是第幾格；NId、NIdx 指到同一筆交易的下一格（^ 表示後面沒有了）。T 欄只是方便對照，演算法不靠它。uo、ruo 顯示到小數第 2 位。</p>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card a-tree">
+                    <div class="card-head"><h2>搜尋樹（這一次挖）</h2><span class="sub">每往下一層多加一個商品</span></div>
+                    <div class="tree" id="tree"></div>
+                    <div class="legend">
+                        <span><i style="border-color:var(--warn)"></i>這一步</span>
+                        <span><i style="border-color:var(--good)"></i>高效益佔有率，輸出</span>
+                        <span><i style="border-color:var(--bad)"></i>被剪掉（後面寫哪一招）</span>
+                        <span><i style="border-color:#3a3a5a;border-style:dashed"></i>還沒檢查</span>
+                    </div>
+                </div>
+
+                <div class="card a-code">
+                    <div class="card-head">
+                        <h2>程式碼</h2>
+                        <div class="lang" id="lang">
+                            <button data-lang="java" class="active">Java</button>
+                            <button data-lang="py">Python</button>
+                        </div>
+                    </div>
+                    <pre class="code" id="code"></pre>
+                    <div class="downloads" id="downloads"></div>
+                </div>
+
+                <div class="card a-result">
+                    <h2>每次挖的結果</h2>
+                    <div class="wins" id="wins"></div>
+                    <div class="stats">
+                        <div class="stat"><div class="v" id="st-ent">0</div><div class="k">全域 list 的格子（只增不減）</div></div>
+                        <div class="stat"><div class="v" id="st-cond">0</div><div class="k">照索引跳出來的條件格子</div></div>
+                        <div class="stat"><div class="v" id="st-sup">0</div><div class="k">① 支持度不夠、跳過</div></div>
+                        <div class="stat"><div class="v" id="st-ub">0 / 0</div><div class="k">被 ② lubuo / ③ ubuo 剪掉的分支</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notes" style="grid-template-columns:minmax(0, 1fr)">
+            <div class="card paper">
+                <h2>📄 論文</h2>
+                <p class="cite">Myungha Cho, Hanju Kim, Seungwan Park, Doyoung Kim, Doyoon Kim, Unil Yun.
+                    <b>Advanced approach for mining utility occupancy patterns in incremental environment.</b>
+                    <i>Knowledge-Based Systems</i>, Vol. 306, Article 112713, 2024.
+                    DOI：<a href="https://doi.org/10.1016/j.knosys.2024.112713" target="_blank" rel="noopener">10.1016/j.knosys.2024.112713</a></p>
+                <p><b>它在解決什麼：</b>效益佔有率樣式（看一個組合佔整筆消費的比例）之前的方法大多假設資料庫不會變；能處理資料一直進來的 HUOMI 用一般的 list，組合樣式時要拿兩個 list 逐筆比對交易。
+                    IUOIL（Incremental high-Utility Occupancy pattern mining with Indexed List）想在<b>增量資料庫</b>上做得更快、更省記憶體。</p>
+                <p><b>四個重點：</b>（1）<b>IUOI-List</b>：每一格是 〈uo, NId, NIdx, ruo〉，NId、NIdx 把同一筆交易的格子串成一條鍊，list 本身記 suo、sruo；
+                    （2）<b>建構 → 重建</b>：新交易照現有的順序直接接在後面（不重掃舊資料），要結果時照新的支持度由小到大重排，順著索引把每筆交易的格子找出來、重接、算 ruo；
+                    （3）<b>不刪支持度不夠的商品</b>（Lemma 1）：現在不夠，加了新的一批可能就夠了，刪了就救不回來；
+                    （4）<b>三招剪枝</b>：支持度、lubuo（Σ(uo + ruo) ÷ ⌈minSup⌉，便宜但鬆）、ubuo（uo + ruo 最大的 ⌈minSup⌉ 格平均，比較緊），算便宜的先、不過才算貴的。</p>
+                <p><b>實驗結果：</b>Chess、Accidents（稠密）和 Foodmart、Chainstore（稀疏）切成原始資料＋4 批，跟 HUOMI、HUOPM+、樹狀結構的 HUOPID / HUOPID+ 比，IUOIL 都最快、記憶體最省
+                    （例如 Chainstore 比 HUOMI 少用約 75 MB）；T10I4D 合成資料加大到一百萬筆時也穩定成長。結論提到之後想讓資料結構更精簡、剪枝更有效。</p>
+                <div class="diff">
+                    <p style="margin-top:0"><b>這頁的實作跟論文不一樣的地方：</b>
+                        （1）論文演算法 2 第 24 行寫 |CL| ≥ 2 才往下挖，可是只剩一個條件串列時那個樣式還是要檢查（論文 Fig. 10 自己也畫出 {d, b, f}、{e, b, f} 這種只有一個的分支），這頁改成至少 1 個就往下。
+                        （2）合併時要扣掉共同前綴 P 的 uo，論文沒寫 e<sub>pref</sub> 怎麼拿到，這頁在條件串列的每一格多記一個「P 在這筆的 uo」。
+                        （3）論文的 Example 4 有兩個數字前後對不起來：寫 uo(e) = 4.451 ÷ 6，但它自己的 Fig. 7、Fig. 10 是 Σuo(e) = 1.413、Σruo(e) = 4.387、uo(e) = 0.236；lubuo 也寫成除以 Sup(e)。這頁照定義算。
+                        （4）每一格多存交易編號 T，只拿來畫表格和對照，演算法本身沒有用到。</p>
+                    <p>切到「論文 Table 1」對照：α = β = 50%、DB2 進來後找到 {a, d} 0.668、{a, d, f} 0.824、{d, f} 0.597，{e, f} 被 lubuo 0.468、{a, f} 被 ubuo 0.473、b 被 ubuo 0.475、f 被 lubuo 0.403 剪掉，都跟 Fig. 10 一樣；
+                        每次重建後的 list（DB0 的順序 c ≺ e ≺ a ≺ b ≺ f ≺ d、DB1 之後 c ≺ e ≺ a ≺ d ≺ b ≺ f）跟 Fig. 5、Fig. 7 一樣。把 α、β 都調成 25%，挖 DB2 時 {e, a} 的第一格是 〈0.531, d, 1, 0.469〉、{e, a, d} 在 T3 是 0.844，跟 Example 4、5 一樣。</p>
+                </div>
+                <p><b>跟網站上其他 Demo 的關係：</b>同一個實驗室的 <a href="sw-huop.html">HUOPS</a> 是同一個指標的<b>滑動視窗</b>版（舊批次整批丟掉；這頁的資料只增不減）；
+                    uo、ruo、「扣掉共同前綴」的合併都跟 <a href="high-utility.html">HUI-Miner 的 utility list</a>（iutil、rutil）同一套；
+                    資料一批一批長大、不重掃舊資料的想法跟 <a href="ihup.html">IHUP</a>、<a href="pretk.html">PreTK</a> 一樣，只是它們找的是總效益。</p>
+            </div>
+        </div>
+
+        <div class="notes">
+            <div class="card">
+                <h2>為什麼這樣是對的？</h2>
+                <ul>
+                    <li><b>照著索引跳 = 只看同一筆交易：</b>一格的 NId、NIdx 一定指到<b>同一筆交易</b>、排在後面的下一個商品。從 X 的某一格一路跳到 ^，碰到的就是這筆交易裡排在 X 後面的所有商品，
+                        所以每個 X∪{y} 的格子都對應到「同時有 X 和 y 的交易」，不多不少，不用拿兩個 list 比對。</li>
+                    <li><b>順序變了一定要重建：</b>ruo 是「排在後面的商品」佔了多少，鍊子也是照順序串的；新的一批讓支持度改變，順序就跟著變，所以每次要結果前都要重接、重算 ruo。</li>
+                    <li><b>支持度不夠的不能刪：</b>minSup 跟著資料量變大，但一個商品如果新的一批常出現，支持度可以長得比 minSup 快（預設資料的洋芋片：8 筆裡 2 次不夠，10 筆裡 4 次就夠了）。</li>
+                    <li><b>lubuo、ubuo 為什麼能剪：</b>X 的任何延伸 Z，在每筆交易裡的佔有率最多是 X 的 uo + ruo（後面的商品全加進來）；Z 要能輸出至少要出現 ⌈minSup⌉ 次，平均最大的情況就是挑 uo + ruo 最大的 ⌈minSup⌉ 筆（ubuo），
+                        把全部加起來再除也一樣不會比較小（lubuo ≥ ubuo）。佔有率本身沒有向下封閉性，所以只能用上界剪。</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h2>優缺點，以及跟實驗室研究的關係</h2>
+                <ul>
+                    <li><b>省下的：</b>新的一批只要讀它自己；組合樣式時順著索引跳，每一格只看一次，不用像一般 utility list 拿兩邊的 tid 對齊。</li>
+                    <li><b>多付的：</b>每次要結果都要整個重建（排序、每筆交易重接、重算 ruo）和重挖，結果本身沒有增量更新；所有交易一直留在記憶體裡，資料只增不減，舊資料也丟不掉（要丟舊資料就是 <a href="sw-huop.html">滑動視窗</a> 的做法）。</li>
+                    <li><b>上界常常很鬆：</b>uo + ruo 每格最多是 1，β 不高時兩個上界幾乎都會過，剪得多的是支持度。把 β 調高（例如 70%）才看得到 lubuo、ubuo 出手。</li>
+                    <li><b>可以想的題目：</b>順序沒變的時候，舊交易的鍊子和 ruo 其實不用重算，可以只處理新的一批；或是只重挖跟新交易有關的分支——這些都是增量探勘常見的方向。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           IUOIL（增量資料庫上的高效益佔有率樣式，indexed list）一步一步看
+           網頁裡用 JavaScript 照同樣的流程跑一次，把每一步（含每一層遞迴）記下來；
+           右邊的 Java / Python 是可以直接下載執行的版本。
+           ========================================================= */
+        const CODE = /*CODE_JSON*/null;
+        const EPS = 1e-9;   // 小數比大小時的容許誤差（跟 Java / Python 版一樣）
+
+        const parseTx = s => Object.fromEntries(s.split(',').map(kv => { const [i, q] = kv.split(':'); return [i.trim(), Number(q)]; }));
+        const DATASETS = {
+            /* DB0 是其他高效益 Demo 用的同一份 8 筆交易，後面再進來 2 小批（洋芋片在新的批次常出現） */
+            shop: {
+                items: ['咖啡', '麵包', '牛奶', '飯糰', '茶葉蛋', '洋芋片'],
+                emoji: { '咖啡': '☕', '麵包': '🍞', '牛奶': '🥛', '飯糰': '🍙', '茶葉蛋': '🥚', '洋芋片': '🥔' },
+                profit: { '咖啡': 30, '麵包': 15, '牛奶': 20, '飯糰': 10, '茶葉蛋': 5, '洋芋片': 25 },
+                batches: [
+                    [{ '咖啡': 4, '麵包': 2, '牛奶': 2 },
+                     { '咖啡': 3, '麵包': 5, '茶葉蛋': 4 },
+                     { '咖啡': 1, '麵包': 1, '牛奶': 2, '飯糰': 2 },
+                     { '麵包': 3, '牛奶': 4, '洋芋片': 5 },
+                     { '咖啡': 3, '牛奶': 2, '茶葉蛋': 2 },
+                     { '咖啡': 1, '麵包': 2, '牛奶': 1, '茶葉蛋': 1 },
+                     { '飯糰': 1, '茶葉蛋': 2, '洋芋片': 2 },
+                     { '咖啡': 1, '麵包': 2, '飯糰': 1 }],
+                    [{ '洋芋片': 2, '飯糰': 1, '牛奶': 1 },
+                     { '洋芋片': 1, '麵包': 1, '茶葉蛋': 2 }],
+                    [{ '咖啡': 2, '洋芋片': 2 },
+                     { '飯糰': 2, '茶葉蛋': 3, '洋芋片': 1 }]
+                ],
+                a: 30, b: 50
+            },
+            /* 論文 Table 1：DB0 = T1–T5、DB1 = T6–T7、DB2 = T8–T9；α = β = 50% 時 DB2 的挖掘過程是論文 Fig. 10 */
+            paper: {
+                items: ['a', 'b', 'c', 'd', 'e', 'f'],
+                emoji: {},
+                profit: { a: 4, b: 2, c: 1, d: 5, e: 3, f: 3 },
+                batches: [
+                    ['b:2,d:1,f:3', 'a:3,c:2,d:5,f:4', 'a:2,b:1,d:2,e:3,f:1', 'a:4,b:1,d:3,e:1', 'a:3,b:2,d:4,e:1,f:4'].map(parseTx),
+                    ['b:3,c:2,e:4,f:2', 'a:1,b:2,c:3,e:5,f:4'].map(parseTx),
+                    ['a:4,c:2,d:3,e:2,f:2', 'a:2,b:3,d:2,f:3'].map(parseTx)
+                ],
+                a: 50, b: 50
+            }
+        };
+
+        const $ = id => document.getElementById(id);
+        let dsKey = 'shop';
+        let cfg = null;            // { items, emoji, profit, batches, a, b }
+        let lang = 'java';
+        let trace = [];
+        let cursor = 0;
+        let timer = null;
+
+        /* 跟 Java 的 compareTo、Python 的字串比較同一個順序（依字碼） */
+        const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+        const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const plain = set => '{' + set.join(', ') + '}';
+        const fmt = set => esc(plain(set));
+        const keyOf = items => items.join('|');
+        const tName = tid => 'T' + (tid + 1);
+        const dbName = b => 'DB' + b;
+        const f2 = x => x.toFixed(2);
+        const f3 = x => x.toFixed(3);
+        const has = (t, item) => Object.prototype.hasOwnProperty.call(t, item);
+        const lastOf = items => items[items.length - 1];
+        const sym = i => (cfg.emoji && cfg.emoji[i]) || i;
+        const nmOf = i => (cfg.emoji && cfg.emoji[i] ? cfg.emoji[i] : '') + i;
+        const tuOf = (t, profit) => Object.keys(t).reduce((s, i) => s + t[i] * profit[i], 0);
+        const lowOf = (sup, n, a) => sup * 100 < n * a;                 // 支持度不到 minSup = n × α（整數比，不會有小數誤差）
+        const cmsOf = (n, a) => Math.floor((n * a + 99) / 100);          // ⌈minSup⌉
+        const msTxt = n => { const m = n * cfg.a / 100; return Number.isInteger(m) ? String(m) : String(Math.round(m * 100) / 100); };
+        const batchOf = (c, tid) => { let k = 0; for (let b = 0; b < c.batches.length; b++) { k += c.batches[b].length; if (tid < k) return b; } return -1; };
+
+        /* ---------- IUOI-List（跟 Java / Python 的 Node、Entry 一樣） ---------- */
+        const newNode = items => ({ items, entries: [], suo: 0, sruo: 0, sumOk: false });
+        const newEntry = (tid, uo, ruo = 0, puo = 0) => ({ tid, uo, ruo, puo, nid: null, nidx: 0, done: false });
+        const snapNode = (n, re) => ({ items: n.items, rows: n.entries.map(e => [e.tid, e.uo, e.nid, e.nidx, e.ruo, e.done]), suo: n.suo, sruo: n.sruo, sumOk: n.sumOk, re });
+
+        /* ---------- 照著程式把整個流程跑一次，記下每一步 ---------- */
+        function buildTrace(c) {
+            const { profit, batches, a } = c;
+            const beta = c.b / 100;
+            const db = batches.flat();
+            const tus = db.map(t => tuOf(t, profit));
+            const steps = [];
+            const gl = new Map();               // 全域 IUOI-List：商品 -> 節點（支持度不夠的也留著）
+            let order = [];                     // 目前的總順序
+            let n = 0, tid = 0, rebuilt = false, ranked = false, phase = -1, lowPrev = new Set();
+            const stats = { entries: 0, cond: 0, cutSup: 0, cutLub: 0, cutUb: 0 };
+            const results = [];
+            let tree = [], treeById = new Map(), glSnap = [];
+
+            const takeSnap = re => { glSnap = order.filter(i => gl.has(i)).map(i => snapNode(gl.get(i), re)); };
+            const addTree = (items, parentId, extra) => {
+                const nd = { id: keyOf(items), items, parent: parentId, ...extra };
+                tree.push(nd);
+                treeById.set(nd.id, nd);
+            };
+            const push = (kind, extra = {}) => {
+                steps.push({
+                    kind, phase, n, seen: tid, ranked, order: order.slice(), gl: glSnap, stats: { ...stats },
+                    results: results.map(r => ({ ...r, pats: r.pats.slice() })),
+                    tree: tree.map(x => ({ ...x })), ...extra
+                });
+                results.forEach(r => r.pats.forEach(p => { p.fresh = false; }));
+            };
+
+            push('start');
+            batches.forEach((batch, b) => {
+                // ① 新的一批：每筆交易照目前的順序串起來，接在每個商品的 list 後面
+                phase++;
+                batch.forEach(t => {
+                    const tu = tus[tid];
+                    const fresh = Object.keys(t).filter(i => !gl.has(i)).sort(cmp);
+                    order = rebuilt ? order.concat(fresh) : order.concat(fresh).sort(cmp);   // 新商品排最後；還沒重建前照字典順序
+                    const rank = new Map(order.map((i, k) => [i, k]));
+                    const items = Object.keys(t).sort((x, y) => rank.get(x) - rank.get(y));
+                    let prev = null;
+                    const chain = [];
+                    items.forEach(item => {
+                        if (!gl.has(item)) gl.set(item, newNode([item]));
+                        const nd = gl.get(item);
+                        const e = newEntry(tid, t[item] * profit[item] / tu);
+                        nd.entries.push(e);
+                        stats.entries++;
+                        if (prev) { prev.nid = item; prev.nidx = nd.entries.length; }
+                        prev = e;
+                        chain.push({ item, idx: nd.entries.length, uo: e.uo, q: t[item] });
+                    });
+                    gl.forEach(nd => { nd.sumOk = false; });
+                    takeSnap(false);
+                    push('tx', { tid, b, tu, chain, fresh, rebuilt, last: t === batch[batch.length - 1] });
+                    tid++;
+                });
+                n += batch.length;
+
+                // ② 重建：照新的支持度重排，順著索引把每筆交易的格子找出來，重接、算 ruo
+                phase++;
+                const sup = {};
+                gl.forEach((nd, i) => { sup[i] = nd.entries.length; });
+                const oldOrder = order.slice();
+                const old = new Map(oldOrder.map((i, k) => [i, k]));
+                order = oldOrder.slice().sort((x, y) => sup[x] - sup[y] || old.get(x) - old.get(y));
+                const rank = new Map(order.map((i, k) => [i, k]));
+                const low = order.filter(i => lowOf(sup[i], n, a));
+                const promoted = order.filter(i => lowPrev.has(i) && !low.includes(i));
+                gl.forEach(nd => { nd.suo = nd.sruo = 0; nd.sumOk = true; nd.entries.forEach(e => { e.done = false; }); });
+                ranked = true;
+                takeSnap(true);
+                push('sort', { b, sup, oldOrder, low, promoted, firstRound: !rebuilt });
+                const seenSet = new Set();
+                oldOrder.forEach(item => {
+                    gl.get(item).entries.forEach((e, k) => {
+                        if (seenSet.has(e)) return;          // 已經在別的交易鏈裡處理過了
+                        const chain = [];
+                        let it = item, ix = k + 1;
+                        while (it !== null) {
+                            const en = gl.get(it).entries[ix - 1];
+                            seenSet.add(en);
+                            chain.push({ item: it, idx: ix, en });
+                            it = en.nid; ix = en.nidx;
+                        }
+                        const before = chain.map(x => ({ item: x.item, idx: x.idx }));
+                        chain.sort((p, q) => rank.get(p.item) - rank.get(q.item));
+                        let rest = 0;
+                        for (let j = chain.length - 1; j >= 0; j--) {
+                            const en = chain[j].en, nx = chain[j + 1];
+                            en.ruo = rest;
+                            rest += en.uo;
+                            en.nid = nx ? nx.item : null;
+                            en.nidx = nx ? nx.idx : 0;
+                            en.done = true;
+                        }
+                        chain.forEach(x => { const nd = gl.get(x.item); nd.suo += x.en.uo; nd.sruo += x.en.ruo; });
+                        takeSnap(true);
+                        push('relink', {
+                            b, tid: chain[0].en.tid, head: item, headIdx: k + 1, before,
+                            after: chain.map(x => ({ item: x.item, idx: x.idx, uo: x.en.uo, ruo: x.en.ruo, nid: x.en.nid, nidx: x.en.nidx }))
+                        });
+                    });
+                });
+                rebuilt = true;
+                lowPrev = new Set(low);
+
+                // ③ 挖：深度優先，三招剪枝，照著索引跳出更長的樣式
+                phase++;
+                tree = [];
+                treeById = new Map();
+                order.forEach(i => addTree([i], '', { status: 'wait' }));
+                const cms = cmsOf(n, a);
+                const R = { b, n, cms, pats: [], done: false, ok: null, gone: [], newKeys: [] };
+                results.push(R);
+                const search = cl => {
+                    for (let k = 0; k < cl.length; k++) {
+                        const x = cl[k];
+                        const node = treeById.get(keyOf(x.items));
+                        const s = x.entries.length;
+                        const later = cl.slice(k + 1).map(y => lastOf(y.items));
+                        const ck = { sup: s, later, out: false, avg: null, lub: null, ub: null, tops: [], verdict: '' };
+                        if (lowOf(s, n, a)) { ck.verdict = 'sup'; stats.cutSup++; }
+                        else {
+                            ck.avg = x.suo / s;
+                            if (ck.avg >= beta - EPS) { ck.out = true; R.pats.push({ items: x.items, sup: s, uo: ck.avg, fresh: true }); }
+                            ck.lub = (x.suo + x.sruo) / cms;
+                            if (ck.lub < beta - EPS) { ck.verdict = 'lub'; if (later.length) stats.cutLub++; }
+                            else {
+                                const vec = x.entries.map(e => ({ tid: e.tid, v: e.uo + e.ruo })).sort((p, q) => q.v - p.v);
+                                ck.ub = vec.slice(0, cms).reduce((acc, r) => acc + r.v, 0) / cms;
+                                ck.tops = vec.slice(0, cms).map(r => r.tid);
+                                if (ck.ub < beta - EPS) { ck.verdict = 'ub'; if (later.length) stats.cutUb++; }
+                                else ck.verdict = 'go';
+                            }
+                        }
+                        Object.assign(node, { status: 'done', sup: s, avg: ck.avg, lub: ck.lub, ub: ck.ub, verdict: ck.verdict, out: ck.out, leaf: !later.length });
+                        push('check', { b, x: snapNode(x, false), ...ck, cms, cur: node.id });
+                        if (ck.verdict !== 'go') continue;
+
+                        // 順著 x 每一格的索引往後跳，一次做出所有 x 再加一個商品的條件串列
+                        const lists = new Map(cl.map(y => [lastOf(y.items), y]));
+                        const fresh = new Map();
+                        let walk = null;
+                        x.entries.forEach((e, ei) => {
+                            let prev = null, it = e.nid, ix = e.nidx;
+                            const path = [];
+                            while (it !== null) {
+                                const ey = lists.get(it).entries[ix - 1];
+                                if (!fresh.has(it)) fresh.set(it, newNode([...x.items, it]));
+                                const nd = fresh.get(it);
+                                const ne = newEntry(e.tid, e.uo + ey.uo - e.puo, ey.ruo, e.uo);   // 前綴 P 兩邊都算了，扣掉一次
+                                ne.done = true;
+                                nd.entries.push(ne);
+                                nd.suo += ne.uo;
+                                nd.sruo += ne.ruo;
+                                stats.cond++;
+                                if (prev) { prev.nid = it; prev.nidx = nd.entries.length; }
+                                prev = ne;
+                                path.push({ item: it, idx: ix, yuo: ey.uo, uo: ne.uo, ruo: ne.ruo, at: nd.entries.length });
+                                it = ey.nid; ix = ey.nidx;
+                            }
+                            if (!walk && path.length) walk = { tid: e.tid, ei: ei + 1, xuo: e.uo, puo: e.puo, path };
+                        });
+                        const ncl = [...fresh.values()].sort((p, q) => rank.get(lastOf(p.items)) - rank.get(lastOf(q.items)));
+                        ncl.forEach(nd => { nd.sumOk = true; addTree(nd.items, node.id, { status: 'built', sup: nd.entries.length }); });
+                        push('extend', { b, x: snapNode(x, false), news: ncl.map(nd => snapNode(nd, false)), walk, later, cur: node.id, srcs: ncl.map(nd => keyOf(nd.items)) });
+                        if (ncl.length) search(ncl);
+                    }
+                };
+                search(order.map(i => gl.get(i)));
+
+                // 跟暴力法對照：把目前讀過的交易、所有組合直接算一遍
+                const bf = brute(c, n);
+                const mineKeys = new Set(R.pats.map(p => keyOf([...p.items].sort(cmp))));
+                R.ok = bf.length === R.pats.length && bf.every(p => mineKeys.has(keyOf(p.items)) &&
+                    R.pats.some(q => keyOf([...q.items].sort(cmp)) === keyOf(p.items) && q.sup === p.sup && Math.abs(q.uo - p.uo) < 1e-9));
+                R.bfCount = bf.length;
+                R.freqCount = bf.freq;
+                const prevR = results.length > 1 ? results[results.length - 2] : null;
+                const prevKeys = prevR ? new Set(prevR.pats.map(p => keyOf([...p.items].sort(cmp)))) : null;
+                R.newKeys = prevR ? R.pats.filter(p => !prevKeys.has(keyOf([...p.items].sort(cmp)))).map(p => keyOf([...p.items].sort(cmp))) : [];
+                R.gone = prevR ? prevR.pats.filter(p => !mineKeys.has(keyOf([...p.items].sort(cmp)))).map(p => p.items) : [];
+                R.done = true;
+                takeSnap(false);
+                push('result', { b, idx: results.length - 1 });
+            });
+            push('end');
+            return steps;
+        }
+
+        /* 暴力法：只看前 n 筆交易，列舉所有組合，直接算支持度和平均佔有率 */
+        function brute(c, n) {
+            const txs = c.batches.flat().slice(0, n);
+            const items = [...new Set(txs.flatMap(t => Object.keys(t)))].sort(cmp);
+            const beta = c.b / 100;
+            const out = [];
+            let freq = 0;
+            for (let m = 1; m < (1 << items.length); m++) {
+                const set = items.filter((_, i) => m >> i & 1);
+                const occ = txs.filter(t => set.every(i => has(t, i)));
+                if (!occ.length || lowOf(occ.length, n, c.a)) continue;
+                freq++;
+                const uo = occ.reduce((acc, t) => acc + set.reduce((s, i) => s + t[i] * c.profit[i], 0) / tuOf(t, c.profit), 0) / occ.length;
+                if (uo >= beta - EPS) out.push({ items: set, sup: occ.length, uo });
+            }
+            out.freq = freq;
+            return out;
+        }
+
+        /* 給測試用：每次挖到的 [樣式, 支持度, 佔有率] */
+        function runAll(c) {
+            return buildTrace(c).filter(s => s.kind === 'result').map(s => {
+                const r = s.results[s.idx];
+                return { n: r.n, ok: r.ok, pats: r.pats.map(p => [p.items, p.sup, p.uo]) };
+            });
+        }
+
+        /* ---------- 說明文字 ---------- */
+        const symList = list => list.map(i => esc(sym(i))).join('、');
+        const cellTxt = (item, idx) => `${esc(sym(item))}#${idx}`;
+        const pathTxt = list => list.map(x => cellTxt(x.item, x.idx)).join(' → ');
+        const ordTxt = list => list.map(i => esc(i)).join(' ≺ ');
+        const later3 = list => esc(list.length > 4 ? list.slice(0, 4).join('、') + ` 等 ${list.length} 個` : list.join('、'));
+        const roundTxt = b => b === 0 ? '原始資料庫 DB0 讀完' : `${dbName(b)} 接上去`;
+        function describe(s) {
+            const beta = cfg.b / 100;
+            switch (s.kind) {
+                case 'start': {
+                    const t0 = cfg.batches[0][0], i0 = Object.keys(t0).sort(cmp)[0], tu0 = tuOf(t0, cfg.profit);
+                    const sizes = cfg.batches.map((bt, b) => `${dbName(b)} ${bt.length} 筆`).join('、');
+                    return `資料庫會<b>一批一批長大</b>（${sizes}），每加一批都要重新給一次結果。一個組合在一筆交易的<b>佔有率 uo</b> = 它的效益 ÷ 這筆的總效益 TU，` +
+                        `例如 T1 裡 ${esc(i0)} 是 ${t0[i0]}×${cfg.profit[i0]} = ${t0[i0] * cfg.profit[i0]}，TU = ${tu0}，uo = ${f2(t0[i0] * cfg.profit[i0] / tu0)}；把它出現過的交易的 uo 平均起來，就是它的佔有率。` +
+                        `目標：出現至少 minSup = 目前筆數 × ${cfg.a}% 次、而且平均佔有率 ≥ β = <b>${f2(beta)}</b> 的組合。IUOIL 把每筆交易拆成各商品 list 裡的一格，再用 NId、NIdx 串起來。`;
+                }
+                case 'tx': {
+                    const t = cfg.batches.flat()[s.tid];
+                    const e = s.chain[0], l = s.chain.length > 1 ? s.chain[0] : null;
+                    let h = `${tName(s.tid)} 進來（${dbName(s.b)}），TU = ${Object.keys(t).map(i => `${t[i]}×${cfg.profit[i]}`).join(' + ')} = ${s.tu}。` +
+                        `照目前的順序（${s.rebuilt ? '上次重建的順序，新商品排最後' : '還沒重建過，先照字典順序'}）把商品排好：${pathTxt(s.chain)}。` +
+                        `每個商品的 list 最後面加一格，記 uo（例如 ${esc(e.item)}：${e.q}×${cfg.profit[e.item]} / ${s.tu} = <b>${f2(e.uo)}</b>）；`;
+                    h += l ? `再讓前一格的 <b>NId</b> 寫下一個商品、<b>NIdx</b> 寫那一格是它 list 的第幾格，例如 ${esc(l.item)} 這格寫 (${esc(sym(s.chain[1].item))}, ${s.chain[1].idx})。`
+                        : `這筆只有一個商品，NId、NIdx 都是 ^。`;
+                    h += `舊的交易一格都不用動。ruo 和 Σ 先不算（順序還會變）。`;
+                    if (s.rebuilt && s.fresh.length) h += `${esc(s.fresh.join('、'))} 第一次出現，開一個新的 list。`;
+                    if (s.last) h += `${dbName(s.b)} 讀完，要給結果了，先重建。`;
+                    return h;
+                }
+                case 'sort': {
+                    const ord = s.order.map(i => `${esc(i)}(${s.sup[i]})`).join(' ≺ ');
+                    const same = s.oldOrder.join() === s.order.join();
+                    let h = `${roundTxt(s.b)}，共 ${s.n} 筆，minSup = ${s.n} × ${cfg.a}% = <b>${msTxt(s.n)}</b>。重建第一步：照支持度<b>由小到大</b>排（一樣多就照原本的先後），括號是出現幾次：${ord}。`;
+                    h += s.firstRound ? `之前是照字典順序串的，現在每條鍊子都要照新順序重接、算 ruo。`
+                        : same ? `順序跟上次一樣，但新交易的 ruo 還沒算，照論文的做法全部重新接一次、重算 ruo。`
+                        : `順序跟上次（${ordTxt(s.oldOrder)}）不一樣了，NId、NIdx、ruo 都要重算。`;
+                    if (s.promoted.length) h += `<b>${esc(s.promoted.join('、'))} 上次還不夠，這次夠了</b>——當初如果把它的 list 刪掉，現在就救不回來了（Lemma 1）。`;
+                    if (s.low.length) h += `${esc(s.low.join('、'))} 不到 minSup，<b>list 照樣留著</b>：之後的批次可能讓它變夠。`;
+                    return h;
+                }
+                case 'relink': {
+                    const r = s.after.find(x => x.ruo > 0) || s.after[0];
+                    const tail = s.after.slice(s.after.indexOf(r) + 1);
+                    return `重接 ${tName(s.tid)}：在 ${esc(s.head)} 的 list 第 ${s.headIdx} 格碰到還沒處理過的格子（它是這筆在舊順序的第一個商品），照 NId、NIdx 一路跳：` +
+                        `${pathTxt(s.before)}，<b>不用回頭讀交易</b>就拿到這筆的所有格子。照新順序排成 ${pathTxt(s.after)}，從最後一個往前算 ruo（排在後面的 uo 加總）` +
+                        (tail.length ? `，例如 ${esc(r.item)} 的 ruo = ${tail.map(x => f2(x.uo)).join(' + ')} = <b>${f2(r.ruo)}</b>` : '') +
+                        `；NId、NIdx 也改成指向新順序的下一格（最後一個寫 ^）。每格的 uo、ruo 順便加進 list 的 Σ。`;
+                }
+                case 'check': {
+                    const x = s.x, ms = msTxt(s.n);
+                    let t = `檢查 ${fmt(x.items)}：sup = ${s.sup}`;
+                    if (s.verdict === 'sup') return t + ` < minSup ${ms}，<b>① 支持度剪枝</b>：再加商品只會出現得更少，自己不算、整個分支也跳過。`;
+                    t += ` ≥ ${ms}；平均佔有率 = Σuo / sup = ${f2(x.suo)} / ${s.sup} = ${f3(s.avg)}` +
+                        (s.out ? ` ≥ ${f2(beta)}，<b class="ok">輸出</b>。` : ` < ${f2(beta)}，本身不夠。`);
+                    t += `<b>② lubuo</b> = (Σuo + Σruo) / ⌈minSup⌉ = (${f2(x.suo)} + ${f2(x.sruo)}) / ${s.cms} = ${f2(s.lub)}`;
+                    if (s.verdict === 'lub') return t + ` < ${f2(beta)}：就算把後面的商品全加進來也到不了，<b>${s.later.length ? '整個分支剪掉' : '後面也沒商品了'}</b>（ubuo 不用算）。`;
+                    t += ` ≥ ${f2(beta)}，再算比較緊的 <b>③ ubuo</b>：uo + ruo 最大的 ${s.cms} 格（${s.tops.map(tName).join('、')}）平均 = ${f2(s.ub)}`;
+                    if (s.verdict === 'ub') return t + ` < ${f2(beta)}，<b>${s.later.length ? 'ubuo 把這個分支剪掉' : '後面也沒商品了'}</b>。`;
+                    return t + (s.later.length ? ` ≥ ${f2(beta)}，三關都過，往下長：後面還有 ${later3(s.later)}。`
+                        : ` ≥ ${f2(beta)}，可是後面沒有商品可以再加，到此為止。`) +
+                        (!s.out && s.later.length ? `<b>不能看它本身不夠就丟掉</b>：佔有率沒有向下封閉性，組合變大，佔的比例可能更高。` : '');
+                }
+                case 'extend': {
+                    const x = s.x, w = s.walk;
+                    if (!w) return `${fmt(x.items)} 照著索引往後跳：每一格的 NId 都是 ^（在每筆交易裡它都排最後），沒有東西可以接，這個分支到此為止。`;
+                    const p0 = w.path[0];
+                    const names = s.news.map(nd => esc(plain(nd.items))).join('、');
+                    return `${fmt(x.items)} 往下長。不用拿它去跟每個 list 逐筆比對交易，而是<b>照著每一格的索引往後跳</b>：例如它的第 ${w.ei} 格（${tName(w.tid)}）` +
+                        `一路跳 ${pathTxt(w.path)} 到 ^，路上碰到的每個商品 y，都在 ${fmt(x.items)}∪{y} 的條件串列加一格，NId、NIdx 也照同樣的方式串好。` +
+                        `新格子的 uo = 這格的 uo + y 那格的 uo` + (x.items.length > 1 ? ` − 共同前綴的 uo（兩邊都算了一次），例如 ${esc(sym(p0.item))}：${f2(w.xuo)} + ${f2(p0.yuo)} − ${f2(w.puo)} = <b>${f2(p0.uo)}</b>`
+                            : `，例如 ${esc(sym(p0.item))}：${f2(w.xuo)} + ${f2(p0.yuo)} = <b>${f2(p0.uo)}</b>`) +
+                        `；ruo 直接抄 y 那格的（${f2(p0.ruo)}）。${x.rows.length} 格都跳完，做出 ${s.news.length} 個條件串列：${names}。`;
+                }
+                case 'result': {
+                    const r = s.results[s.idx];
+                    let t = `第 ${s.idx + 1} 次挖完（${s.idx ? `DB0～${dbName(r.b)}` : 'DB0'}，${r.n} 筆）：找到 <b>${r.pats.length}</b> 個高效益佔有率樣式。` +
+                        `用暴力法對照（把這 ${r.n} 筆的所有組合直接算一遍）：` + (r.ok ? `<b class="ok">一模一樣 ✓</b>。` : `<b class="no">不一致 ✗</b>。`) +
+                        (r.freqCount > r.pats.length ? `只看支持度會有 ${r.freqCount} 個，佔有率把 ${r.freqCount - r.pats.length} 個刷掉了。` : '');
+                    if (s.idx > 0) t += r.newKeys.length || r.gone.length ? `跟上一次比：新出現 ${r.newKeys.length} 個、消失 ${r.gone.length} 個。` : `跟上一次的結果一樣。`;
+                    if (s.idx < cfg.batches.length - 1) t += `接下來 ${dbName(s.idx + 1)} 進來。`;
+                    return t;
+                }
+                case 'end': {
+                    const st = s.stats;
+                    return `${cfg.batches.length} 批都處理完，每次都跟暴力法${s.results.every(r => r.ok) ? '<b class="ok">一致</b>' : '<b class="no">有不一致</b>'}。` +
+                        `全域 list 一共 ${st.entries} 格（每筆交易每個商品一格，舊的從來不用重讀）；挖的時候照索引跳出 ${st.cond} 個條件格子。` +
+                        `① 支持度跳過 ${st.cutSup} 次，② lubuo 剪掉 ${st.cutLub} 個分支、③ ubuo 再多剪 ${st.cutUb} 個。` +
+                        (st.cutLub + st.cutUb === 0 ? `這組門檻下上界沒有出手，把 β 調高看看。` : '');
+                }
+            }
+            return '';
+        }
+
+        const CODE_TAGS = s => {
+            switch (s.kind) {
+                case 'tx': return ['insert'];
+                case 'check': return ['check'].concat(s.out ? ['output'] : [], s.verdict === 'sup' ? [] : ['lub'],
+                    s.verdict === 'ub' || s.verdict === 'go' ? ['ub'] : []);
+                case 'end': return ['loop'];
+                default: return [s.kind];        // start / sort / relink / extend / result
+            }
+        };
+
+        /* ---------- 交易資料庫 ---------- */
+        function drawDB(s) {
+            const db = cfg.batches.flat();
+            const cols = s.order.concat(cfg.items.filter(i => !s.order.includes(i)));
+            const ranked = s.ranked;
+            const showLow = !['start', 'tx'].includes(s.kind);
+            const curTid = s.kind === 'tx' || s.kind === 'relink' ? s.tid : -1;
+            const fi = s.kind === 'check' || s.kind === 'extend' ? s.x.items : null;
+            const sup = {};
+            db.slice(0, s.seen).forEach(t => Object.keys(t).forEach(i => { sup[i] = (sup[i] || 0) + 1; }));
+            let h = '<thead><tr><th class="tid-h"></th>' + cols.map((i, k) => {
+                const seen = s.order.includes(i);
+                return `<th class="${seen ? '' : 'unseen'}"><span class="rk">${seen && ranked ? '#' + (k + 1) : '&nbsp;'}</span><span class="emo">${esc(sym(i))}</span>` +
+                    `<span class="pf">$${cfg.profit[i]}</span></th>`;
+            }).join('') + '<th class="tu-h">TU</th></tr></thead><tbody>';
+            let tid = 0;
+            cfg.batches.forEach((bt, b) => {
+                const later = tid >= s.seen, cur = b === s.b && ['tx', 'sort', 'relink'].includes(s.kind);
+                h += `<tr class="bh${later ? ' later' : ''}${cur ? ' cur' : ''}"><td colspan="${cols.length + 2}">${dbName(b)}<span class="bn">${b === 0 ? '原始資料庫' : '新的一批'} · ${bt.length} 筆${later ? ' · 還沒進來' : ''}</span></td></tr>`;
+                bt.forEach(t => {
+                    const lt = tid >= s.seen;
+                    const match = fi && !lt && fi.every(i => has(t, i));
+                    h += `<tr class="${lt ? 'later' : ''}${tid === curTid ? ' cur' : ''}${match ? ' match' : ''}"><td class="tid">${tName(tid)}</td>` + cols.map(i =>
+                        has(t, i) ? `<td><div class="cell has${match && fi.includes(i) ? ' hit' : ''}">${t[i]}</div></td>` : '<td><div class="cell"></div></td>').join('') +
+                        `<td class="tu">${tuOf(t, cfg.profit)}</td></tr>`;
+                    tid++;
+                });
+            });
+            h += `</tbody><tfoot><tr><td class="tid">sup</td>` + cols.map(i =>
+                `<td class="${showLow && sup[i] !== undefined && lowOf(sup[i], s.n, cfg.a) ? 'low' : ''}">${sup[i] !== undefined ? sup[i] : ''}</td>`).join('') + '<td></td></tr></tfoot>';
+            if (drawDB.last !== h) { $('db').innerHTML = h; drawDB.last = h; }
+            $('db-sub').textContent = s.seen ? `讀了 ${s.seen} 筆` + (showLow ? ` · minSup = ${msTxt(s.n)}` : '') : '';
+        }
+
+        /* ---------- IUOI-List ---------- */
+        function ulBox(n, { role = '', cls = '', mark = null, hop = null, tops = null, foot = '', rank = 0, low = false } = {}) {
+            const rows = n.rows.map(([tid, uo, nid, nidx, ruo, done], k) => {
+                const c = [mark && mark.has(tid) ? 'ex' : '', hop && hop.has(k + 1) ? 'hop' : '', tops && tops.includes(tid) ? 'tp' : '', n.re && !done ? 'old' : ''].join(' ');
+                return `<tr class="${c}"><td class="ix">${k + 1}</td><td class="t">${tName(tid)}</td><td>${f2(uo)}</td><td class="nid">${nid === null ? '^' : esc(sym(nid))}</td>` +
+                    `<td class="nidx">${nid === null ? '^' : nidx}</td><td>${done ? f2(ruo) : '–'}</td></tr>`;
+            }).join('');
+            const name = n.items.length === 1 ? nmOf(n.items[0]) : plain(n.items);
+            return `<div class="ul ${cls}${low ? ' low' : ''}"><div class="ul-h">${role ? `<span class="role">${role}</span>` : ''}${rank ? `<span class="rk">#${rank}</span>` : ''}<span>${esc(name)}</span><span class="sp">sup ${n.rows.length}</span></div>` +
+                `<table><tr><th>#</th><th>T</th><th>uo</th><th>NId</th><th>NIdx</th><th>ruo</th></tr>${rows}` +
+                `<tr class="sum"><td>Σ</td><td></td><td>${n.sumOk ? f2(n.suo) : '–'}</td><td></td><td></td><td>${n.sumOk ? f2(n.sruo) : '–'}</td></tr></table>` +
+                (foot ? `<div class="ul-f">${foot}</div>` : '') + '</div>';
+        }
+        const chip = (txt, cls = '') => `<span class="tc ${cls}">${txt}</span>`;
+        const arrow = '<span class="ar">→</span>';
+
+        function drawLists(s) {
+            const sub = $('ul-sub');
+            const beta = cfg.b / 100;
+            let h = '', ch = '';
+            const lowSet = new Set(['sort', 'relink', 'result', 'end'].includes(s.kind) ? s.order.filter(i => {
+                const g = s.gl.find(x => x.items[0] === i);
+                return g && lowOf(g.rows.length, s.n, cfg.a);
+            }) : []);
+            const globals = (opt = {}) => s.gl.map((g, k) => ulBox(g, { rank: s.ranked ? k + 1 : 0,
+                low: lowSet.has(g.items[0]), foot: s.kind === 'sort' && lowSet.has(g.items[0]) ? '支持度不夠，但 list 留著' : '', ...opt(g) })).join('');
+            if (s.kind === 'start') {
+                sub.textContent = '';
+                h = '<div class="uls-empty">還沒有交易進來，list 是空的。</div>';
+            } else if (s.kind === 'tx') {
+                sub.textContent = `${tName(s.tid)} 接在後面`;
+                const mark = new Set([s.tid]);
+                h = globals(() => ({ mark }));
+                ch = `<span>${tName(s.tid)} 的鍊子：</span>` + s.chain.map((x, k) => chip(cellTxt(x.item, x.idx), 'up') + (k < s.chain.length - 1 ? arrow : '')).join('') + arrow + chip('^');
+            } else if (s.kind === 'sort') {
+                sub.textContent = '照支持度由小到大重排';
+                h = globals(() => ({}));
+                ch = '<span>舊順序：</span>' + s.oldOrder.map(i => chip(esc(sym(i)))).join('') + '<span class="br"></span><span>新順序：</span>' + s.order.map(i => chip(esc(sym(i)), 'rd')).join('');
+            } else if (s.kind === 'relink') {
+                sub.textContent = `重接 ${tName(s.tid)}`;
+                const mark = new Set([s.tid]);
+                h = globals(() => ({ mark }));
+                ch = `<span>跳：</span>` + s.before.map((x, k) => chip(cellTxt(x.item, x.idx)) + (k < s.before.length - 1 ? arrow : '')).join('') +
+                    '<span class="br"></span><span>重接：</span>' + s.after.map((x, k) => chip(`${cellTxt(x.item, x.idx)} ruo ${f2(x.ruo)}`, 'up') + (k < s.after.length - 1 ? arrow : '')).join('');
+            } else if (s.kind === 'check') {
+                const x = s.x;
+                sub.textContent = `檢查 ${plain(x.items)}`;
+                let foot = `sup <b class="${lowOf(s.sup, s.n, cfg.a) ? 'no' : 'ok'}">${s.sup}</b>（minSup ${msTxt(s.n)}）`;
+                if (s.avg !== null) foot += ` · 平均 uo <b class="${s.out ? 'ok' : 'no'}">${f3(s.avg)}</b>`;
+                if (s.lub !== null) foot += ` · lubuo <b class="${s.lub >= beta - EPS ? 'ok' : 'no'}">${f2(s.lub)}</b>`;
+                if (s.ub !== null) foot += ` · ubuo <b class="${s.ub >= beta - EPS ? 'ok' : 'no'}">${f2(s.ub)}</b>`;
+                h = ulBox(x, { cls: 'focus', tops: s.tops.length ? s.tops : null, foot });
+                if (s.ub !== null) ch = `<span>紫色粗體是 uo + ruo 最大的 ${s.cms} 格（算 ubuo 用）</span>`;
+            } else if (s.kind === 'extend') {
+                sub.textContent = s.news.length ? `照索引跳出 ${s.news.length} 個條件串列` : '沒有可以接的';
+                const w = s.walk;
+                const mark = w ? new Set([w.tid]) : null;
+                h = ulBox(s.x, { role: 'X', cls: 'focus', mark, hop: w ? new Set([w.ei]) : null }) +
+                    (s.news.length ? '<span class="op">→</span>' + s.news.map(nd => ulBox(nd, { cls: 'res', mark })).join('') : '');
+                if (w) ch = `<span>第 ${w.ei} 格（${tName(w.tid)}）跳：</span>` + w.path.map(p => arrow + chip(`${cellTxt(p.item, p.idx)}`, 'hop')).join('') + arrow + chip('^') +
+                    '<span class="br"></span><span>新格子：</span>' + w.path.map(p => chip(`${esc(sym(p.item))}#${p.at} uo ${f2(p.uo)}`, 'up')).join('');
+            } else {
+                sub.textContent = s.kind === 'result' ? '全域 list（這次重建後）' : '全域 list';
+                h = globals(() => ({}));
+            }
+            if (drawLists.last !== h) { $('uls').innerHTML = h; drawLists.last = h; }   // 跟上一步一樣就不重畫
+            if (drawLists.lastCh !== ch) { $('chain').innerHTML = ch; drawLists.lastCh = ch; }
+        }
+
+        /* ---------- 搜尋樹 ---------- */
+        function nodeView(n, s) {
+            const last = lastOf(n.items);
+            const beta = cfg.b / 100;
+            let cls = n.status, tag = '';
+            switch (n.status) {
+                case 'wait': tag = '待檢查'; break;
+                case 'built': tag = `sup ${n.sup}，待檢查`; break;
+                case 'done': {
+                    const cut = n.verdict === 'sup' ? `✂ ① sup ${n.sup} < ${msTxt(s.n)}`
+                        : n.verdict === 'lub' && !n.leaf ? `✂ ② lubuo ${f2(n.lub)} < ${f2(beta)}`
+                        : n.verdict === 'ub' && !n.leaf ? `✂ ③ ubuo ${f2(n.ub)} < ${f2(beta)}` : '';
+                    if (n.out) { cls = 'hui'; tag = '✓ 輸出' + (cut ? '，' + cut : ''); }
+                    else if (cut) { cls = 'cut'; tag = cut; }
+                    else if (n.leaf) { cls = 'low'; tag = '不夠，後面也沒商品'; }
+                    else { cls = 'go'; tag = '不夠，但上界夠，往下找'; }
+                    break;
+                }
+            }
+            if (n.id === s.cur) cls += ' cur';
+            else if (s.srcs && s.srcs.includes(n.id)) cls += ' src';
+            const vals = n.status === 'done' && n.avg !== null ? `<span class="v">sup <b>${n.sup}</b> · uo <b>${f2(n.avg)}</b></span>` : '';
+            return `<div class="tn ${cls}" title="${fmt(n.items)}"><span class="n">${n.items.length > 1 ? '＋' : ''}${esc(nmOf(last))}</span>${vals}<span class="tag">${tag}</span></div>`;
+        }
+        function drawTree(s) {
+            const box = $('tree');
+            const mining = ['check', 'extend', 'result'].includes(s.kind) || (s.kind === 'end' && s.tree.length);
+            if (!mining) {
+                const h = `<div class="tree-empty">${s.kind === 'sort' || s.kind === 'relink' ? '重建完（排好順序、接好鍊子、算好 ruo）就從這裡開始深度優先搜尋。' : '這一批讀完、要結果的時候，這裡會長出這一次的搜尋樹。'}</div>`;
+                if (drawTree.last !== h) { box.innerHTML = h; drawTree.last = h; }
+                return;
+            }
+            const kids = {};
+            s.tree.forEach(n => { (kids[n.parent] = kids[n.parent] || []).push(n); });
+            const li = n => `<li>${nodeView(n, s)}${kids[n.id] ? `<ul>${kids[n.id].map(li).join('')}</ul>` : ''}</li>`;
+            const R = s.results[s.results.length - 1];
+            const h = `<ul class="tr"><li><div class="tn root">∅ 第 ${s.results.length} 次（${R.n} 筆）</div><ul>${(kids[''] || []).map(li).join('')}</ul></li></ul>`;
+            if (drawTree.last !== h) { box.innerHTML = h; drawTree.last = h; }
+            if (measuringBlocks) return;
+            // 只捲樹的框，讓這一步的節點留在看得到的地方
+            const el = box.querySelector('.tn.cur');
+            if (el) {
+                const y = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+                if (y < box.scrollTop + 10 || y + el.offsetHeight > box.scrollTop + box.clientHeight - 10) {
+                    box.scrollTo({ top: Math.max(0, y - box.clientHeight / 2), behavior: 'smooth' });
+                }
+            }
+        }
+
+        /* ---------- 每次挖的結果 ---------- */
+        function patChip(items, sup, uo, cls) {
+            const p = document.createElement('span');
+            p.className = 'pat ' + cls;
+            p.innerHTML = '<span class="nm"></span><span class="n"></span>';
+            p.firstChild.textContent = plain(items);
+            p.lastChild.textContent = uo === null ? '掉出' : `${sup} · ${f3(uo)}`;
+            return p;
+        }
+        function winBox(r, k, now) {
+            const w = document.createElement('div');
+            w.className = 'win' + (now ? ' now' : '');
+            w.innerHTML = '<div class="win-h"><span class="wn"></span><span class="rg"></span><span class="bf"></span></div><div class="items"></div>';
+            w.querySelector('.wn').textContent = `#${k + 1}`;
+            w.querySelector('.rg').textContent = `${k ? 'DB0～' + dbName(r.b) : 'DB0'}（${r.n} 筆，minSup ${msTxt(r.n)}）`;
+            const bf = w.querySelector('.bf');
+            bf.textContent = r.done ? (r.ok ? '✓ 跟暴力法一致' : '✗ 跟暴力法不同') : '挖掘中…';
+            bf.className = 'bf' + (r.done ? (r.ok ? ' ok' : ' no') : '');
+            const items = w.querySelector('.items');
+            const nk = new Set(r.done ? r.newKeys : []);
+            r.pats.forEach(p => items.appendChild(patChip(p.items, p.sup, p.uo, (p.fresh ? 'fresh ' : '') + (nk.has(keyOf([...p.items].sort(cmp))) ? 'newp' : ''))));
+            if (r.done) r.gone.forEach(g => items.appendChild(patChip(g, 0, null, 'gone')));
+            if (!items.children.length) items.innerHTML = `<span class="empty">${r.done ? '（沒有）' : '還沒找到'}</span>`;
+            return w;
+        }
+        function drawResult(s) {
+            const box = $('wins');
+            // 只重畫內容有變的那一次（大部分步驟只有最後一次在變，或完全沒變）
+            const sigs = s.results.map((r, k) => `${r.done}:${r.pats.length}:${r.pats.map(p => p.fresh ? 1 : 0).join('')}:${k === s.results.length - 1 && s.kind !== 'end'}`);
+            const emptySig = s.results.length ? '' : 'empty';
+            if (drawResult.box !== box.firstChild || drawResult.emptySig !== emptySig) { box.innerHTML = ''; drawResult.sigs = []; }
+            drawResult.emptySig = emptySig;
+            if (!s.results.length && !box.firstChild) {
+                box.innerHTML = '<div class="empty">還沒挖過。每一批讀完、重建好之後挖一次，結果會一個一個列在這裡（小字是「支持度 · 平均佔有率」）。</div>';
+            }
+            const old = drawResult.sigs || [];
+            const kids = [...box.querySelectorAll(':scope > .win')];
+            kids.slice(sigs.length).forEach(el => el.remove());
+            sigs.forEach((g, k) => {
+                if (old[k] === g && kids[k]) return;
+                const el = winBox(s.results[k], k, k === s.results.length - 1 && s.kind !== 'end');
+                if (kids[k]) box.replaceChild(el, kids[k]); else box.appendChild(el);
+            });
+            drawResult.sigs = sigs;
+            drawResult.box = box.firstChild;
+            $('st-ent').textContent = s.stats.entries;
+            $('st-cond').textContent = s.stats.cond;
+            $('st-sup').textContent = s.stats.cutSup;
+            $('st-ub').textContent = `${s.stats.cutLub} / ${s.stats.cutUb}`;
+        }
+
+        /* ---------- 進度（每一批：讀進來、重建、挖） ---------- */
+        function buildPhases() {
+            const list = [];
+            trace.forEach((s, i) => {
+                if (s.phase < 0 || list[s.phase]) return;
+                list[s.phase] = { at: i, label: s.kind === 'tx' ? `${dbName(s.b)} 進來` : s.kind === 'sort' ? '重建' : `挖 #${s.b + 1}`, mine: s.kind !== 'tx' };
+            });
+            const box = $('phases');
+            box.innerHTML = '';
+            list.forEach((p, k) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'phase' + (p.mine ? ' mine' : '');
+                b.id = `ph${k}-first`;            // id 結尾是 first：量高度時按下去會先排隊
+                b.textContent = p.label;
+                b.addEventListener('click', () => { stopAuto(); quizClose(); cursor = p.at; showStep(); });
+                box.appendChild(b);
+            });
+        }
+        function renderPhases(s) {
+            [...$('phases').children].forEach((b, k) => b.classList.toggle('cur', k === s.phase));
+        }
+
+        /* ---------- 程式碼 ---------- */
+        const KW = {
+            java: new Set('public static final for if return new boolean int long double void class import while else null this continue'.split(' ')),
+            py: new Set('def for in if return not and or while import from as True False None class is lambda continue del self'.split(' '))
+        };
+        function highlight(line) {
+            const at = lang === 'java' ? line.indexOf('//') : line.indexOf('#');
+            let body = line, comment = '';
+            if (at >= 0) { body = line.slice(0, at); comment = line.slice(at); }
+            if (lang === 'py' && /^\s*"""/.test(line)) { body = ''; comment = line; }
+            if (lang === 'java' && /^\s*\/\*\*/.test(line)) { body = ''; comment = line; }
+            const out = body.replace(/("(?:[^"\\]|\\.)*")|(\b\d+(?:\.\d+)?(?:e-?\d+)?\b)|([A-Za-z_]\w*)(\s*\()?|([^"\w]+)/g, (m, str, num, word, call) => {
+                if (str) return `<span class="str">${esc(str)}</span>`;
+                if (num) return `<span class="num">${num}</span>`;
+                if (word) {
+                    if (KW[lang].has(word)) return `<span class="kw">${word}</span>${call ? esc(call) : ''}`;
+                    if (call) return `<span class="fn">${word}</span>${esc(call)}`;
+                    if (lang === 'java' && /^[A-Z]/.test(word)) return `<span class="ty">${word}</span>`;
+                    return word;
+                }
+                return esc(m);
+            });
+            return out + (comment ? `<span class="cm">${esc(comment)}</span>` : '');
+        }
+
+        function renderCode(tags) {
+            if (measuringBlocks || restoringBlocks) return;   // 量區塊高度時不用畫程式碼（程式碼框高度不會變），量完畫回來時它也沒被動過，省時間
+            const pre = $('code');
+            pre.innerHTML = CODE[lang].map(([text, t], i) =>
+                `<span class="ln${t.some(x => tags.includes(x)) ? ' hl' : ''}" data-n="${i + 1}">${highlight(text) || ' '}</span>`).join('');
+            // 只捲程式碼框本身，不捲整個頁面
+            const hls = [...pre.querySelectorAll('.ln.hl')];
+            if (hls.length) {
+                const groups = [];
+                hls.forEach(el => {
+                    const g = groups[groups.length - 1];
+                    if (g && Number(el.dataset.n) === Number(g[g.length - 1].dataset.n) + 1) g.push(el); else groups.push([el]);
+                });
+                const span = (a, b) => [a.offsetTop, b.offsetTop + b.offsetHeight];
+                let [y0, y1] = span(hls[0], hls[hls.length - 1]);
+                if (y1 - y0 > pre.clientHeight - 16) {
+                    const big = groups.reduce((x, y) => (y.length > x.length ? y : x));
+                    [y0, y1] = span(big[0], big[big.length - 1]);
+                }
+                const target = (y0 + y1) / 2 - pre.clientHeight / 2;
+                pre.scrollTo({ top: Math.max(0, Math.min(target, y0 - 8)), behavior: 'smooth' });
+            }
+            $('downloads').innerHTML = lang === 'java'
+                ? '下載 <a href="code/IUOIL.java" download>IUOIL.java</a>　執行 <code>javac IUOIL.java && java IUOIL</code>'
+                : '下載 <a href="code/iuoil.py" download>iuoil.py</a>　執行 <code>python3 iuoil.py</code>';
+        }
+
+        /* ---------- 顯示某一步 ---------- */
+        function showStep() {
+            const s = trace[cursor];
+            $('explain').innerHTML = `<span class="step-no">步驟 ${cursor + 1} / ${trace.length}</span>${describe(s)}`;
+            renderPhases(s);
+            drawDB(s);
+            drawLists(s);
+            drawTree(s);
+            drawResult(s);
+            renderCode(CODE_TAGS(s));
+            $('btn-prev').disabled = $('btn-first').disabled = cursor === 0;
+            $('btn-next').disabled = cursor === trace.length - 1;
+        }
+
+        /* 一步一步播放時，各區塊的內容會變多變少（樹長大、清單變長…）。
+           先把每一步都畫一次，用最高的那一次把每個區塊的高度固定住，
+           區塊變長變短才不會把旁邊或下面的東西推來推去。
+           步驟多時要量一陣子，所以分段量：每段量完立刻畫回目前這一步，畫面不會閃，也不會卡住；
+           量完之前按的上一步／下一步會先排隊，量完才做，所以一開頁馬上按也不會跳。 */
+        let measuringBlocks = false, restoringBlocks = false, blockJob = 0, blocksBusy = false, blockQueue = [], blockPort = null, blockLast = null;
+        function reserveBlockHeights(scope, count, showAt, current) {
+            const job = ++blockJob;
+            blockLast = [scope, count, showAt, current];
+            const blocks = [...scope.querySelectorAll('.card')].filter(b => !b.closest('[hidden]'));
+            const finish = () => {   // 量完了：把量的時候先按下去的上一步／下一步照順序補做
+                blocksBusy = false;
+                document.documentElement.removeAttribute('aria-busy');
+                const q = blockQueue;
+                blockQueue = [];
+                q.forEach(f => f());
+            };
+            if (!blocks.length || count < 2) { finish(); return; }
+            blocksBusy = true;
+            document.documentElement.setAttribute('aria-busy', 'true');
+            const passes = scope.querySelector('.card .card') ? 2 : 1;   // 區塊裡還有區塊時，第二輪把外層補足
+            let base = blocks.map(() => ''), tallest = blocks.map(() => 0), i = 0, pass = 0, cost = 0, back = 0;
+            const chunk = () => {
+                if (job !== blockJob) return;   // 資料或參數又變了，這一輪作廢
+                const t0 = performance.now();
+                const cur = current(), shown = blocks.map(b => b.style.minHeight);
+                try {
+                    measuringBlocks = true;
+                    blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                    // 每段約 45ms 內（含最後畫回目前這一步）能量幾步就量幾步：照前面每一步花的時間估，來不及就先停
+                    do {
+                        const s = performance.now();
+                        showAt(i);
+                        blocks.forEach((b, k) => { tallest[k] = Math.max(tallest[k], Math.ceil(b.getBoundingClientRect().height)); });
+                        const dt = performance.now() - s;
+                        cost = cost ? cost * 0.7 + dt * 0.3 : dt;   // 最近幾步的平均
+                        if (++i === count) {
+                            i = 0; pass++;
+                            base = tallest.map(h => h + 'px');
+                            blocks.forEach((b, k) => { b.style.minHeight = base[k]; });
+                        }
+                    } while (pass < passes && performance.now() - t0 + cost + back < 45);
+                } finally {
+                    measuringBlocks = false;
+                }
+                blocks.forEach((b, k) => { b.style.minHeight = pass < passes ? shown[k] : base[k]; });
+                // 畫回目前這一步；量的時候沒動過的部分（程式碼框）不用重畫
+                const s = performance.now();
+                restoringBlocks = true;
+                try { showAt(cur); } finally { restoringBlocks = false; }
+                const dt = performance.now() - s;
+                back = back ? back * 0.7 + dt * 0.3 : dt;
+                if (pass < passes) blockTick(chunk); else finish();
+            };
+            chunk();
+        }
+        // 下一段用 MessageChannel 排：比 setTimeout(0) 快（沒有 4ms 的最短間隔），點擊和按鍵一樣插得進來
+        function blockTick(f) {
+            if (!blockPort) {
+                const ch = new MessageChannel(), fns = [];
+                ch.port1.onmessage = () => fns.shift()();
+                blockPort = g => { fns.push(g); ch.port2.postMessage(0); };
+            }
+            blockPort(f);
+        }
+        // 還在量的時候按上一步／下一步／播放（或左右鍵）：先記下來，量完再照順序做。
+        // 不然一開頁馬上按，區塊還沒固定高度就變長，會把下面的東西推下去。
+        document.addEventListener('click', e => {
+            const b = blocksBusy && e.target.closest && e.target.closest('button');
+            if (!b || !/(^|-)(first|prev|next|play|last)$/.test(b.id)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            blockQueue.push(() => b.click());
+        }, true);
+        document.addEventListener('keydown', e => {
+            if (!blocksBusy || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+            if (e.target.closest && e.target.closest('input, textarea, select')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const t = e.target, key = e.key;
+            blockQueue.push(() => t.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
+        }, true);
+        // 網路字型（Space Mono 等）比較晚到時字寬字高會變，原本量的高度可能不夠：字型載完再量一次
+        if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (blockLast) reserveBlockHeights(...blockLast); });
+
+        /* 說明框用這一輪最長的那段文字的高度固定住，下面的東西才不會跳來跳去 */
+        function reserveExplainHeight() {
+            quizReserve();   // 練習模式的題目框也要先預留高度，再量各區塊
+            const box = $('explain');
+            if (!box.offsetWidth) return;
+            const probe = box.cloneNode(false);
+            probe.removeAttribute('id');
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;min-height:0;width:${box.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                probe.innerHTML = `<span class="step-no">步驟 ${i + 1} / ${trace.length}</span>${describe(s)}`;
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            box.style.minHeight = tallest + 'px';
+            reserveBlockHeights(document, trace.length, i => { cursor = i; showStep(); }, () => cursor);
+        }
+
+        /* ---------- 參數 ---------- */
+        function renderParams() {
+            $('a-val').textContent = cfg.a + '%';
+            $('be-val').textContent = cfg.b + '%';
+            $('a-minus').disabled = cfg.a <= 5;
+            $('a-plus').disabled = cfg.a >= 100;
+            $('be-minus').disabled = cfg.b <= 5;
+            $('be-plus').disabled = cfg.b >= 100;
+            let n = 0;
+            const parts = cfg.batches.map((bt, b) => { n += bt.length; return `${dbName(b)} 後 ${n} 筆 → <b>${msTxt(n)}</b>`; });
+            $('derived').innerHTML = `minSup = 筆數 × α：${parts.join('　·　')}　·　β = <b>${f2(cfg.b / 100)}</b>`;
+            [...$('ds').children].forEach(x => x.classList.toggle('active', x.dataset.ds === dsKey));
+        }
+        function setCfg(c) { cfg = c; }
+        function loadDataset(k) {
+            dsKey = k;
+            const d = DATASETS[k];
+            setCfg({ items: d.items, emoji: d.emoji, profit: d.profit, batches: d.batches, a: d.a, b: d.b });
+        }
+
+        function rebuild() {
+            stopAuto();
+            trace = buildTrace(cfg);
+            cursor = 0;
+            drawResult.box = drawLists.last = drawLists.lastCh = drawTree.last = drawDB.last = null;
+            buildPhases();
+            renderParams();
+            showStep();
+            reserveExplainHeight();
+        }
+
+        /* =========================================================
+           練習模式「猜下一步」（各 Demo 共用，規格見 tools/research/BRIEF.md）
+           打開後按「下一步」：如果下一步有題目（quizFor 不是 null），先在說明框的位置疊一層題目，
+           答完立刻顯示對錯和一句解釋，按「繼續」才真的前進。題目都從 trace 算出來，資料或門檻改了照樣能出題。
+           ========================================================= */
+        const QZ = { on: false, q: null, at: -1, picked: new Set(), answered: false, done: new Set(), right: 0, total: 0, trace: null };
+
+        /* 固定種子的亂數：同一步每次出的題目都一樣，預留高度時量到的才會跟真的顯示的一致 */
+        function quizRng(seed) {
+            let a = (seed * 2654435761) >>> 0 || 1;
+            return () => { a ^= a << 13; a >>>= 0; a ^= a >>> 17; a ^= a << 5; a >>>= 0; return a / 4294967296; };
+        }
+        const quizPick = (arr, rnd) => arr[Math.floor(rnd() * arr.length)];
+        function quizShuffle(arr, rnd) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+            return a;
+        }
+        /* 數字題：正確答案＋容易搞混的數字（traps）＋附近的數字，湊滿 4 個、由小到大排 */
+        function quizNums(ans, lo, hi, rnd, traps = []) {
+            const set = new Set([ans]);
+            traps.forEach(v => { if (set.size < 4 && v >= lo && v <= hi) set.add(v); });
+            for (let d = 1; set.size < 4 && d <= hi - lo; d++) {
+                quizShuffle([ans + d, ans - d], rnd).forEach(v => { if (set.size < 4 && v >= lo && v <= hi) set.add(v); });
+            }
+            const nums = [...set].sort((a, b) => a - b);
+            return { choices: nums.map(String), answer: nums.indexOf(ans) };
+        }
+        /* 文字選項：opts[0] 是正確的，其他是陷阱；去掉重複、打亂後回傳 choices 和正確的索引 */
+        function quizOptions(opts, rnd) {
+            const seen = new Set();
+            const list = quizShuffle(opts.filter(o => !seen.has(o.text) && seen.add(o.text)).map((o, k) => ({ ...o, ok: k === 0 })), rnd);
+            return { choices: list.map(o => o.text), answer: list.findIndex(o => o.ok) };
+        }
+
+        /* 複選題只剩一個選項時，改成「會／不會」二選一（q 是問句，例如「{咖啡, 牛奶} 會留下來嗎？」） */
+        function quizSingle(multiQ, q) {
+            return { ...multiQ, q, choices: ['會', '不會'], answer: multiQ.answer.length ? 0 : 1, multi: false, ask: { ...multiQ.ask, only: multiQ.choices } };
+        }
+
+        /* 把一題畫進 box（q、choices、why 都是純文字，一律用 textContent） */
+        function quizRender(box, q) {
+            box.innerHTML = '<div class="quiz-head"><span class="quiz-tag"></span><div class="quiz-actions">' +
+                '<button type="button" class="btn quiz-ok">確定</button><button type="button" class="btn quiz-go">跳過</button></div></div>' +
+                '<div class="quiz-body"><div class="quiz-text"></div><div class="quiz-why" aria-live="polite"><b class="quiz-verdict">✗ 不對喔</b><span></span></div></div>' +
+                '<div class="quiz-choices"></div>';
+            box.querySelector('.quiz-tag').textContent = q.multi ? '🎯 猜猜看（可複選）' : '🎯 猜猜看';
+            box.querySelector('.quiz-text').textContent = q.q;
+            const list = box.querySelector('.quiz-choices');
+            const longest = Math.max(...q.choices.map(c => c.length));
+            list.classList.add(longest > 12 ? 'wide' : longest > 4 ? 'half' : 'row');   // 長選項一行一個、短的兩欄、數字排一列
+            q.choices.forEach((c, k) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'quiz-choice';
+                b.dataset.k = k;
+                b.textContent = c;
+                list.appendChild(b);
+            });
+            box.querySelector('.quiz-why span').textContent = q.why;
+            box.querySelector('.quiz-ok').style.display = q.multi ? '' : 'none';
+        }
+        function quizOpen(q, at) {
+            Object.assign(QZ, { q, at, picked: new Set(), answered: false });
+            const box = $('quiz');
+            box.classList.remove('done', 'miss', 'nudge');
+            quizRender(box, q);
+            box.hidden = false;
+        }
+        function quizClose() {
+            QZ.q = null;
+            QZ.at = -1;
+            $('quiz').hidden = true;
+        }
+        function quizAnswer() {
+            const q = QZ.q, want = new Set(q.multi ? q.answer : [q.answer]);
+            const ok = want.size === QZ.picked.size && [...want].every(k => QZ.picked.has(k));
+            QZ.answered = true;
+            QZ.done.add(QZ.at);
+            QZ.total++;
+            if (ok) QZ.right++;
+            const box = $('quiz');
+            box.querySelectorAll('.quiz-choice').forEach(b => {
+                const k = Number(b.dataset.k);
+                b.classList.toggle('right', want.has(k));
+                b.classList.toggle('wrong', QZ.picked.has(k) && !want.has(k));
+                b.classList.toggle('missed', !!q.multi && want.has(k) && !QZ.picked.has(k));
+                b.disabled = true;
+            });
+            box.querySelector('.quiz-verdict').textContent = ok ? '✓ 答對了！' : '✗ 不對喔';
+            box.classList.add('done');
+            box.classList.toggle('miss', !ok);
+            box.querySelector('.quiz-go').textContent = '繼續 ▶';
+            quizScore();
+        }
+        function quizScore() {
+            $('quiz-score').textContent = `答對 ${QZ.right}/${QZ.total}`;
+            $('quiz-score').style.visibility = QZ.on ? 'visible' : 'hidden';
+            $('quiz-toggle').classList.toggle('quiz-on', QZ.on);
+            $('quiz-toggle').setAttribute('aria-pressed', String(QZ.on));
+        }
+
+        /* 接在 step(dir) 最前面：回傳 true 表示「先別前進，題目還沒答」 */
+        function quizGate(dir) {
+            if (dir < 0 || !QZ.on) { quizClose(); return false; }
+            if (QZ.q) {
+                if (QZ.answered || QZ.at !== cursor + 1) { quizClose(); return false; }
+                const box = $('quiz');
+                box.classList.remove('nudge');
+                void box.offsetWidth;          // 重新觸發動畫
+                box.classList.add('nudge');
+                return true;
+            }
+            const at = cursor + 1;
+            if (at >= trace.length || QZ.done.has(at)) return false;
+            const q = quizFor(trace[at], at);
+            if (!q) return false;
+            quizOpen(q, at);
+            return true;
+        }
+
+        /* 題目框的高度：把這一輪每一題都畫一次，用最高的那題固定（關掉練習模式時也一樣預留，開關才不會推動下面） */
+        function quizReserve() {
+            if (QZ.trace !== trace) { QZ.trace = trace; QZ.done.clear(); quizClose(); }   // 資料或門檻改了，重新出題
+            const host = $('quiz-host');
+            if (!host.offsetWidth) return;
+            const probe = document.createElement('div');
+            probe.className = 'quiz done';
+            probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;top:0;right:auto;bottom:auto;width:${host.offsetWidth}px`;
+            document.body.appendChild(probe);
+            let tallest = 0;
+            trace.forEach((s, i) => {
+                const q = quizFor(s, i);
+                if (!q) return;
+                quizRender(probe, q);
+                tallest = Math.max(tallest, probe.offsetHeight);
+            });
+            probe.remove();
+            host.style.minHeight = tallest ? tallest + 'px' : '';
+        }
+
+        $('quiz').addEventListener('click', e => {
+            const q = QZ.q;
+            if (!q) return;
+            const c = e.target.closest('.quiz-choice');
+            if (c && !QZ.answered) {
+                const k = Number(c.dataset.k);
+                if (!q.multi) { QZ.picked = new Set([k]); quizAnswer(); return; }
+                if (QZ.picked.has(k)) QZ.picked.delete(k); else QZ.picked.add(k);
+                c.classList.toggle('sel', QZ.picked.has(k));
+                return;
+            }
+            if (e.target.closest('.quiz-ok') && !QZ.answered) { quizAnswer(); return; }
+            if (e.target.closest('.quiz-go')) {
+                if (!QZ.answered) QZ.done.add(QZ.at);   // 跳過：不計分，也不再問
+                quizClose();
+                $('btn-next').click();
+            }
+        });
+        $('quiz-toggle').addEventListener('click', () => {
+            QZ.on = !QZ.on;
+            if (!QZ.on) quizClose();
+            quizScore();
+        });
+        $('btn-first').addEventListener('click', quizClose);
+
+        /* 小數題：正確答案＋容易搞混的數字，湊滿 4 個、由小到大排（顯示到小數第 2 位） */
+        function quizDec(ans, traps, rnd) {
+            const seen = new Set([f2(ans)]);
+            const vals = [ans];
+            traps.forEach(v => { if (vals.length < 4 && isFinite(v) && v >= 0 && !seen.has(f2(v))) { seen.add(f2(v)); vals.push(v); } });
+            for (let d = 1; vals.length < 4 && d < 40; d++) {
+                quizShuffle([ans + 0.05 * d, ans - 0.05 * d], rnd).forEach(v => { if (vals.length < 4 && v >= 0 && !seen.has(f2(v))) { seen.add(f2(v)); vals.push(v); } });
+            }
+            vals.sort((p, q) => p - q);
+            return { choices: vals.map(f2), answer: vals.indexOf(ans) };
+        }
+
+        const CAT = ['輸出，也往下展開', '輸出，但不再往下', '不輸出，但往下展開', '不輸出，也不往下'];
+        /* 第 i 步（s = trace[i]）要出的題目：{ q, choices, answer, why, multi?, ask? } 或 null（ask 只給 quiz_test.py 對答案用） */
+        function quizFor(s, i) {
+            const rnd = quizRng(i + 1);
+            const beta = cfg.b / 100;
+            switch (s.kind) {
+                case 'tx': {
+                    if (s.tid % 2 === 0 && s.chain.length > 1) {          // 偶數筆問 NIdx：指到下一個商品的第幾格
+                        const k = Math.floor(rnd() * (s.chain.length - 1));
+                        const a = s.chain[k], nx = s.chain[k + 1];
+                        return {
+                            q: `${tName(s.tid)} 串成 ${s.chain.map(x => sym(x.item)).join(' → ')}。${sym(a.item)} 這一格的 NId 是 ${sym(nx.item)}，NIdx 要填多少？`,
+                            ...quizNums(nx.idx, 1, Math.max(nx.idx + 2, 4), rnd, [a.idx, nx.idx - 1, s.tid + 1]),
+                            why: `NIdx 是「${sym(nx.item)} 的 list 第幾格」：${tName(s.tid)} 是有 ${sym(nx.item)} 的第 ${nx.idx} 筆交易，它那格剛好接在第 ${nx.idx} 格（不是交易編號、也不是 ${sym(a.item)} 自己的第幾格）。`,
+                            ask: { type: 'nidx', tid: s.tid, item: nx.item }
+                        };
+                    }
+                    if (s.tid % 2 === 0) return null;
+                    const e = quizPick(s.chain, rnd);
+                    const t = cfg.batches.flat()[s.tid];
+                    const qs = Object.values(t).reduce((acc, v) => acc + v, 0), ps = Object.keys(t).reduce((acc, k) => acc + cfg.profit[k], 0);
+                    return {
+                        q: `${tName(s.tid)} 進來，TU = ${s.tu}。${e.item}（買 ${e.q} 個、利潤 ${cfg.profit[e.item]}）這一格的 uo 是多少？`,
+                        ...quizDec(e.uo, [e.q / qs, cfg.profit[e.item] / ps, 1 - e.uo], rnd),
+                        why: `uo = 自己的效益 ÷ 整筆 TU = ${e.q}×${cfg.profit[e.item]} / ${s.tu} = ${f2(e.uo)}（看的是錢，不是個數）。`,
+                        ask: { type: 'uo', tid: s.tid, item: e.item }
+                    };
+                }
+                case 'sort': {
+                    const items = Object.keys(s.sup);
+                    if (items.length <= 6) {
+                        const ch = quizShuffle(items.slice().sort(cmp), rnd);
+                        const ans = ch.map((x, k) => k).filter(k => lowOf(s.sup[ch[k]], s.n, cfg.a));
+                        const mq = {
+                            q: `讀了 ${s.n} 筆，minSup = ${msTxt(s.n)}。哪些商品支持度不到？（都夠就直接按確定）`,
+                            choices: ch, answer: ans, multi: true,
+                            why: (ans.length ? `${ans.map(k => `${ch[k]} 只出現 ${s.sup[ch[k]]} 次`).join('、')}，< ${msTxt(s.n)}。` : `每個商品都至少出現 ${msTxt(s.n)} 次。`) +
+                                `不夠的 list 也不刪，之後可能變夠。`,
+                            ask: { type: 'low', n: s.n }
+                        };
+                        return ch.length > 1 ? mq : quizSingle(mq, `讀了 ${s.n} 筆，minSup = ${msTxt(s.n)}。${ch[0]} 支持度不到嗎？`);
+                    }
+                    const o = s.order;
+                    return {
+                        q: `照支持度由小到大重排（一樣多照原本的先後），排第一個的是哪個？`,
+                        ...quizOptions([{ text: o[0] }, { text: o[o.length - 1] }, { text: o[1] }, { text: items.slice().sort(cmp)[0] }], rnd),
+                        why: `${o[0]} 只出現 ${s.sup[o[0]]} 次，是最少的；最多的 ${o[o.length - 1]}（${s.sup[o[o.length - 1]]} 次）排最後。`,
+                        ask: { type: 'first', n: s.n }
+                    };
+                }
+                case 'relink': {
+                    if (s.after.length < 2 || i % 2) return null;
+                    if (s.tid % 2) {                                         // 問新的 NId：新順序裡下一個是誰
+                        const k = Math.floor(rnd() * (s.after.length - 1));
+                        const a = s.after[k];
+                        const oldNext = s.before[s.before.findIndex(x => x.item === a.item) + 1];
+                        return {
+                            q: `重接 ${tName(s.tid)}（有 ${s.after.map(x => x.item).sort(cmp).join('、')}）。照新順序，${a.item} 這一格的 NId 要改成誰？`,
+                            ...quizOptions([...new Set([s.after[k + 1].item].concat(oldNext ? [oldNext.item] : [],
+                                s.after.filter(x => x.item !== a.item).map(x => x.item), ['^（後面沒有了）']))].slice(0, 4).map(text => ({ text })), rnd),
+                            why: `新順序是 ${s.order.join(' ≺ ')}，這筆排成 ${s.after.map(x => x.item).join(' → ')}，${a.item} 後面是 ${s.after[k + 1].item}。`,
+                            ask: { type: 'nid', n: s.n, tid: s.tid, item: a.item }
+                        };
+                    }
+                    const r = quizPick(s.after.slice(0, -1), rnd);
+                    return {
+                        q: `重接 ${tName(s.tid)}，照新順序排成 ${s.after.map(x => x.item).join(' → ')}。${r.item} 這一格的 ruo 是多少？`,
+                        ...quizDec(r.ruo, [r.ruo + r.uo, r.uo, Math.max(0, 1 - r.ruo - r.uo)], rnd),
+                        why: `ruo = 排在 ${r.item} 後面的商品 uo 加總 = ${f2(r.ruo)}，不含自己的 ${f2(r.uo)}。`,
+                        ask: { type: 'ruo', n: s.n, tid: s.tid, item: r.item }
+                    };
+                }
+                case 'check': {
+                    const more = s.verdict === 'go' && s.later.length > 0;
+                    const nums = s.verdict === 'sup' ? `sup ${s.sup}（minSup ${msTxt(s.n)}）`
+                        : `sup ${s.sup}（minSup ${msTxt(s.n)}）、平均 uo ${f3(s.avg)}、lubuo ${f2(s.lub)}` + (s.ub !== null ? `、ubuo ${f2(s.ub)}` : '（ubuo 還沒算）');
+                    return {
+                        q: `${plain(s.x.items)}：${nums}，β = ${f2(beta)}，` + (s.later.length ? `後面還有 ${s.later.join('、')}。` : '後面沒有商品了。') + '接下來？',
+                        choices: CAT,
+                        answer: (s.out ? 0 : 2) + (more ? 0 : 1),
+                        why: s.verdict === 'sup' ? `sup ${s.sup} < ${msTxt(s.n)}，① 支持度剪枝：自己不算，加商品只會更少，整個跳過。`
+                            : (s.out ? `平均 ${f3(s.avg)} ≥ ${f2(beta)}，輸出；` : `平均 ${f3(s.avg)} < ${f2(beta)}，不輸出；`) +
+                            (!s.later.length ? '後面沒有商品，到此為止。'
+                                : s.verdict === 'lub' ? `② lubuo ${f2(s.lub)} < ${f2(beta)}，整個分支剪掉。`
+                                : s.verdict === 'ub' ? `lubuo 過了，但 ③ ubuo ${f2(s.ub)} < ${f2(beta)}，剪掉。`
+                                : `兩個上界都 ≥ ${f2(beta)}，往下展開。`),
+                        ask: { type: 'check', n: s.n, items: s.x.items }
+                    };
+                }
+                case 'extend': {
+                    const w = s.walk;
+                    if (!w) return null;
+                    if (s.x.items.length > 1 || rnd() < 0.5) {              // 有共同前綴一定問（要扣），其他問一半
+                        const p = quizPick(w.path, rnd);
+                        const items = [...s.x.items, p.item];
+                        return {
+                            q: `${plain(s.x.items)} 第 ${w.ei} 格（${tName(w.tid)}，uo ${f2(w.xuo)}）跳到 ${plain([...s.x.items.slice(0, -1), p.item])} 那格（uo ${f2(p.yuo)}）。新的 ${plain(items)} 這一格的 uo？`,
+                            ...quizDec(p.uo, [w.xuo + p.yuo, p.yuo, w.xuo], rnd),
+                            why: s.x.items.length > 1 ? `${f2(w.xuo)} + ${f2(p.yuo)} − 共同前綴的 ${f2(w.puo)} = ${f2(p.uo)}：前綴的佔有率兩邊都算了，要扣掉一次。`
+                                : `沒有共同前綴，兩格直接相加：${f2(w.xuo)} + ${f2(p.yuo)} = ${f2(p.uo)}。`,
+                            ask: { type: 'cuo', n: s.n, tid: w.tid, items }
+                        };
+                    }
+                    const tot = s.news.length;
+                    return {
+                        q: `${plain(s.x.items)} 照著每一格的索引往後跳完，總共會做出幾個條件串列（${plain(s.x.items)} 再加一個商品）？`,
+                        ...quizNums(tot, 1, Math.max(tot + 2, s.later.length, 4), rnd, [s.later.length, s.x.rows.length]),
+                        why: `跳的時候碰到的商品有 ${s.news.map(nd => lastOf(nd.items)).join('、')}，一共 ${tot} 個；後面的商品${s.later.length > tot ? `有 ${s.later.length} 個，但有的從來沒跟 ${plain(s.x.items)} 一起出現` : '都碰得到'}。`,
+                        ask: { type: 'nlists', n: s.n, items: s.x.items }
+                    };
+                }
+                case 'result': {
+                    const r = s.results[s.idx];
+                    const prev = s.idx ? s.results[s.idx - 1].pats.length : -1;
+                    return {
+                        q: `第 ${s.idx + 1} 次挖完（${r.n} 筆），一共有幾個高效益佔有率樣式？`,
+                        ...quizNums(r.pats.length, 0, Math.max(r.freqCount, r.pats.length + 3), rnd, [r.freqCount, prev]),
+                        why: `綠框的 ${r.pats.length} 個；只看支持度會有 ${r.freqCount} 個，佔有率不夠的被刷掉。`,
+                        ask: { type: 'count', n: r.n }
+                    };
+                }
+            }
+            return null;
+        }
+
+        function step(dir) {
+            if (quizGate(dir)) return false;   // 練習模式：下一步有題目時先答題
+            const next = cursor + dir;
+            if (next < 0 || next >= trace.length) return false;
+            cursor = next;
+            showStep();
+            return cursor < trace.length - 1;
+        }
+        function stopAuto() {
+            clearInterval(timer);
+            timer = null;
+            $('btn-play').textContent = '▶ 自動播放';
+        }
+        $('btn-next').addEventListener('click', () => { stopAuto(); step(1); });
+        $('btn-prev').addEventListener('click', () => { stopAuto(); step(-1); });
+        $('btn-first').addEventListener('click', () => { stopAuto(); cursor = 0; showStep(); });
+        $('btn-play').addEventListener('click', () => {
+            if (timer) { stopAuto(); return; }
+            if (cursor === trace.length - 1) { cursor = 0; showStep(); }
+            $('btn-play').textContent = '⏸ 暫停';
+            timer = setInterval(() => { if (!step(1)) stopAuto(); }, 1700);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.target.closest && e.target.closest('select, input, textarea')) return;
+            if (e.key === 'ArrowRight') { stopAuto(); step(1); }
+            if (e.key === 'ArrowLeft') { stopAuto(); step(-1); }
+        });
+        const bump = (k, d) => () => { cfg[k] += d; rebuild(); };
+        $('a-minus').addEventListener('click', bump('a', -5));
+        $('a-plus').addEventListener('click', bump('a', 5));
+        $('be-minus').addEventListener('click', bump('b', -5));
+        $('be-plus').addEventListener('click', bump('b', 5));
+        $('ds').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b || b.dataset.ds === dsKey) return;
+            loadDataset(b.dataset.ds);
+            rebuild();
+        });
+        $('lang').addEventListener('click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            lang = b.dataset.lang;
+            [...$('lang').children].forEach(x => x.classList.toggle('active', x === b));
+            renderCode(CODE_TAGS(trace[cursor]));
+        });
+        let resizeTimer = null;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(reserveExplainHeight, 150); });
+
+        loadDataset('shop');
+        rebuild();
+    </script>
+</body>
+
+</html>

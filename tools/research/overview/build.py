@@ -169,6 +169,12 @@ NODES = [
          struct='IHUP-tree（存所有商品）、條件樹，另外保留交易供驗證', fit='交易一直新增、要常常拿高效益結果',
          short='CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。',
          frm=[('cantree', 'solid', '一樣用固定順序的樹，新交易直接插')]),
+    dict(id='iuoil', name='IUOIL', sub='論文 2024', year='2024', page='iuoil', group='hui', x=C, y=545,
+         idea='看效益佔有率（組合的效益 ÷ 整筆交易的效益）；IUOI-List 每格記同一筆交易的下一個商品在哪（NId／NIdx），新的一批接在後面再重排重接，組合時照索引跳，不用逐筆比對交易；支持度、lubuo、ubuo 三招剪枝',
+         scans='每批讀 1 次（舊交易不重掃）', cand='不會',
+         struct='IUOI-List（indexed list）', fit='資料一直新增、想找每筆交易裡的「主角」組合',
+         short='增量版的效益佔有率：照索引跳著組，不比對交易。',
+         frm=[('huiminer', 'solid', '一樣是串列結構，換成 indexed list、量的是佔有率')]),
     dict(id='pretk', name='PreTK', sub='論文 2025', year='2025', page='pretk', group='inc', x=E, y=48,
          idea='兩個 k：前 k_lower 名是答案、到第 k_upper 名的候補一起存在樹上；新一批的 max TWU 小於安全距離就只更新樹，否則從 Global-Utility-List 重挖（單品、GLIU、上次的門檻先把門檻拉高）',
          scans='每批讀 1 次；重挖也不回頭掃舊交易', cand='不會（utility list）',
@@ -291,7 +297,7 @@ ROUTES = [
 ROUTE_EXTRA = {  # 路線走完可以接著看的
     '串流與空間路線': ['bloom', 'hll', 'huops', 'swupa', 'skyline', 'irtree'],
     '入門路線': ['gsp', 'spade', 'gspan', 'pfp'],
-    '高效益路線': ['foth', 'uspan', 'fup', 'cantree', 'ihup', 'pretk'],
+    '高效益路線': ['foth', 'uspan', 'fup', 'cantree', 'ihup', 'pretk', 'iuoil'],
 }
 
 # ── 產生 HTML 片段 ──────────────────────────────────────────

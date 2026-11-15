@@ -202,7 +202,7 @@
         <p class="intro">
             這裡的 Demo 看起來主題很多，其實大部分都從同一個起點長出來：<b>Apriori</b> 的「不頻繁的組合，包含它的更大組合也一定不頻繁」。
             之後的方法有的換資料結構（樹、垂直格式、清單），有的換問題（看順序、看利潤、資料一直進來、資料有位置）。
-            下面的圖把 34 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
+            下面的圖把 35 個演算法照「改良自／延伸自」連起來，點方框就能進那個 Demo；不知道從哪開始，就照<b>閱讀路線</b>走；
             想一次比較，最下面有<b>比較表</b>。大部分 Demo 用的都是同一份 8 筆超商交易（☕🍞🥛🍙🥚🥔），換頁時可以直接對照數字。
         </p>
 
@@ -244,6 +244,7 @@
 <path class="e" data-s="prefixspan" data-t="uspan" d="M540,293.0 C562,293.0 558,545.0 578,545.0" marker-end="url(#ar)"><title>PrefixSpan → USpan 高效益序列：一樣的 I-接、S-接深度優先，只是次數換成效益</title></path>
 <path class="e" data-s="huiminer" data-t="uspan" d="M648,486.0 L648,522.0" marker-end="url(#ar)"><title>HUI-Miner → USpan 高效益序列：TWU → SWU、剩餘效益 → ru</title></path>
 <path class="e" data-s="cantree" data-t="ihup" d="M540,48.0 L578,48.0" marker-end="url(#ar)"><title>CanTree → IHUP：一樣用固定順序的樹，新交易直接插</title></path>
+<path class="e" data-s="huiminer" data-t="iuoil" d="M580,465.0 C558,465.0 562,545.0 542,545.0" marker-end="url(#ar)"><title>HUI-Miner → IUOIL 論文 2024：一樣是串列結構，換成 indexed list、量的是佔有率</title></path>
 <path class="e" data-s="ihup" data-t="pretk" d="M716,48.0 L748,48.0" marker-end="url(#ar)"><title>IHUP → PreTK 論文 2025：一樣邊加交易邊挖高效益樣式，再加上 Top-k 的門檻拉高與 pre-large 候補</title></path>
 <path class="e" data-s="huiminer" data-t="foth" d="M716,471.0 C735,471.0 731,562.0 748,562.0" marker-end="url(#ar)"><title>HUI-Miner → FOTH 論文 2024：同一棵搜尋樹與上界，把 join 換成自我傳播</title></path>
 <path class="e dash" data-s="bloom" data-t="cms" d="M580,652.0 L542,652.0" marker-end="url(#ar2)"><title>Bloom Filter → Count-Min Sketch：一樣把東西用好幾個雜湊撒進格子，只是格子改成計數</title></path>
@@ -271,6 +272,7 @@
 <a class="node" href="periodic.html" data-id="pfp" aria-label="PFP-tree"><title>PFP-tree：不只要常出現，還要出現得規律：樹上記 tid 才算得出週期。</title><rect x="404" y="117" width="136" height="42" rx="9" fill="#151527" stroke="#8b5cf6"/><text x="472" y="139" class="nt">PFP-tree 週期性</text><text x="472" y="154" class="ny">2009</text></a>
 <a class="node" href="uspan.html" data-id="uspan" aria-label="USpan"><title>USpan：序列樣式加上數量 × 利潤，多種對應取最大。</title><rect x="580" y="524" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="648" y="546" class="nt">USpan 高效益序列</text><text x="648" y="561" class="ny">2012</text></a>
 <a class="node" href="ihup.html" data-id="ihup" aria-label="IHUP"><title>IHUP：CanTree 的固定順序＋TWU：新交易直接插，挖的時候才找候選。</title><rect x="580" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="648" y="49" class="nt">IHUP</text><text x="648" y="64" class="ny">2009</text></a>
+<a class="node" href="iuoil.html" data-id="iuoil" aria-label="IUOIL"><title>IUOIL：增量版的效益佔有率：照索引跳著組，不比對交易。</title><rect x="404" y="524" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="472" y="546" class="nt">IUOIL 論文 2024</text><text x="472" y="561" class="ny">2024</text></a>
 <a class="node" href="pretk.html" data-id="pretk" aria-label="PreTK"><title>PreTK：多存幾名候補，小批次進來就不用重挖。</title><rect x="750" y="27" width="136" height="42" rx="9" fill="#151527" stroke="#22c55e"/><text x="818" y="49" class="nt">PreTK 論文 2025</text><text x="818" y="64" class="ny">2025</text></a>
 <a class="node" href="foth.html" data-id="foth" aria-label="FOTH"><title>FOTH：不 join：每筆交易自己拆出子集合接上去。</title><rect x="750" y="541" width="136" height="42" rx="9" fill="#151527" stroke="#f59e0b"/><text x="818" y="563" class="nt">FOTH 論文 2024</text><text x="818" y="578" class="ny">2024</text></a>
 <a class="node" href="sliding-window.html" data-id="sw" aria-label="滑動視窗"><title>滑動視窗：只看最近 W 筆，一進一出即時更新頻繁樣式。</title><rect x="10" y="631" width="136" height="42" rx="9" fill="#151527" stroke="#06b6d4"/><text x="78" y="653" class="nt">滑動視窗</text></a>
@@ -312,6 +314,7 @@
 <li><a class="nm" href="efim.html">EFIM</a><span class="yr">2015</span><p>投影＋合併交易，上界更緊、記憶體更省。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 <li><a class="nm" href="top-k-hui.html">Top-k TKO</a><span class="yr">2016</span><p>不用猜門檻，排行榜裝滿後門檻自動往上升。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 <li><a class="nm" href="uspan.html">USpan 高效益序列</a><span class="yr">2012</span><p>序列樣式加上數量 × 利潤，多種對應取最大。</p><div class="froms"><span class="from ">改良自 PrefixSpan</span><span class="from ">改良自 HUI-Miner</span></div></li>
+<li><a class="nm" href="iuoil.html">IUOIL 論文 2024</a><span class="yr">2024</span><p>增量版的效益佔有率：照索引跳著組，不比對交易。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 <li><a class="nm" href="foth.html">FOTH 論文 2024</a><span class="yr">2024</span><p>不 join：每筆交易自己拆出子集合接上去。</p><div class="froms"><span class="from ">改良自 HUI-Miner</span></div></li>
 </ul></section>
 <section class="grp" style="--gc:#22c55e"><h3>增量資料庫</h3><ul>
@@ -360,7 +363,7 @@
 <li><a class="nm" href="efim.html">EFIM</a><p>投影資料庫加更緊的上界，現在常用的快方法。</p></li>
 <li><a class="nm" href="top-k-hui.html">Top-k TKO</a><p>不知道門檻設多少時，直接要前 k 名。</p></li>
 </ol>
-<p class="route-next">走完可以接著看：<a class="ex" href="foth.html">FOTH 論文 2024</a>、<a class="ex" href="uspan.html">USpan 高效益序列</a>、<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a>、<a class="ex" href="ihup.html">IHUP</a>、<a class="ex" href="pretk.html">PreTK 論文 2025</a></p>
+<p class="route-next">走完可以接著看：<a class="ex" href="foth.html">FOTH 論文 2024</a>、<a class="ex" href="uspan.html">USpan 高效益序列</a>、<a class="ex" href="incremental.html">FUP</a>、<a class="ex" href="cantree.html">CanTree</a>、<a class="ex" href="ihup.html">IHUP</a>、<a class="ex" href="pretk.html">PreTK 論文 2025</a>、<a class="ex" href="iuoil.html">IUOIL 論文 2024</a></p>
 </div>
 <div class="card route" style="--rc:#06b6d4"><h2>串流與空間路線</h2><p class="route-sub">資料停不下來，或資料有位置</p><ol>
 <li><a class="nm" href="sliding-window.html">滑動視窗</a><p>只看最近 W 筆，一進一出怎麼更新。</p></li>
@@ -398,6 +401,7 @@
 <tr><th scope="row"><a class="nm" href="efim.html">EFIM</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>投影資料庫並合併相同的交易，用子樹效益、局部效益兩個更緊的上界，靠 utility-bin 陣列一次算完</td><td class="mono">原始資料 2 次，之後掃越來越小的投影資料庫</td><td class="c-no">不會</td><td>投影資料庫、utility-bin 陣列</td><td>資料大、要又快又省記憶體</td></tr>
 <tr><th scope="row"><a class="nm" href="top-k-hui.html">Top-k TKO</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>不給門檻，直接要前 k 名：最小堆積裝目前的前 k 名，門檻邊挖邊往上調</td><td class="mono">2 次（跟 HUI-Miner 一樣）</td><td class="c-no">不會</td><td>utility list、最小堆積</td><td>不知道門檻該設多少</td></tr>
 <tr><th scope="row"><a class="nm" href="uspan.html">USpan 高效益序列</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>序列裡同一個樣式可能有好幾種對應，取最賺的；每位顧客一張效益矩陣，在 q-序列樹上用 I-接、S-接長，SWU 剪候選、SPU 剪子樹</td><td class="mono">原始資料 1 次（算 SWU、建效益矩陣），之後只查矩陣</td><td class="c-no">不會（樣式成長）</td><td>效益矩陣（每格 u、ru）</td><td>購買有先後順序、又想看賺多少（回購、套餐升級路徑）</td></tr>
+<tr><th scope="row"><a class="nm" href="iuoil.html">IUOIL 論文 2024</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>看效益佔有率（組合的效益 ÷ 整筆交易的效益）；IUOI-List 每格記同一筆交易的下一個商品在哪（NId／NIdx），新的一批接在後面再重排重接，組合時照索引跳，不用逐筆比對交易；支持度、lubuo、ubuo 三招剪枝</td><td class="mono">每批讀 1 次（舊交易不重掃）</td><td class="c-no">不會</td><td>IUOI-List（indexed list）</td><td>資料一直新增、想找每筆交易裡的「主角」組合</td></tr>
 <tr><th scope="row"><a class="nm" href="foth.html">FOTH 論文 2024</a></th><td><span class="gtag" style="--gc:#f59e0b">高效益樣式</span></td><td>商品組合編成二進位，每筆交易的 IndexSet 自己拆出子集合、接到同編碼的 IndexSet 後面，取代 utility list 的 join；mining area 的 U+RU 當上界剪</td><td class="mono">2 次（算 TWU、建 IndexSet）</td><td class="c-no">不會（one-phase）</td><td>IndexSet（vector + fixedPos）＋紅黑樹</td><td>稠密資料、高效益樣式很長時；稀疏資料反而慢、記憶體較多</td></tr>
 <tr><th scope="row"><a class="nm" href="incremental.html">FUP</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>舊樣式只數新進來的交易；新冒出的候選先用引理篩，只有少數要回頭掃舊資料</td><td class="mono">每一層掃新資料 1 次，有新候選通過引理時才回頭掃舊資料（範例：新資料 3 次、舊資料 1 次）</td><td class="c-yes">會（照 Apriori 產生，再用引理篩）</td><td>上次的結果：頻繁樣式和次數</td><td>一批一批新增、新資料跟舊資料長得差不多</td></tr>
 <tr><th scope="row"><a class="nm" href="cantree.html">CanTree</a></th><td><span class="gtag" style="--gc:#22c55e">增量資料庫</span></td><td>商品照事先定好的固定順序插進樹，新交易直接沿一條路徑加次數，不用重排重建</td><td class="mono">每筆交易只讀 1 次（不用先數次數）</td><td class="c-no">不會（挖的時候跟 FP-Growth 一樣）</td><td>CanTree（存所有商品）</td><td>資料一直新增、門檻常常改</td></tr>
@@ -451,7 +455,7 @@
 
     <script>
         // 圖上每條箭頭 [來源, 目標]，由 build.py 產生
-        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["fp", "pfp"], ["prefixspan", "uspan"], ["huiminer", "uspan"], ["cantree", "ihup"], ["ihup", "pretk"], ["huiminer", "foth"], ["bloom", "cms"], ["bloom", "hll"], ["sw", "huops"], ["sw", "swupa"], ["rtree", "irtree"]];
+        const EDGES = [["apriori", "fp"], ["apriori", "eclat"], ["eclat", "charm"], ["apriori", "rules"], ["apriori", "gsp"], ["fp", "prefixspan"], ["eclat", "spade"], ["prefixspan", "gspan"], ["apriori", "twophase"], ["twophase", "upgrowth"], ["fp", "upgrowth"], ["upgrowth", "huiminer"], ["huiminer", "efim"], ["huiminer", "topk"], ["apriori", "fup"], ["fp", "cantree"], ["fp", "pfp"], ["prefixspan", "uspan"], ["huiminer", "uspan"], ["cantree", "ihup"], ["huiminer", "iuoil"], ["ihup", "pretk"], ["huiminer", "foth"], ["bloom", "cms"], ["bloom", "hll"], ["sw", "huops"], ["sw", "swupa"], ["rtree", "irtree"]];
 
         (function setupGraphFocus() {
             const svg = document.querySelector('svg.graph');
