@@ -5,12 +5,17 @@ name: 台股收盤價
 
 on:
   schedule:
-    # 台灣時間 15:40、17:10、19:40、22:10；還沒公布就等下一次，抓過了就不會再改
-    - cron: "40 7 * * 1-5"
+    # 台灣時間 15:40、17:10、19:40、22:10（GitHub 常常晚好幾個小時才跑，所以每次都回頭補最近 10 天漏的；
+    # 週六也跑一次，週五的收盤價不用等到下週一）
+    - cron: "40 7 * * 1-6"
     - cron: "10 9 * * 1-5"
     - cron: "40 11 * * 1-5"
     - cron: "10 14 * * 1-5"
   workflow_dispatch:
+    inputs:
+      days:
+        description: "回頭檢查最近幾天有沒有漏"
+        default: "10"
 
 permissions:
   contents: write
@@ -31,9 +36,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python3 tools/stock/fetch_quotes.py
+      - run: python3 tools/stock/fetch_quotes.py "$DAYS"
         env:
           STOCK_DATA_DIR: ${{ github.workspace }}/_stock-data
+          DAYS: ${{ inputs.days || '10' }}
       - name: Push stock-data（只留一個 commit）
         working-directory: _stock-data
         run: |

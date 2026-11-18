@@ -1,7 +1,8 @@
 """抓台股（上市＋上櫃）當天收盤價，寫到資料夾（STOCK_DATA_DIR，見 hist.py；線上是 stock-data 分支），給 stock/index.html 算市值與當日損益。
 
 由 .github/workflows/stock-quotes.yml 每個交易日收盤後執行；也可以手動跑：
-    python3 tools/stock/fetch_quotes.py
+    python3 tools/stock/fetch_quotes.py        # 補最近 10 天漏掉的
+    python3 tools/stock/fetch_quotes.py 40     # 補最近 40 天漏掉的
 輸出：
     latest.json      {"date", "fetchedAt", "q": {代號: [收盤價, 漲跌]}}
     hist/<代號>.json  每檔每天的收盤價（見 hist.py；更早的用 backfill.py 補）
@@ -11,20 +12,22 @@
 收盤價一定用「指定日期」的證交所 MI_INDEX／櫃買中心每日收盤行情（backfill.py 的 twse()、tpex()），
 這兩個查今天、今天還沒公布就是空的。OpenAPI 只拿來更新名稱：它在傍晚常常還是前一天的資料，
 又沒有日期欄位，以前直接拿來當今天的收盤價，結果上市股票記成前一天的價格。
-上市、上櫃都抓到才寫入，沒抓到就等下一次排程（workflow 一天跑好幾次）。
+上市、上櫃都抓到才寫入，沒抓到就等下一次排程（workflow 一天跑好幾次，每次都會回頭補最近幾天漏的）。
 """
 import datetime
 import json
 import os
 import re
 import sys
+import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hist import DATA, HIST, add_days  # noqa: E402
-from backfill import tpex, twse  # noqa: E402
+from backfill import have, tpex, twse  # noqa: E402
 
 OUT = DATA
+LOOKBACK = 10  # 每次檢查最近幾天有沒有漏
 # 股票、ETF、特別股；權證（6 碼 03xxxx～08xxxx、7xxxxx）不需要，省掉一大半檔案大小
 WANTED = re.compile(r"^(\d{4}[A-Z]?|00\d{2,4}[A-Z]?)$")
 SOURCES = [
@@ -98,15 +101,25 @@ def main():
             json.dump(dict(sorted(merged.items())), f, ensure_ascii=False, separators=(",", ":"))
         print("名稱", len(merged), "檔")
 
-    day = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).date()
-    if len(sys.argv) > 1:
-        day = datetime.date.fromisoformat(sys.argv[1])
+    # GitHub 的排程常常晚好幾個小時才跑（晚到台灣過了半夜就變成在抓「明天」），
+    # 所以不只抓今天：最近 LOOKBACK 天裡 hist 還沒有的平日都補抓，晚跑、漏跑下一次都會補回來。
+    today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).date()
+    lookback = int(sys.argv[1]) if len(sys.argv) > 1 else LOOKBACK
+    days = [today - datetime.timedelta(days=i) for i in range(lookback, -1, -1)]
+    for day in days:
+        if day.weekday() >= 5 or have(day.isoformat()):
+            continue
+        save_day(day)
+        time.sleep(3)  # 證交所會擋太快的請求
+
+
+def save_day(day):
     date = day.isoformat()
     a = twse(day)
     b = tpex(day)
     print(date, "上市", len(a), "上櫃", len(b))
     if len(a) < 300 or len(b) < 300:
-        print("還沒公布（或今天沒開盤），先不寫入", date)
+        print("  沒有資料（還沒公布或沒開盤），先不寫入")
         return
     q = {**b, **a}
     # 漲跌抓不到（例如除息寫「除息」）就用前一天收盤價補
@@ -119,20 +132,18 @@ def main():
                     prev = [k for k in json.load(f).items() if k[0] < date]
                 if prev:
                     v[1] = round(v[0] - max(prev)[1][0], 2)
+    print("  每檔歷史更新", add_days({date: q}), "檔")
+    # latest.json 只放最新的一天，補抓較早的日子不能蓋掉它
     path = os.path.join(OUT, "latest.json")
     old = {}
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             old = json.load(f)
-    if old.get("date") == date and old.get("q") == q:
-        print("沒有新資料", date)
-    else:
+    if old.get("date", "") <= date:
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"date": date, "fetchedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "q": q},
                       f, ensure_ascii=False, separators=(",", ":"))
-        print("寫入", date, len(q), "檔")
-    print("每檔歷史更新", add_days({date: q}), "檔")
-
+        print("  latest.json →", date)
 
 if __name__ == "__main__":
     main()
