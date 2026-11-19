@@ -88,10 +88,14 @@ PROJECTS = {
               ('stroke="#facc15"', 'stroke="#e8413c"')],
     'chess': [('<g fill="#ffffff">', f'<g fill="#ffffff" stroke="{INK}" stroke-width="2" stroke-linejoin="round">')],
     'runner': [('stroke="#7c3aed"', f'stroke="{INK}"'),
-               ('z" fill="#9bd72f"/>', f'z" fill="#9bd72f" stroke="{INK}" stroke-width="2" stroke-linejoin="round"/>'),
-               ('r="2" fill="#12121c"', f'r="2" fill="{INK}"'),
-               ('3-5 1 6" fill="#9bd72f"/>', f'3-5 1 6" fill="#9bd72f" stroke="{INK}" stroke-width="1.6" stroke-linejoin="round"/>'),
-               ('rx="6" ry="4" fill="#ef4444"/>', f'rx="6" ry="4" fill="#ff4d3d" stroke="{INK}" stroke-width="1.8"/>'),
+               ('fill="#000000" opacity="0.35"', 'fill="#1d2b12" opacity="0.2"'),
+               ('Z" fill="#9bd72f"/>', f'Z" fill="#9bd72f" stroke="{INK}" stroke-width="2.6" stroke-linejoin="round"/>'),
+               ('r="1.9" fill="#111111"', f'r="1.9" fill="{INK}"'),
+               ('rx="5.4" ry="3.6" fill="#ef4444"/>', f'rx="5.4" ry="3.6" fill="#ff4d3d" stroke="{INK}" stroke-width="1.6"/>'),
+               ('r="2.3" fill="#ef4444"/>', f'r="2.3" fill="#ff4d3d" stroke="{INK}" stroke-width="1.4"/>'),
+               ('stroke="#ef4444" stroke-width="1.4"', f'stroke="{INK}" stroke-width="1.4"'),
+               ('stroke="#12121c" stroke-width="1"', f'stroke="{INK}" stroke-width="1"'),
+               ('r="1" fill="#12121c"', f'r="1" fill="{INK}"'),
                ('stroke="#22d3ee"', 'stroke="#0e7490"')],
 }
 # 立式五子棋的底板本身就是棋盤：淺色用遊戲淺色版的橘色棋盤
