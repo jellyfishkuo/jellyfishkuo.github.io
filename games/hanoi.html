@@ -324,7 +324,7 @@
         <div class="toolbar">
             <label for="disk-count">盤子數</label>
             <select id="disk-count">
-                <option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+                <option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
             </select>
             <button class="btn" id="btn-reset">重新開始</button>
             <button class="btn" id="btn-hint">提示下一步</button>
@@ -397,7 +397,7 @@
                 <h2>為什麼最少要 2ⁿ − 1 步？</h2>
                 <p>想把最大的盤子搬走，上面的 n−1 個一定要先全部移開，而且只能疊在另一根柱子上；最大的搬過去之後，那 n−1 個又得全部搬回來疊在它上面。所以：</p>
                 <div class="math">T(n) = T(n−1) + 1 + T(n−1) = 2·T(n−1) + 1<br>T(0) = 0　⇒　T(n) = 2ⁿ − 1</div>
-                <p>3 個盤子 7 步、5 個 31 步、7 個要 127 步。盤子每多一個，步數就翻倍再加一。</p>
+                <p>3 個盤子 7 步、5 個 31 步、7 個要 127 步、10 個就要 1023 步。盤子每多一個，步數就翻倍再加一。</p>
             </div>
         </div>
     </div>
@@ -407,7 +407,7 @@
            河內塔：自己玩 + 一步一步看遞迴怎麼解
            ========================================================= */
         const PEG_NAMES = ['A', 'B', 'C'];
-        const COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#818cf8', '#e879f9'];
+        const COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#818cf8', '#e879f9', '#f472b6', '#a3e635', '#cbd5e1'];
 
         const $ = id => document.getElementById(id);
         const boardEl = $('board');
@@ -841,12 +841,26 @@
             document.body.appendChild(probe);
             const total = trace.length;
             let tallest = 0;
-            new Set(trace.map(describe)).forEach(text => {
+            new Set(trace.map(s => describe(s.kind === 'move' ? { ...s, moveNo: minMoves() } : s))).forEach(text => {
                 probe.innerHTML = `<span class="step-no">步驟 ${total} / ${total}・已搬動 ${minMoves()} 次</span>${text}`;
                 tallest = Math.max(tallest, probe.offsetHeight);
             });
             probe.remove();
             box.style.minHeight = tallest + 'px';
+            reserveStackHeight();
+        }
+
+        /** 呼叫堆疊最深有 n + 1 層，先用最深的那一步量高度固定住，堆疊一層層長出來時下面的區塊才不會被推動 */
+        function reserveStackHeight() {
+            const stackEl = $('stack');
+            if (!stackEl.offsetWidth) return;
+            const deepest = trace.reduce((a, s) => s.stack.length > a.stack.length ? s : a, trace[0]);
+            const keep = stackEl.innerHTML;
+            stackEl.style.minHeight = '';
+            stackEl.innerHTML = deepest.stack.map((f, i) =>
+                `<div class="frame${i === 0 ? ' top' : ''}"><span>${callText(f)}</span><span class="where">${AT_LABEL[f.at] || ''}</span></div>`).join('');
+            stackEl.style.minHeight = stackEl.offsetHeight + 'px';
+            stackEl.innerHTML = keep;
         }
 
         let resizeTimer = null;
