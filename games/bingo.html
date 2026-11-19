@@ -718,7 +718,7 @@
 
             function applyView(v) {
                 if (!v || typeof v !== 'object') return;
-                if (V && v.gameId === V.gameId && v.rev < V.rev && !isAuthority()) return;   // 晚到的舊狀態
+                if (V && !v.noRoom && v.gameId === V.gameId && v.rev < V.rev && !isAuthority()) return;   // 晚到的舊狀態（換模式、離開房間的空白畫面不算）
                 const prevGame = V ? V.gameId : '';
                 V = v;
                 turnDeadline = performance.now() + (Number(v.turnLeft) || 0);
@@ -790,7 +790,7 @@
                     c.classList.toggle('line', inLine.has(i));
                     c.classList.toggle('can', myTurn && !!board && !marked && !pendingCall);
                     c.classList.toggle('pending', !!pendingCall && n === pendingCall);
-                    if (n === just) { c.classList.remove('just'); void c.offsetWidth; c.classList.add('just'); }
+                    if (just && n === just) { c.classList.remove('just'); void c.offsetWidth; c.classList.add('just'); }
                     c.setAttribute('aria-label', n ? `${n}${marked ? '，已圈' : ''}` : '空格');
                 });
                 lastCalledLen = v.called.length;
@@ -833,7 +833,7 @@
                     const chip = document.createElement('div');
                     chip.className = 'chip';
                     const b = document.createElement('b');
-                    b.textContent = (p.bot ? '🤖 ' : p.host && mode === 'online' ? '👑 ' : '') + p.name + (p.id === PLAYER_ID && mode === 'online' ? '（你）' : '');
+                    b.textContent = (p.bot ? '🤖 ' : p.host && mode === 'online' ? '👑 ' : '') + p.name + (p.id === PLAYER_ID && mode === 'online' && p.name !== '你' ? '（你）' : '');
                     const s = document.createElement('span');
                     if (!p.bot && !p.connected) { s.textContent = '離線'; chip.classList.add('off'); }
                     else if (playing && !p.inGame) s.textContent = '觀戰中';
