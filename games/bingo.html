@@ -273,6 +273,21 @@
         .rules li { margin: 0.15rem 0; }
         .rules p { margin-top: 0.5rem; }
         .rules b { color: var(--text); }
+        /* ── 電腦版：左（模式、連線、玩家）／中（格子）／右（喊過的數字、紀錄、玩法）三欄 ── */
+        @media (min-width: 980px) {
+            .wrap { max-width: 1240px; padding-top: 1rem; }
+            .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 1.6rem; align-items: start; margin-top: 1rem; }
+            .layout > div { min-width: 0; }
+            .seg { margin-top: 0; }
+            /* 玩家名單直的排，固定留 8 個人的高度 */
+            .strip { flex-direction: column; height: calc(8 * 3.1rem + 7 * 0.4rem); overflow: hidden; margin-top: 0.9rem; }
+            .chip { max-width: none; height: 3.1rem; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.6rem; }
+            .chip span { font-size: 0.8rem; }
+            .board-box { width: min(100%, max(340px, 100vh - 400px)); }
+            .called { margin-top: 0; }
+            .called-list { height: calc(4 * 1.9rem + 3 * 4px + 1rem); }
+            .rules { margin-top: 1.2rem; font-size: 0.85rem; }
+        }
     </style>
 </head>
 
@@ -281,6 +296,8 @@
         <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
         <h1>賓果連線 Bingo<small>每人一張 5×5，輪流喊數字，先連成 5 條線的人贏。跟電腦玩，或開房間找朋友（最多 8 人）。</small></h1>
 
+        <div class="layout">
+        <div class="col-left">
         <div class="seg" id="seg">
             <button type="button" data-mode="ai" class="on">🤖 跟電腦玩</button>
             <button type="button" data-mode="online">🌐 多人連線</button>
@@ -316,6 +333,9 @@
         </div>
 
         <div class="strip" id="strip" aria-label="玩家"></div>
+        </div>
+
+        <div class="col-main">
 
         <div class="status" id="status" aria-live="polite"><span id="statusMain"></span><span class="sub" id="statusSub"></span><i class="bar" id="bar"></i></div>
 
@@ -336,6 +356,9 @@
             <button type="button" class="btn" id="subBtn">重新開始</button>
         </div>
 
+        </div>
+
+        <div class="col-side">
         <section class="called">
             <h2>喊過的數字 <span id="calledN">0 / 25</span></h2>
             <div class="called-list" id="calledList"></div>
@@ -362,6 +385,8 @@
             <p><b>多人連線：</b>一個人建立房間拿到 4 位數房間碼，其他人輸入房間碼加入，大家都按「準備好了」，房主就能開始（最多 8 人；沒按準備的人系統幫他隨機排）。斷線了用同一個房間碼、同一個暱稱回來，會接回原本的格子。中途才加入的人先觀戰，下一局一起玩。連線優先走 WebRTC 直連，打不通就自動改用公開的備援伺服器轉送。</p>
             <p>每玩完一局可以拿 1 瓶蘋果汁，贏了 3 瓶，去「養一隻果汁龍」餵牠。</p>
         </section>
+        </div>
+        </div>
     </div>
 
     <div class="toast" id="toast" role="status"></div>
