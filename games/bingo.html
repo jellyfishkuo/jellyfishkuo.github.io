@@ -198,7 +198,10 @@
         .tools.hide { visibility: hidden; }
         .tools .btn.on { border-color: var(--accent2); color: var(--accent2); }
         [data-theme="light"] .tools .btn.on { background: #fff1d1; color: #1d2b12; }
-        .actions { display: flex; gap: 0.5rem; justify-content: center; align-items: center; height: 3.2rem; margin-top: 0.4rem; }
+        /* 主按鈕和「重新開始」疊在同一格，看得到的那個永遠置中，不會被隱藏的按鈕擠歪 */
+        .actions { display: grid; place-items: center; height: 3.6rem; margin-top: 0.5rem; }
+        .actions > * { grid-area: 1 / 1; }
+        .actions .big { width: min(100%, 340px); height: 3.3rem; padding: 0 1rem; font-size: 1.2rem; letter-spacing: 0.04em; }
         .big {
             padding: 0.6rem 1.5rem; font-size: 1.02rem; font-weight: 700; cursor: pointer;
             color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 1px solid transparent; border-radius: 12px;
@@ -206,7 +209,7 @@
         .big:disabled { opacity: 0.45; cursor: default; }
         [data-theme="light"] .big { color: #1d2b12; background: #ffb02e; border: 2px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
         [data-theme="light"] .big:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #1d2b12; }
-        .actions .hide { visibility: hidden; }
+        .actions .hide { visibility: hidden; pointer-events: none; }
 
         /* ── 喊過的數字：固定 3 行高 ── */
         .called { margin-top: 1rem; }
