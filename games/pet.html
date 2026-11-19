@@ -188,6 +188,16 @@
         [data-theme="light"] .gift-note a { color: #0e7490; }
         .shelf { position: absolute; font-size: 8cqw; line-height: 1; pointer-events: none; filter: drop-shadow(0 0.6cqw 0 rgba(0, 0, 0, 0.18)); }
 
+        /* ── 電腦版：左邊果汁龍（捲動時固定在畫面上，換衣服馬上看得到），右邊衣櫃、禮物櫃、果汁來源 ── */
+        @media (min-width: 980px) {
+            .wrap { max-width: 1120px; padding-left: 1.5rem; padding-right: 1.5rem; }
+            .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.6rem; align-items: start; margin-top: 0.4rem; }
+            .side > .card:first-child { margin-top: 1rem; }
+        }
+        @media (min-width: 980px) and (min-height: 700px) {
+            .stage { position: sticky; top: 1rem; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .pet .body, .egg svg { animation: none !important; }
         }
@@ -199,6 +209,8 @@
         <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
         <h1>養一隻果汁龍<small>在網站上玩遊戲、闖研究關卡就能拿到蘋果汁 🧃，拿來餵牠，牠會長大、解鎖新造型；完成特別的挑戰還會收到小禮物 🎁。</small></h1>
 
+        <div class="cols">
+        <div class="stage">
         <div class="tag">
             <input id="name" maxlength="12" aria-label="幫果汁龍取名字" value="果汁龍">
             <span class="lv" id="lv">Lv.1</span>
@@ -220,7 +232,9 @@
             <button type="button" class="btn" id="pat">🤚 摸摸頭<small>免費</small></button>
             <button type="button" class="btn" id="daily">📅 每日簽到<small id="daily-t">+3 瓶</small></button>
         </div>
+        </div>
 
+        <div class="side">
         <section class="card">
             <h2>衣櫃</h2>
             <div class="closet" id="closet"></div>
@@ -240,6 +254,8 @@
             <h2>🧃 果汁從哪裡來</h2>
             <ul class="src" id="src"></ul>
         </section>
+        </div>
+        </div>
     </div>
 
     <script>

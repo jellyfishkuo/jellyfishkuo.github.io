@@ -539,5 +539,12 @@ label {
   }
 }
 
+/* ---------- 電腦版：左邊輸入與資料管理，右邊圖表與歷史紀錄 ---------- */
+@media (min-width: 900px) {
+  .app { max-width: 1080px; padding: 0 24px 32px; }
+  main { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .col-input, .col-view { min-width: 0; }
+}
+
 /* 窄螢幕標題靠左，才不會撞到右邊的切換鈕 */
 @media (max-width: 420px) { .app-header { text-align: left; } }

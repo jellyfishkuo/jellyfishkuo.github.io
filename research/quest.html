@@ -162,6 +162,14 @@
             .stage.next .node, .stage.flash .node { animation: none; }
             .bar i { transition: none; }
         }
+        /* 電腦版：左邊成績卡固定在畫面上，右邊五條路線排成兩欄 */
+        @media (min-width: 1100px) {
+            .wrap { max-width: 1220px; padding-left: 1.5rem; padding-right: 1.5rem; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 2.5rem; align-items: start; }
+            #worlds { columns: 2; column-gap: 2.5rem; }
+            .world { break-inside: avoid; margin-top: 0; padding-top: 1.4rem; }
+        }
+        @media (min-width: 1100px) and (min-height: 640px) { .intro { position: sticky; top: 1.2rem; } }
+
         @media (max-width: 380px) {
             .stage { grid-template-columns: 64px minmax(0, 1fr); gap: 0.6rem; }
             .node { width: 64px; height: 64px; }
@@ -172,6 +180,7 @@
 
 <body>
     <div class="wrap">
+        <div class="intro">
         <a class="back" href="../index.html#research">← RETURN TO PORTFOLIO</a>
         <div class="kicker">// RESEARCH QUEST</div>
         <h1>研究闖關</h1>
@@ -189,12 +198,15 @@
             <a class="go-next" id="go-next" href="apriori.html?quiz=1"><span id="go-next-text">從第一關開始 →</span></a>
             <p class="rules">一次打開關卡答滿 <b>5</b> 題、答對一半以上就過關，答對率決定星星：50% 以上 ★、70% 以上 ★★、90% 以上 ★★★。答不夠好就繼續答，答對率會一直重算。可以重打刷星星。紀錄只存在這台裝置的瀏覽器裡。</p>
         </section>
+        </div>
 
+        <div class="map">
         <div id="worlds"></div>
 
         <div class="foot">
             <span>直接在 Demo 頁打開練習模式答題也會算進來。</span>
             <button type="button" class="reset" id="reset">清除闖關紀錄</button>
+        </div>
         </div>
     </div>
 

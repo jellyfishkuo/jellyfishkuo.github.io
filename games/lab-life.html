@@ -139,6 +139,14 @@
         .log { list-style: none; margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); display: grid; gap: 0.2rem; }
         .log b { color: var(--text); font-family: 'Space Mono', monospace; margin-right: 0.3rem; }
         .row2 { display: grid; gap: 1rem; margin-top: 1rem; }
+    
+        /* ── 電腦版：進度條橫跨上面；左邊狀態與故事，右邊這週要做什麼、結局圖鑑、日誌 ── */
+        @media (min-width: 960px) {
+            .wrap { max-width: 1120px; padding-left: 1.5rem; padding-right: 1.5rem; }
+            .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.6rem; align-items: start; }
+            .story { height: 15em; }
+            .side > .choices { margin-top: 0; }
+        }
     </style>
 </head>
 
@@ -150,11 +158,13 @@
         <div class="week"><b id="wk">第 1 週</b><span id="wk-note"></span></div>
         <div class="timeline" id="timeline" aria-hidden="true"></div>
 
-        <section class="card">
+        <div class="cols">
+        <section class="card now">
             <div class="stats" id="stats"></div>
             <div class="story" id="story" aria-live="polite"></div>
         </section>
 
+        <div class="side">
         <div class="choices">
             <div class="acts" id="acts"></div>
             <div class="opts" id="opts" hidden></div>
@@ -170,6 +180,8 @@
             <summary>📓 這學期的日誌</summary>
             <ul class="log" id="log"></ul>
         </details>
+        </div>
+        </div>
     </div>
 
     <div class="modal" id="modal" hidden>
