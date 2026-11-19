@@ -20,6 +20,7 @@
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-gifts.js" defer></script><!-- 送果汁龍果汁／小禮物 -->
     <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
@@ -422,6 +423,7 @@
         // 自己玩
         let selected = null;    // 拿起來的是哪根柱子
         let moves = 0;
+        let hinted = false;     // 這局有沒有按過提示（果汁龍的獎勵要看）
         let hintMove = null;
 
         // 看解法
@@ -481,6 +483,7 @@
             pegs = freshPegs();
             selected = null;
             moves = 0;
+            hinted = false;
             hintMove = null;
             hideOffpath();
             setStatus('點一根柱子拿起最上面的盤子。');
@@ -558,6 +561,11 @@
                     hideOffpath();
                     setStatus(doneText(moves, minMoves()), 'good');
                     if (window.jfkPetCheer) jfkPetCheer(moves === minMoves() ? '最少步數完成！你比我會搬' : '搬完了！再挑戰最少步數吧');
+                    // 果汁龍：搬完 1 瓶；沒看提示又最少步數，再多（盤子數 − 3）瓶；7 片以上第一次有河內小塔
+                    if (window.jfkReward) {
+                        const perfect = !hinted && moves === minMoves();
+                        jfkReward('hanoi', 1 + (perfect ? Math.max(0, n - 3) : 0), { gift: perfect && n >= 7 ? 'tower' : '' });
+                    }
                 } else {
                     if (best[0] === selected && best[1] === p) hideOffpath();
                     else showOffpath(offpathText(bestDisk, best[1], movesLeft()));
@@ -615,6 +623,7 @@
         $('btn-hint').addEventListener('click', () => {
             if (mode !== 'play' || isSolved()) return;
             selected = null;
+            hinted = true;
             hintMove = nextBestMove();
             setStatus(`提示：把 ${topDisk(hintMove[0])} 號盤從 ${PEG_NAMES[hintMove[0]]} 搬到 ${PEG_NAMES[hintMove[1]]}。`);
             render();

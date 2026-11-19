@@ -24,6 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <meta name="jfk-paint" content="off"><!-- 骨牌顏色是遊戲內容，不要被淺色換掉 -->
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-gifts.js" defer></script><!-- 送果汁龍果汁／小禮物 -->
     <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
@@ -1899,6 +1900,8 @@
                 if (seconds < best) localStorage.setItem(TODAY_KEY, String(seconds));
             } catch (_) { }
             showTodayRecord();
+            // 果汁龍：每天的挑戰第一次完成 2 瓶，第一次完成還有拼圖抱枕
+            if (window.jfkReward) jfkReward('pentomino', 2, { key: TODAY_KEY, gift: 'puzzle' });
             // 觸發過關煙火特效
             fireConfetti();
         }

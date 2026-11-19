@@ -31,7 +31,7 @@
 | 數字方格 1→25 | 反應力 / 計時排行榜 | [schulte.html](games/schulte.html) | — |
 | 超商店長 | 關聯規則（支持度、信賴度、提升度）/ 模擬 | [store-manager.html](games/store-manager.html) | — |
 | 碩一生模擬器 | 文字冒險 / 數值平衡 | [lab-life.html](games/lab-life.html) | — |
-| 養一隻果汁龍 | 養成 / 串起其他遊戲的獎勵 | [pet.html](games/pet.html) | — |
+| 養一隻果汁龍 | 養成 / 串起其他遊戲的獎勵（果汁＋16 個小禮物） | [pet.html](games/pet.html) | — |
 | 果汁龍跑酷 | Canvas 跑酷 / 按住跳高 | [runner.html](games/runner.html) | — |
 | 晚餐吃什麼？ | 轉盤 / Canvas | [dinner-wheel.html](games/dinner-wheel.html) | — |
 | 程式解題紀錄 | 筆記 | [Notion](https://www.notion.so/34ac593666d9802ea9a9dc05f3df12d1?source=copy_link) | — |

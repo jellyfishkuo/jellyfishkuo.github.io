@@ -189,6 +189,7 @@ async function finish(solved) {
     R.history = (R.history || []).concat({ d: new Date().toISOString(), r: R.rating }).slice(-500);
     S.lastDelta = delta;
     db.put('meta', R).catch(() => {});
+    if (clean && window.jfkReward) window.jfkReward('chess', 1, { key: 'tac-' + p.id });   // 果汁龍：第一次做這題就答對 1 瓶
   }
   const st = S.stats[p.id] || { id: p.id, tries: 0, solved: 0, fails: 0 };
   st.tries++; if (clean) st.solved++; else st.fails++;

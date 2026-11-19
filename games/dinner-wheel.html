@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="theme-color" content="#05050a">
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-gifts.js" defer></script><!-- 送果汁龍果汁／小禮物 -->
     <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
@@ -518,7 +519,10 @@
                     <button class="btn" id="btn-nope">不想吃這個，排除再轉</button>
                 </div>`;
             $('result').querySelector('.food').textContent = item.name;   // 用純文字放，避免選項名稱被當成網頁語法
-            $('btn-ok').addEventListener('click', () => { confetti(); $('btn-ok').disabled = true; });
+            $('btn-ok').addEventListener('click', () => {
+                confetti(); $('btn-ok').disabled = true;
+                if (window.jfkReward) jfkReward('dinner-wheel', 0, { gift: 'bento' });   // 果汁龍的小禮物（只有第一次）
+            });
             $('btn-nope').addEventListener('click', () => {
                 if (active().length <= 2) { setMsg('至少要留兩個選項才能轉，先加一些新的吧。'); return; }
                 item.off = true;

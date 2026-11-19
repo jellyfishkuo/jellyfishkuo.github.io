@@ -40,8 +40,29 @@
             '<path d="M10.5 33 L12.6 26.8" stroke="#ff7eb6" stroke-width="2.4" stroke-linecap="round"/>' +
             '<path d="M5 31.5 H16 L14.6 46 H6.4 Z" fill="#e2bf8f"/>' +
             '<path d="M4.6 31.6 a5.9 2.4 0 0 1 11.8 0 z" fill="#ffffff" opacity="0.85"/>' +
-            '<g fill="#3b2314"><circle cx="7.6" cy="44.4" r="1"/><circle cx="9.8" cy="44.6" r="1"/><circle cx="12" cy="44.4" r="1"/><circle cx="13.6" cy="43" r="1"/><circle cx="8.6" cy="42.6" r="1"/><circle cx="11" cy="42.7" r="1"/></g>']
+            '<g fill="#3b2314"><circle cx="7.6" cy="44.4" r="1"/><circle cx="9.8" cy="44.6" r="1"/><circle cx="12" cy="44.4" r="1"/><circle cx="13.6" cy="43" r="1"/><circle cx="8.6" cy="42.6" r="1"/><circle cx="11" cy="42.7" r="1"/></g>'],
+        ['grape', '🍇', '葡萄汁', 22,
+            STRAW +
+            '<path d="M5 32 H16 L14.8 46 H6.2 Z" fill="#efe3ff"/>' +
+            '<path d="M5.3 34.6 H15.7 L14.8 46 H6.2 Z" fill="#8e44c9"/>' +
+            '<g fill="#6a2c9e"><circle cx="13.6" cy="31.4" r="1.1"/><circle cx="15.6" cy="31.4" r="1.1"/><circle cx="14.6" cy="33" r="1.1"/></g>' +
+            '<path d="M14.6 30.3 c0.3 -0.9 1 -1.4 1.8 -1.5" stroke="#4caf2a" stroke-width="0.7" stroke-linecap="round" fill="none"/>'],
+        ['mango', '🥭', '芒果冰沙', 27,
+            '<path d="M10.5 31 L12.8 25.8" stroke="#2fb8c4" stroke-width="2.2" stroke-linecap="round"/>' +
+            '<path d="M5.4 32.5 H15.6 L14.4 46 H6.6 Z" fill="#ffb627"/>' +
+            '<path d="M5.4 38 H15.1 L14.9 40 H5.6 Z" fill="#ffd36b"/>' +
+            '<path d="M4.8 32.6 C5 28.6 16 28.6 16.2 32.6 Z" fill="#ffc94a" stroke="#f29a00" stroke-width="0.6"/>' +
+            '<circle cx="8.4" cy="30.6" r="0.9" fill="#ff8a1f"/>'],
+        // 黃金蘋果汁：不看等級，禮物櫃收集 GOLD_NEED 個小禮物才解鎖（寵物頁判斷）
+        ['gold', '✨', '黃金蘋果汁', 0,
+            '<path d="M11 33 L13 29.2" stroke="#fff3b0" stroke-width="2" stroke-linecap="round"/>' +
+            '<rect x="5" y="32" width="11" height="14" rx="2" fill="#f5c400" stroke="#b8860b" stroke-width="0.6"/>' +
+            '<path d="M5 34 a2 2 0 0 1 2 -2 h7 a2 2 0 0 1 2 2 v1.5 h-11 z" fill="#e0a800"/>' +
+            '<circle cx="9.4" cy="41" r="2.2" fill="#fff3b0"/><circle cx="11.6" cy="41" r="2.2" fill="#fff3b0"/>' +
+            '<path d="M11 38 c1.2 -1.4 2.6 -1.2 3 -0.8 c-0.8 1 -2 1.3 -3 0.8 z" fill="#ffffff"/>' +
+            '<path d="M6.6 27.4 l0.5 1.2 l1.2 0.5 l-1.2 0.5 l-0.5 1.2 l-0.5 -1.2 l-1.2 -0.5 l1.2 -0.5 z M16.8 36 l0.4 0.9 l0.9 0.4 l-0.9 0.4 l-0.4 0.9 l-0.4 -0.9 l-0.9 -0.4 l0.9 -0.4 z" fill="#fff8c4"/>']
     ];
+    window.JFK_GOLD_NEED = 8;
     var BODY =
         '<path d="M30.5 11.4 L35.8 8.2 L35.6 14.6 Z M36.8 15 L43.2 15.8 L38.4 21.4 Z M38.3 23.6 L44.6 25.6 L39 30.4 Z M40.8 34.2 L48 32.6 L45.6 38.6 Z M47.6 40.3 L55.2 37.8 L53.2 42.6 Z" fill="#5fa318"/>' +
         '<ellipse cx="27" cy="48.7" rx="2" ry="1.9" fill="#6fae1f"/><ellipse cx="33" cy="48.8" rx="2" ry="1.9" fill="#6fae1f"/>' +

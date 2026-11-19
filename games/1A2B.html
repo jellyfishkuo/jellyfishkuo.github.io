@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-gifts.js" defer></script><!-- 送果汁龍果汁／小禮物 -->
     <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
@@ -721,6 +722,8 @@
                 document.getElementById('inputArea').style.visibility = 'hidden';
                 document.getElementById('winArea').style.display = 'flex';
                 if (window.jfkPetCheer) jfkPetCheer('猜對了！只用了 ' + historyList.length + ' 次');
+                // 果汁龍：猜中 1 瓶，6 次內 2 瓶；5 次內第一次拿到密碼鎖
+                if (window.jfkReward) jfkReward('1A2B', historyList.length <= 6 ? 2 : 1, { gift: historyList.length <= 5 ? 'lock' : '' });
                 // CDN 掛掉時 confetti 不存在，不要讓它把後續程式一起帶掉
                 if (typeof confetti === 'function') {
                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });

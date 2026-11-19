@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-gifts.js" defer></script><!-- 送果汁龍果汁／小禮物 -->
     <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
@@ -1460,6 +1461,11 @@
                     render();
                     const humanWon = modeEl.value !== 'ai' || player === humanSide();
                     if (humanWon) celebrate();
+                    // 果汁龍：只有贏電腦才送；困難第一次贏有紅色棋子
+                    if (modeEl.value === 'ai' && humanWon && window.jfkReward) {
+                        const lv = levelEl.value;
+                        jfkReward('vertical-gomoku', { easy: 1, normal: 2, hard: 3 }[lv] || 1, { gift: lv === 'hard' ? 'stone' : '' });
+                    }
                     showToast(humanWon ? `🎉 ${PLAYER_NAME[player]}五連線！` : '電腦五連線，再來一局？', true);
                     return;
                 }

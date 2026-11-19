@@ -1,6 +1,7 @@
 /* 果汁龍跑到遊戲頁：右下角一隻小果汁龍，只讀 localStorage jfk-pet-v1，不改任何資料。
  * - 點牠會講跟這一頁有關的話（PAGE），肚子餓、還是蛋的時候會講別的
  * - 遊戲過關、破紀錄時呼叫 jfkPetCheer('文字')，牠會跳一下說出來（沒載入這支也不會出錯：呼叫前先檢查 window.jfkPetCheer）
+ * - assets/pet-gifts.js 的 jfkReward() 送果汁／小禮物時會呼叫 jfkPetGain('🧃 +2 瓶')，對話框多一行（跟 jfkPetCheer 誰先誰後都可以）
  * - 「收起來」之後同一個分頁不再出現（sessionStorage jfk-pet-mini-off）
  * - 頁面最下面補一點空白，捲到底時牠不會擋住最後的按鈕；底下有按鈕時自動閃到另一邊，兩邊都擋就縮到邊緣（點不到、也不擋）
  * 用法：<script src="../assets/pet-mini.js" defer></script>（路徑依頁面調整；會自己載入 dragon-hold.js）
@@ -11,8 +12,9 @@
     var root = new URL('../', script && script.src ? script.src : location.href);   // 這支在 assets/ 底下，上一層就是網站根目錄
     var off = false;
     try { off = sessionStorage.getItem('jfk-pet-mini-off') === '1'; } catch (e) { /* 預設顯示 */ }
-    var api = null, queued = null;
+    var api = null, queued = null, queuedGain = null;
     window.jfkPetCheer = function (text) { if (off) return; if (api) api.cheer(text); else queued = text; };
+    window.jfkPetGain = function (note) { if (off) return; if (api) api.gain(note); else queuedGain = note; };
     if (off) return;
 
     function read(k) { try { var v = JSON.parse(localStorage.getItem(k) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
@@ -82,13 +84,16 @@
         'visibility:hidden;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s,visibility .2s}' +
         '.jfk-mini-say.show{visibility:visible;opacity:1;transform:none}' +
         '.jfk-mini-say b{display:block;font-size:.72rem;color:#06b6d4}' +
+        '.jfk-mini-say .gain{display:block;margin-top:3px;font-weight:700;color:#ffb02e}' +
+        '.jfk-mini-say .gain:empty{display:none}' +
         '.jfk-mini-say .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}' +
         '.jfk-mini-say a{color:#06b6d4;font-size:.78rem;text-decoration:none;white-space:nowrap}' +
         '.jfk-mini-say button{border:0;background:none;color:#8a8aa3;font:inherit;font-size:.74rem;cursor:pointer;padding:2px 0;white-space:nowrap}' +
         '[data-theme="light"] .jfk-mini-me{filter:drop-shadow(2px 2px 0 #1d2b12)}' +
         '[data-theme="light"] .jfk-mini-say{background:#fff;color:#1d2b12;border:2.5px solid #1d2b12;box-shadow:3px 3px 0 #1d2b12}' +
         '[data-theme="light"] .jfk-mini-say b,[data-theme="light"] .jfk-mini-say a{color:#3f8f12;font-weight:700}' +
-        '[data-theme="light"] .jfk-mini-say button{color:#4f5d44}';
+        '[data-theme="light"] .jfk-mini-say button{color:#4f5d44}' +
+        '[data-theme="light"] .jfk-mini-say .gain{color:#b45309}';
 
     function build() {
         var st = document.createElement('style');
@@ -104,6 +109,8 @@
         var who = document.createElement('b');
         who.textContent = xp ? nm : '一顆蛋';
         var line = document.createElement('span');
+        var gainEl = document.createElement('span');
+        gainEl.className = 'gain';
         var row = document.createElement('div');
         row.className = 'row';
         var hide = document.createElement('button');
@@ -113,7 +120,7 @@
         go.href = new URL('games/pet.html', root).href;
         go.textContent = xp ? '去看牠 →' : '去孵蛋 →';
         row.append(hide, go);
-        say.append(who, line, row);
+        say.append(who, line, gainEl, row);
 
         var me = document.createElement('button');
         me.type = 'button';
@@ -148,10 +155,11 @@
         var pb = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
         if (pb < 72) document.body.style.paddingBottom = '72px';
 
-        var hideT = 0, last = '', shownAt = 0;
+        var hideT = 0, last = '', shownAt = 0, gainNote = '', gainAt = 0;
         function show(text) {
             shownAt = Date.now();
             line.textContent = text;
+            gainEl.textContent = shownAt - gainAt < 2000 ? gainNote : '';
             me.classList.remove('bump'); void me.offsetWidth; me.classList.add('bump');
             say.classList.add('show');
             clearTimeout(hideT);
@@ -209,8 +217,18 @@
         setInterval(queueDodge, 900);                   // 遊戲畫面會自己變（跳出視窗、換題），定時再看一次
         queueDodge();
         // 過關時：縮在邊緣也探出頭來講（這幾秒牠跟對話框都不攔點擊，後面的按鈕照樣按得到）
-        api = { cheer: function (text) { if (off || !box.isConnected) return; if (box.classList.contains('tuck')) box.classList.add('cheer'); show(xp ? text : '（蛋開心地晃來晃去）' + text); } };
+        api = {
+            cheer: function (text) { if (off || !box.isConnected) return; if (box.classList.contains('tuck')) box.classList.add('cheer'); show(xp ? text : '（蛋開心地晃來晃去）' + text); },
+            // 拿到果汁／禮物：剛好在講話就加在下面；沒有的話自己講一句
+            gain: function (note) {
+                if (off || !box.isConnected) return;
+                gainNote = note; gainAt = Date.now();
+                if (gainAt - shownAt < 2000) { gainEl.textContent = note; return; }
+                setTimeout(function () { if (Date.now() - shownAt > 2000) api.cheer(pick(['拿到了！', '謝謝你！', '我會好好收著'])); }, 80);
+            }
+        };
         if (queued) { api.cheer(queued); queued = null; }
+        if (queuedGain) { api.gain(queuedGain); queuedGain = null; }
     }
 
     function start() {

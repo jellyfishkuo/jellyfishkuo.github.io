@@ -159,7 +159,16 @@ function flag(c) {
   const other = c === 'w' ? 'b' : 'w';
   if (insufficient(other)) S.over = { result: '1/2-1/2', text: '時間到，但對方的子力不夠將死 → 和棋', cls: 'warn', why: 'timeout' };
   else S.over = { result: c === 'w' ? '0-1' : '1-0', text: c === S.my ? '時間到，你輸了' : '電腦時間到，你贏了 🎉', cls: c === S.my ? 'bad' : 'good', why: 'timeout' };
-  save(true); sync(); startReview();
+  save(true); sync(); startReview(); petReward();
+}
+
+// 果汁龍（assets/pet-gifts.js）：下完一盤送果汁，贏 3、和 2、輸 1，認輸不算；第一次贏電腦有小兵。同一盤只算一次
+function petReward() {
+  const o = S.over;
+  if (!o || o.why === 'resign' || !window.jfkReward) return;
+  const out = o.result === '1/2-1/2' ? 'draw' : ((o.result === '1-0') === (S.my === 'w') ? 'win' : 'loss');
+  if (out === 'win' && window.jfkPetCheer) window.jfkPetCheer('贏了 Stockfish！我在旁邊都看傻了');
+  window.jfkReward('chess', { win: 3, draw: 2, loss: 1 }[out], { key: 'chess-' + S.id, gift: out === 'win' ? 'knight' : '' });
 }
 function tick() {
   if (!S.clock || !S.g) return;
@@ -256,7 +265,7 @@ async function maybeEngine() {
 async function finish() {
   if (S.over) return;
   S.over = outcome(S.g);
-  if (S.over) { await save(true); startReview(); }
+  if (S.over) { petReward(); await save(true); startReview(); }
 }
 
 // ── 對完自動復盤：在背景用引擎把整盤跑一遍，找出你的轉捩點 ──

@@ -22,6 +22,7 @@
     <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面 -->
     <script src="../assets/theme.js"></script>
     <script src="../assets/dragon-hold.js"></script>
+    <script src="../assets/pet-gifts.js"></script>
     <link rel="stylesheet" href="../assets/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -178,6 +179,15 @@
         .src b { font-family: 'Space Mono', monospace; color: var(--juice); white-space: nowrap; }
         [data-theme="light"] .src b { color: #b45309; }
 
+        /* ── 禮物櫃 ── */
+        .gifts-n { float: right; font: 700 0.8rem 'Space Mono', monospace; color: var(--juice); }
+        [data-theme="light"] .gifts-n { color: #b45309; }
+        .closet button.locked { font-size: 1.3rem; filter: grayscale(1); opacity: 0.45; }
+        .gift-note { margin-top: 0.5rem; min-height: 2.9em; font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+        .gift-note a { color: var(--accent2); font-weight: 700; text-decoration: none; }
+        [data-theme="light"] .gift-note a { color: #0e7490; }
+        .shelf { position: absolute; font-size: 8cqw; line-height: 1; pointer-events: none; filter: drop-shadow(0 0.6cqw 0 rgba(0, 0, 0, 0.18)); }
+
         @media (prefers-reduced-motion: reduce) {
             .pet .body, .egg svg { animation: none !important; }
         }
@@ -187,7 +197,7 @@
 <body>
     <div class="wrap">
         <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
-        <h1>養一隻果汁龍<small>在網站上玩遊戲、闖研究關卡就能拿到蘋果汁 🧃，拿來餵牠，牠會長大、解鎖新造型。</small></h1>
+        <h1>養一隻果汁龍<small>在網站上玩遊戲、闖研究關卡就能拿到蘋果汁 🧃，拿來餵牠，牠會長大、解鎖新造型；完成特別的挑戰還會收到小禮物 🎁。</small></h1>
 
         <div class="tag">
             <input id="name" maxlength="12" aria-label="幫果汁龍取名字" value="果汁龍">
@@ -221,6 +231,12 @@
         </section>
 
         <section class="card">
+            <h2>🎁 禮物櫃 <span class="gifts-n" id="gifts-n"></span></h2>
+            <div class="closet" id="gifts"></div>
+            <p class="gift-note" id="gift-note">在各個遊戲完成特別的挑戰就會收到小禮物。點拿到的禮物可以擺進房間（最多 3 個），沒拿到的點一下看怎麼拿。</p>
+        </section>
+
+        <section class="card">
             <h2>🧃 果汁從哪裡來</h2>
             <ul class="src" id="src"></ul>
         </section>
@@ -237,6 +253,9 @@
             }
             var pet = read(KEY);
             if (typeof pet.xp !== 'number') pet = { name: '果汁龍', xp: 0, spent: 0, full: 4, fedAt: Date.now(), days: [], hat: '', face: '', neck: '', side: '', bg: 'grass', pats: 0 };
+            if (!Array.isArray(pet.days)) pet.days = [];
+            if (!Array.isArray(pet.shelf)) pet.shelf = [];        // 擺在房間裡的禮物（最多 3 個）
+            if (!Array.isArray(pet.seen)) pet.seen = null;        // 看過的禮物；null＝第一次有這個欄位，現有的都當成看過
             function save() { try { localStorage.setItem(KEY, JSON.stringify(pet)); } catch (e) { /* 被擋就只在這次有效 */ } }
 
             // ── 果汁：從其他遊戲的紀錄算出來，不用改那些遊戲 ──
@@ -251,10 +270,24 @@
                     { href: 'lab-life.html', name: '碩一生模擬器', how: '每玩完一輪 1～5 瓶（看結局）', n: lab.runs || 0, juice: lab.juice || 0, unit: '輪' },
                     { href: 'schulte.html', name: '數字方格 1→25', how: '每玩完一局 1 瓶', n: sch.runs || 0, juice: sch.juice || 0, unit: '局' },
                     { href: 'bingo.html', name: '賓果連線 Bingo', how: '每玩完一局 1 瓶，贏了 3 瓶', n: bingo.games || 0, juice: bingo.juice || 0, unit: '局' },
-                    { href: 'runner.html', name: '果汁龍跑酷', how: '沿路撿到的 🧃（每次最多 10 瓶）', n: run.runs || 0, juice: run.juice || 0, unit: '次' },
+                    { href: 'runner.html', name: '果汁龍跑酷', how: '沿路撿到的 🧃（每次最多 10 瓶）', n: run.runs || 0, juice: run.juice || 0, unit: '次' }
+                ].concat(rewardRows(), [
                     { href: null, name: '每日簽到', how: '每天 3 瓶', n: pet.days.length, juice: pet.days.length * 3, unit: '天' }
-                ];
+                ]);
             }
+            // 其他遊戲用 jfkReward() 送的（assets/pet-gifts.js，記在 jfk-gifts-v1）
+            function rewardRows() {
+                var g = window.jfkGiftData ? jfkGiftData() : { juice: {}, plays: {} }, G = window.JFK_REWARD_GAMES || {};
+                return Object.keys(G).map(function (k) {
+                    return { href: '../' + G[k].href, name: G[k].name, how: G[k].how, n: g.plays[k] || 0, juice: g.juice[k] || 0, unit: G[k].unit };
+                });
+            }
+            // ── 小禮物 ──
+            var GIFTS = window.JFK_GIFTS || [], GOLD_NEED = window.JFK_GOLD_NEED || 8;
+            function owned() { return window.jfkGiftsOwned ? jfkGiftsOwned(pet) : []; }
+            function giftOf(id) { for (var i = 0; i < GIFTS.length; i++) if (GIFTS[i][0] === id) return GIFTS[i]; return null; }
+            // 衣櫃「手上拿的」能不能選：黃金蘋果汁看禮物數，其他看等級
+            function holdOk(it) { return hatched() && (it[0] === 'gold' ? owned().length >= GOLD_NEED : level() >= it[3]); }
             function earned() { return sources().reduce(function (s, x) { return s + x.juice; }, 0) + (pet.bonus || 0); }
             function left() { return Math.max(0, earned() - pet.spent); }
 
@@ -270,6 +303,7 @@
                 ['hat', '👑', '皇冠', 20], ['side', '⭐', '星星', 25]
             ];
             var BGS = [['grass', '🌿', '草地', 1], ['lab', '🧪', '實驗室', 5], ['night', '🌙', '夜空', 10], ['beach', '🏖️', '海邊', 16], ['space', '🚀', '外太空', 22]];
+            var SHELF_AT = [[3, 66], [87, 68], [88, 85]];   // 房間裡擺禮物的位置（%）
             var DECO = {
                 grass: [['🌼', 8, 80], ['🌳', 82, 42]], lab: [['🧪', 10, 58], ['💻', 80, 58], ['📄', 66, 62]],
                 night: [['✨', 20, 15], ['✨', 55, 28]], beach: [['🌴', 86, 38], ['🐚', 12, 84]], space: [['🪐', 14, 20], ['🛸', 80, 30]]
@@ -309,11 +343,16 @@
                 ok: ['今天要玩什麼？', '我覺得 FP-tree 比 Apriori 帥', '可以陪我解一題 Zip 嗎？', '你今天有讀 paper 嗎？', '蘋果汁是世界上最好喝的東西'],
                 happy: ['好飽好開心！', '最喜歡你了 💚', '嗝～（蘋果汁的味道）', '我覺得我又長大了一點']
             };
+            var GIFT_SAY = ['你看！這是我的X', 'X是你幫我拿到的，我每天都會擦一擦', '我最喜歡X了', '（偷偷摸了一下X）'];
             function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
             function say(t) { $('say').textContent = t; }
             function idleLine() {
                 var f = fullness();
                 if (!hatched()) return pick(LINES.egg);
+                if (f > 2 && pet.shelf.length && Math.random() < 0.3) {
+                    var g = giftOf(pick(pet.shelf));
+                    if (g) return pick(GIFT_SAY).replace('X', g[2]);
+                }
                 return pick(!f ? LINES.flat : f <= 2 ? LINES.hungry : f >= 8 ? LINES.happy : LINES.ok);
             }
 
@@ -321,13 +360,25 @@
             function render(grow) {
                 var room = $('room');
                 room.dataset.bg = pet.bg;
-                room.querySelectorAll('.deco, .pet, .egg').forEach(function (e) { e.remove(); });
+                room.querySelectorAll('.deco, .shelf, .pet, .egg').forEach(function (e) { e.remove(); });
                 (DECO[pet.bg] || []).forEach(function (d) {
                     var s = document.createElement('span');
                     s.className = 'deco';
                     s.textContent = d[0];
                     s.style.left = d[1] + '%';
                     s.style.top = d[2] + '%';
+                    room.appendChild(s);
+                });
+                var have = owned();
+                pet.shelf = pet.shelf.filter(function (id) { return have.indexOf(id) >= 0; }).slice(0, 3);
+                pet.shelf.forEach(function (id, i) {
+                    var g = giftOf(id);
+                    if (!g) return;
+                    var s = document.createElement('span');
+                    s.className = 'shelf';
+                    s.textContent = g[1];
+                    s.style.left = SHELF_AT[i][0] + '%';
+                    s.style.top = SHELF_AT[i][1] + '%';
                     room.appendChild(s);
                 });
                 var st = stage();
@@ -380,6 +431,7 @@
                 $('daily').disabled = done;
                 $('daily-t').textContent = done ? '明天再來' : '+3 瓶';
                 drawCloset();
+                drawGifts();
                 drawSources();
             }
             // 秘密：4 秒內連點牠 10 下，牠會從冰箱偷拿 30 瓶果汁（不寫在畫面上，給發現的人）
@@ -453,7 +505,7 @@
                 JFK_HOLDS.forEach(function (it) {
                     var b = document.createElement('button');
                     b.type = 'button';
-                    var ok = lv >= it[3] && hatched(), on = (pet.hold || 'juice') === it[0];
+                    var ok = holdOk(it), on = (pet.hold || 'juice') === it[0];
                     b.disabled = !ok;
                     b.className = on ? 'on' : '';
                     b.title = it[2];
@@ -466,9 +518,9 @@
                         b.setAttribute('aria-label', it[2]);
                         b.addEventListener('click', function () {
                             pet.hold = it[0]; save(); render();
-                            say(it[0] === 'juice' ? '還是蘋果汁最好喝！' : '換拿' + it[2] + '了，好看嗎？');
+                            say(it[0] === 'juice' ? '還是蘋果汁最好喝！' : it[0] === 'gold' ? '黃金蘋果汁！謝謝你送我好多禮物' : '換拿' + it[2] + '了，好看嗎？');
                         });
-                    } else b.textContent = '🔒 Lv.' + it[3];
+                    } else b.textContent = it[0] === 'gold' ? '🔒 ' + GOLD_NEED + ' 個禮物' : '🔒 Lv.' + it[3];
                     hb.appendChild(b);
                 });
                 var bg = $('bgs');
@@ -490,6 +542,58 @@
                     bg.appendChild(b);
                 });
             }
+            function drawGifts() {
+                var have = owned(), box = $('gifts');
+                box.textContent = '';
+                $('gifts-n').textContent = have.length + ' / ' + GIFTS.length;
+                GIFTS.forEach(function (g) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    var got = have.indexOf(g[0]) >= 0, on = pet.shelf.indexOf(g[0]) >= 0;
+                    b.className = !got ? 'locked' : on ? 'on' : '';
+                    b.textContent = got ? g[1] : '🎁';
+                    var sm = document.createElement('small');
+                    sm.textContent = got ? g[2] : '？';
+                    b.appendChild(sm);
+                    b.setAttribute('aria-label', got ? g[2] + (on ? '（擺在房間裡）' : '') : '還沒拿到的禮物：' + g[4]);
+                    if (got) b.setAttribute('aria-pressed', on);
+                    b.addEventListener('click', function () { tapGift(g, got); });
+                    box.appendChild(b);
+                });
+            }
+            function giftNote(text, g) {
+                var n = $('gift-note');
+                n.textContent = text;
+                if (g) {
+                    var a = document.createElement('a');
+                    a.href = '../' + g[3];
+                    a.textContent = '去玩 →';
+                    n.appendChild(document.createTextNode(' '));
+                    n.appendChild(a);
+                }
+            }
+            function tapGift(g, got) {
+                if (!got) { giftNote('🎁 還沒拿到：' + g[4] + '。', g[3] === 'games/pet.html' ? null : g); return; }
+                var i = pet.shelf.indexOf(g[0]);
+                if (i >= 0) { pet.shelf.splice(i, 1); giftNote(g[1] + ' ' + g[2] + '收回櫃子裡了。'); }
+                else {
+                    if (pet.shelf.length >= 3) pet.shelf.shift();     // 滿了就把最早擺的收回去
+                    pet.shelf.push(g[0]);
+                    giftNote(g[1] + ' ' + g[2] + '擺進房間了（' + g[4] + '拿到的）。');
+                    if (hatched()) say(pick(GIFT_SAY).replace('X', g[2]));
+                }
+                save(); render();
+            }
+            // 從遊戲回來時：有新禮物就講一聲
+            function newGiftNews() {
+                var have = owned();
+                if (!pet.seen) { pet.seen = have; save(); return ''; }
+                var fresh = have.filter(function (id) { return pet.seen.indexOf(id) < 0; });
+                if (!fresh.length) return '';
+                pet.seen = have; save();
+                return '🎁 收到新禮物：' + fresh.map(function (id) { var g = giftOf(id); return g[1] + g[2]; }).join('、') + '！去禮物櫃把它擺進房間吧';
+            }
+
             function drawSources() {
                 var ul = $('src');
                 ul.textContent = '';
@@ -582,10 +686,15 @@
             });
 
             render();
-            say(hatched() ? '「' + pet.name + '」：' + idleLine() : '這是一顆果汁龍的蛋，餵牠 3 瓶蘋果汁就會孵出來。');
+            var news = newGiftNews();
+            say(news || (hatched() ? '「' + pet.name + '」：' + idleLine() : '這是一顆果汁龍的蛋，餵牠 3 瓶蘋果汁就會孵出來。'));
             // 從別的遊戲回來時，重新算果汁
-            window.addEventListener('pageshow', function (e) { if (e.persisted) render(); });
-            window.addEventListener('storage', function () { pet = read(KEY).xp != null ? read(KEY) : pet; render(); });
+            window.addEventListener('pageshow', function (e) { if (e.persisted) { render(); var n = newGiftNews(); if (n) say(n); } });
+            window.addEventListener('storage', function () {
+                var p = read(KEY);
+                if (typeof p.xp === 'number') { pet = p; if (!Array.isArray(pet.days)) pet.days = []; if (!Array.isArray(pet.shelf)) pet.shelf = []; if (!Array.isArray(pet.seen)) pet.seen = null; }
+                render();
+            });
             setInterval(function () { render(); }, 5 * 60 * 1000);
             setInterval(showFull, 30 * 1000);
         })();

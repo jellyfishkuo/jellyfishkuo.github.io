@@ -21,6 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-gifts.js" defer></script><!-- 送果汁龍果汁／小禮物 -->
     <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
@@ -1381,6 +1382,11 @@
                     render();
                     const playerIsHuman = selMode.value !== 'ai' || player === humanSide();
                     if (playerIsHuman) celebrate();
+                    // 果汁龍：只有贏電腦才送（兩人對戰自己跟自己下太容易）；困難第一次贏有圈圈抱枕
+                    if (selMode.value === 'ai' && playerIsHuman && window.jfkReward) {
+                        const lv = selLevel.value;
+                        jfkReward('infinite-tictactoe', { easy: 1, normal: 2, hard: 3 }[lv] || 1, { gift: lv === 'hard' ? 'ring' : '' });
+                    }
                     showToast(selMode.value === 'ai'
                         ? (playerIsHuman ? '🎉 你連成一線，贏了！' : '💀 電腦連成一線了，再來一局？')
                         : `🎉 ${MARK_TEXT[player]} 連成一線，獲勝！`, 0);
