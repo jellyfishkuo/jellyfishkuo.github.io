@@ -178,7 +178,6 @@
         }
         [data-theme="light"] .cell { border: 2px solid #1d2b12; font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
         .cell.empty { border-style: dashed; color: var(--muted); }
-        .cell.next-slot { border-color: var(--accent2); }
         .cell.can { cursor: pointer; }
         .cell.can:hover { border-color: var(--accent2); }
         .board.edit .cell { cursor: pointer; }
@@ -780,8 +779,6 @@
                 const done = board ? doneLines(board, set) : [];
                 const inLine = new Set(done.flatMap(i => LINES[i]));
                 const just = last && v.called.length > lastCalledLen ? last[0] : 0;
-                const nextNum = edit && manual ? nextSlotNumber() : 0;
-                let nextSlotMarked = false;
                 boardEl.classList.toggle('edit', edit);
                 boardEl.classList.toggle('locked', !board && !edit);
                 cells.forEach((c, i) => {
@@ -793,9 +790,6 @@
                     c.classList.toggle('line', inLine.has(i));
                     c.classList.toggle('can', myTurn && !!board && !marked && !pendingCall);
                     c.classList.toggle('pending', !!pendingCall && n === pendingCall);
-                    const isNext = !n && nextNum && !nextSlotMarked;
-                    if (isNext) nextSlotMarked = true;
-                    c.classList.toggle('next-slot', !!isNext);
                     if (n === just) { c.classList.remove('just'); void c.offsetWidth; c.classList.add('just'); }
                     c.setAttribute('aria-label', n ? `${n}${marked ? '，已圈' : ''}` : '空格');
                 });
