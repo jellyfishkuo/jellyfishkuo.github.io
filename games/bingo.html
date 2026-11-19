@@ -115,6 +115,7 @@
         [data-theme="light"] .btn.primary { color: #1d2b12; background: #ffb02e; box-shadow: 2px 2px 0 #1d2b12; }
         .or { color: var(--muted); font-size: 0.8rem; }
         .room { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .room[hidden] { display: none; }
         .room strong { font: 700 1.5rem/1 'Space Mono', monospace; letter-spacing: 0.12em; color: var(--accent2); }
         [data-theme="light"] .room strong { color: #b35c00; }
         .room .grow { flex: 1; }
@@ -274,19 +275,51 @@
         .rules p { margin-top: 0.5rem; }
         .rules b { color: var(--text); }
         /* ── 電腦版：左（模式、連線、玩家）／中（格子）／右（喊過的數字、紀錄、玩法）三欄 ── */
+        .box-h { display: none; }
         @media (min-width: 980px) {
-            .wrap { max-width: 1240px; padding-top: 1rem; }
-            .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 1.6rem; align-items: start; margin-top: 1rem; }
+            /* 三欄靠在一起、整組置中：頁寬跟著格子大小算，標題跟三欄的左邊切齊 */
+            .wrap { --bw: max(340px, min(560px, 100vh - 400px)); max-width: calc(280px + 300px + 5rem + var(--bw) + 2rem); padding-top: 1rem; }
+            .layout { display: grid; grid-template-columns: 280px var(--bw) 300px; gap: 2.5rem; align-items: start; margin-top: 1.1rem; }
             .layout > div { min-width: 0; }
             .seg { margin-top: 0; }
-            /* 玩家名單直的排，固定留 8 個人的高度 */
-            .strip { flex-direction: column; height: calc(8 * 3.1rem + 7 * 0.4rem); overflow: hidden; margin-top: 0.9rem; }
-            .chip { max-width: none; height: 3.1rem; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.6rem; }
+            /* 兩側都是同一種卡片：底色、圓角、標題一致 */
+            .box { padding: 0.85rem 0.9rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
+            [data-theme="light"] .box { border: 2px solid #1d2b12; box-shadow: 4px 4px 0 #1d2b12; }
+            .col-left > * + *, .col-side > * + * { margin-top: 1rem; }
+            .col-side > :first-child { margin-top: 0; }
+            .box-h, .box h2 { display: flex; align-items: baseline; gap: 0.4rem; font-size: 0.92rem; font-weight: 700; margin: 0 0 0.6rem; color: var(--text); }
+            .box-h span, .box h2 span { color: var(--muted); font-weight: 400; font-size: 0.78rem; }
+            [data-theme="light"] .box-h::before, [data-theme="light"] .box h2::before { content: ''; flex: none; width: 0.6em; height: 0.6em; border-radius: 50%; background: #e8413c; border: 2px solid #1d2b12; align-self: center; }
+            .panel { padding: 0.85rem 0.9rem; border-radius: 14px; }
+            [data-theme="light"] .panel { box-shadow: 4px 4px 0 #1d2b12; }
+            /* 左欄比較窄：連線設定一行一件事，輸入框撐滿 */
+            #onlineActions .row label { flex: 1; min-width: 0; }
+            #nick { flex: 1; width: auto; }
+            #btnCreate { width: 100%; }
+            #onlineActions .or { width: 100%; margin-top: 0.3rem; }
+            #roomInput { flex: 1; width: auto; }
+            .room .grow { display: none; }
+            #targetRow { margin-left: auto; }
+            /* 玩家名單直的排，固定留 8 個人的高度（有人進出不會推動別的東西） */
+            .strip { flex-direction: column; gap: 0.4rem; height: calc(var(--rows, 8) * 2.7rem + (var(--rows, 8) - 1) * 0.4rem); overflow: hidden; margin: 0; padding: 0; }
+            .chip { max-width: none; height: 2.7rem; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.6rem; background: var(--panel-2); border-color: transparent; }
+            [data-theme="light"] .chip { background: #f3f8ec; border: 2px solid #c9d6bb; }
+            [data-theme="light"] .chip.turn { border-color: #1d2b12; }
             .chip span { font-size: 0.8rem; }
-            .board-box { width: min(100%, max(340px, 100vh - 400px)); }
-            .called { margin-top: 0; }
-            .called-list { height: calc(4 * 1.9rem + 3 * 4px + 1rem); }
-            .rules { margin-top: 1.2rem; font-size: 0.85rem; }
+            /* 中間：狀態列、BINGO、格子、按鈕都跟格子一樣寬，置中排好 */
+            .col-main { display: flex; flex-direction: column; align-items: center; }
+            .col-main > * { width: var(--bw); }
+            .board-box { width: var(--bw); }
+            .status { margin: 0; }
+            .actions .big { width: 100%; }
+            /* 右邊 */
+            .called-list { height: calc(4 * 1.9rem + 3 * 4px); padding: 0; border: 0; background: none; }
+            [data-theme="light"] .called-list { border: 0; }
+            .record .stats { gap: 0.4rem; }
+            .stat { background: var(--panel-2); border-color: transparent; }
+            [data-theme="light"] .stat { background: #f3f8ec; border: 2px solid #c9d6bb; }
+            .rules { font-size: 0.84rem; }
+            .rules p { margin-top: 0.45rem; }
         }
     </style>
 </head>
@@ -332,7 +365,9 @@
             <div class="conn" id="conn">還沒連線：建立房間，或輸入朋友的四位數房間碼。</div>
         </div>
 
-        <div class="strip" id="strip" aria-label="玩家"></div>
+        <section class="players-box box"><h2 class="box-h">玩家 <span id="playersN"></span></h2>
+        <div class="strip" id="strip" aria-label="玩家" style="--rows: 4"></div>
+        </section>
         </div>
 
         <div class="col-main">
@@ -359,12 +394,12 @@
         </div>
 
         <div class="col-side">
-        <section class="called">
+        <section class="called box">
             <h2>喊過的數字 <span id="calledN">0 / 25</span></h2>
             <div class="called-list" id="calledList"></div>
         </section>
 
-        <section class="record">
+        <section class="record box">
             <h2>我的紀錄</h2>
             <div class="stats">
                 <div class="stat"><b id="recGames">0</b><span>玩了幾局</span></div>
@@ -373,7 +408,7 @@
             </div>
         </section>
 
-        <section class="rules">
+        <section class="rules box">
             <h2>怎麼玩</h2>
             <ol>
                 <li>每個人把 <b>1～25</b> 填進自己的 5×5 格子，順序自己決定（可以按「隨機排」，或「自己排」一格一格點）。大家的格子互相看不到。</li>
@@ -853,6 +888,7 @@
             function renderStrip(v) {
                 const strip = $('strip');
                 strip.textContent = '';
+                const pn = $('playersN'); if (pn) pn.textContent = `${v.players.length} 人`;
                 const playing = v.phase !== 'setup';
                 v.players.forEach(p => {
                     const chip = document.createElement('div');
@@ -1132,6 +1168,7 @@
                 mode = m;
                 [...$('seg').children].forEach(b => b.classList.toggle('on', b.dataset.mode === m));
                 $('aiPanel').hidden = m !== 'ai';
+                $('strip').style.setProperty('--rows', m === 'ai' ? 4 : MAX_PLAYERS);
                 $('onlinePanel').hidden = m !== 'online';
                 overShownFor = '';
                 if (m === 'ai') setupAi();
