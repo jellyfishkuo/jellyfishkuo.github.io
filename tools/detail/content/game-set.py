@@ -55,8 +55,120 @@ PAGE = dict(
 <p>做法是挖洞時先用空位佔住，不把陣列縮短，這樣其他牌的位置都不會位移；接著依「多餘的牌優先、再從牌堆補」的順序把洞填滿。同一段邏輯同時處理了這兩種情況。</p>
 ''' + callout('warn', '一個留著沒改的小瑕疵', '<p>多出來的牌是從尾端一張張取出，再依序填進前面的洞，所以這幾張搬過去時順序會反過來。功能完全正確，只是位置變化不太直覺；要改只需要先把取出的順序反轉一次。</p>')),
         ]),
+        ('basics', '📡 連線入門', [
+            ('b-read', '這一頁寫給誰', '''
+<p>如果你沒學過網路，看到「WebRTC」「STUN」「MQTT」可能一頭霧水。這一頁從最基本的問題開始講：<strong>兩支手機到底為什麼不能直接傳訊息？</strong>接著一個一個介紹這個遊戲用到的服務，每一個都說明它是什麼、在這裡負責哪一步、為什麼需要它。看完再去讀「🌐 連線對戰」，就會知道那些設計在解決什麼問題。</p>
+''' + callout('', '先記住一句話', '<p>這個遊戲的連線，就是<strong>先請別人幫忙「介紹」兩支手機認識，能直接講話就直接講；講不通，就改請一個公開的「傳話站」幫忙轉。</strong>下面每一節都只是在解釋這句話的某一個部分。</p>')),
+            ('b-nat', '一、兩支手機為什麼不能直接講話', '''
+<p>網路上每台裝置都有一個<strong>位址（IP）</strong>，就像門牌。要寄東西給對方，就要知道對方的門牌。問題是：<strong>你的手機通常沒有自己的「對外門牌」</strong>。</p>
+<ul>
+<li><strong>家裡的 Wi-Fi 像一棟大樓。</strong>路由器是大樓的管理室，整棟樓對外只有一個地址。你的手機在樓裡有個房號（像 <span class="inline-code">192.168.1.23</span>），但外面的人只看得到大樓地址，不知道你住幾號房。這個「很多裝置共用一個對外地址」的做法叫 <strong>NAT</strong>（網路位址轉換）。</li>
+<li><strong>管理室只放行「你先寄出去、對方回信」的包裹。</strong>你主動連出去（例如打開網頁），管理室會記住「這個回信要送到 23 號房」；但如果外面有人<strong>主動</strong>寄東西來，管理室不知道要給誰，就直接丟掉。</li>
+<li><strong>手機網路更嚴格。</strong>電信商常常讓好幾百個用戶共用一個對外地址（叫 CGNAT），等於大樓外面又多一層管理室。</li>
+<li><strong>租屋處的 Wi-Fi 常開「AP 隔離」。</strong>就算兩支手機在同一個 Wi-Fi，路由器也故意不讓房客之間互相看到，避免隔壁房偷看你的裝置。</li>
+</ul>
+<p>所以當你和朋友各自在自己家、或一個用 Wi-Fi 一個用 4G 時，<strong>兩邊都在管理室後面，誰都沒辦法「主動」連到對方</strong>。這就是所有連線麻煩的根源。</p>
+<p>那平常的網站為什麼連得到？因為網站的<strong>伺服器</strong>有固定、公開的地址，而且一直開著等別人來連。手機主動連出去找伺服器，管理室會放行。</p>
+''' + callout('warn', '那讓網站幫忙轉不就好了？', '<p>這個網站放在 <strong>GitHub Pages</strong> 上。GitHub Pages 只會把 HTML 檔案送到你的瀏覽器，<strong>不能跑任何程式</strong>，也不會幫你轉訊息，這種網站叫「靜態網站」。所以牌局的訊息要另外找別的服務幫忙，下面介紹的就是這些服務。</p>')),
+            ('b-services', '二、這個遊戲用了哪些服務', '''
+<p>全部都是<strong>免費、公開</strong>的服務，不用註冊帳號、不用付錢。下面依照「什麼時候用到」排列：</p>
+''' + table(['服務', '它是什麼', '在這裡負責什麼'], [
+                ['GitHub Pages<br><span class="inline-code">jellyfishkuo.github.io</span>', '放網頁檔案的地方', '把 game-set.html 這個檔案送到你的手機。之後就不參與連線了'],
+                ['jsDelivr（CDN）', '幫大家放公開程式庫的服務', '載入兩個別人寫好的程式庫：PeerJS 1.5.5（處理 WebRTC）和 MQTT.js 5.16.0（處理 MQTT）'],
+                ['PeerJS 配對伺服器<br><span class="inline-code">0.peerjs.com</span>', '幫兩台裝置「互相介紹」的介紹人', '房主在這裡登記房號；加入者透過它找到房主，交換連線需要的資料。<strong>連上之後就不需要它了</strong>'],
+                ['STUN 伺服器<br><span class="inline-code">stun.l.google.com</span><br><span class="inline-code">stun.cloudflare.com</span>', 'Google 和 Cloudflare 提供的「照鏡子」服務', '告訴你的手機：「從外面看，你的大樓地址和門口號碼是這個」，讓手機知道要把什麼地址給對方'],
+                ['TURN 中繼伺服器<br><span class="inline-code">eu-0 / us-0.turn.peerjs.com</span>', 'PeerJS 提供的代轉站', '兩邊怎樣都直接打不通時，所有資料改由它轉送。帳號密碼是 PeerJS 公開的 <span class="inline-code">peerjs / peerjsp</span>'],
+                ['MQTT 伺服器（broker）<br><span class="inline-code">broker.emqx.io</span><br><span class="inline-code">broker.hivemq.com</span>', 'EMQX 和 HiveMQ 兩家公司開放測試用的訊息轉送站', '<strong>備援通道</strong>：直連 10 秒還打不通，就改由它們轉送所有牌局訊息'],
+            ]) + '''
+<p>可以把它們分成兩組來記：<strong>PeerJS＋STUN＋TURN 是「直連」這條路</strong>（WebRTC），<strong>EMQX／HiveMQ 是「備援」這條路</strong>（MQTT）。接下來分別介紹。</p>'''),
+            ('b-webrtc', '三、WebRTC 直連：手機之間直接通話', '''
+<p><strong>WebRTC</strong> 是瀏覽器內建的功能，原本是設計來讓網頁做視訊通話（Google Meet 就是用它），也可以只傳文字資料。它最大的好處是：<strong>連上之後，資料直接在兩支手機之間傳，不經過任何伺服器</strong>，所以最快。</p>
+<p>難的是「怎麼連上」。兩支手機都在管理室後面，誰都找不到誰，所以需要一個介紹人。這個遊戲用的介紹人是 <strong>PeerJS</strong> 提供的免費配對伺服器（WebRTC 的術語叫 signaling，「信令」）。整個過程像這樣：</p>
+<ol class="steps">
+<li><strong>房主登記。</strong>房主按「建立房間」，程式隨機抽一個四位數（例如 1234），用 <span class="inline-code">jellyfish-set-room-1234</span> 這個名字向 PeerJS 伺服器登記。手機會跟伺服器保持一條 WebSocket 連線（一種「一直開著、雙方都能隨時說話」的網頁連線），就像在介紹人那邊留了電話。</li>
+<li><strong>加入者找人。</strong>小明輸入 1234。他的手機也連上 PeerJS 伺服器（拿到一個隨機名字），然後說：「我要找 <span class="inline-code">jellyfish-set-room-1234</span>」。</li>
+<li><strong>各自照鏡子（STUN）。</strong>兩支手機各自去問 STUN 伺服器：「你看到我是從哪個地址、哪個門口連過來的？」這樣才知道自己的「對外地址」。</li>
+<li><strong>交換名片（SDP 與 ICE 候選）。</strong>兩邊透過 PeerJS 伺服器互相傳一張「名片」，上面寫著：我能用什麼方式傳資料（SDP），以及<strong>所有可能找得到我的地址</strong>（ICE 候選）：樓裡的房號、STUN 問到的對外地址、TURN 中繼的地址。</li>
+<li><strong>同時往對方打洞。</strong>兩邊拿到對方的名片後，<strong>同時</strong>往對方的每個地址送小封包。因為雙方都「主動送出去過」，兩邊的管理室都以為是在等回信，就會放行對方的封包。這個技巧叫 <strong>NAT 打洞</strong>（hole punching）。哪一組地址先成功，就用那一組。</li>
+<li><strong>打不通就走 TURN。</strong>有些管理室很嚴格（叫「對稱型 NAT」，手機網路常見），每次連不同對象都換一個門口號碼，打洞不會成功。這時只剩最後一張候選：兩邊都連到 TURN 中繼站，由它代轉。</li>
+<li><strong>通了。</strong>WebRTC 開出一條「資料通道」（DataChannel）。從這一刻開始，牌局訊息就直接在兩支手機之間傳，PeerJS 伺服器就算斷線也不影響。小明送出第一句話 <span class="inline-code">hello</span>（附上自己的代號和暱稱），房主回一份完整牌面，遊戲開始。</li>
+</ol>
+''' + callout('good', '資料是加密的', '<p>WebRTC 規定資料通道一定要加密（DTLS），就算走 TURN 中繼，中繼站也只看得到一堆亂碼，看不到牌局內容。這點和後面的 MQTT 備援不一樣。</p>') + '''
+<p>多人的時候，房主要跟<strong>每一個</strong>加入者各走一次上面的流程，所以 6 個人就是房主身上 5 條資料通道；加入者之間不直接連線，所有訊息都經過房主（叫「星狀」連線，房主在中間）。</p>'''),
+            ('b-stunturn', '四、STUN 和 TURN 差在哪裡', '''
+<p>這兩個名字很像，但角色完全不同，也是這個遊戲踩過最大的坑（見「問題與修正」#1）：</p>
+''' + table(['', 'STUN', 'TURN'], [
+                ['比喻', '照鏡子：問別人「我看起來長怎樣」', '代轉站：信全部寄給它，由它轉給對方'],
+                ['資料會經過它嗎', '<strong>不會</strong>，只問一次地址', '<strong>會</strong>，整局每一則訊息都經過它'],
+                ['成本', '很低，所以 Google、Cloudflare 免費開放', '很高（要負擔所有流量），免費的通常不穩定或有限制'],
+                ['什麼時候用', '每次連線一開始都會問', '打洞失敗時才用'],
+                ['少了它會怎樣', '手機不知道自己的對外地址，幾乎連不到外面', '嚴格的網路（手機網路、AP 隔離）直接連不上'],
+            ]) + '''
+<p>程式裡的設定長這樣（列了兩台 STUN、一組 TURN）：</p>
+<div class="table-wrap"><table class="kv"><tbody><tr><td><span class="inline-code">stun:stun.l.google.com:19302</span><br><span class="inline-code">stun:stun.cloudflare.com:3478</span><br><span class="inline-code">turn:eu-0.turn.peerjs.com:3478</span>（帳號 peerjs）<br><span class="inline-code">turn:us-0.turn.peerjs.com:3478</span>（帳號 peerjs）</td></tr></tbody></table></div>
+''' + callout('warn', '為什麼還需要第二條路', '<p>PeerJS 的免費 TURN 沒有任何保證，實測在租屋處的 Wi-Fi 常常接不住。如果直連這條路完全失敗，遊戲就玩不了。所以另外準備了一條完全不同原理的路：MQTT。</p>')),
+            ('b-mqtt', '五、MQTT 備援：一塊大家都能看的公布欄', '''
+<p><strong>MQTT</strong> 原本是給物聯網用的（例如很多感測器回報溫度），特色是很輕、很簡單。它的運作方式叫<strong>「發布／訂閱」</strong>，很像 LINE 群組或公布欄：</p>
+<ul>
+<li><strong>broker（訊息伺服器）</strong>：公布欄本身，有公開的地址，大家都連得到。這裡用 EMQX 和 HiveMQ 開放給大家測試的公共 broker。</li>
+<li><strong>topic（主題）</strong>：公布欄上的分區，名字像資料夾路徑，例如 <span class="inline-code">jellyfishkuo/set-game/v1/1234/host</span>。</li>
+<li><strong>訂閱（subscribe）</strong>：「這個分區有新東西請通知我」。</li>
+<li><strong>發布（publish）</strong>：把一則訊息貼到某個分區，broker 會轉給所有訂閱這個分區的人。</li>
+</ul>
+<p>重點是：<strong>兩支手機都是「主動連出去」找 broker</strong>，就跟打開一般網頁一樣，管理室一定放行。所以不管什麼網路環境，只要能上網就連得到。代價是每則訊息都要繞到 broker 一趟，比直連慢一點（大約多 0.1～0.3 秒）。</p>
+<p>這個遊戲的備援通道是這樣運作的：</p>
+<ol class="steps">
+<li><strong>房主</strong>在 PeerJS 登記成功後，就同時連上兩台 broker，訂閱 <span class="inline-code">…/1234/host</span>（「寄給房主的信」）。</li>
+<li><strong>小明</strong>直連 10 秒沒打通，程式就放棄 WebRTC，替自己取一個隨機代號（例如 <span class="inline-code">g8k2x…</span>），連上兩台 broker，訂閱 <span class="inline-code">…/1234/guest/g8k2x…</span>（「寄給我的信」）。</li>
+<li>小明在房主的分區貼一則 <span class="inline-code">{ kind: 'join', from: 'g8k2x…' }</span>。兩台 broker 都貼，哪台先通就用哪台。</li>
+<li>房主看到後，在小明的分區回 <span class="inline-code">{ kind: 'accept' }</span>。小明收到，就認定這條路通了。</li>
+<li>之後所有牌局訊息都包成 <span class="inline-code">{ kind: 'data', payload: 原本的訊息 }</span> 貼來貼去，內容跟直連傳的<strong>一模一樣</strong>。</li>
+</ol>
+<p>瀏覽器沒辦法直接講 MQTT 原本的通訊方式，所以這裡是「把 MQTT 包在 WebSocket 裡」，網址長這樣：<span class="inline-code">wss://broker.emqx.io:8084/mqtt</span>、<span class="inline-code">wss://broker.hivemq.com:8884/mqtt</span>。<span class="inline-code">wss</span> 的 s 代表手機到 broker 這一段有加密。</p>
+''' + callout('', 'MQTT 的兩個小功能，這裡都用上了', '<p><strong>QoS 0（送了就算）</strong>：MQTT 可以要求 broker 保證送到，但那要多來回確認幾次。牌局每幾秒就會整份重送牌面，掉一則也沒關係，所以選最快的 QoS 0。</p><p><strong>遺囑訊息（Last Will）</strong>：小明連上 broker 時，先交給它一則「如果我突然不見，請幫我貼這則 bye 給房主」。分頁被直接關掉、來不及道別時，broker 發現他斷線，就會代替他通知房主。</p>') + callout('warn', '公布欄是公開的', '<p>公共 broker 沒有帳號密碼，任何人只要知道主題名字就能訂閱、看到上面的訊息。雖然手機到 broker 那段有加密，但 broker 本身、以及任何訂閱同一個主題的人都看得到內容。這裡只傳牌面、分數和暱稱，所以可以接受；這也是「暱稱不要用真名」的原因。</p>')),
+            ('b-compare', '六、兩條路並排比較', '''
+''' + table(['', 'WebRTC 直連', 'MQTT 備援'], [
+                ['資料經過誰', '兩支手機之間直接傳（打不通才經過 TURN）', '每一則都經過公共 broker'],
+                ['速度', '最快，通常幾十毫秒', '多繞一趟，約多 0.1～0.3 秒'],
+                ['連不連得上', '嚴格的網路會打不通', '只要能上網就連得上'],
+                ['隱私', '一定加密，中繼站也看不到內容', 'broker 和訂閱同主題的人看得到'],
+                ['要先做什麼', '透過 PeerJS 配對、STUN 問地址、打洞', '連上 broker、訂閱主題就好'],
+                ['畫面上顯示', '（直連）', '（經由備援伺服器）'],
+            ]) + '''
+<p>為了讓遊戲本身不用管走的是哪條路，備援通道被包裝成跟 PeerJS 的連線物件<strong>長得一樣</strong>：一樣有「連上了」「收到資料」「斷線了」三個事件，一樣用 <span class="inline-code">send()</span> 送資料。搶答、補牌、重新開始的程式完全沒有因為多了備援而改動。</p>
+<p>還有一種情況：如果 PeerJS 伺服器本身掛了，房主會直接只開備援通道，加入者也會直接走備援，不用先等 10 秒。</p>'''),
+            ('b-try', '七、自己動手看看', '''
+<p>不用相信文字，打開電腦版 Chrome 就能親眼看到上面每一步：</p>
+<ol class="steps">
+<li><strong>看 WebRTC 打洞</strong>：開一個新分頁輸入 <span class="inline-code">chrome://webrtc-internals</span>，再開兩個分頁打開 SET，一個建立房間、一個加入。會看到每條連線收集到的 ICE 候選：<span class="inline-code">host</span>（樓裡的房號）、<span class="inline-code">srflx</span>（STUN 問到的對外地址）、<span class="inline-code">relay</span>（TURN 中繼），以及最後是哪一組配對成功。</li>
+<li><strong>看配對伺服器和 broker 的對話</strong>：按 F12 打開開發者工具 → Network（網路）→ 篩選 WS。會看到連往 <span class="inline-code">0.peerjs.com</span> 的那條（交換名片用），走備援時還會看到連往 <span class="inline-code">broker.emqx.io</span>、<span class="inline-code">broker.hivemq.com</span> 的兩條。點進去選 Messages 就看得到一則則訊息。</li>
+<li><strong>從外面看自己的房間</strong>：用 MQTTX 之類的 MQTT 工具連到 <span class="inline-code">wss://broker.emqx.io:8084/mqtt</span>，訂閱 <span class="inline-code">jellyfishkuo/set-game/v1/你的房號/#</span>（<span class="inline-code">#</span> 代表底下所有分區）。走備援對戰時，就會看到 join、accept、牌面一則一則跑過去。這也是「公布欄是公開的」最直接的證明。</li>
+</ol>'''),
+            ('b-words', '名詞小抄', '''
+''' + table(['名詞', '白話'], [
+                ['IP 位址', '網路上的門牌'],
+                ['NAT', '很多裝置共用一個對外地址；外面的人不能主動找進來'],
+                ['伺服器', '有公開地址、一直開著等人來連的電腦'],
+                ['WebSocket', '網頁跟伺服器之間一直開著、雙方都能隨時說話的連線'],
+                ['WebRTC', '瀏覽器內建、讓兩台裝置直接傳資料的功能'],
+                ['signaling（信令）／配對伺服器', '幫兩台裝置交換名片的介紹人，這裡是 PeerJS'],
+                ['SDP', '名片上的「我會用什麼方式傳資料」'],
+                ['ICE 候選', '名片上的「所有可能找得到我的地址」'],
+                ['STUN', '問「我從外面看起來的地址是什麼」，不轉送資料'],
+                ['TURN', '打不通時的代轉站，所有資料都經過它'],
+                ['NAT 打洞', '兩邊同時往對方送封包，騙過管理室放行'],
+                ['DataChannel', 'WebRTC 打通後的那條資料通道'],
+                ['MQTT', '發布／訂閱的訊息協定，像公布欄'],
+                ['broker', 'MQTT 的訊息伺服器（公布欄本身）'],
+                ['topic', '公布欄上的分區名稱'],
+                ['QoS', 'MQTT 保證送達的程度，0 是「送了就算」'],
+                ['Last Will（遺囑訊息）', '斷線時由 broker 代為發出的訊息'],
+                ['心跳', '每隔幾秒送一則小訊息，證明自己還活著'],
+            ])),
+        ]),
         ('online', '🌐 連線對戰', [
             ('arch', 'I. 房主說了算', '''
+<p>（沒學過網路的話，建議先看「📡 連線入門」分頁，裡面從 NAT、STUN、TURN、MQTT 是什麼講起。）</p>
 <p>連線的需求很單純：大家打開同一個網頁、輸入暱稱，一個人建立房間拿到四位數字，其他人輸入數字加入（最多 6 人），然後搶同一副牌，誰先送出合法的三張就算誰的。</p>
 <p>網站放在 GitHub Pages，沒有後端伺服器，所以整局牌的「真相」放在<strong>房主的瀏覽器</strong>裡：檯面、牌堆、每個人的分數都以房主為準。房主和每一位加入者之間各有一條連線，加入者之間不直接相連。加入者每次選滿三張，只是送出一個「我要這三張」的請求，由房主驗證：</p>
 <ul>
