@@ -15,3 +15,8 @@ stock/data/
 
 # Jellyfish Chess 測試截圖
 tools/chess/shots/
+
+# SET／賓果連線測試用：npm pack 解開的 peerjs、mqtt 瀏覽器版
+tools/set-online/package/
+tools/set-online/mq/
+tools/set-online/package-lock.json

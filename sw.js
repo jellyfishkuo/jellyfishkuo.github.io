@@ -3,12 +3,12 @@
  * 第一次打開時先把首頁和遊戲頁存起來（CORE）；研究 Demo 比較大，看過哪頁才存哪頁。
  * 西洋棋有自己的 games/chess/sw.js（範圍比較小，那個資料夾歸它管）。
  * 新增遊戲時把頁面加進 CORE；改了 CORE 或快取規則就把 VERSION 加一，舊的快取會在新版啟用時清掉。 */
-const VERSION = 'jfk-site-v1';
+const VERSION = 'jfk-site-v2';
 const CORE = [
     './', 'index.html', '404.html', 'manifest.webmanifest',
     'assets/theme.js', 'assets/theme.css', 'assets/dragon.svg', 'assets/dragon-hold.js', 'assets/pet-mini.js', 'assets/quest.js',
     'assets/logo.svg', 'assets/logo-32.png', 'assets/logo-180.png', 'assets/app-192.png',
-    'games/zip.html', 'games/schulte.html', 'games/runner.html', 'games/pet.html', 'games/pentomino.html', 'games/game-set.html',
+    'games/zip.html', 'games/schulte.html', 'games/runner.html', 'games/pet.html', 'games/pentomino.html', 'games/game-set.html', 'games/bingo.html',
     'games/hanoi.html', 'games/store-manager.html', 'games/lab-life.html', 'games/dinner-wheel.html', 'games/1A2B.html',
     'games/infinite-tictactoe.html', 'games/vertical-gomoku.html', 'games/coc-card.html',
     'electricity-tracker/', 'electricity-tracker/index.html', 'electricity-tracker/script.js', 'electricity-tracker/style.css',

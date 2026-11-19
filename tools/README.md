@@ -52,6 +52,14 @@ SET 線上對戰平常用公開的 PeerJS 配對服務和 MQTT 伺服器，測�
 
 這些測試腳本是一路修 bug 時寫的，有的還假設舊的 UI；跑失敗時先看是不是腳本跟不上頁面。
 
+SET 和賓果的測試都用 `npm pack` 解開的 peerjs、mqtt 瀏覽器版（開發環境連不到 CDN，測試時用 Playwright 攔下 CDN 的請求換成本機檔案）：`cd tools/set-online && npm pack peerjs@1.5.5 && tar xzf peerjs-1.5.5.tgz && mkdir -p mq && cd mq && npm pack mqtt@5.16.0 && tar xzf mqtt-5.16.0.tgz`。Chromium 新版會擋「公開網頁連 127.0.0.1」，測試瀏覽器要加 `--disable-features=LocalNetworkAccessChecks`。
+
+## bingo/：賓果連線的測試與圖示
+
+- `icon.py`：從 `assets/icons/bingo.svg` 產生 32／180 px 的 PNG。
+- `test_ai.py`：跟電腦玩從頭玩到尾（375／320 px、深淺色），檢查區塊位置不動、紀錄、自己排。先開 `python3 -m http.server 8770`。
+- `test_online.py`：3 個分頁連線（其中一個擋掉 PeerJS、只走 MQTT 備援），中途重新整理接回同一張格子、20 秒超時代喊、離開房間。先照上面 set-online 的步驟裝好並 `bash tools/set-online/up.sh`；頁面在測試時改指向本機的 PeerServer／MQTT（不用另外產生檔案）。
+
 ## og/：分享預覽
 
 - `add_og.py`：依頁面的 `<title>`、description 加上 Open Graph／Twitter 標籤（分享到 LINE、FB、Discord 時的預覽卡）。可以重複執行。`--all` 處理所有手寫頁和研究 Demo 樣板，之後要重新產生研究 Demo。技術介紹頁的標籤寫在 `detail/build_detail.py`。

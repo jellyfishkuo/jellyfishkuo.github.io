@@ -40,6 +40,7 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `games/pentomino.html` | 每日挑戰（拖曳）＋ 自由解答（求解器、可一鍵標出今天日期） |
 | `games/game-set.html` | SET：單人、電腦對手、**多人連線（最多 6 人）**。房主權威制；WebRTC（PeerJS，自訂 iceServers 時要自己列 TURN）打不通 10 秒後改走 MQTT 備援（EMQX、HiveMQ）。暱稱、等待室、全員同意才重新開始、斷線同房號重回（同暱稱合併紀錄）、配對亮 0.8 秒＋上方縮圖提示、同一局鎖定牌面排法。 |
 | `games/1A2B.html`、`infinite-tictactoe.html`、`vertical-gomoku.html`、`coc-card.html` | 各有技術介紹頁 |
+| `games/bingo.html` | 賓果連線：每人 5×5 填 1～25（隨機排／自己排），輪流喊數字（每次 20 秒，超時系統用 `pickFor()` 代喊），先連成 5 條（房主可改 3 條）線的人贏、同時達標一起贏。跟電腦玩（1～3 隻，`BOT_NAMES`）或多人連線**最多 8 人**（`MAX_PLAYERS`；理由寫在 SET 技術介紹「為什麼最多 6 人」）。連線層照抄 SET（PeerJS＋MQTT 備援、hello／心跳／同名接回／房主重整恢復），topic `jellyfishkuo/bingo/v1/`、PeerJS 前綴 `jellyfish-bingo-room-`。權威端（電腦模式的自己、連線的房主）持有 `G`，每次變動 `publish()` 用 `viewFor(id)` 發給每人各自的畫面（看不到別人的格子，結束時才公開）；畫面一律只照 `V` 畫。中途加入的人觀戰到下一局；大家都離線時暫停。紀錄 localStorage `jfk-bingo-v1`（`games`、`wins`、`juice` 玩完 1 瓶贏 3 瓶、`best`）。測試 `tools/bingo/test_ai.py`、`test_online.py` |
 | `games/hanoi.html` | 河內塔：自己玩（任意盤面的最佳提示）＋ 看遞迴怎麼解（Python/JS/C++ 逐行高亮、呼叫堆疊） |
 | `games/zip.html` | 一筆畫（像 LinkedIn Zip）：題目無限多，不做每天一題（使用者要求）。**最後要停在最大的數字上**：走到它（`P.K`）就不能再往前（`canStep`），過關也要求最後一格是它；解題器本來就要求終點是它。出題器：backbite 隨機一筆畫路線 → 放數字、加牆 → 解題器確認唯一解 → 拿掉多餘數字；題號 `#大小-難度-種子` 放網址可分享。紀錄存 localStorage `jfk-zip-v1`。電腦：點一下線的尾端進入「跟隨滑鼠」模式（不用按住），移動時把上一點到這一點的線段切成 0.1 格的小段逐格處理（`traceTo`／`enter`，含 `getCoalescedEvents()`），斜切過角落會補上中間那格（優先正前方那格）；往回收：手指走進線頭旁邊（含斜對角）、最近走過的 3 格之一的中間，就收回到那格（`recentBack`；轉彎處往回斜切過轉角也收得回去），更早的線劃過不收、只有點下去才收；放開時手指在這種格子上就照畫面收回；畫面上線的尾端跟著手指連續伸縮（`finger`＋`linePts()`，只影響畫，不影響哪一格算走過），重畫用 `requestDraw()` 每幀最多一次；方向鍵／WASD 也能走 |
 | `games/store-manager.html` | 超商店長：5 週，每週隨機的顧客模型（每週一樣「大家都買」的陷阱商品＋幾條隱藏規則），玩家看 80 張收據、用分析工具看支持度／信賴度／提升度，挑最多兩組優惠（每組廣告費 $150）；效果＝只買其中一樣的客人依「真正的提升度」順手多買。評等是跟每週最佳兩組比的比例。紀錄 localStorage `jfk-store-v1`（`best`、`games`、`juice` 給寵物）；`?seed=` 固定題目方便測試 |
@@ -55,11 +56,11 @@ tools/                  產生頁面的原始檔與測試，見 tools/README.md
 | `research/papers.html` | 論文書架：上面是擁有者讀過、做成 Demo 的論文（手寫卡片，新增讀過的論文要加一張）；下面是經典論文，資料在頁面 JS 的 `PAPERS` 陣列（一行一篇，新增 Demo 時補上原始論文），連 Google Scholar 搜尋，不放 DOI（會議論文常沒有）。首頁 Research 標題下方第三個入口 |
 | `research/overview.html`、`benchmark.html` | 研究地圖（關係圖＋閱讀路線＋比較表，`tools/research/overview/build.py` 自己有一份演算法清單，新增 Demo 時要補）與效能比賽場（Web Worker 實跑，`tools/research/benchmark/algos.js`）；首頁 Research 標題下方兩個入口 |
 
-首頁 About 的「自己做的小工具與遊戲」數字（目前 16）在新增 Projects 作品時要跟著改。首頁作品區先只顯示剛好排滿的兩排（`#tiles`，依實際欄數算：電腦 5 欄＝10 張、手機 2 欄×3 排＝6 張；其餘按「看全部」展開），想放在前面的作品就排在前 6 個（手機也看得到）。晚餐轉盤排第 4 張（使用者要求）。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
+首頁 About 的「自己做的小工具與遊戲」數字（目前 17）在新增 Projects 作品時要跟著改。首頁作品區先只顯示剛好排滿的兩排（`#tiles`，依實際欄數算：電腦 5 欄＝10 張、手機 2 欄×3 排＝6 張；其餘按「看全部」展開），想放在前面的作品就排在前 6 個（手機也看得到）。晚餐轉盤排第 4 張（使用者要求），賓果排第 5 張。新增作品或研究 Demo 時，`README.md` 的專案表／研究表也要同步。
 
 首頁全站搜尋（導覽列放大鏡，`/` 或 Ctrl+K 打開）：資料**直接從首頁 DOM 讀**（`#tiles` 作品卡與「技術介紹」連結、`#research .hub`、`#demos .demo` 含主題標籤、關於我／競賽／聯絡段落），新增作品或 Demo 不用另外維護清單；`SYN` 是中英互通（tree↔樹…）。首頁果汁龍講話：跟整個網站連起來，不只講會給果汁的遊戲。台詞分類：`SITE`（每個作品一組，key 是首頁卡片的連結）、`DETAIL`（技術介紹冷知識）、`HUB`（研究入口）、研究 Demo（從 `#demos` 隨機挑＋`DEMO_SAY` 換說法）、`OWNER`（競賽、研究、技能、聯絡）、`timeLines()`（時段、週末、深淺色）、`recordLines()`（讀各遊戲 localStorage，只讀）、`LINES.self`；`CATS` 是各類權重。首頁上沒有那個連結的台詞不會講（作品拿掉就自動消失）；最近 15 句不重複（`sessionStorage` `jfk-pet-recent`）；孵蛋、餓了才偶爾提醒；每個分頁進首頁 12 秒後主動講一次（`jfk-pet-said`，收到角落時不講）。**新增作品時在 `SITE` 補一組台詞**，有技術介紹就在 `DETAIL` 補一句；台詞內容要對照頁面寫，不要寫網站上沒有的功能。
 
-分享預覽（og／Twitter 標籤）：新頁面要有 `<title>` 和 `<meta name="description">`，再跑 `python3 tools/og/add_og.py <頁面或研究 Demo 樣板>`；技術介紹頁由 `build_detail.py` 自己產生。分享圖是 `assets/og.png`（1200×630，原始檔 `tools/og/og.html`，用 Playwright 截圖）。分享圖上寫了「33 個研究 Demo」「16 個小遊戲與工具」，數字變了要改 og.html 重新截圖。
+分享預覽（og／Twitter 標籤）：新頁面要有 `<title>` 和 `<meta name="description">`，再跑 `python3 tools/og/add_og.py <頁面或研究 Demo 樣板>`；技術介紹頁由 `build_detail.py` 自己產生。分享圖是 `assets/og.png`（1200×630，原始檔 `tools/og/og.html`，用 Playwright 截圖）。分享圖上寫了「33 個研究 Demo」「17 個小遊戲與工具」，數字變了要改 og.html 重新截圖。
 
 ## 開發慣例與踩過的坑
 

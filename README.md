@@ -25,6 +25,7 @@
 | 1A2B 猜數字 | 邏輯推理 / 資訊論 | [1A2B.html](games/1A2B.html) | [1A2B-detail.html](games/1A2B-detail.html) |
 | 部落衝突卡牌交易站 | 狀態管理 / localStorage | [coc-card.html](games/coc-card.html) | [coc-card-detail.html](games/coc-card-detail.html) |
 | 電費紀錄 | 工具 / Canvas 圖表 | [electricity-tracker/](electricity-tracker/) | [electricity-detail.html](games/electricity-detail.html) |
+| 賓果連線 Bingo | 多人連線（WebRTC＋MQTT 備援，最多 8 人）/ 電腦對手 | [bingo.html](games/bingo.html) | — |
 | 河內塔 | 遞迴教學 | [hanoi.html](games/hanoi.html) | （頁面本身就是講解） |
 | 一筆畫 Zip | 隨機出題＋唯一解檢查 / SVG | [zip.html](games/zip.html) | — |
 | 數字方格 1→25 | 反應力 / 計時排行榜 | [schulte.html](games/schulte.html) | — |
@@ -94,6 +95,7 @@
     ├── hanoi.html
     ├── zip.html
     ├── schulte.html
+    ├── bingo.html
     ├── store-manager.html
     ├── lab-life.html
     ├── pet.html

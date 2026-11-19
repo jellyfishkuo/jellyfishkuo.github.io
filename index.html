@@ -571,6 +571,13 @@
                         <div class="links"><a class="go" href="games/dinner-wheel.html">轉一下 →</a></div>
                     </article>
                     <article class="tile">
+                        <img class="only-dark" src="assets/icons/bingo.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/bingo-light.svg" alt="" width="38" height="38">
+                        <span class="tag">8 人連線</span>
+                        <h3><a href="games/bingo.html">賓果連線 Bingo</a></h3>
+                        <p>輪流喊數字，先連成 5 條線就贏；跟電腦或朋友玩</p>
+                        <div class="links"><a class="go" href="games/bingo.html">直接玩 →</a></div>
+                    </article>
+                    <article class="tile">
                         <img class="only-dark" src="assets/icons/hanoi.svg" alt="" width="38" height="38"><img class="only-light" src="assets/icons/hanoi-light.svg" alt="" width="38" height="38">
                         <span class="tag">看遞迴</span>
                         <h3><a href="games/hanoi.html">河內塔</a></h3>
@@ -752,7 +759,7 @@
                         <p>真實世界的資料庫一直在變，資料會新增、刪除，利潤也會浮動。我關心的是怎麼設計樹、清單或位元模式這類資料結構，加上剪枝策略，讓資料更新時不必整個重新掃描，也能有效率地維護探勘結果；另外也會接觸空間資料庫的索引與關鍵字查詢。</p>
                         <p>課堂與研究之外，我很喜歡自己動手做些小工具和小遊戲：記錄家裡電費的網頁、每天換一題的拼圖求解器、可以跟朋友連線對戰的卡牌遊戲……把遇到的小麻煩或好玩的點子做成真的能用的東西，是我最享受的事。</p>
                         <div class="stats">
-                            <div class="stat"><b>16</b><span>自己做的小工具與遊戲</span></div>
+                            <div class="stat"><b>17</b><span>自己做的小工具與遊戲</span></div>
                             <div class="stat"><b>100+</b><span>演算法解題紀錄</span></div>
                             <div class="stat"><b>4+</b><span>熟悉資料庫系統</span></div>
                             <div class="stat"><b>10</b><span>程式競賽獲獎</span></div>
@@ -1144,6 +1151,7 @@
                 'games/pentomino.html': ['去拼拼看 →', '今天的日期拼得出來嗎？Pentomino 每天換一題', '12 塊五格骨牌剛好能把今天的日期露出來，好神奇', '拼不出來也沒關係，Pentomino 有求解器可以偷看'],
                 'games/game-set.html': ['去玩 SET →', 'SET 要找三張牌，每個特徵都要「全部一樣」或「全部不同」', '找朋友來玩 SET！最多 6 個人一起連線搶牌', '跟電腦比賽找 SET，我每次都輸……'],
                 'games/chess/': ['去下棋 →', '要不要跟 Stockfish 下一盤西洋棋？我幫你加油', '西洋棋的戰術題有好幾百題：雙重攻擊、牽制、串擊都有', '下完一盤棋可以丟進分析，看看哪一步走壞了'],
+                'games/bingo.html': ['去玩賓果 →', '賓果連線：每人一張 5×5，輪流喊數字，先連成 5 條線的人贏', '找朋友來玩賓果！開一個房間，最多 8 個人一起喊數字', '玩賓果的小訣竅：喊一個在你格子上「快要連成線」的數字', '賓果沒有朋友在線上也能玩，跟 3 隻電腦比賽'],
                 'games/hanoi.html': ['去搬盤子 →', '河內塔搬 64 個盤子要 2⁶⁴−1 步，我們先從 3 個開始就好', '看不懂遞迴？河內塔會一行一行跑給你看，還有呼叫堆疊', '河內塔隨便擺到一半也沒關係，它會告訴你下一步最好怎麼走'],
                 'games/zip.html': ['來一題 →', '一筆畫 Zip 的題目是電腦當場出的，而且保證只有一種解', '玩 Zip 的時候，最後一定要停在最大的那個數字上喔', 'Zip 的題號可以分享，朋友打開就是同一題'],
                 'games/store-manager.html': ['去開店 →', '當超商店長要看收據，猜大家常常一起買什麼', '超商店長有陷阱：大家都會買的東西，不一定值得做優惠', '支持度、信賴度、提升度，在超商店長裡全部用得到'],
@@ -1202,7 +1210,7 @@
                 if (h >= 11 && h < 14) out.push(['中午吃什麼？想不到就轉一下晚餐轉盤', 'games/dinner-wheel.html', '轉一下 →']);
                 if (h >= 17 && h < 20) out.push(['晚餐吃什麼？讓轉盤幫你決定', 'games/dinner-wheel.html', '轉一下 →']);
                 if (h >= 22) out.push(['睡前來一題 Zip 再睡？', 'games/zip.html', '來一題 →']);
-                if (d.getDay() === 0 || d.getDay() === 6) out.push(['週末耶！可以找朋友連線玩 SET', 'games/game-set.html', '去玩 SET →']);
+                if (d.getDay() === 0 || d.getDay() === 6) out.push(['週末耶！可以找朋友連線玩 SET', 'games/game-set.html', '去玩 SET →'], ['週末耶！找朋友開一局賓果吧', 'games/bingo.html', '去玩賓果 →']);
                 out.push(document.documentElement.dataset.theme === 'light' ? ['淺色版是我的果汁龍樂園 🌿'] : ['深色模式的我看起來是不是比較酷？']);
                 return out;
             }
@@ -1221,6 +1229,8 @@
                 const num = v => (typeof v === 'number' && isFinite(v) ? v : 0);
                 if (num(zip.solved)) out.push(L('你已經解了 ' + num(zip.solved) + ' 題 Zip 了，好強', 'games/zip.html', '再來一題 →'));
                 if (num(run.best)) out.push(L('跑酷最遠 ' + Math.round(num(run.best)) + ' m，我賭你這次破不了紀錄', 'games/runner.html', '去跑 →'));
+                const bingo = read('jfk-bingo-v1');
+                if (num(bingo.wins)) out.push(L('賓果你已經贏了 ' + num(bingo.wins) + ' 局，運氣也太好', 'games/bingo.html', '再玩一局 →'));
                 const sch = read('jfk-schulte-v1'), sTop = Array.isArray(sch.top) && sch.top[0] && num(sch.top[0].t);
                 if (sTop) out.push(L('數字方格你最快 ' + sTop.toFixed(2) + ' 秒，我覺得還能更快', 'games/schulte.html', '再挑戰 →'));
                 if (num(store.games)) out.push(L('你已經開過 ' + num(store.games) + ' 家超商了，店長大人', 'games/store-manager.html', '再開一家 →'));

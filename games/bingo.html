@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../assets/icons/bingo.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/bingo-32.png">
+    <link rel="apple-touch-icon" href="../assets/icons/bingo-180.png">
+    <title>賓果連線 Bingo</title>
+    <meta name="description" content="每人一張 5×5 的賓果格子，輪流喊數字，先連成 5 條線的人贏。可以跟電腦玩，或開房間找朋友連線，最多 8 人。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="果汁龍的網站">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:title" content="賓果連線 Bingo">
+    <meta property="og:description" content="每人一張 5×5 的賓果格子，輪流喊數字，先連成 5 條線的人贏。可以跟電腦玩，或開房間找朋友連線，最多 8 人。">
+    <meta property="og:url" content="https://jellyfishkuo.github.io/games/bingo.html">
+    <meta property="og:image" content="https://jellyfishkuo.github.io/assets/og/games-bingo.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <!-- 直連打不通時的備援通道（MQTT over WebSocket） -->
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js" defer></script>
+    <meta name="jfk-paint" content="off"><!-- 兩種主題的顏色都寫在下面，不用自動換色 -->
+    <script src="../assets/theme.js"></script>
+    <script src="../assets/pet-mini.js" defer></script><!-- 右下角的小果汁龍 -->
+    <link rel="stylesheet" href="../assets/theme.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        /* 手機瀏覽器會自動把某些段落的字放大；關掉它 */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+        * { touch-action: manipulation; }
+
+        :root {
+            --bg: #05050a;
+            --panel: #0f0f1a;
+            --panel-2: #151527;
+            --border: #262640;
+            --text: #e6e6f0;
+            --muted: #8a8aa3;
+            --accent: #7c3aed;
+            --accent2: #06b6d4;
+            --good: #22c55e;
+            --bad: #ef4444;
+            --warn: #f59e0b;
+            --cell: #151527;
+            --mark: #7c3aed;
+            --mark-text: #ffffff;
+            --line: #facc15;
+            --ink: #262640;
+        }
+        :root[data-theme="light"] {
+            --bg: #e9f7d9;
+            --panel: #ffffff;
+            --panel-2: #f3f8ec;
+            --border: #1d2b12;
+            --text: #1d2b12;
+            --muted: #5a6b4c;
+            --cell: #ffffff;
+            --mark: #ffb02e;
+            --mark-text: #1d2b12;
+            --line: #e8413c;
+            --bad: #e8413c;
+            --ink: #1d2b12;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        button, input, select { font: inherit; color: inherit; }
+        .wrap { max-width: 520px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        .back {
+            display: inline-block; color: var(--muted); text-decoration: none;
+            font: 0.8rem 'Space Mono', monospace; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .back:hover { color: var(--accent2); }
+        h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 7vw, 2.3rem); line-height: 1.15; }
+        h1 small { display: block; font: 400 0.9rem/1.6 -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--muted); margin-top: 0.35rem; }
+        [data-theme="light"] h1 { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+
+        /* ── 模式切換 ── */
+        .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin: 1rem 0 0.6rem; }
+        .seg button {
+            min-width: 0; padding: 0.55rem 0.4rem; border-radius: 10px; cursor: pointer; font-weight: 700;
+            background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+        }
+        .seg button.on { color: var(--text); border-color: var(--accent2); background: var(--panel-2); }
+        [data-theme="light"] .seg button { border: 2px solid #1d2b12; }
+        [data-theme="light"] .seg button.on { background: #ffb02e; color: #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
+
+        .panel { padding: 0.7rem 0.8rem; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); font-size: 0.9rem; }
+        [data-theme="light"] .panel { border: 2px solid #1d2b12; }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+        .row + .row { margin-top: 0.5rem; }
+        .row label { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+        .panel input, .panel select {
+            min-width: 0; padding: 0.4rem 0.55rem; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border);
+        }
+        [data-theme="light"] .panel input, [data-theme="light"] .panel select { border: 2px solid #1d2b12; background: #fff; }
+        #nick { width: 9.5em; }
+        #roomInput { width: 6.2em; font-family: 'Space Mono', monospace; letter-spacing: 0.1em; }
+        .btn {
+            padding: 0.42rem 0.85rem; border-radius: 9px; cursor: pointer; font-weight: 700; white-space: nowrap;
+            background: var(--panel-2); border: 1px solid var(--border);
+        }
+        .btn:disabled { opacity: 0.45; cursor: default; }
+        .btn.primary { color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; }
+        [data-theme="light"] .btn { border: 2px solid #1d2b12; background: #fff; }
+        [data-theme="light"] .btn.primary { color: #1d2b12; background: #ffb02e; box-shadow: 2px 2px 0 #1d2b12; }
+        .or { color: var(--muted); font-size: 0.8rem; }
+        .room { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .room strong { font: 700 1.5rem/1 'Space Mono', monospace; letter-spacing: 0.12em; color: var(--accent2); }
+        [data-theme="light"] .room strong { color: #b35c00; }
+        .room .grow { flex: 1; }
+        /* 連線狀態：固定兩行高，換字不推動下面 */
+        .conn { margin-top: 0.45rem; height: 3em; overflow: hidden; font-size: 0.82rem; line-height: 1.5; color: var(--muted); }
+        .conn.ok { color: var(--good); }
+        .conn.err { color: var(--bad); }
+        [data-theme="light"] .conn.ok { color: #2b6b0e; }
+
+        /* ── 玩家名單：固定一行，左右滑 ── */
+        .strip { display: flex; gap: 0.4rem; overflow-x: auto; margin: 0.7rem 0 0.5rem; padding-bottom: 2px; height: 3.1rem; scrollbar-width: none; }
+        .strip::-webkit-scrollbar { display: none; }
+        .chip {
+            flex: none; display: flex; flex-direction: column; justify-content: center; max-width: 9.5em;
+            padding: 0.2rem 0.65rem; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); line-height: 1.3;
+        }
+        [data-theme="light"] .chip { border: 2px solid #1d2b12; }
+        .chip b { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chip span { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+        .chip.turn { border-color: var(--accent2); box-shadow: 0 0 0 2px var(--accent2) inset; }
+        [data-theme="light"] .chip.turn { background: #fff1d1; box-shadow: 3px 3px 0 #1d2b12; }
+        .chip.off { opacity: 0.45; }
+        .chip.win { border-color: var(--line); }
+        .chip.win span { color: var(--line); font-weight: 700; }
+        [data-theme="light"] .chip.win span { color: #b3261e; }
+
+        /* ── 狀態列：固定高度 ── */
+        .status { position: relative; height: 4.7em; overflow: hidden; padding: 0.35rem 0.75rem 0.5rem; border-radius: 10px; font-size: 0.88rem; line-height: 1.45; background: var(--panel); border: 1px solid var(--border); }
+        [data-theme="light"] .status { border: 2px solid #1d2b12; }
+        .status.mine { border-color: var(--accent2); }
+        [data-theme="light"] .status.mine { background: #fff1d1; }
+        .status .sub { color: var(--muted); font-size: 0.78rem; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .status .bar { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--accent2); transform-origin: left; transform: scaleX(0); }
+        [data-theme="light"] .status .bar { background: #ffb02e; }
+        .status .bar.low { background: var(--bad); }
+
+        /* ── B I N G O ── */
+        .letters { display: flex; align-items: center; gap: 0.35rem; margin: 0.6rem 0 0.45rem; }
+        .letters i {
+            font: 800 1.15rem/1 'Syne', sans-serif; font-style: normal; width: 1.9rem; height: 1.9rem; display: grid; place-items: center;
+            border-radius: 8px; border: 1px solid var(--border); color: var(--muted); transition: background 0.2s, color 0.2s;
+        }
+        [data-theme="light"] .letters i { font-family: 'Noto Sans TC', sans-serif; font-weight: 900; border: 2px solid #1d2b12; background: #fff; }
+        .letters i.on { background: var(--line); color: #1d1300; border-color: var(--line); }
+        [data-theme="light"] .letters i.on { background: #e8413c; color: #fff; border-color: #1d2b12; }
+        .letters em { margin-left: auto; font-style: normal; font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+        .letters em b { color: var(--text); font-family: 'Space Mono', monospace; }
+
+        /* ── 格子 ── */
+        .board-box { position: relative; width: min(100%, max(280px, 100vh - 300px)); aspect-ratio: 1; margin: 0 auto; }
+        .board {
+            display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 6px; width: 100%; height: 100%;
+            padding: 6px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
+            user-select: none; -webkit-user-select: none;
+        }
+        [data-theme="light"] .board { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; background: #f3f8ec; }
+        .cell {
+            position: relative; min-width: 0; min-height: 0; border-radius: 10px; border: 1px solid var(--border); background: var(--cell); color: var(--text);
+            font: 700 clamp(1.1rem, 7vw, 1.9rem) 'Space Mono', monospace; font-variant-numeric: tabular-nums;
+            cursor: default; -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, transform 0.1s;
+        }
+        [data-theme="light"] .cell { border: 2px solid #1d2b12; font-family: 'Noto Sans TC', sans-serif; font-weight: 900; }
+        .cell.empty { border-style: dashed; color: var(--muted); }
+        .cell.next-slot { border-color: var(--accent2); }
+        .cell.can { cursor: pointer; }
+        .cell.can:hover { border-color: var(--accent2); }
+        .board.edit .cell { cursor: pointer; }
+        .cell.marked { background: var(--mark); color: var(--mark-text); border-color: var(--mark); }
+        [data-theme="light"] .cell.marked { border-color: #1d2b12; }
+        .cell.just { animation: just 0.5s; }
+        @keyframes just { 0% { transform: scale(0.8); } 60% { transform: scale(1.08); } 100% { transform: none; } }
+        .cell.pending { outline: 3px dashed var(--accent2); outline-offset: -5px; }
+        .board.locked .cell { opacity: 0.75; }
+        .strike { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); pointer-events: none; overflow: visible; }
+        .strike line { stroke: var(--line); stroke-width: 0.1; stroke-linecap: round; opacity: 0.8; }
+        @media (prefers-reduced-motion: reduce) { .cell.just { animation: none; } }
+
+        /* ── 排格子的工具＋主按鈕：固定一行高 ── */
+        .tools { display: flex; gap: 0.4rem; justify-content: center; align-items: center; height: 2.6rem; margin-top: 0.7rem; }
+        .tools .hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+        .tools.hide { visibility: hidden; }
+        .tools .btn.on { border-color: var(--accent2); color: var(--accent2); }
+        [data-theme="light"] .tools .btn.on { background: #fff1d1; color: #1d2b12; }
+        .actions { display: flex; gap: 0.5rem; justify-content: center; align-items: center; height: 3.2rem; margin-top: 0.4rem; }
+        .big {
+            padding: 0.6rem 1.5rem; font-size: 1.02rem; font-weight: 700; cursor: pointer;
+            color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 1px solid transparent; border-radius: 12px;
+        }
+        .big:disabled { opacity: 0.45; cursor: default; }
+        [data-theme="light"] .big { color: #1d2b12; background: #ffb02e; border: 2px solid #1d2b12; box-shadow: 3px 3px 0 #1d2b12; }
+        [data-theme="light"] .big:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #1d2b12; }
+        .actions .hide { visibility: hidden; }
+
+        /* ── 喊過的數字：固定 3 行高 ── */
+        .called { margin-top: 1rem; }
+        .called h2 { font-size: 0.95rem; margin-bottom: 0.35rem; }
+        .called h2 span { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+        .called-list { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; height: calc(3 * 1.9rem + 2 * 4px + 1rem); overflow: hidden; padding: 0.5rem; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
+        [data-theme="light"] .called-list { border: 2px solid #1d2b12; }
+        .called-list b { width: 1.9rem; height: 1.9rem; display: grid; place-items: center; border-radius: 50%; font: 700 0.8rem 'Space Mono', monospace; background: var(--panel-2); border: 1px solid var(--border); }
+        [data-theme="light"] .called-list b { border: 1.5px solid #1d2b12; }
+        .called-list b.me { border-color: var(--accent2); color: var(--accent2); }
+        [data-theme="light"] .called-list b.me { background: #fff1d1; color: #1d2b12; }
+        .called-list b.last { background: var(--mark); color: var(--mark-text); border-color: var(--mark); }
+        .called-list .none { color: var(--muted); font-size: 0.82rem; }
+
+        /* ── 浮動提示、橫幅、結算視窗（都不佔版面） ── */
+        .toast {
+            position: fixed; left: 50%; top: 12px; z-index: 80; transform: translate(-50%, -150%); max-width: min(92vw, 420px);
+            padding: 0.5rem 0.95rem; border-radius: 10px; font-size: 0.88rem; background: var(--panel-2); border: 1px solid var(--border);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); transition: transform 0.25s, visibility 0.25s; pointer-events: none; visibility: hidden;
+        }
+        .toast.show { transform: translate(-50%, 0); visibility: visible; }
+        .toast.good { border-color: var(--good); }
+        .toast.bad, .toast.warn { border-color: var(--warn); }
+        [data-theme="light"] .toast { border: 2px solid #1d2b12; background: #fff; box-shadow: 3px 3px 0 #1d2b12; }
+        .banner {
+            position: fixed; left: 50%; bottom: 16px; z-index: 75; transform: translateX(-50%); width: min(94vw, 440px);
+            padding: 0.7rem 0.9rem; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--accent2); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            font-size: 0.9rem;
+        }
+        [data-theme="light"] .banner { border: 2px solid #1d2b12; background: #fff; box-shadow: 4px 4px 0 #1d2b12; }
+        .banner .row { justify-content: flex-end; margin-top: 0.5rem; }
+        .over { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 1rem; background: rgba(5, 5, 10, 0.7); }
+        [data-theme="light"] .over { background: rgba(29, 43, 18, 0.35); }
+        .over[hidden] { display: none; }
+        .over-card { width: min(100%, 420px); max-height: calc(100vh - 2rem); overflow: auto; padding: 1.1rem 1rem; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); text-align: center; }
+        [data-theme="light"] .over-card { border: 3px solid #1d2b12; box-shadow: 5px 5px 0 #1d2b12; }
+        .over-card h2 { font-size: 1.35rem; }
+        .over-card .sub { color: var(--muted); font-size: 0.85rem; }
+        .over-card ol { list-style: none; margin: 0.8rem 0; text-align: left; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+        [data-theme="light"] .over-card ol { border: 2px solid #1d2b12; }
+        .over-card li { display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; gap: 0.5rem; padding: 0.35rem 0.7rem; font-size: 0.9rem; border-top: 1px solid var(--border); }
+        .over-card li:first-child { border-top: 0; }
+        .over-card li span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .over-card li.win { background: rgba(250, 204, 21, 0.12); }
+        [data-theme="light"] .over-card li.win { background: #fff1d1; }
+        .minis { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 0.8rem; }
+        .mini { font-size: 0.75rem; color: var(--muted); }
+        .mini-grid { display: grid; grid-template-columns: repeat(5, 1.35rem); gap: 2px; margin-top: 0.2rem; }
+        .mini-grid i { height: 1.35rem; display: grid; place-items: center; font: 700 0.62rem 'Space Mono', monospace; font-style: normal; border-radius: 3px; background: var(--panel-2); color: var(--muted); }
+        .mini-grid i.m { background: var(--mark); color: var(--mark-text); }
+        .mini-grid i.l { box-shadow: 0 0 0 2px var(--line) inset; }
+
+        .record { margin-top: 1.4rem; font-size: 0.9rem; }
+        .record h2, .rules h2 { font-size: 1rem; margin-bottom: 0.3rem; color: var(--text); }
+        .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+        .stat { padding: 0.45rem 0.4rem; border-radius: 10px; text-align: center; background: var(--panel); border: 1px solid var(--border); min-width: 0; }
+        .stat b { display: block; font: 700 1.25rem/1.2 'Space Mono', monospace; white-space: nowrap; }
+        .stat span { font-size: 0.72rem; color: var(--muted); }
+        [data-theme="light"] .stat { border: 2px solid #1d2b12; }
+        .rules { margin-top: 1.4rem; font-size: 0.9rem; color: var(--muted); }
+        .rules ol, .rules ul { padding-left: 1.3rem; }
+        .rules li { margin: 0.15rem 0; }
+        .rules p { margin-top: 0.5rem; }
+        .rules b { color: var(--text); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <a class="back" href="../index.html#projects">← RETURN TO PORTFOLIO</a>
+        <h1>賓果連線 Bingo<small>每人一張 5×5，輪流喊數字，先連成 5 條線的人贏。跟電腦玩，或開房間找朋友（最多 8 人）。</small></h1>
+
+        <div class="seg" id="seg">
+            <button type="button" data-mode="ai" class="on">🤖 跟電腦玩</button>
+            <button type="button" data-mode="online">🌐 多人連線</button>
+        </div>
+
+        <div class="panel" id="aiPanel">
+            <div class="row">
+                <label>電腦 <select id="bots"><option value="1">1 隻</option><option value="2" selected>2 隻</option><option value="3">3 隻</option></select></label>
+                <label>連成 <select id="targetAi"><option value="3">3 條線</option><option value="5" selected>5 條線</option></select> 獲勝</label>
+            </div>
+        </div>
+
+        <div class="panel" id="onlinePanel" hidden>
+            <div id="onlineActions">
+                <div class="row">
+                    <label for="nick">暱稱 <input id="nick" maxlength="12" autocomplete="nickname" placeholder="輸入你的暱稱" enterkeyhint="done"></label>
+                    <button type="button" class="btn primary" id="btnCreate">建立房間</button>
+                </div>
+                <div class="row">
+                    <span class="or">或加入朋友的房間</span>
+                    <input id="roomInput" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="四位數房間碼" placeholder="4 位碼">
+                    <button type="button" class="btn" id="btnJoin">加入</button>
+                </div>
+            </div>
+            <div class="room" id="roomBox" hidden>
+                <span>房間碼</span><strong id="roomCode">----</strong>
+                <button type="button" class="btn" id="btnCopy">複製</button>
+                <span class="grow"></span>
+                <label id="targetRow">連成 <select id="targetOnline"><option value="3">3 條</option><option value="5" selected>5 條</option></select></label>
+                <button type="button" class="btn" id="btnLeave">離開</button>
+            </div>
+            <div class="conn" id="conn">還沒連線：建立房間，或輸入朋友的四位數房間碼。</div>
+        </div>
+
+        <div class="strip" id="strip" aria-label="玩家"></div>
+
+        <div class="status" id="status" aria-live="polite"><span id="statusMain"></span><span class="sub" id="statusSub"></span><i class="bar" id="bar"></i></div>
+
+        <div class="letters" id="letters" aria-hidden="true"><i>B</i><i>I</i><i>N</i><i>G</i><i>O</i><em id="lineText"></em></div>
+
+        <div class="board-box">
+            <div class="board" id="board" role="grid" aria-label="我的賓果格子"></div>
+            <svg class="strike" id="strike" viewBox="0 0 5 5" preserveAspectRatio="none" aria-hidden="true"></svg>
+        </div>
+
+        <div class="tools" id="tools">
+            <button type="button" class="btn" id="btnShuffle">🎲 隨機排</button>
+            <button type="button" class="btn" id="btnManual">✏️ 自己排</button>
+            <span class="hint" id="toolHint"></span>
+        </div>
+        <div class="actions">
+            <button type="button" class="big" id="mainBtn">開始遊戲</button>
+            <button type="button" class="btn" id="subBtn">重新開始</button>
+        </div>
+
+        <section class="called">
+            <h2>喊過的數字 <span id="calledN">0 / 25</span></h2>
+            <div class="called-list" id="calledList"></div>
+        </section>
+
+        <section class="record">
+            <h2>我的紀錄</h2>
+            <div class="stats">
+                <div class="stat"><b id="recGames">0</b><span>玩了幾局</span></div>
+                <div class="stat"><b id="recWins">0</b><span>贏了幾局</span></div>
+                <div class="stat"><b id="recBest">—</b><span>最快幾個數字就贏</span></div>
+            </div>
+        </section>
+
+        <section class="rules">
+            <h2>怎麼玩</h2>
+            <ol>
+                <li>每個人把 <b>1～25</b> 填進自己的 5×5 格子，順序自己決定（可以按「隨機排」，或「自己排」一格一格點）。大家的格子互相看不到。</li>
+                <li>開始後<b>輪流喊數字</b>：輪到你時，點你格子上一個還沒圈的數字，所有人都會把這個數字圈起來。</li>
+                <li>橫的、直的、斜的連成一排就是 <b>1 條線</b>（最多 12 條）。誰先湊滿 5 條線（或房主設定的 3 條）誰就贏；同一個數字讓好幾個人同時達標，就一起贏。</li>
+                <li>每次喊數字有 20 秒，想太久系統會幫你挑一個。</li>
+            </ol>
+            <p><b>小訣竅：</b>喊數字時，挑在你格子上「快要連成線」的那個；中間那格和兩條對角線上的格子，一個數字能同時算進 3～4 條線。可是別人喊的數字你也會圈到，所以排格子的時候沒有必勝法，運氣也很重要。</p>
+            <p><b>多人連線：</b>一個人建立房間拿到 4 位數房間碼，其他人輸入房間碼加入，大家都按「準備好了」，房主就能開始（最多 8 人；沒按準備的人系統幫他隨機排）。斷線了用同一個房間碼、同一個暱稱回來，會接回原本的格子。中途才加入的人先觀戰，下一局一起玩。連線優先走 WebRTC 直連，打不通就自動改用公開的備援伺服器轉送。</p>
+            <p>每玩完一局可以拿 1 瓶蘋果汁，贏了 3 瓶，去「養一隻果汁龍」餵牠。</p>
+        </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <div class="banner" id="banner" hidden><div id="bannerText"></div><div class="row"><button type="button" class="btn" id="bannerNo">不用了</button><button type="button" class="btn primary" id="bannerYes">好</button></div></div>
+    <div class="over" id="over" hidden>
+        <div class="over-card" role="dialog" aria-modal="true" aria-labelledby="overTitle">
+            <h2 id="overTitle"></h2>
+            <p class="sub" id="overSub"></p>
+            <ol id="overRank"></ol>
+            <div class="minis" id="overMinis"></div>
+            <div class="row" style="justify-content:center">
+                <button type="button" class="btn" id="overClose">看格子</button>
+                <button type="button" class="big" id="overAgain">再來一局</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script>
+        (function () {
+            const $ = id => document.getElementById(id);
+            const N = 25, SIZE = 5;
+            const TURN_MS = 20000;           // 每次喊數字的時間
+            const MAX_PLAYERS = 8;           // 推薦人數上限（理由寫在技術說明與 README）
+            const STORE = 'jfk-bingo-v1';    // { games, wins, juice, best }
+            const NICK_KEY = 'jfk-bingo-nick';
+            const HOST_SESSION_KEY = 'bingo-online-host-v1';
+            const GUEST_SESSION_KEY = 'bingo-online-guest-v1';
+            const SESSION_TTL_MS = 30 * 60 * 1000;
+            const BOT_NAMES = ['電腦小橘', '電腦小綠', '電腦小紫'];
+
+            // 12 條線：5 橫、5 直、2 斜（存格子的位置 0～24）
+            const LINES = [];
+            for (let r = 0; r < SIZE; r++) LINES.push([0, 1, 2, 3, 4].map(c => r * SIZE + c));
+            for (let c = 0; c < SIZE; c++) LINES.push([0, 1, 2, 3, 4].map(r => r * SIZE + c));
+            LINES.push([0, 6, 12, 18, 24], [4, 8, 12, 16, 20]);
+
+            /* ── 小工具 ── */
+            function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+            function randomBoard() { return shuffle(Array.from({ length: N }, (_, i) => i + 1)); }
+            function validBoard(b) {
+                if (!Array.isArray(b) || b.length !== N) return false;
+                const seen = new Set();
+                for (const x of b) { if (!Number.isInteger(x) || x < 1 || x > N || seen.has(x)) return false; seen.add(x); }
+                return true;
+            }
+            /** 這張格子在已喊的數字下，完成了哪幾條線（回傳 LINES 的編號） */
+            function doneLines(board, calledSet) {
+                if (!board) return [];
+                const out = [];
+                LINES.forEach((ln, i) => { if (ln.every(p => calledSet.has(board[p]))) out.push(i); });
+                return out;
+            }
+            /** 幫某張格子挑一個數字：能完成線的最優先，其次是「線上已經圈越多」的格子 */
+            function pickFor(board, calledSet, sloppy = 0) {
+                const open = board.filter(n => !calledSet.has(n));
+                if (!open.length) return 0;
+                if (Math.random() < sloppy) return open[Math.floor(Math.random() * open.length)];
+                let best = -1, pick = open[0];
+                open.forEach(n => {
+                    const pos = board.indexOf(n);
+                    let s = Math.random() * 0.5;
+                    LINES.forEach(ln => {
+                        if (!ln.includes(pos)) return;
+                        const m = ln.filter(p => calledSet.has(board[p])).length;
+                        s += m === 4 ? 100 : (m + 1) * (m + 1);
+                    });
+                    if (s > best) { best = s; pick = n; }
+                });
+                return pick;
+            }
+            function cleanName(raw) {
+                return String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12);
+            }
+            function sameName(a, b) { return cleanName(a).toLowerCase() === cleanName(b).toLowerCase(); }
+            function readSession(key) {
+                try {
+                    const d = JSON.parse(sessionStorage.getItem(key) || 'null');
+                    if (d && Date.now() - d.savedAt < SESSION_TTL_MS) return d;
+                } catch (_) { }
+                return null;
+            }
+            function writeSession(key, data) { try { sessionStorage.setItem(key, JSON.stringify({ ...data, savedAt: Date.now() })); } catch (_) { } }
+            function clearSession(key) { try { sessionStorage.removeItem(key); } catch (_) { } }
+            // 每個分頁一個玩家代號：房主靠它分辨「回來的是同一個人」
+            const PLAYER_ID = (() => {
+                const make = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+                try {
+                    let id = sessionStorage.getItem('bingo-player-id');
+                    if (!id) { id = make(); sessionStorage.setItem('bingo-player-id', id); }
+                    return id;
+                } catch (_) { return make(); }
+            })();
+
+            /* ── 紀錄（養一隻果汁龍會讀 juice） ── */
+            function loadRec() {
+                try {
+                    const s = JSON.parse(localStorage.getItem(STORE) || '{}');
+                    return {
+                        games: Number(s.games) || 0, wins: Number(s.wins) || 0, juice: Number(s.juice) || 0,
+                        best: Number(s.best) > 0 ? Number(s.best) : 0
+                    };
+                } catch (_) { return { games: 0, wins: 0, juice: 0, best: 0 }; }
+            }
+            const rec = loadRec();
+            function saveRec() { try { localStorage.setItem(STORE, JSON.stringify(rec)); } catch (_) { /* 被擋就不記 */ } }
+            function renderRec() {
+                $('recGames').textContent = rec.games;
+                $('recWins').textContent = rec.wins;
+                $('recBest').textContent = rec.best ? rec.best + ' 個' : '—';
+            }
+            const recorded = new Set();      // 這個分頁已經記過的局（同一局的狀態會收到很多次）
+
+            /* ── 畫面提示 ── */
+            let toastTimer = 0;
+            function toast(text, kind = 'info', ms = 2400) {
+                const el = $('toast');
+                el.textContent = text;
+                el.className = `toast show ${kind}`;
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => { el.className = 'toast'; }, ms);
+            }
+            let bannerYes = null, bannerNo = null;
+            function banner(text, yes, no, onYes, onNo) {
+                $('bannerText').textContent = text;
+                $('bannerYes').textContent = yes;
+                $('bannerNo').textContent = no;
+                bannerYes = onYes; bannerNo = onNo;
+                $('banner').hidden = false;
+            }
+            function hideBanner() { $('banner').hidden = true; bannerYes = bannerNo = null; }
+            $('bannerYes').addEventListener('click', () => { const f = bannerYes; hideBanner(); if (f) f(); });
+            $('bannerNo').addEventListener('click', () => { const f = bannerNo; hideBanner(); if (f) f(); });
+            function setConn(text, kind = '') {
+                const el = $('conn');
+                el.textContent = text;
+                el.className = 'conn' + (kind === 'ok' ? ' ok' : kind === 'err' ? ' err' : '');
+            }
+
+            /* ── 暱稱 ── */
+            const nickInput = $('nick');
+            let myNick = '';
+            try { myNick = cleanName(localStorage.getItem(NICK_KEY)); } catch (_) { }
+            nickInput.value = myNick;
+            nickInput.addEventListener('input', () => {
+                myNick = cleanName(nickInput.value);
+                try { localStorage.setItem(NICK_KEY, myNick); } catch (_) { }
+            });
+            function requireNick() {
+                myNick = cleanName(nickInput.value);
+                nickInput.value = myNick;
+                if (!myNick) { setConn('先輸入暱稱，朋友才知道你是誰。', 'err'); nickInput.focus(); return false; }
+                try { localStorage.setItem(NICK_KEY, myNick); } catch (_) { }
+                return true;
+            }
+
+            /* ══════════════════════════════════════════════════════════
+               權威端（跟電腦玩的自己、連線時的房主）：整局的真相 G
+               其他人只收到 viewFor(自己) 算出來的畫面資料，看不到別人的格子。
+               ══════════════════════════════════════════════════════════ */
+            let mode = 'ai';                 // 'ai' | 'online'
+            let G = null;
+            let botTimer = 0;
+
+            function freshGame(target) {
+                return { rev: 0, gameId: '', phase: 'setup', target, players: [], order: [], called: [], turn: 0, turnEnds: 0, winners: [], paused: false, pauseLeft: 0 };
+            }
+            function me() { return { id: PLAYER_ID, name: mode === 'ai' ? '你' : (myNick || '房主'), host: true, connected: true, board: null, ready: false, inGame: false }; }
+            function player(id) { return G && G.players.find(p => p.id === id); }
+            function isAuthority() { return mode === 'ai' || onlineRole === 'host'; }
+            function calledSetOf(g) { return new Set(g.called.map(c => c.n)); }
+            function alive(p) { return !!p && (p.bot || p.connected); }
+
+            function viewFor(pid) {
+                const set = calledSetOf(G);
+                const p = player(pid);
+                const v = {
+                    type: 'state', rev: G.rev, gameId: G.gameId, phase: G.phase, target: G.target,
+                    turnId: G.phase === 'play' ? G.order[G.turn] || '' : '',
+                    turnLeft: G.paused ? G.pauseLeft : Math.max(0, G.turnEnds - Date.now()), paused: G.paused,
+                    players: G.players.map(q => ({
+                        id: q.id, name: q.name, host: !!q.host, bot: !!q.bot, connected: !!q.connected, ready: !!q.ready, inGame: !!q.inGame,
+                        lines: q.inGame ? doneLines(q.board, set).length : 0
+                    })),
+                    called: G.called.map(c => [c.n, c.by]),
+                    winners: G.winners.slice(),
+                    you: p ? { board: p.board ? p.board.slice() : null, ready: !!p.ready, inGame: !!p.inGame } : null,
+                    boards: null
+                };
+                if (G.phase === 'over') {
+                    v.boards = {};
+                    G.players.forEach(q => { if (q.inGame && q.board) v.boards[q.id] = q.board.slice(); });
+                }
+                return v;
+            }
+
+            /** 權威端：狀態變了就發給每個人各自的畫面，自己也照同一份畫 */
+            function publish() {
+                if (!G) return;
+                G.rev++;
+                if (mode === 'online' && onlineRole === 'host') {
+                    G.players.forEach(p => { if (!p.bot && p.id !== PLAYER_ID && p.connected) sendTo(p.id, viewFor(p.id)); });
+                    saveHostSession();
+                }
+                applyView(viewFor(PLAYER_ID));
+            }
+            function notify(text, kind = 'info', exceptId = '') {
+                if (exceptId !== PLAYER_ID) toast(text, kind);
+                if (mode === 'online' && onlineRole === 'host') {
+                    G.players.forEach(p => { if (p.id !== exceptId && p.id !== PLAYER_ID) sendTo(p.id, { type: 'notice', text, kind }); });
+                }
+            }
+            function tellOne(pid, text, kind = 'info') {
+                if (pid === PLAYER_ID) toast(text, kind);
+                else sendTo(pid, { type: 'notice', text, kind });
+            }
+
+            function actReady(pid, board) {
+                const p = player(pid);
+                if (!p || G.phase !== 'setup' || !validBoard(board)) return;
+                p.board = board.slice();
+                p.ready = true;
+                publish();
+            }
+            function actUnready(pid) {
+                const p = player(pid);
+                if (!p || G.phase !== 'setup') return;
+                p.ready = false;
+                publish();
+            }
+            function actStart() {
+                if (!isAuthority() || G.phase !== 'setup') return;
+                const self = player(PLAYER_ID);
+                if (!validBoard(draft)) { fillRandom(); }
+                self.board = draft.slice();
+                self.ready = true;
+                const joiners = G.players.filter(alive);
+                if (joiners.length < 2) { toast('至少要 2 個人才能開始，等朋友加入吧。', 'warn'); return; }
+                const autoNames = [];
+                G.players.forEach(p => {
+                    p.inGame = alive(p);
+                    if (p.inGame && !(p.ready && validBoard(p.board))) {
+                        p.board = randomBoard();
+                        if (!p.bot) autoNames.push(p.name);
+                    }
+                });
+                G.order = G.players.filter(p => p.inGame).map(p => p.id);
+                G.called = [];
+                G.winners = [];
+                G.turn = Math.floor(Math.random() * G.order.length);
+                G.gameId = `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+                G.phase = 'play';
+                G.paused = false;
+                G.turnEnds = Date.now() + TURN_MS;
+                publish();
+                if (autoNames.length) notify(`${autoNames.join('、')} 還沒排好，系統幫他隨機排了`, 'info');
+                scheduleBot();
+            }
+            function advanceTurn() {
+                const n = G.order.length;
+                for (let k = 1; k <= n; k++) {
+                    const idx = (G.turn + k) % n;
+                    if (alive(player(G.order[idx]))) { G.turn = idx; break; }
+                }
+                G.turnEnds = Date.now() + TURN_MS;
+            }
+            /** 有人喊了一個數字（只在權威端執行，所有檢查都在這裡重做一次） */
+            function actCall(pid, n, auto = false) {
+                if (!G || G.phase !== 'play' || G.paused) return false;
+                if (G.order[G.turn] !== pid) return false;
+                n = Number(n);
+                if (!Number.isInteger(n) || n < 1 || n > N || G.called.some(c => c.n === n)) return false;
+                G.called.push({ n, by: pid });
+                const set = calledSetOf(G);
+                const winners = G.order.filter(id => doneLines(player(id).board, set).length >= G.target);
+                if (auto) notify(`${player(pid).name} 想太久了，系統幫他喊了 ${n}`, 'info');
+                if (winners.length) {
+                    G.winners = winners;
+                    G.phase = 'over';
+                    clearTimeout(botTimer);
+                    publish();
+                    return true;
+                }
+                advanceTurn();
+                publish();
+                scheduleBot();
+                return true;
+            }
+            function scheduleBot() {
+                clearTimeout(botTimer);
+                if (!G || G.phase !== 'play') return;
+                const cur = player(G.order[G.turn]);
+                if (!cur || !cur.bot) return;
+                const gameId = G.gameId, count = G.called.length;
+                botTimer = setTimeout(() => {
+                    if (!G || G.gameId !== gameId || G.called.length !== count || G.order[G.turn] !== cur.id) return;
+                    actCall(cur.id, pickFor(cur.board, calledSetOf(G), 0.25));
+                }, 700 + Math.random() * 900);
+            }
+            function actNewRound() {
+                if (!isAuthority()) return;
+                clearTimeout(botTimer);
+                G.phase = 'setup';
+                G.gameId = '';
+                G.called = [];
+                G.winners = [];
+                G.order = [];
+                G.paused = false;
+                G.players.forEach(p => { p.inGame = false; p.ready = !!p.bot; });
+                publish();
+            }
+            /** 權威端每 0.25 秒看一次：超時、輪到離線的人、大家都離線時暫停 */
+            setInterval(() => {
+                if (!G || !isAuthority() || G.phase !== 'play') return;
+                if (mode === 'online') {
+                    const others = G.order.filter(id => id !== PLAYER_ID);
+                    const anyBack = others.some(id => alive(player(id)));
+                    if (!anyBack && others.length) {
+                        if (!G.paused) { G.paused = true; G.pauseLeft = Math.max(3000, G.turnEnds - Date.now()); publish(); }
+                        return;
+                    }
+                    if (G.paused) { G.paused = false; G.turnEnds = Date.now() + G.pauseLeft; publish(); }
+                }
+                const cur = player(G.order[G.turn]);
+                if (!cur) return;
+                if (!alive(cur)) { advanceTurn(); publish(); scheduleBot(); return; }
+                if (!cur.bot && Date.now() > G.turnEnds) actCall(cur.id, pickFor(cur.board, calledSetOf(G)), true);
+            }, 250);
+
+            /* ══════════════════════════════════════════════════════════
+               畫面：所有人（含權威端）都只照 V 畫
+               ══════════════════════════════════════════════════════════ */
+            let V = null;
+            let turnDeadline = 0;            // 自己這邊的時鐘：performance.now() 為準，不受各台電腦時間不同影響
+            let draft = randomBoard();       // 排格子中的格子（0 = 空格）
+            let manual = false;
+            let pendingCall = 0, pendingTimer = 0;
+            let lastCalledLen = 0;
+            let overShownFor = '';
+
+            function idleView() {
+                return {
+                    type: 'state', rev: 0, gameId: '', phase: 'setup', target: 5, turnId: '', turnLeft: 0, paused: false, noRoom: true,
+                    players: [{ id: PLAYER_ID, name: myNick || '你', host: false, connected: true, ready: false, inGame: false, lines: 0 }],
+                    called: [], winners: [], you: { board: null, ready: false, inGame: false }, boards: null
+                };
+            }
+            function viewPlayer(id) { return V && V.players.find(p => p.id === id); }
+            function nameOf(id) { const p = viewPlayer(id); return p ? p.name : '有人'; }
+            function myBoardNow() {
+                if (V && V.you && V.you.inGame && V.you.board && V.phase !== 'setup') return V.you.board;
+                return null;
+            }
+
+            function applyView(v) {
+                if (!v || typeof v !== 'object') return;
+                if (V && v.gameId === V.gameId && v.rev < V.rev && !isAuthority()) return;   // 晚到的舊狀態
+                const prevGame = V ? V.gameId : '';
+                V = v;
+                turnDeadline = performance.now() + (Number(v.turnLeft) || 0);
+                if (pendingCall && (v.gameId !== prevGame || v.called.some(c => c[0] === pendingCall) || v.phase !== 'play' || v.turnId !== PLAYER_ID)) {
+                    pendingCall = 0; clearTimeout(pendingTimer);
+                }
+                // 回到排格子時，接著用上一局自己的格子（可以改）
+                if (v.phase === 'setup' && v.you && v.you.board && validBoard(v.you.board) && (v.you.ready || !validBoard(draft))) draft = v.you.board.slice();
+                if (v.phase === 'over') onGameOver(v);
+                render();
+            }
+
+            function onGameOver(v) {
+                const mine = v.you && v.you.inGame;
+                if (mine && v.gameId && !recorded.has(v.gameId)) {
+                    recorded.add(v.gameId);
+                    const win = v.winners.includes(PLAYER_ID);
+                    rec.games++;
+                    rec.juice += win ? 3 : 1;
+                    if (win) {
+                        rec.wins++;
+                        if (!rec.best || v.called.length < rec.best) rec.best = v.called.length;
+                    }
+                    saveRec();
+                    renderRec();
+                    if (win && window.confetti && !matchMedia('(prefers-reduced-motion: reduce)').matches) confetti({ particleCount: 110, spread: 75, origin: { y: 0.6 } });
+                    if (window.jfkPetCheer) jfkPetCheer(win ? `BINGO！喊了 ${v.called.length} 個數字就連成了` : '差一點點！下一局一定是你');
+                }
+                if (overShownFor !== v.gameId) { overShownFor = v.gameId; showOver(v); }
+            }
+
+            const boardEl = $('board');
+            const cells = [];
+            for (let i = 0; i < N; i++) {
+                const b = document.createElement('button');
+                b.type = 'button'; b.className = 'cell'; b.setAttribute('role', 'gridcell');
+                b.addEventListener('click', () => onCell(i));
+                boardEl.appendChild(b);
+                cells.push(b);
+            }
+
+            function editable() {
+                if (!V) return false;
+                if (V.phase === 'setup') return !(V.you && V.you.ready) || V.noRoom;
+                return !(V.you && V.you.inGame);      // 觀戰中可以先排下一局的格子
+            }
+            function nextSlotNumber() { for (let k = 1; k <= N; k++) if (!draft.includes(k)) return k; return 0; }
+
+            function render() {
+                if (!V) return;
+                const v = V;
+                const board = myBoardNow();
+                const set = new Set(v.called.map(c => c[0]));
+                const last = v.called.length ? v.called[v.called.length - 1] : null;
+                const myTurn = v.phase === 'play' && v.turnId === PLAYER_ID && !v.paused;
+                const edit = !board && editable();
+                const shown = board || draft;
+                const done = board ? doneLines(board, set) : [];
+                const inLine = new Set(done.flatMap(i => LINES[i]));
+                const just = last && v.called.length > lastCalledLen ? last[0] : 0;
+                const nextNum = edit && manual ? nextSlotNumber() : 0;
+                let nextSlotMarked = false;
+                boardEl.classList.toggle('edit', edit);
+                boardEl.classList.toggle('locked', !board && !edit);
+                cells.forEach((c, i) => {
+                    const n = shown[i] || 0;
+                    c.textContent = n || '';
+                    const marked = !!board && set.has(n);
+                    c.classList.toggle('empty', !n);
+                    c.classList.toggle('marked', marked);
+                    c.classList.toggle('line', inLine.has(i));
+                    c.classList.toggle('can', myTurn && !!board && !marked && !pendingCall);
+                    c.classList.toggle('pending', !!pendingCall && n === pendingCall);
+                    const isNext = !n && nextNum && !nextSlotMarked;
+                    if (isNext) nextSlotMarked = true;
+                    c.classList.toggle('next-slot', !!isNext);
+                    if (n === just) { c.classList.remove('just'); void c.offsetWidth; c.classList.add('just'); }
+                    c.setAttribute('aria-label', n ? `${n}${marked ? '，已圈' : ''}` : '空格');
+                });
+                lastCalledLen = v.called.length;
+                // 連成的線
+                const svg = $('strike');
+                svg.textContent = '';
+                done.forEach(i => {
+                    const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    let x1, y1, x2, y2;
+                    if (i < 5) { x1 = 0.2; x2 = 4.8; y1 = y2 = i + 0.5; }
+                    else if (i < 10) { y1 = 0.2; y2 = 4.8; x1 = x2 = i - 5 + 0.5; }
+                    else if (i === 10) { x1 = y1 = 0.25; x2 = y2 = 4.75; }
+                    else { x1 = 4.75; y1 = 0.25; x2 = 0.25; y2 = 4.75; }
+                    ln.setAttribute('x1', x1); ln.setAttribute('y1', y1); ln.setAttribute('x2', x2); ln.setAttribute('y2', y2);
+                    svg.appendChild(ln);
+                });
+                // B I N G O
+                const lines = done.length;
+                [...$('letters').querySelectorAll('i')].forEach((el, k) => el.classList.toggle('on', k < Math.min(lines, 5)));
+                $('lineText').innerHTML = `<b>${lines}</b> / ${v.target} 條線`;
+
+                renderStrip(v);
+                renderStatus(v, myTurn, last);
+                renderTools(v, edit);
+                renderActions(v);
+                renderCalled(v, last);
+                // 房主的勝利條件
+                $('targetOnline').value = String(v.target);
+                $('targetOnline').disabled = !(onlineRole === 'host' && v.phase === 'setup');
+                $('targetAi').disabled = mode !== 'ai' || v.phase !== 'setup';
+                $('bots').disabled = mode !== 'ai' || v.phase !== 'setup';
+                if (v.phase !== 'over') $('over').hidden = true;
+            }
+
+            function renderStrip(v) {
+                const strip = $('strip');
+                strip.textContent = '';
+                const playing = v.phase !== 'setup';
+                v.players.forEach(p => {
+                    const chip = document.createElement('div');
+                    chip.className = 'chip';
+                    const b = document.createElement('b');
+                    b.textContent = (p.bot ? '🤖 ' : p.host && mode === 'online' ? '👑 ' : '') + p.name + (p.id === PLAYER_ID && mode === 'online' ? '（你）' : '');
+                    const s = document.createElement('span');
+                    if (!p.bot && !p.connected) { s.textContent = '離線'; chip.classList.add('off'); }
+                    else if (playing && !p.inGame) s.textContent = '觀戰中';
+                    else if (playing) s.textContent = v.winners.includes(p.id) ? `BINGO！${p.lines} 條` : `${p.lines} 條線`;
+                    else s.textContent = p.ready || p.bot ? '✓ 準備好了' : '排格子中…';
+                    if (v.turnId === p.id) chip.classList.add('turn');
+                    if (v.winners.includes(p.id)) chip.classList.add('win');
+                    chip.append(b, s);
+                    strip.appendChild(chip);
+                });
+                const turnChip = strip.querySelector('.chip.turn');
+                if (turnChip) {
+                    const l = turnChip.offsetLeft, r = l + turnChip.offsetWidth;
+                    if (l < strip.scrollLeft || r > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: l - 8 });
+                }
+            }
+
+            function renderStatus(v, myTurn, last) {
+                let main = '', sub = '';
+                const st = $('status');
+                st.classList.toggle('mine', myTurn);
+                if (v.phase === 'setup') {
+                    if (mode === 'online' && v.noRoom) {
+                        main = '先建立房間，或輸入朋友的房間碼加入。';
+                        sub = '格子可以先排好，等一下直接用。';
+                    } else if (mode === 'ai') {
+                        main = '排好你的格子，按「開始遊戲」。';
+                        sub = '「隨機排」一鍵排好，「自己排」照 1、2、3… 一格一格點。';
+                    } else {
+                        const humans = v.players.filter(p => !p.bot && p.connected);
+                        const readyN = humans.filter(p => p.ready || p.host).length;
+                        main = onlineRole === 'host'
+                            ? (humans.length < 2 ? '把房間碼給朋友，等大家加入。' : `${readyN} / ${humans.length} 人準備好了，到齊就按「開始遊戲」。`)
+                            : (v.you && v.you.ready ? '已經準備好了，等房主開始…' : '排好格子後，按「準備好了」。');
+                        sub = `連成 ${v.target} 條線獲勝・最多 ${MAX_PLAYERS} 人`;
+                    }
+                } else if (v.phase === 'play') {
+                    if (v.paused) main = '大家都離線了，等朋友用同一個房間碼回來（計時暫停）。';
+                    else if (!(v.you && v.you.inGame)) main = `這局開始後才加入，先觀戰；輪到 ${nameOf(v.turnId)}。`;
+                    else if (myTurn) main = pendingCall ? `喊了 ${pendingCall}，等房主確認…` : '輪到你！點格子上一個還沒圈的數字。';
+                    else main = `輪到 ${nameOf(v.turnId)} 喊數字…`;
+                    sub = last ? `${last[1] === PLAYER_ID ? '你' : nameOf(last[1])} 剛剛喊了 ${last[0]}` : '還沒有人喊數字';
+                } else {
+                    const w = v.winners.map(id => id === PLAYER_ID ? '你' : nameOf(id));
+                    main = v.winners.includes(PLAYER_ID) ? `🎉 BINGO！${w.length > 1 ? w.join('、') + '一起' : '你'}贏了！` : `${w.join('、')} 贏了！`;
+                    sub = `總共喊了 ${v.called.length} 個數字` + (isAuthority() ? '，按「再來一局」' : '，等房主開下一局');
+                }
+                $('statusMain').textContent = main;
+                $('statusSub').textContent = sub;
+                updateBar();
+            }
+            function updateBar() {
+                const bar = $('bar');
+                if (!V || V.phase !== 'play') { bar.style.transform = 'scaleX(0)'; return; }
+                const left = V.paused ? V.turnLeft : Math.max(0, turnDeadline - performance.now());
+                bar.style.transform = `scaleX(${Math.min(1, left / TURN_MS)})`;
+                bar.classList.toggle('low', left < 5000);
+            }
+            setInterval(updateBar, 200);
+
+            function renderTools(v, edit) {
+                const tools = $('tools');
+                tools.classList.toggle('hide', !edit);
+                $('btnManual').classList.toggle('on', manual);
+                const k = nextSlotNumber();
+                $('toolHint').textContent = manual ? (k ? `點空格放 ${k}` : '排好了！') : (validBoard(draft) ? '' : '還有空格');
+            }
+
+            function renderActions(v) {
+                const main = $('mainBtn'), sub = $('subBtn');
+                let label = '', show = true, disabled = false, subShow = false, subLabel = '重新開始';
+                if (v.phase === 'setup') {
+                    if (mode === 'ai') label = '開始遊戲';
+                    else if (v.noRoom) show = false;
+                    else if (onlineRole === 'host') {
+                        const n = v.players.filter(p => p.bot || p.connected).length;
+                        label = `開始遊戲（${n} 人）`;
+                        disabled = n < 2;
+                    } else {
+                        label = v.you && v.you.ready ? '取消準備' : '準備好了';
+                        disabled = !(v.you && v.you.ready) && !validBoard(draft);
+                    }
+                } else if (v.phase === 'play') {
+                    show = false;
+                    subShow = isAuthority();
+                } else {
+                    if (isAuthority()) label = '再來一局';
+                    else { label = '看結果'; }
+                }
+                main.textContent = label || '—';
+                main.classList.toggle('hide', !show);
+                main.disabled = disabled || !show;
+                sub.textContent = subLabel;
+                sub.classList.toggle('hide', !subShow);
+                sub.disabled = !subShow;
+            }
+
+            function renderCalled(v, last) {
+                const list = $('calledList');
+                list.textContent = '';
+                $('calledN').textContent = `${v.called.length} / 25`;
+                if (!v.called.length) {
+                    const s = document.createElement('span');
+                    s.className = 'none';
+                    s.textContent = v.phase === 'play' ? '還沒有人喊數字' : '開始後，大家喊的數字會照順序排在這裡';
+                    list.appendChild(s);
+                    return;
+                }
+                v.called.forEach((c, i) => {
+                    const b = document.createElement('b');
+                    b.textContent = c[0];
+                    b.title = `${c[1] === PLAYER_ID ? '你' : nameOf(c[1])} 喊的`;
+                    if (c[1] === PLAYER_ID) b.classList.add('me');
+                    if (i === v.called.length - 1) b.classList.add('last');
+                    list.appendChild(b);
+                });
+            }
+
+            function showOver(v) {
+                const set = new Set(v.called.map(c => c[0]));
+                const win = v.winners.includes(PLAYER_ID);
+                const names = v.winners.map(id => id === PLAYER_ID ? '你' : nameOf(id));
+                $('overTitle').textContent = win ? (names.length > 1 ? `🎉 BINGO！${names.join('、')}一起贏了` : '🎉 BINGO！你贏了') : `${names.join('、')} 贏了`;
+                $('overSub').textContent = `總共喊了 ${v.called.length} 個數字，先連成 ${v.target} 條線的人獲勝`;
+                const ol = $('overRank');
+                ol.textContent = '';
+                const ranked = v.players.filter(p => p.inGame).sort((a, b) => b.lines - a.lines);
+                let place = 0, prev = -1;
+                ranked.forEach((p, i) => {
+                    if (p.lines !== prev) { place = i + 1; prev = p.lines; }
+                    const li = document.createElement('li');
+                    if (v.winners.includes(p.id)) li.className = 'win';
+                    const a = document.createElement('span'); a.textContent = place + '.';
+                    const b = document.createElement('span'); b.textContent = (p.id === PLAYER_ID ? '你' : p.name) + (v.winners.includes(p.id) ? ' 🏆' : '');
+                    const c = document.createElement('span'); c.textContent = `${p.lines} 條線`;
+                    li.append(a, b, c);
+                    ol.appendChild(li);
+                });
+                const minis = $('overMinis');
+                minis.textContent = '';
+                v.winners.filter(id => id !== PLAYER_ID).slice(0, 3).forEach(id => {
+                    const bd = v.boards && v.boards[id];
+                    if (!validBoard(bd)) return;
+                    const box = document.createElement('div'); box.className = 'mini';
+                    box.append(document.createTextNode(`${nameOf(id)} 的格子`));
+                    const grid = document.createElement('div'); grid.className = 'mini-grid';
+                    const inLine = new Set(doneLines(bd, set).flatMap(i => LINES[i]));
+                    bd.forEach((n, i) => {
+                        const cell = document.createElement('i');
+                        cell.textContent = n;
+                        if (set.has(n)) cell.classList.add('m');
+                        if (inLine.has(i)) cell.classList.add('l');
+                        grid.appendChild(cell);
+                    });
+                    box.appendChild(grid);
+                    minis.appendChild(box);
+                });
+                $('overAgain').hidden = !isAuthority();
+                $('over').hidden = false;
+            }
+            $('overClose').addEventListener('click', () => { $('over').hidden = true; });
+            $('overAgain').addEventListener('click', () => { $('over').hidden = true; actNewRound(); });
+
+            /* ── 點格子：排格子、或輪到自己時喊數字 ── */
+            function onCell(i) {
+                if (!V) return;
+                const board = myBoardNow();
+                if (board) {
+                    const n = board[i];
+                    const set = new Set(V.called.map(c => c[0]));
+                    if (V.phase !== 'play' || set.has(n)) return;
+                    if (V.paused) { toast('大家都離線了，等朋友回來再繼續。', 'warn'); return; }
+                    if (V.turnId !== PLAYER_ID) { toast(`還沒輪到你，現在是 ${nameOf(V.turnId)} 喊。`, 'warn', 1600); return; }
+                    if (pendingCall) return;
+                    doCall(n);
+                    return;
+                }
+                if (!editable()) {
+                    if (V.phase === 'setup' && V.you && V.you.ready) toast('要改格子，先按「取消準備」。', 'warn', 1800);
+                    return;
+                }
+                if (manual) {
+                    if (draft[i]) draft[i] = 0;
+                    else { const k = nextSlotNumber(); if (k) draft[i] = k; }
+                } else {
+                    toast('按「✏️ 自己排」就能一格一格放數字，或按「🎲 隨機排」重排。', 'info', 2200);
+                    return;
+                }
+                render();
+            }
+            function fillRandom() { draft = randomBoard(); manual = false; }
+            $('btnShuffle').addEventListener('click', () => { if (!editable()) return; fillRandom(); render(); });
+            $('btnManual').addEventListener('click', () => {
+                if (!editable()) return;
+                manual = !manual;
+                if (manual) draft = new Array(N).fill(0);
+                else if (!validBoard(draft)) {
+                    // 排到一半不排了：剩下的空格隨機補滿
+                    const rest = shuffle(Array.from({ length: N }, (_, k) => k + 1).filter(k => !draft.includes(k)));
+                    draft = draft.map(x => x || rest.pop());
+                }
+                render();
+            });
+
+            function doCall(n) {
+                if (isAuthority()) { actCall(PLAYER_ID, n); return; }
+                if (!sendToPeer({ type: 'call', n, gameId: V.gameId })) { toast('還沒連上房主。', 'warn'); return; }
+                pendingCall = n;
+                clearTimeout(pendingTimer);
+                pendingTimer = setTimeout(() => {
+                    if (!pendingCall) return;
+                    pendingCall = 0;
+                    render();
+                    setConn('房主沒有回應，請確認連線狀態。', 'err');
+                    sendToPeer({ type: 'state-request' });
+                }, 4000);
+                render();
+            }
+
+            $('mainBtn').addEventListener('click', () => {
+                if (!V) return;
+                if (V.phase === 'setup') {
+                    if (isAuthority()) {
+                        if (!validBoard(draft)) fillRandom();
+                        if (mode === 'online') {
+                            const notReady = G.players.filter(p => !p.bot && p.connected && p.id !== PLAYER_ID && !p.ready);
+                            if (notReady.length) {
+                                banner(`${notReady.map(p => p.name).join('、')} 還沒準備好，要幫他們隨機排、直接開始嗎？`, '直接開始', '再等等', actStart, null);
+                                return;
+                            }
+                        }
+                        actStart();
+                    } else if (V.you && V.you.ready) {
+                        sendToPeer({ type: 'unready' });
+                    } else {
+                        if (!validBoard(draft)) { toast('格子還有空的，排滿 25 格才能準備。', 'warn'); return; }
+                        manual = false;
+                        sendToPeer({ type: 'ready', board: draft.slice() });
+                    }
+                } else if (V.phase === 'over') {
+                    if (isAuthority()) actNewRound();
+                    else showOver(V);
+                }
+            });
+            $('subBtn').addEventListener('click', () => {
+                if (!isAuthority() || !V || V.phase !== 'play') return;
+                banner('確定要結束這局、回去重新排格子嗎？', '結束這局', '繼續玩', actNewRound, null);
+            });
+
+            /* ── 跟電腦玩 ── */
+            function setupAi() {
+                clearTimeout(botTimer);
+                G = freshGame(Number($('targetAi').value) || 5);
+                G.players.push(me());
+                const n = Math.max(1, Math.min(3, Number($('bots').value) || 2));
+                for (let k = 0; k < n; k++) G.players.push({ id: `bot${k + 1}`, name: BOT_NAMES[k], bot: true, connected: true, ready: true, board: randomBoard(), inGame: false });
+                publish();
+            }
+            $('bots').addEventListener('change', () => { if (mode === 'ai' && G && G.phase === 'setup') setupAi(); });
+            $('targetAi').addEventListener('change', () => { if (mode === 'ai' && G && G.phase === 'setup') { G.target = Number($('targetAi').value) || 5; publish(); } });
+            $('targetOnline').addEventListener('change', () => {
+                if (onlineRole === 'host' && G && G.phase === 'setup') { G.target = Number($('targetOnline').value) || 5; publish(); }
+            });
+
+            function setMode(m) {
+                if (m === mode) return;
+                if (mode === 'online') {
+                    clearSession(HOST_SESSION_KEY); clearSession(GUEST_SESSION_KEY);
+                    disconnectOnline(false);
+                }
+                mode = m;
+                [...$('seg').children].forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+                $('aiPanel').hidden = m !== 'ai';
+                $('onlinePanel').hidden = m !== 'online';
+                overShownFor = '';
+                if (m === 'ai') setupAi();
+                else { G = null; applyView(idleView()); setConn('還沒連線：建立房間，或輸入朋友的四位數房間碼。'); }
+            }
+            $('seg').addEventListener('click', e => {
+                const b = e.target.closest('button[data-mode]');
+                if (!b) return;
+                if (mode === 'online' && onlineRole && b.dataset.mode !== 'online') {
+                    banner('要離開房間，改成跟電腦玩嗎？', '離開房間', '留在這裡', () => setMode(b.dataset.mode), null);
+                    return;
+                }
+                if (mode === 'ai' && G && G.phase === 'play' && b.dataset.mode !== 'ai') {
+                    banner('這局還沒玩完，要放棄改成多人連線嗎？', '改成連線', '繼續玩', () => setMode(b.dataset.mode), null);
+                    return;
+                }
+                setMode(b.dataset.mode);
+            });
+
+            /* ══════════════════════════════════════════════════════════
+               多人連線：PeerJS / WebRTC ＋ MQTT 備援，房主權威（跟 SET 同一套做法）
+               ══════════════════════════════════════════════════════════ */
+            const PEER_PREFIX = 'jellyfish-bingo-room-';
+            const PEER_OPTIONS = {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                // 自訂 iceServers 會「整個取代」PeerJS 的預設值，所以 TURN 中繼要自己列上
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                        {
+                            urls: [
+                                'turn:eu-0.turn.peerjs.com:3478',
+                                'turn:us-0.turn.peerjs.com:3478'
+                            ],
+                            username: 'peerjs',
+                            credential: 'peerjsp'
+                        }
+                    ],
+                    sdpSemantics: 'unified-plan'
+                }
+            };
+            const CONNECT_TIMEOUT_MS = 30000;
+            const HELLO_TIMEOUT_MS = 10000;
+            const HEARTBEAT_MS = 5000;
+            const HEARTBEAT_DEAD_MS = 20000;
+            const NAME_PROBE_MS = 2500;
+            const RELAY_BROKERS = [
+                'wss://broker.emqx.io:8084/mqtt',
+                'wss://broker.hivemq.com:8884/mqtt'
+            ];
+            const RELAY_TOPIC_PREFIX = 'jellyfishkuo/bingo/v1/';
+            const P2P_TRY_MS = 10000;
+            const RELAY_JOIN_MS = 12000;
+            const RELAY_IDLE_MS = 15000;
+
+            let onlineRole = null;           // 'host' | 'guest' | null
+            let peer = null, connection = null, connectionTimeout = null;
+            let onlineConnected = false, roomCode = '', roomReady = false;
+            let relayHost = null, relayGuest = null;
+            const pendingConns = new Set();
+
+            function sendTo(pid, message) {
+                const p = player(pid);
+                if (!p || p.bot || !p.connected || !p.conn || !p.conn.open) return false;
+                try { p.conn.send(message); return true; } catch (_) { return false; }
+            }
+            function sendToPeer(message) {
+                if (onlineRole === 'host') return false;
+                if (!connection || !connection.open) return false;
+                try { connection.send(message); return true; } catch (_) { return false; }
+            }
+
+            function saveHostSession() {
+                if (mode !== 'online' || onlineRole !== 'host' || !roomCode || !G) return;
+                writeSession(HOST_SESSION_KEY, {
+                    roomCode,
+                    G: {
+                        ...G, turnLeft: Math.max(0, G.turnEnds - Date.now()),
+                        players: G.players.map(p => ({ id: p.id, name: p.name, host: !!p.host, board: p.board, ready: !!p.ready, inGame: !!p.inGame }))
+                    }
+                });
+            }
+            function restoreHostState(saved) {
+                const s = saved.G;
+                G = freshGame(Number(s.target) === 3 ? 3 : 5);
+                G.rev = Number(s.rev) || 0;
+                G.gameId = String(s.gameId || '');
+                G.phase = ['setup', 'play', 'over'].includes(s.phase) ? s.phase : 'setup';
+                G.players = (s.players || []).filter(p => p && typeof p.id === 'string').map(p => ({
+                    id: p.id, name: cleanName(p.name) || '玩家', host: p.id === PLAYER_ID, connected: p.id === PLAYER_ID, conn: null,
+                    board: validBoard(p.board) ? p.board.slice() : null, ready: !!p.ready, inGame: !!p.inGame
+                }));
+                if (!player(PLAYER_ID)) G.players.unshift(me());
+                G.order = (s.order || []).filter(id => player(id));
+                G.called = (s.called || []).filter(c => c && Number.isInteger(c.n)).map(c => ({ n: c.n, by: String(c.by) }));
+                G.winners = (s.winners || []).filter(id => player(id));
+                G.turn = Math.min(Number(s.turn) || 0, Math.max(0, G.order.length - 1));
+                G.turnEnds = Date.now() + Math.max(3000, Number(s.turnLeft) || TURN_MS);
+                if (G.phase === 'play' && !G.order.length) G.phase = 'setup';
+                const self = player(PLAYER_ID);
+                if (self.board) draft = self.board.slice();
+            }
+
+            /** 房主：把舊玩家代號的紀錄（格子、喊過的數字、贏家）搬到新代號 */
+            function mergePlayerId(old, newId) {
+                const oldId = old.id;
+                if (old.conn) { const c = old.conn; old.conn = null; try { c.close(); } catch (_) { } }
+                old.id = newId;
+                old.connected = false;
+                G.order = G.order.map(id => id === oldId ? newId : id);
+                G.called.forEach(c => { if (c.by === oldId) c.by = newId; });
+                G.winners = G.winners.map(id => id === oldId ? newId : id);
+            }
+
+            function onHello(conn, message) {
+                const pid = typeof message.playerId === 'string' ? message.playerId.slice(0, 40) : '';
+                if (!pid || pid === PLAYER_ID || /^bot/.test(pid)) { refuseConn(conn, '連線資料有誤，請重新整理後再試。'); return; }
+                const name = cleanName(message.name) || '玩家';
+                if (!player(pid)) {
+                    if (sameName(name, myNick || '房主')) { refuseConn(conn, `房主也叫「${name}」，換個暱稱再加入吧。`); return; }
+                    // 同名的人回來（換了分頁）：接回原本的格子
+                    const twin = G.players.find(p => !p.bot && p.id !== PLAYER_ID && sameName(p.name, name));
+                    if (twin) {
+                        if (!twin.connected || !twin.conn) mergePlayerId(twin, pid);
+                        else if (!conn.probed) {
+                            // 舊連線看起來還在：問一聲，2.5 秒沒回應就當作已經斷了
+                            conn.probed = true;
+                            const oldConn = twin.conn, asked = Date.now();
+                            try { oldConn.send({ type: 'probe' }); } catch (_) { }
+                            setTimeout(() => {
+                                if (onlineRole !== 'host' || conn.dead) return;
+                                if (twin.conn === oldConn && (oldConn.lastSeen || 0) > asked) {
+                                    refuseConn(conn, `房間裡已經有人叫「${name}」了，換個暱稱再加入吧。`);
+                                    return;
+                                }
+                                onHello(conn, message);
+                            }, NAME_PROBE_MS);
+                            return;
+                        } else mergePlayerId(twin, pid);
+                    }
+                }
+                const existing = player(pid);
+                const othersOnline = G.players.filter(p => !p.bot && p.id !== PLAYER_ID && p.connected && p.id !== pid).length;
+                if (!(existing && existing.connected) && othersOnline >= MAX_PLAYERS - 1) {
+                    refuseConn(conn, `這個房間已經滿了（最多 ${MAX_PLAYERS} 人）。`);
+                    return;
+                }
+                if (existing && existing.conn && existing.conn !== conn) {
+                    const old = existing.conn; existing.conn = null; try { old.close(); } catch (_) { }
+                }
+                const returning = !!existing && (existing.inGame || !!existing.board);
+                const entry = existing || { id: pid, board: null, ready: false, inGame: false };
+                entry.name = name;
+                entry.conn = conn;
+                entry.connected = true;
+                if (!existing) G.players.push(entry);
+                conn.playerId = pid;
+                publish();
+                const text = returning ? `${name} 回來了` : (G.phase === 'setup' ? `${name} 加入了房間` : `${name} 加入了，下一局一起玩`);
+                notify(text, 'good', pid);
+                updateHostStatus();
+            }
+            function refuseConn(conn, text) {
+                try { conn.send({ type: 'room-full', text }); } catch (_) { }
+                setTimeout(() => { try { conn.close(); } catch (_) { } }, 300);
+            }
+            function onPlayerLeft(p) {
+                if (!p.connected && !p.conn) return;
+                p.connected = false;
+                p.conn = null;
+                // 還在排格子時離開：直接移出名單（回來就是新加入）
+                if (G.phase === 'setup') G.players = G.players.filter(q => q !== p);
+                publish();
+                notify(`${p.name} 離線了`, 'warn');
+                updateHostStatus();
+            }
+            function handleGuestMessage(pid, m) {
+                if (m.type === 'ready') actReady(pid, Array.isArray(m.board) ? m.board.map(Number) : null);
+                else if (m.type === 'unready') actUnready(pid);
+                else if (m.type === 'call') {
+                    if (m.gameId !== G.gameId) { sendTo(pid, viewFor(pid)); return; }
+                    if (!actCall(pid, m.n)) { sendTo(pid, viewFor(pid)); tellOne(pid, '這個數字沒有喊成功，畫面已更新。', 'warn'); }
+                } else if (m.type === 'state-request') sendTo(pid, viewFor(pid));
+            }
+            function handleHostMessage(m) {
+                if (m.type === 'state') applyView(sanitizeView(m));
+                else if (m.type === 'probe') sendToPeer({ type: 'probe-ack' });
+                else if (m.type === 'notice' && typeof m.text === 'string') {
+                    const kind = ['info', 'good', 'bad', 'warn'].includes(m.kind) ? m.kind : 'info';
+                    toast(m.text.slice(0, 80), kind);
+                } else if (m.type === 'room-full') {
+                    disconnectOnline(false);
+                    clearSession(GUEST_SESSION_KEY);
+                    setConn(typeof m.text === 'string' ? m.text.slice(0, 60) : '這個房間已經滿了。', 'err');
+                    applyView(idleView());
+                }
+            }
+            /** 加入者：房主傳來的資料一律檢查格式再用 */
+            function sanitizeView(m) {
+                const arr = x => Array.isArray(x) ? x : [];
+                const v = {
+                    type: 'state', rev: Number(m.rev) || 0, gameId: String(m.gameId || ''),
+                    phase: ['setup', 'play', 'over'].includes(m.phase) ? m.phase : 'setup',
+                    target: Number(m.target) === 3 ? 3 : 5, turnId: String(m.turnId || ''),
+                    turnLeft: Math.max(0, Math.min(TURN_MS + 5000, Number(m.turnLeft) || 0)), paused: !!m.paused,
+                    players: arr(m.players).filter(p => p && typeof p.id === 'string').slice(0, MAX_PLAYERS + 3).map(p => ({
+                        id: p.id, name: cleanName(p.name) || '玩家', host: !!p.host, bot: !!p.bot, connected: !!p.connected,
+                        ready: !!p.ready, inGame: !!p.inGame, lines: Math.max(0, Math.min(12, Number(p.lines) || 0))
+                    })),
+                    called: arr(m.called).filter(c => Array.isArray(c) && Number.isInteger(c[0]) && c[0] >= 1 && c[0] <= N).slice(0, N).map(c => [c[0], String(c[1])]),
+                    winners: arr(m.winners).filter(x => typeof x === 'string'),
+                    you: m.you && typeof m.you === 'object' ? { board: validBoard(m.you.board) ? m.you.board : null, ready: !!m.you.ready, inGame: !!m.you.inGame } : null,
+                    boards: null
+                };
+                if (m.boards && typeof m.boards === 'object') {
+                    v.boards = {};
+                    Object.keys(m.boards).forEach(k => { if (validBoard(m.boards[k])) v.boards[k] = m.boards[k]; });
+                }
+                return v;
+            }
+
+            function updateHostStatus() {
+                if (onlineRole !== 'host' || !roomReady) return;
+                const n = G.players.filter(p => p.connected).length;
+                if (n <= 1) setConn(G.phase === 'play' ? `大家都離線了，這局先保留。朋友用房間碼 ${roomCode} 回來就能繼續。` : `房間 ${roomCode} 開好了，把房間碼給朋友（最多 ${MAX_PLAYERS} 人）。`, G.phase === 'play' ? 'err' : 'ok');
+                else setConn(`房間 ${roomCode}｜${n} 人在線`, 'ok');
+            }
+
+            /* ── 備援通道：公開 MQTT 伺服器轉送（包成跟 PeerJS 連線一樣的介面） ── */
+            function relayAvailable() { return !!(window.mqtt && typeof window.mqtt.connect === 'function'); }
+            function hostTopic(code) { return `${RELAY_TOPIC_PREFIX}${code}/host`; }
+            function guestTopic(code, id) { return `${RELAY_TOPIC_PREFIX}${code}/guest/${id}`; }
+            function createRelayLink(publishFn) {
+                const handlers = {};
+                const link = {
+                    open: false, closed: false, lastSeen: Date.now(), heartbeat: null,
+                    on(ev, fn) { (handlers[ev] || (handlers[ev] = [])).push(fn); return link; },
+                    emit(ev, arg) { (handlers[ev] || []).slice().forEach(fn => { try { fn(arg); } catch (e) { console.error(e); } }); },
+                    send(message) { if (!link.open) throw new Error('relay link is closed'); publishFn({ kind: 'data', payload: message }); },
+                    markOpen() {
+                        if (link.open || link.closed) return;
+                        link.open = true;
+                        link.lastSeen = Date.now();
+                        link.heartbeat = setInterval(() => {
+                            if (Date.now() - link.lastSeen > RELAY_IDLE_MS) { link.finish(false); return; }
+                            try { publishFn({ kind: 'ping' }); } catch (_) { }
+                        }, 4000);
+                        link.emit('open');
+                    },
+                    receive(env) {
+                        link.lastSeen = Date.now();
+                        if (env.kind === 'data' && link.open) link.emit('data', env.payload);
+                        else if (env.kind === 'bye') link.finish(false);
+                    },
+                    finish(sayBye) {
+                        if (link.closed) return;
+                        link.closed = true; link.open = false;
+                        clearInterval(link.heartbeat);
+                        if (sayBye) { try { publishFn({ kind: 'bye' }); } catch (_) { } }
+                        link.emit('close');
+                    },
+                    close() { link.finish(true); }
+                };
+                return link;
+            }
+            function openRelayClients({ subscribe, will, onReady, onMessage }) {
+                const entries = [];
+                RELAY_BROKERS.forEach(url => {
+                    let client;
+                    try {
+                        client = window.mqtt.connect(url, {
+                            clientId: `jfbingo_${Math.random().toString(16).slice(2, 14)}`,
+                            clean: true, keepalive: 30, connectTimeout: 8000, reconnectPeriod: 3000, will
+                        });
+                    } catch (e) { console.warn('relay connect failed', url, e); return; }
+                    const entry = { url, client };
+                    client.on('connect', () => { client.subscribe(subscribe, { qos: 0 }, err => { if (!err) onReady(entry); }); });
+                    client.on('message', (_t, payload) => {
+                        let env;
+                        try { env = JSON.parse(payload.toString()); } catch (_) { return; }
+                        if (env && typeof env === 'object' && typeof env.kind === 'string') onMessage(env, entry);
+                    });
+                    client.on('error', e => console.warn('relay error', url, e && e.message));
+                    entries.push(entry);
+                });
+                return entries;
+            }
+            function publishOn(entry, topic, env) {
+                if (!entry || !entry.client || !entry.client.connected) return;
+                entry.client.publish(topic, JSON.stringify(env), { qos: 0 });
+            }
+            function closeRelayClients(state) {
+                if (!state) return;
+                if (state.timer) clearTimeout(state.timer);
+                (state.clients || []).forEach(e => { try { e.client.end(false); } catch (_) { } });
+            }
+            function startRelayHost(code) {
+                if (!relayAvailable() || relayHost) return false;
+                const state = { code, links: {} };
+                relayHost = state;
+                state.clients = openRelayClients({
+                    subscribe: hostTopic(code),
+                    onReady: () => { },
+                    onMessage: (env, entry) => {
+                        if (relayHost !== state || onlineRole !== 'host') return;
+                        const from = typeof env.from === 'string' ? env.from.slice(0, 40) : '';
+                        if (!from) return;
+                        const existing = state.links[from];
+                        if (env.kind === 'join') {
+                            if (existing && !existing.closed) return;   // 同一位玩家從另一台伺服器送來的重複請求
+                            const link = createRelayLink(msg => publishOn(entry, guestTopic(code, from), msg));
+                            state.links[from] = link;
+                            link.on('close', () => { if (state.links[from] === link) delete state.links[from]; });
+                            acceptIncoming(link, 'relay');
+                            publishOn(entry, guestTopic(code, from), { kind: 'accept' });
+                            link.markOpen();
+                            return;
+                        }
+                        if (existing) existing.receive(env);
+                    }
+                });
+                return state.clients.length > 0;
+            }
+            function startRelayGuest(code) {
+                if (!relayAvailable()) return false;
+                const guestId = `g${Math.random().toString(36).slice(2, 12)}`;
+                const state = { code, accepted: false, entry: null };
+                relayGuest = state;
+                const link = createRelayLink(msg => publishOn(state.entry, hostTopic(code), { ...msg, from: guestId }));
+                state.clients = openRelayClients({
+                    subscribe: guestTopic(code, guestId),
+                    // 分頁被直接關掉時，由伺服器代為通知房主
+                    will: { topic: hostTopic(code), payload: JSON.stringify({ kind: 'bye', from: guestId }), qos: 0, retain: false },
+                    onReady: entry => { if (relayGuest === state && !state.accepted) publishOn(entry, hostTopic(code), { kind: 'join', from: guestId }); },
+                    onMessage: (env, entry) => {
+                        if (relayGuest !== state) return;
+                        if (env.kind === 'accept') {
+                            if (state.accepted) return;
+                            state.accepted = true;
+                            state.entry = entry;
+                            clearTimeout(state.timer);
+                            attachGuestConnection(link, 'relay');
+                            link.markOpen();
+                        } else if (state.accepted && entry === state.entry) link.receive(env);
+                    }
+                });
+                state.timer = setTimeout(() => {
+                    if (relayGuest !== state || state.accepted) return;
+                    disconnectOnline(false);
+                    applyView(idleView());
+                    setConn(`找不到房間 ${code}：確認房間碼，並確定房主的頁面還開著、螢幕沒有關掉。`, 'err');
+                }, RELAY_JOIN_MS);
+                return state.clients.length > 0;
+            }
+            function fallbackToRelay(code) {
+                if (onlineRole !== 'guest' || relayGuest) return;
+                const oldConn = connection, oldPeer = peer;
+                connection = null; peer = null;
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                try { if (oldConn) oldConn.close(); } catch (_) { }
+                try { if (oldPeer) oldPeer.destroy(); } catch (_) { }
+                if (!startRelayGuest(code)) {
+                    disconnectOnline(false);
+                    applyView(idleView());
+                    setConn('雙方網路無法直連，備援通道也載入失敗。重新整理頁面再試一次。', 'err');
+                    return;
+                }
+                setConn(`直連打不通，改用備援伺服器連到房間 ${code}…`);
+            }
+
+            /** 房主：接受一條新連線（直連或備援），等對方報上代號和暱稱（hello）；每條各自有心跳 */
+            function acceptIncoming(conn, kind) {
+                pendingConns.add(conn);
+                conn.lastSeen = Date.now();
+                const giveUp = setTimeout(() => {
+                    if (conn.playerId) return;
+                    pendingConns.delete(conn);
+                    try { conn.close(); } catch (_) { }
+                }, kind === 'p2p' ? CONNECT_TIMEOUT_MS : HELLO_TIMEOUT_MS);
+                const ownEntry = () => { const p = conn.playerId && player(conn.playerId); return p && p.conn === conn ? p : null; };
+                const heartbeat = setInterval(() => {
+                    if (onlineRole !== 'host') { clearInterval(heartbeat); return; }
+                    const p = ownEntry();
+                    if (!p) { if (conn.playerId) clearInterval(heartbeat); return; }
+                    try { conn.send({ type: 'ping' }); } catch (_) { }
+                    if (Date.now() - conn.lastSeen > HEARTBEAT_DEAD_MS) {
+                        clearInterval(heartbeat);
+                        try { conn.close(); } catch (_) { }
+                        onPlayerLeft(p);
+                    }
+                }, HEARTBEAT_MS);
+                conn.on('open', () => { conn.lastSeen = Date.now(); });
+                conn.on('data', m => {
+                    conn.lastSeen = Date.now();
+                    if (!m || typeof m !== 'object' || typeof m.type !== 'string') return;
+                    if (!conn.playerId) {
+                        if (m.type === 'hello') { clearTimeout(giveUp); pendingConns.delete(conn); onHello(conn, m); }
+                        return;
+                    }
+                    if (ownEntry()) handleGuestMessage(conn.playerId, m);
+                });
+                conn.on('close', () => {
+                    conn.dead = true;
+                    clearTimeout(giveUp); clearInterval(heartbeat);
+                    pendingConns.delete(conn);
+                    const p = ownEntry();
+                    if (p) onPlayerLeft(p);
+                });
+                conn.on('error', e => console.warn('DataConnection error:', e));
+            }
+
+            /** 加入者：和房主之間的那一條連線 */
+            function attachGuestConnection(conn, kind = 'p2p') {
+                connection = conn;
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                if (kind === 'p2p') {
+                    connectionTimeout = setTimeout(() => { if (!onlineConnected && connection === conn) fallbackToRelay(roomCode); }, P2P_TRY_MS);
+                }
+                const isCurrent = () => connection === conn;
+                const handleOpen = () => {
+                    if (!isCurrent()) return;
+                    if (connectionTimeout) clearTimeout(connectionTimeout);
+                    connectionTimeout = null;
+                    if (onlineConnected) return;
+                    onlineConnected = true;
+                    setConn(`已連上房間 ${roomCode}${kind === 'relay' ? '（經由備援伺服器）' : '（直連）'}`, 'ok');
+                    showRoomBox();
+                    sendToPeer({ type: 'hello', playerId: PLAYER_ID, name: myNick });
+                    writeSession(GUEST_SESSION_KEY, { roomCode });
+                };
+                conn.on('open', handleOpen);
+                conn.lastSeen = Date.now();
+                conn.on('data', m => {
+                    conn.lastSeen = Date.now();
+                    if (!isCurrent() || !m || typeof m !== 'object' || typeof m.type !== 'string') return;
+                    handleHostMessage(m);
+                });
+                const heartbeat = setInterval(() => {
+                    if (!isCurrent()) { clearInterval(heartbeat); return; }
+                    if (!onlineConnected) return;
+                    try { conn.send({ type: 'ping' }); } catch (_) { }
+                    if (Date.now() - conn.lastSeen > HEARTBEAT_DEAD_MS) {
+                        clearInterval(heartbeat);
+                        try { conn.close(); } catch (_) { }
+                        handleGuestClose(conn, kind);
+                    }
+                }, HEARTBEAT_MS);
+                conn.on('close', () => handleGuestClose(conn, kind));
+                conn.on('error', e => {
+                    if (!isCurrent()) return;
+                    console.warn('DataConnection error:', e);
+                    if (onlineConnected) { setConn('資料傳送不穩定，一直沒反應的話請重新連線。', 'err'); return; }
+                    fallbackToRelay(roomCode);
+                });
+                if (conn.open) handleOpen();
+            }
+            function handleGuestClose(conn, kind) {
+                if (connection !== conn) return;
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                const was = onlineConnected;
+                onlineConnected = false;
+                connection = null;
+                if (!was && kind === 'p2p') { fallbackToRelay(roomCode); return; }
+                const code = roomCode;
+                disconnectOnline(false);
+                if (was) {
+                    setConn(`和房主的連線斷了（房間 ${code}）。`, 'err');
+                    banner(`和房主的連線斷了，要重新加入房間 ${code} 嗎？`, '重新加入', '不用了', () => { $('roomInput').value = code; joinRoom(); }, () => { clearSession(GUEST_SESSION_KEY); applyView(idleView()); });
+                } else {
+                    setConn('連不上房主，再試一次。', 'err');
+                    applyView(idleView());
+                }
+            }
+
+            function showRoomBox() {
+                $('onlineActions').hidden = true;
+                $('roomBox').hidden = false;
+                $('roomCode').textContent = roomCode;
+                $('btnCopy').hidden = onlineRole !== 'host';
+                $('targetRow').hidden = false;
+            }
+            function resetOnlineControls() {
+                $('onlineActions').hidden = false;
+                $('roomBox').hidden = true;
+                $('roomCode').textContent = '----';
+                ['btnCreate', 'btnJoin', 'roomInput', 'nick'].forEach(id => { $(id).disabled = false; });
+                roomCode = '';
+                roomReady = false;
+            }
+            function lockOnlineInputs() { ['btnCreate', 'btnJoin', 'roomInput', 'nick'].forEach(id => { $(id).disabled = true; }); }
+
+            /** 關閉所有連線（先把參照清掉再關，關閉時同步觸發的 close 事件就會被當成舊連線忽略） */
+            function disconnectOnline(showStatus = true) {
+                if (connectionTimeout) clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                onlineConnected = false;
+                const oldConn = connection, oldPeer = peer, oldRH = relayHost, oldRG = relayGuest;
+                const hostConns = G ? G.players.map(p => p.conn).filter(Boolean).concat([...pendingConns]) : [...pendingConns];
+                if (G && onlineRole === 'host') G.players.forEach(p => { if (!p.bot && p.id !== PLAYER_ID) { p.connected = false; p.conn = null; } });
+                pendingConns.clear();
+                connection = null; peer = null; relayHost = null; relayGuest = null;
+                const wasHost = onlineRole === 'host';
+                onlineRole = null;
+                hostConns.forEach(c => { try { c.close(); } catch (_) { } });
+                try { if (oldConn) oldConn.close(); } catch (_) { }
+                try { if (oldPeer) oldPeer.destroy(); } catch (_) { }
+                closeRelayClients(oldRH);
+                closeRelayClients(oldRG);
+                if (wasHost) { clearTimeout(botTimer); G = null; }
+                resetOnlineControls();
+                if (showStatus) setConn('已經離開房間。');
+            }
+
+            function peerUnavailable() { return typeof window.Peer !== 'function'; }
+            function showRoomReady(note = '') {
+                roomReady = true;
+                showRoomBox();
+                if (note) setConn(`房間 ${roomCode}：${note}`, 'ok');
+                else updateHostStatus();
+                publish();
+            }
+            function openRelayOnlyRoom(note = '') {
+                if (onlineRole !== 'host') return;
+                if (!startRelayHost(roomCode)) {
+                    disconnectOnline(false);
+                    applyView(idleView());
+                    setConn('沒辦法開房間：配對服務和備援伺服器都連不上，確認網路後再試。', 'err');
+                    return;
+                }
+                showRoomReady(note || '開好了（使用備援伺服器），把房間碼給朋友。');
+            }
+
+            function createRoom(attempt = 0, fixedCode = null) {
+                if (!requireNick()) return;
+                if (peerUnavailable() && !relayAvailable()) { setConn('連線元件載入失敗，請重新整理頁面再試。（跟電腦玩不受影響）', 'err'); return; }
+                if (!fixedCode) disconnectOnline(false);
+                onlineRole = 'host';
+                if (!fixedCode) {
+                    clearSession(HOST_SESSION_KEY);
+                    G = freshGame(Number($('targetOnline').value) || 5);
+                    G.players.push(me());
+                }
+                const self = player(PLAYER_ID);
+                self.name = myNick;
+                roomCode = fixedCode || String(Math.floor(1000 + Math.random() * 9000));
+                setConn(fixedCode ? `正在恢復房間 ${fixedCode}…` : '正在向配對服務登記房間…');
+                lockOnlineInputs();
+                const restoredNote = fixedCode ? '這局恢復了，請朋友用同一個房間碼回來。' : '';
+                if (peerUnavailable()) { openRelayOnlyRoom(restoredNote); return; }
+                peer = new window.Peer(`${PEER_PREFIX}${roomCode}`, PEER_OPTIONS);
+                const thisPeer = peer;
+                peer.on('open', () => {
+                    if (peer !== thisPeer) return;
+                    startRelayHost(roomCode);     // 房間碼登記成功（確定沒撞號）後，同時開好備援通道
+                    showRoomReady(restoredNote);
+                });
+                peer.on('connection', conn => { if (peer === thisPeer) acceptIncoming(conn, 'p2p'); });
+                // 和配對伺服器斷線（手機切到背景）時，房間碼會失效；自動重新登記
+                peer.on('disconnected', () => {
+                    if (peer !== thisPeer || thisPeer.destroyed) return;
+                    setTimeout(() => { if (peer === thisPeer && !thisPeer.destroyed && thisPeer.disconnected) { try { thisPeer.reconnect(); } catch (_) { } } }, 1000);
+                });
+                peer.on('error', error => {
+                    if (peer !== thisPeer) return;
+                    const type = error && error.type ? error.type : '';
+                    if (type === 'unavailable-id' && attempt < 8) {
+                        peer = null;
+                        try { thisPeer.destroy(); } catch (_) { }
+                        if (fixedCode) {
+                            setConn(`正在恢復房間 ${fixedCode}…（等舊連線釋放）`);
+                            setTimeout(() => { if (onlineRole === 'host' && roomCode === fixedCode && !peer) createRoom(attempt + 1, fixedCode); }, 1500);
+                        } else createRoom(attempt + 1);
+                        return;
+                    }
+                    if (relayHost || (thisPeer.open && !thisPeer.destroyed)) { console.warn('Peer error:', error); return; }
+                    console.warn('PeerJS unavailable, relay only:', error);
+                    peer = null;
+                    try { thisPeer.destroy(); } catch (_) { }
+                    openRelayOnlyRoom(restoredNote);
+                });
+            }
+
+            function joinRoom() {
+                if (!requireNick()) return;
+                const input = $('roomInput');
+                const code = input.value.replace(/\D/g, '').slice(0, 4);
+                input.value = code;
+                if (!/^\d{4}$/.test(code)) { setConn('請輸入完整的四位數房間碼。', 'err'); return; }
+                if (peerUnavailable() && !relayAvailable()) { setConn('連線元件載入失敗，請重新整理頁面再試。（跟電腦玩不受影響）', 'err'); return; }
+                disconnectOnline(false);
+                onlineRole = 'guest';
+                roomCode = code;
+                lockOnlineInputs();
+                applyView(idleView());
+                setConn(`正在找房間 ${code}…`);
+                if (peerUnavailable()) { fallbackToRelay(code); return; }
+                peer = new window.Peer(undefined, PEER_OPTIONS);
+                const thisPeer = peer;
+                peer.on('open', () => {
+                    if (peer !== thisPeer) return;
+                    setConn(`找到配對伺服器，正在直連房間 ${code}…`);
+                    attachGuestConnection(thisPeer.connect(`${PEER_PREFIX}${code}`, { reliable: true }), 'p2p');
+                });
+                peer.on('error', error => {
+                    if (peer !== thisPeer) return;
+                    if (onlineConnected) { console.warn('Peer error:', error); return; }
+                    console.warn('PeerJS join failed, trying relay:', error);
+                    fallbackToRelay(code);     // 找不到房間、配對伺服器連不上…都再用備援試一次
+                });
+            }
+
+            $('btnCreate').addEventListener('click', () => createRoom());
+            $('btnJoin').addEventListener('click', joinRoom);
+            $('roomInput').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); });
+            $('roomInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); joinRoom(); } });
+            $('btnLeave').addEventListener('click', () => {
+                clearSession(HOST_SESSION_KEY); clearSession(GUEST_SESSION_KEY);
+                disconnectOnline();
+                overShownFor = '';
+                applyView(idleView());
+            });
+            $('btnCopy').addEventListener('click', async () => {
+                try { await navigator.clipboard.writeText(roomCode); toast(`房間碼 ${roomCode} 複製好了`, 'good'); }
+                catch (_) { toast(`房間碼是 ${roomCode}`, 'info'); }
+            });
+            window.addEventListener('beforeunload', () => { if (onlineRole === 'host') saveHostSession(); disconnectOnline(false); });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && onlineConnected && onlineRole === 'guest') sendToPeer({ type: 'ping' });
+            });
+
+            /* ── 開始 ── */
+            renderRec();
+            setupAi();
+            // 重新整理後：房主可以恢復房間，加入者可以一鍵重新加入
+            (function offerSessionRestore() {
+                const host = readSession(HOST_SESSION_KEY);
+                if (host && /^\d{4}$/.test(host.roomCode || '') && host.G && Array.isArray(host.G.players)) {
+                    banner(`房間 ${host.roomCode} 還在（${host.G.players.length} 人），要回去嗎？`, '回到房間', '不用了', () => {
+                        setMode('online');
+                        restoreHostState(host);
+                        createRoom(0, host.roomCode);
+                    }, () => clearSession(HOST_SESSION_KEY));
+                    return;
+                }
+                const guest = readSession(GUEST_SESSION_KEY);
+                if (guest && /^\d{4}$/.test(guest.roomCode || '')) {
+                    banner(`要重新加入房間 ${guest.roomCode} 嗎？`, '重新加入', '不用了', () => {
+                        setMode('online');
+                        $('roomInput').value = guest.roomCode;
+                        joinRoom();
+                    }, () => clearSession(GUEST_SESSION_KEY));
+                }
+            })();
+        })();
+    </script>
+</body>
+
+</html>
